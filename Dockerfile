@@ -54,4 +54,4 @@ EXPOSE 3000
 
 # Sincroniza el esquema (ver nota arriba), crea la empresa y el admin si no
 # existen (seed idempotente) y levanta el servidor.
-CMD ["sh", "-c", "pnpm exec prisma db push --skip-generate && pnpm exec tsx prisma/seed.ts && pnpm start -H 0.0.0.0"]
+CMD ["sh", "-c", "pnpm exec prisma db push && pnpm exec tsx prisma/seed.ts && pnpm start -H 0.0.0.0"]
