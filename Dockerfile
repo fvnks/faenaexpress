@@ -52,8 +52,9 @@ RUN mkdir -p /app/.sii
 
 EXPOSE 3000
 
-# Sincroniza el esquema (ver nota arriba), crea la empresa y el admin si no
-# existen (seed idempotente) y levanta el servidor.
-# --force-reset: borra toda la BD y la recrea desde cero. Necesario cuando la
-# BD tiene tablas/políticas de un schema anterior que bloquean el drop normal.
-CMD ["sh", "-c", "pnpm exec prisma db push --force-reset && pnpm exec tsx prisma/seed.ts && pnpm start -H 0.0.0.0"]
+# Entrypoint inteligente: sincroniza el schema sin borrar datos en redeploys.
+# El script verifica el estado de la BD y solo hace force-reset cuando es
+# necesario (primer deploy o schema incompatible).
+COPY scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+CMD ["sh", "/app/docker-entrypoint.sh"]
