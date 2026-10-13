@@ -150,6 +150,9 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
             options={[
               { value: "pendientes", label: "Por cobrar" },
               { value: "cobradas", label: "Cobradas" },
+              { value: "parciales", label: "Parciales" },
+              { value: "vencidas", label: "Vencidas" },
+              { value: "anuladas", label: "Anuladas" },
             ]}
           />
         </div>
@@ -239,6 +242,30 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
                 >
                   Marcar por cobrar
                 </button>
+                <button
+                  type="submit"
+                  name="status"
+                  value="PARTIAL"
+                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                >
+                  Marcar parciales
+                </button>
+                <button
+                  type="submit"
+                  name="status"
+                  value="OVERDUE"
+                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                >
+                  Marcar vencidas
+                </button>
+                <button
+                  type="submit"
+                  name="status"
+                  value="CANCELLED"
+                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                >
+                  Marcar anuladas
+                </button>
               </div>
             </div>
           ) : null}
@@ -250,6 +277,8 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
                   <th className="px-3 py-2 font-medium">Cliente</th>
                   <th className="px-3 py-2 font-medium">Folio</th>
                   <th className="px-3 py-2 font-medium">Fecha</th>
+                  <th className="px-3 py-2 font-medium">OC</th>
+                  <th className="px-3 py-2 font-medium">HES</th>
                   <th className="px-3 py-2 font-medium">Estado</th>
                   <th className="px-3 py-2 text-right font-medium">Total</th>
                   {writable ? <th className="w-12 px-2 py-2" /> : null}
@@ -285,6 +314,12 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
                       {sale.documentNumber ?? "—"}
                     </td>
                     <td className="tabular whitespace-nowrap px-3 py-2 align-top">{formatDate(sale.date)}</td>
+                    <td className="tabular whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+                      {sale.purchaseOrder ?? "—"}
+                    </td>
+                    <td className="tabular whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+                      {sale.hesNumber ?? "—"}
+                    </td>
                     <td className="px-3 py-2 align-top">
                       <SaleStatusBadge status={sale.status} />
                       {sale.paymentDate ? (

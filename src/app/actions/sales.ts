@@ -225,7 +225,9 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
   if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
 
   const ids = formData.getAll("ids").map(String).filter(Boolean);
-  const status = formData.get("status") === "PAID" ? "PAID" : "PENDING";
+  const rawStatus = String(formData.get("status") ?? "");
+  const validStatuses = ["PENDING", "PAID", "PARTIAL", "OVERDUE", "CANCELLED"] as const;
+  const status = validStatuses.find((s) => s === rawStatus) ?? "PENDING";
   if (ids.length === 0) redirect("/dashboard/ventas");
 
   const result = await db.sale.updateMany({
@@ -234,16 +236,23 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
   });
 
   if (result.count > 0) {
+    const statusLabels: Record<string, string> = {
+      PENDING: "por cobrar",
+      PAID: "cobradas",
+      PARTIAL: "parciales",
+      OVERDUE: "vencidas",
+      CANCELLED: "anuladas",
+    };
     await recordAudit(ctx, {
       action: "UPDATE",
       entityType: "Sale",
       entityId: "bulk",
-      summary: `Marcó ${result.count} ${result.count === 1 ? "venta" : "ventas"} como ${status === "PAID" ? "cobradas" : "por cobrar"}.`,
+      summary: `Marcó ${result.count} ${result.count === 1 ? "venta" : "ventas"} como ${statusLabels[status]}.`,
     });
     await setFlash(
       "success",
       `${result.count} ${result.count === 1 ? "venta actualizada" : "ventas actualizadas"}`,
-      status === "PAID" ? "Marcadas como cobradas." : "Marcadas como por cobrar.",
+      `Marcadas como ${statusLabels[status]}.`,
     );
   }
   revalidatePath("/dashboard/ventas");

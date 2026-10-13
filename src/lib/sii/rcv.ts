@@ -42,6 +42,8 @@ export type RcvRow = {
   iva: number;
   total: number;
   evento: string | null;
+  purchaseOrder: string | null; // OC (Orden de Compra) extraída del raw
+  hesNumber: string | null; // HES (Orden de Servicio) extraída del raw
   raw?: Record<string, unknown>; // para depuración: todos los campos del SII
 };
 
@@ -49,7 +51,40 @@ function toInt(value: number | null): number {
   return value ?? 0;
 }
 
+/**
+ * Extrae la OC (Orden de Compra) del raw del RCV.
+ * El SII puede usar diferentes nombres de campo según el tipo de documento.
+ */
+function extractPurchaseOrder(raw: Record<string, unknown>): string | null {
+  // Posibles nombres de campo para OC en el RCV del SII
+  const keys = ["RUT_OC", "RUT_OC_Nro", "NroOC", "OC_Nro", "ordenCompra", "OC"];
+  for (const key of keys) {
+    const value = raw[key];
+    if (value !== null && value !== undefined && value !== "") {
+      return String(value);
+    }
+  }
+  return null;
+}
+
+/**
+ * Extrae la HES (Orden de Servicio) del raw del RCV.
+ * El SII puede usar diferentes nombres de campo según el tipo de documento.
+ */
+function extractHesNumber(raw: Record<string, unknown>): string | null {
+  // Posibles nombres de campo para HES en el RCV del SII
+  const keys = ["NroHES", "HES_Nro", "hesNumber", "HES", "ordenServicio", "OS"];
+  for (const key of keys) {
+    const value = raw[key];
+    if (value !== null && value !== undefined && value !== "") {
+      return String(value);
+    }
+  }
+  return null;
+}
+
 function projectDoc(doc: RcvDetalleAllDoc): RcvRow {
+  const raw = doc.raw as Record<string, unknown>;
   return {
     tipoDoc: Number(doc.codigoTipoDoc) || 0,
     folio: doc.folio !== null ? String(doc.folio) : "",
@@ -61,7 +96,9 @@ function projectDoc(doc: RcvDetalleAllDoc): RcvRow {
     iva: toInt(doc.montoIva),
     total: toInt(doc.montoTotal),
     evento: doc.eventoReceptorLeyenda ?? doc.eventoReceptor,
-    raw: doc.raw as Record<string, unknown>,
+    purchaseOrder: extractPurchaseOrder(raw),
+    hesNumber: extractHesNumber(raw),
+    raw,
   };
 }
 

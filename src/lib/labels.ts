@@ -5,6 +5,7 @@ import type {
   PaymentMethod,
   PaymentStatus,
   Role,
+  SaleStatus,
 } from "@/generated/prisma/client";
 
 const roleLabels: Record<Role, string> = {
@@ -88,9 +89,12 @@ const purchaseStatusLabels: Record<PaymentStatus, string> = {
   PAID: "Pagada",
 };
 
-const saleStatusLabels: Record<PaymentStatus, string> = {
+const saleStatusLabels: Record<SaleStatus, string> = {
   PENDING: "Por cobrar",
   PAID: "Cobrada",
+  PARTIAL: "Parcial",
+  OVERDUE: "Vencida",
+  CANCELLED: "Anulada",
 };
 
 export const auditActionLabels: Record<string, string> = {
@@ -143,7 +147,7 @@ export function purchaseStatusLabel(status: PaymentStatus): string {
   return purchaseStatusLabels[status];
 }
 
-export function saleStatusLabel(status: PaymentStatus): string {
+export function saleStatusLabel(status: SaleStatus): string {
   return saleStatusLabels[status];
 }
 

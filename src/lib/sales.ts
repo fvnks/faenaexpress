@@ -1,10 +1,10 @@
-import type { DocumentType, PaymentStatus, Prisma } from "@/generated/prisma/client";
+import type { DocumentType, SaleStatus, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { toISODate } from "@/lib/money";
 import { documentTypeValues } from "@/lib/validation";
 
 export type SaleFilters = {
-  status: PaymentStatus | "ALL";
+  status: SaleStatus | "ALL";
   q: string;
   partnerId?: string;
   categoryId?: string;
@@ -29,7 +29,13 @@ export function parseSaleFilters(searchParams: {
       ? "PENDING"
       : searchParams.estado === "cobradas"
         ? "PAID"
-        : "ALL";
+        : searchParams.estado === "parciales"
+          ? "PARTIAL"
+          : searchParams.estado === "vencidas"
+            ? "OVERDUE"
+            : searchParams.estado === "anuladas"
+              ? "CANCELLED"
+              : "ALL";
 
   const documentType = documentTypeValues.find((value) => value === searchParams.tipo);
 
@@ -103,10 +109,13 @@ export async function listSales(companyId: string, filters: SaleFilters) {
 
   const paid = Number(grouped.find((group) => group.status === "PAID")?._sum.totalAmount ?? 0);
   const pending = Number(grouped.find((group) => group.status === "PENDING")?._sum.totalAmount ?? 0);
+  const partial = Number(grouped.find((group) => group.status === "PARTIAL")?._sum.totalAmount ?? 0);
+  const overdue = Number(grouped.find((group) => group.status === "OVERDUE")?._sum.totalAmount ?? 0);
+  const cancelled = Number(grouped.find((group) => group.status === "CANCELLED")?._sum.totalAmount ?? 0);
 
   return {
     items,
-    totals: { count: items.length, total: paid + pending, paid, pending },
+    totals: { count: items.length, total: paid + pending + partial + overdue + cancelled, paid, pending, partial, overdue, cancelled },
   };
 }
 

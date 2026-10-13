@@ -564,6 +564,16 @@ enum PaymentStatus {
   PAID
 }
 
+// Estado de una factura de venta. Más granular que PaymentStatus:
+// permite marcar parcialidades, vencimientos y anulaciones.
+enum SaleStatus {
+  PENDING // Por cobrar
+  PAID // Cobrado
+  PARTIAL // Parcialmente cobrado
+  OVERDUE // Vencida (sin pagar, fecha límite pasada)
+  CANCELLED // Anulada
+}
+
 enum PaymentMethod {
   CASH // Efectivo
   TRANSFER // Transferencia
@@ -633,7 +643,7 @@ model Sale {
   ivaAmount            Int            @default(0)
   totalAmount          Int
   retentionAmount      Int            @default(0)
-  status               PaymentStatus  @default(PENDING)
+  status               SaleStatus     @default(PENDING)
   paymentDate          DateTime?
   paymentMethod        PaymentMethod?
   notes                String?
