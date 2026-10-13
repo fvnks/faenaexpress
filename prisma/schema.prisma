@@ -1,0 +1,915 @@
+// Schema de datos de "Facturas".
+// Dominio: registro de compras, ventas, gastos y quién paga cada gasto.
+// Multiempresa: cada empresa tiene sus propios datos y cada usuario un rol por
+// empresa (Membership).
+// Contexto fiscal: Chile, CLP, IVA 19%.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Usuarios, roles y sesiones
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN // acceso total dentro de la empresa, gestiona usuarios y configuración
+  ACCOUNTANT // contabilidad: compras, ventas, gastos y reportes
+  SALES // ventas y clientes
+  VIEWER // solo lectura
+}
+
+// Nivel de acceso al inventario. Se asigna por empresa (Membership) al crear o
+// editar un usuario; es independiente del rol general.
+enum InventoryAccess {
+  NONE
+  VIEW
+  EDIT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships     Membership[]
+  sessions        Session[]
+  purchases       Purchase[] @relation("PurchaseCreatedBy")
+  sales           Sale[]     @relation("SaleCreatedBy")
+  createdExpenses Expense[]  @relation("ExpenseCreatedBy")
+  createdRemunerations Remuneration[] @relation("RemunerationCreatedBy")
+  createdStockMovements StockMovement[] @relation("StockMovementCreatedBy")
+  createdStockCounts    StockCount[]    @relation("StockCountCreatedBy")
+  createdCommissionAssignments CommissionAssignment[] @relation("CommissionAssignmentCreatedBy")
+  createdDispatchGuides        DispatchGuide[]        @relation("DispatchGuideCreatedBy")
+  closedCommissionMonths       CommissionClose[]      @relation("CommissionCloseClosedBy")
+}
+
+// Pertenencia de un usuario a una empresa, con el rol que cumple en ella.
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  role      Role     @default(VIEWER)
+  inventoryAccess InventoryAccess @default(NONE)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+}
+
+// Sesión con token opaco: se guarda el hash, nunca el token en claro.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Empresa (configuración fiscal). Cada empresa es un espacio de datos aislado.
+// ---------------------------------------------------------------------------
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  rut       String?
+  address   String?
+  city      String?
+  email     String?
+  phone     String?
+  ivaRate       Int      @default(19) // porcentaje de IVA
+  retentionRate Int      @default(0) // porcentaje de retención de honorarios (boletas)
+  currency      String   @default("CLP")
+
+  // Login automático del SII. `siiClaveEnc` guarda la Clave Tributaria CIFRADA
+  // con AES-256-GCM (llave SII_SECRET_KEY); nunca en claro. Ver src/lib/sii-credentials.ts.
+  siiRut       String?
+  siiClaveEnc  String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships            Membership[]
+  partners               Partner[]
+  categories             Category[]
+  areas                  Area[]
+  salespeople            Salesperson[]
+  payers                 Payer[]
+  workers                Worker[]
+  remunerations          Remuneration[]
+  purchases              Purchase[]
+  sales                  Sale[]
+  purchaseItems          PurchaseItem[]
+  saleItems              SaleItem[]
+  expenses               Expense[]
+  notifications          Notification[]
+  auditLogs              AuditLog[]
+  paymentMethodCatalogs  PaymentMethodCatalog[]
+  units                  Unit[]
+  productCategories      ProductCategory[]
+  products               Product[]
+  productStocks          ProductStock[]
+  stockMovements         StockMovement[]
+  warehouses             Warehouse[]
+  stockCounts            StockCount[]
+  commissionAssignments  CommissionAssignment[]
+  commissionEntries      CommissionEntry[]
+  commissionCloses       CommissionClose[]
+  dispatchGuides         DispatchGuide[]
+}
+
+// ---------------------------------------------------------------------------
+// Terceros: clientes y proveedores
+// ---------------------------------------------------------------------------
+
+enum PartnerType {
+  CUSTOMER
+  SUPPLIER
+  BOTH
+}
+
+model Partner {
+  id        String      @id @default(cuid())
+  companyId String
+  type      PartnerType @default(CUSTOMER)
+  name      String
+  rut       String?
+  email     String?
+  phone     String?
+  address   String?
+  notes     String?
+  active    Boolean     @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+  sales     Sale[]
+  dispatchGuides DispatchGuide[]
+  products  Product[]  @relation("ProductSupplier")
+
+  @@unique([companyId, rut])
+  @@index([companyId, name])
+}
+
+// ---------------------------------------------------------------------------
+// Catálogos administrables (por empresa)
+// ---------------------------------------------------------------------------
+
+enum CategoryKind {
+  EXPENSE
+  INCOME
+  BOTH
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  companyId String
+  name      String
+  kind      CategoryKind @default(EXPENSE)
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+  sales     Sale[]
+  expenses  Expense[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+// Área de la empresa.
+model Area {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+  sales     Sale[]
+  expenses  Expense[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+// Vendedor que realizó la venta (catálogo administrable).
+// Regla de cómputo de la comisión de un vendedor. Es POR VENDEDOR, no global:
+// unos comisionan por factura emitida y otros por mercancía despachada.
+enum CommissionRule {
+  INVOICE // Comisiona por todas las facturas emitidas en el período.
+  GUIDE   // Comisiona solo por las que traen guía de despacho; el resto se asigna a mano.
+}
+
+model Salesperson {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  active    Boolean  @default(true)
+
+  // Porcentaje en CENTÉSIMAS para no pelear con decimales: 250 = 2,50%.
+  commissionRate Int            @default(0)
+  commissionRule CommissionRule @default(INVOICE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company     Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sales       Sale[]
+  assignments CommissionAssignment[]
+  entries     CommissionEntry[]
+  dispatchGuides DispatchGuide[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+// Quién pagó un gasto. Lista administrable: puede ser una persona o la caja
+// de la empresa, sin necesidad de que tenga un usuario en el sistema.
+model Payer {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+  remunerations Remuneration[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+// Trabajador de la empresa: permite asociar gastos de personal (sueldos,
+// aguinaldos, adelantos) a una persona y analizarlos en reportes.
+model Worker {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  rut       String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  expenses      Expense[]
+  remunerations Remuneration[]
+
+  @@unique([companyId, name])
+  @@unique([companyId, rut])
+  @@index([companyId])
+}
+
+// Pago de remuneración registrado en RRHH: sueldos, aguinaldos, bonos o
+// adelantos. Genera automáticamente un gasto asociado (sin IVA).
+enum RemunerationType {
+  SUELDO
+  AGUINALDO
+  BONO
+  ADELANTO
+  OTRO
+}
+
+model Remuneration {
+  id          String          @id @default(cuid())
+  companyId   String
+  workerId    String
+  type        RemunerationType
+  period      String? // AAAA-MM (libre)
+  date        DateTime // fecha de pago
+  amount      Int // monto líquido pagado
+  paidById    String
+  expenseId   String? // gasto generado automáticamente
+  notes       String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  worker    Worker    @relation(fields: [workerId], references: [id])
+  paidBy    Payer     @relation(fields: [paidById], references: [id])
+  expense   Expense?  @relation(fields: [expenseId], references: [id])
+  createdBy User      @relation("RemunerationCreatedBy", fields: [createdById], references: [id])
+
+  @@index([companyId, date])
+  @@index([companyId, workerId])
+  @@index([companyId, type])
+}
+
+// Medios de pago configurables por empresa (catálogo)
+model PaymentMethodCatalog {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Inventario: productos, unidades, categorías de producto y movimientos.
+// Valorización por promedio ponderado (PPP). Una sola bodega por ahora
+// (multi-bodega queda preparado para más adelante).
+// ---------------------------------------------------------------------------
+
+// Unidad de medida del producto (UN, KG, LT, MT, CJ…), administrable por empresa.
+model Unit {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+// Categoría de producto (independiente de las categorías de gasto/ingreso).
+model ProductCategory {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+// Tipo de movimiento de stock. `quantity` se guarda siempre positiva; el signo
+// lo determina el tipo. TRANSFER mueve stock entre bodegas y no altera el total
+// de la empresa.
+enum StockMovementType {
+  IN // entrada (compra, ingreso)
+  OUT // salida (venta, consumo)
+  ADJUST_IN // ajuste al alza
+  ADJUST_OUT // ajuste a la baja
+  WASTE // merma o pérdida
+  INITIAL // inventario inicial
+  TRANSFER // traslado entre bodegas (usa warehouseId y toWarehouseId)
+}
+
+// Bodega (almacén). Toda empresa nace con una por defecto; el esquema ya
+// soporta varias para transferencias.
+model Warehouse {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  location  String?
+  isDefault Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stocks    ProductStock[]
+  origins   StockMovement[]  @relation("MovementOrigin")
+  targets   StockMovement[]  @relation("MovementDestination")
+  counts    StockCount[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  companyId   String
+  sku         String
+  name        String
+  description String?
+  unitId      String?
+  categoryId  String?
+  supplierId  String?
+  ivaAffected Boolean  @default(true)
+  costNet     Int      @default(0) // costo neto unitario vigente (PPP)
+  priceNet    Int? // precio de venta neto
+  minStock    Decimal? @db.Decimal(14, 3)
+  location    String?
+  tracksStock Boolean  @default(true)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit      Unit?           @relation(fields: [unitId], references: [id])
+  category  ProductCategory? @relation(fields: [categoryId], references: [id])
+  supplier  Partner?        @relation("ProductSupplier", fields: [supplierId], references: [id])
+  stocks    ProductStock[]
+  movements StockMovement[]
+  countItems StockCountItem[]
+  purchaseItems PurchaseItem[] @relation("PurchaseItemProduct")
+  saleItems     SaleItem[]     @relation("SaleItemProduct")
+
+  @@unique([companyId, sku])
+  @@index([companyId, name])
+  @@index([companyId, categoryId])
+}
+
+// Saldo vigente por producto y bodega. Se actualiza en la misma transacción que
+// el movimiento. `avgCost` es el costo promedio ponderado por unidad (PPP) de
+// esa bodega.
+model ProductStock {
+  productId   String
+  warehouseId String
+  companyId   String
+  quantity    Decimal  @db.Decimal(14, 3) @default(0)
+  avgCost     Decimal  @db.Decimal(14, 4) @default(0)
+  updatedAt   DateTime @updatedAt
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@id([productId, warehouseId])
+  @@index([companyId])
+  @@index([companyId, warehouseId])
+}
+
+// Movimiento de inventario (kardex). `quantity` es la magnitud; el signo lo
+// aporta `type`. `warehouseId` es la bodega de origen; `toWarehouseId` solo se
+// usa en TRANSFER.
+model StockMovement {
+  id            String            @id @default(cuid())
+  companyId     String
+  productId     String
+  type          StockMovementType
+  date          DateTime
+  quantity      Decimal           @db.Decimal(14, 3)
+  unitCost      Int? // costo neto unitario (entrada / inventario inicial)
+  warehouseId   String?
+  toWarehouseId String?
+  reason        String?
+  reference     String? // folio o documento de respaldo
+  notes         String?
+  createdById   String
+  createdAt     DateTime          @default(now())
+
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse? @relation("MovementOrigin", fields: [warehouseId], references: [id], onDelete: SetNull)
+  toWarehouse Warehouse? @relation("MovementDestination", fields: [toWarehouseId], references: [id], onDelete: SetNull)
+  createdBy   User       @relation("StockMovementCreatedBy", fields: [createdById], references: [id])
+
+  @@index([companyId, productId, date])
+  @@index([companyId, date])
+  @@index([companyId, warehouseId])
+}
+
+// ---------------------------------------------------------------------------
+// Conteo físico (inventario cíclico)
+// ---------------------------------------------------------------------------
+
+enum StockCountStatus {
+  OPEN // en levantamiento
+  CLOSED // cerrado; las diferencias ya generaron ajustes
+}
+
+// Conteo físico de una bodega. Al cerrarlo, cada diferencia entre lo contado y
+// el saldo del sistema genera un ADJUST_IN o ADJUST_OUT en el kardex.
+model StockCount {
+  id          String            @id @default(cuid())
+  companyId   String
+  warehouseId String?
+  code        String // CCT-0001…
+  date        DateTime
+  notes       String?
+  status      StockCountStatus  @default(OPEN)
+  createdById String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  warehouse Warehouse?       @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  createdBy User             @relation("StockCountCreatedBy", fields: [createdById], references: [id])
+  items     StockCountItem[]
+
+  @@unique([companyId, code])
+  @@index([companyId, status])
+  @@index([companyId, date])
+}
+
+model StockCountItem {
+  id              String   @id @default(cuid())
+  stockCountId    String
+  productId       String
+  systemQuantity  Decimal  @db.Decimal(14, 3) // saldo al abrir el conteo
+  countedQuantity Decimal? @db.Decimal(14, 3) // null = aún no contado
+  movementId      String? // ajuste generado al cerrar
+  notes           String?
+
+  stockCount StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([stockCountId, productId])
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Compras y ventas
+// ---------------------------------------------------------------------------
+
+enum DocumentType {
+  INVOICE // Factura
+  RECEIPT // Boleta
+  CREDIT_NOTE // Nota de crédito
+  DEBIT_NOTE // Nota de débito
+  OTHER
+}
+
+// Compra pendiente/pagada. En ventas se interpreta por cobrar/cobrado.
+enum PaymentStatus {
+  PENDING
+  PAID
+}
+
+enum PaymentMethod {
+  CASH // Efectivo
+  TRANSFER // Transferencia
+  CREDIT_CARD // Tarjeta de crédito
+  DEBIT_CARD // Tarjeta de débito
+  CHECK // Cheque
+  OTHER
+}
+
+model Purchase {
+  id                   String         @id @default(cuid())
+  companyId            String
+  date                 DateTime
+  dueDate              DateTime?
+  partnerId            String
+  categoryId           String?
+  areaId               String?
+  documentType         DocumentType   @default(INVOICE)
+  documentNumber       String?
+  referenceDocumentNumber String? // folio del documento original en notas de crédito/débito
+  description          String?
+  xmlContent           String? // XML DTE original: el PDF lo parsea al vuelo
+  netAmount            Int
+  ivaAmount            Int            @default(0)
+  totalAmount          Int
+  status               PaymentStatus  @default(PENDING)
+  paymentDate          DateTime?
+  paymentMethod        PaymentMethod?
+  notes                String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  partner   Partner        @relation(fields: [partnerId], references: [id])
+  category  Category?      @relation(fields: [categoryId], references: [id])
+  area      Area?          @relation(fields: [areaId], references: [id])
+  createdBy User           @relation("PurchaseCreatedBy", fields: [createdById], references: [id])
+  items     PurchaseItem[]
+
+  @@index([companyId, date])
+  @@index([companyId, partnerId])
+  @@index([companyId, status])
+  @@index([companyId, categoryId])
+  @@index([companyId, areaId])
+}
+
+model Sale {
+  id                   String         @id @default(cuid())
+  companyId            String
+  date                 DateTime
+  dueDate              DateTime?
+  partnerId            String
+  categoryId           String?
+  areaId               String?
+  salespersonId        String?
+  documentType         DocumentType   @default(INVOICE)
+  documentNumber       String?
+  referenceDocumentNumber String? // folio del documento original en notas de crédito/débito
+  purchaseOrder        String?
+  dispatchGuide        String?
+  hesNumber            String?
+  description          String?
+  xmlContent           String? // XML DTE original: el PDF lo parsea al vuelo
+  netAmount            Int
+  ivaAmount            Int            @default(0)
+  totalAmount          Int
+  retentionAmount      Int            @default(0)
+  status               PaymentStatus  @default(PENDING)
+  paymentDate          DateTime?
+  paymentMethod        PaymentMethod?
+  notes                String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  partner     Partner      @relation(fields: [partnerId], references: [id])
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  area        Area?        @relation(fields: [areaId], references: [id])
+  salesperson Salesperson? @relation(fields: [salespersonId], references: [id])
+  createdBy   User         @relation("SaleCreatedBy", fields: [createdById], references: [id])
+  items       SaleItem[]
+
+  // Un documento tiene a lo sumo una asignación de comisión (único por documento).
+  commissionAssignment CommissionAssignment?
+  commissionEntries    CommissionEntry[]
+
+  @@unique([companyId, documentNumber])
+  @@index([companyId, date])
+  @@index([companyId, partnerId])
+  @@index([companyId, status])
+  @@index([companyId, categoryId])
+  @@index([companyId, areaId])
+  @@index([companyId, salespersonId])
+}
+
+// Detalle de una compra: las líneas que trae el XML del proveedor (DscItem).
+// `productId` solo se rellena si el nombre del ítem coincide exactamente con un
+// producto del catálogo; si no, queda en null y el ítem se muestra "sin vincular".
+// El neto del documento no se recalcula desde aquí: manda el encabezado.
+model PurchaseItem {
+  id         String  @id @default(cuid())
+  companyId  String
+  purchaseId String
+  productId  String?
+  name       String // descripción del ítem tal como viene en el documento
+  quantity   Decimal @db.Decimal(14, 3) @default(1)
+  unitPrice  Int     @default(0) // precio neto unitario (redondeado a CLP)
+  amount     Int     @default(0) // neto del ítem
+  position   Int     @default(0) // orden original en el documento
+
+  company  Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchase Purchase         @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product?         @relation("PurchaseItemProduct", fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([purchaseId])
+  @@index([companyId, productId])
+}
+
+// Detalle de una venta: mismo esquema que PurchaseItem (líneas del EnvioDTE).
+model SaleItem {
+  id        String  @id @default(cuid())
+  companyId String
+  saleId    String
+  productId String?
+  name      String
+  quantity  Decimal @db.Decimal(14, 3) @default(1)
+  unitPrice Int     @default(0)
+  amount    Int     @default(0) // neto del ítem
+  position  Int     @default(0)
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product? @relation("SaleItemProduct", fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
+  @@index([companyId, productId])
+}
+
+// ---------------------------------------------------------------------------
+// Comisiones de vendedores
+//
+// Tres piezas: la ASIGNACIÓN (el documento → mes de comisión), la ENTRADA
+// (la línea ya calculada, congelada al cierre) y el CIERRE (el sello del mes).
+// ---------------------------------------------------------------------------
+
+// De dónde sale una línea de comisión.
+enum CommissionSource {
+  AUTO   // Entró sola por la fecha de la factura y la regla del vendedor.
+  MANUAL // Se asignó a mano: guías o facturas rezagadas de otros meses.
+}
+
+// Documento → mes de comisión. Aquí viven las guías de despacho rezagadas.
+// Es único por documento: una factura NUNCA puede comisionarse en dos meses.
+// Si tiene asignación, queda fuera del cómputo automático en su mes de
+// emisión, para que no se cuente dos veces.
+// Puede referenciar una venta (saleId) o una guía de despacho sin facturar (dispatchGuideId).
+model CommissionAssignment {
+  id                String   @id @default(cuid())
+  companyId         String
+  saleId            String?  @unique // 1:1 con Sale. Un documento, una sola asignación.
+  dispatchGuideId   String?  @unique // 1:1 con DispatchGuide. Lo mismo: una guía, un mes.
+  period            String // "2026-09": mes de comisión al que se asigna
+  salespersonId     String // vendedor que cobra; por defecto el de la factura/guía
+  note              String?
+  createdById       String
+  createdAt         DateTime @default(now())
+
+  company           Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sale              Sale?         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  dispatchGuide     DispatchGuide? @relation(fields: [dispatchGuideId], references: [id], onDelete: Cascade)
+  salesperson       Salesperson   @relation(fields: [salespersonId], references: [id], onDelete: Cascade)
+  createdBy         User          @relation("CommissionAssignmentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([companyId, period])
+  @@index([companyId, salespersonId])
+}
+
+// Línea de comisión ya calculada. Se materializa al CERRAR el mes y queda
+// congelada: `rateBps` y `amount` son los vigentes al cierre, no los de hoy.
+// Por eso una anulación posterior no descuadra lo ya pagado.
+// La entrada puede provenir de una venta (saleId) o de una guía de despacho
+// sin facturar (dispatchGuideId).
+model CommissionEntry {
+  id             String          @id @default(cuid())
+  companyId      String
+  period         String // "2026-09"
+  salespersonId  String
+  saleId         String?
+  dispatchGuideId String?
+  source         CommissionSource @default(AUTO)
+  baseAmount     Int // neto computado, con signo: las notas de crédito restan
+  rateBps        Int // tasa congelada al cierre, en centésimas
+  amount         Int // comisión en pesos, redondeada
+  createdAt      DateTime        @default(now())
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  salesperson  Salesperson   @relation(fields: [salespersonId], references: [id], onDelete: Cascade)
+  sale         Sale?         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  dispatchGuide DispatchGuide? @relation(fields: [dispatchGuideId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, period, saleId])
+  @@unique([companyId, period, dispatchGuideId])
+  @@index([companyId, period, salespersonId])
+}
+
+// Sello de un mes cerrado. Después de cerrado, el motor lo ignora.
+model CommissionClose {
+  id         String   @id @default(cuid())
+  companyId  String
+  period     String // "2026-09"
+  closedAt   DateTime @default(now())
+  closedById String
+
+  company  Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  closedBy User    @relation("CommissionCloseClosedBy", fields: [closedById], references: [id])
+
+  @@unique([companyId, period])
+  @@index([companyId])
+}
+
+// Guía de despacho emitida pero todavía sin factura. El vendedor quiere
+// comisionar estas guías aunque la factura llegue en otro mes. Se registran
+// aquí y se asignan manualmente al mes de comisión que corresponda.
+model DispatchGuide {
+  id             String   @id @default(cuid())
+  companyId      String
+  guideNumber    String // número de guía de despacho
+  date           DateTime // fecha de la guía (fecha de despacho)
+  partnerId      String
+  salespersonId  String? // vendedor que cobra por esta guía; null si se trajo del RCV de compra (el emisor es el proveedor)
+  netAmount      Int      // neto de la guía, en pesos
+  note           String?  // observación opcional (ej: motivo del arrastre)
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company       Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  partner       Partner               @relation(fields: [partnerId], references: [id])
+  salesperson   Salesperson?          @relation(fields: [salespersonId], references: [id], onDelete: SetNull)
+  createdBy     User                  @relation("DispatchGuideCreatedBy", fields: [createdById], references: [id])
+  assignment    CommissionAssignment?
+  entries       CommissionEntry[]
+
+  @@unique([companyId, guideNumber])
+  @@index([companyId, date])
+  @@index([companyId, salespersonId])
+}
+
+model Expense {
+  id             String        @id @default(cuid())
+  companyId      String
+  date           DateTime
+  description    String
+  categoryId     String?
+  areaId         String?
+  workerId       String?
+  documentNumber String?
+  netAmount      Int
+  ivaAmount      Int           @default(0)
+  totalAmount    Int
+  paymentMethod  PaymentMethod @default(CASH)
+  reimbursed     Boolean       @default(false)
+  reimbursedAt   DateTime?
+  notes          String?
+
+  paidById    String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category  Category? @relation(fields: [categoryId], references: [id])
+  area      Area?     @relation(fields: [areaId], references: [id])
+  worker    Worker?   @relation(fields: [workerId], references: [id])
+  paidBy    Payer     @relation(fields: [paidById], references: [id])
+  createdBy User      @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  remunerations Remuneration[]
+
+  @@index([companyId, date])
+  @@index([companyId, paidById])
+  @@index([companyId, workerId])
+  @@index([companyId, categoryId])
+  @@index([companyId, areaId])
+}
+
+// ---------------------------------------------------------------------------
+// Notificaciones: alertas internas (por ejemplo, vencimientos) que se ven en el
+// panel. No se envía correo: el equipo entra todos los días a la aplicación.
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  PURCHASE_DUE_SOON
+  PURCHASE_OVERDUE
+  SALE_DUE_SOON
+  SALE_OVERDUE
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  companyId String
+  type      NotificationType
+  title     String
+  message   String
+  href      String?
+  // Clave estable para no duplicar la misma alerta al recalcular.
+  dedupeKey String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, dedupeKey])
+  @@index([companyId, readAt])
+  @@index([companyId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Auditoría: rastro de quién hizo qué y cuándo.
+// ---------------------------------------------------------------------------
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  companyId  String
+  userId     String? // se guarda el id como texto; el log sobrevive si se borra el usuario
+  userName   String
+  action     AuditAction
+  entityType String
+  entityId   String?
+  summary    String
+  changes    Json?
+  createdAt  DateTime    @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([companyId, entityType, entityId])
+}

@@ -1,1 +1,297 @@
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tokens de DESIGN.md. Claro por defecto, .dark los reemplaza. */
+:root {
+  --background: #f4f6f8;
+  --surface: #ffffff;
+  --foreground: #181b1e;
+  --muted-foreground: #5a6165;
+  --border: #d8dee3;
+  --primary: #1b5fa8;
+  --primary-foreground: #ffffff;
+  --primary-soft: #dde9f5;
+  --accent: #8a5408;
+  --accent-soft: #f4e4c4;
+  --success: #1e6b8a;
+  --success-soft: #dcf2f5;
+  --danger: #b42318;
+  --danger-soft: #fbe3e0;
+  --danger-foreground: #ffffff;
+  --ring: #1b5fa8;
+}
+
+.dark {
+  --background: #0e1418;
+  --surface: #141c22;
+  --foreground: #e8edf1;
+  --muted-foreground: #9ba1a5;
+  --border: #232d35;
+  --primary: #4a9fd8;
+  --primary-foreground: #081820;
+  --primary-soft: #1a2e3d;
+  --accent: #e0a94a;
+  --accent-soft: #3a2e14;
+  --success: #5ab8d8;
+  --success-soft: #0e2e3d;
+  --danger: #f2857c;
+  --danger-soft: #3a1b18;
+  --danger-foreground: #2a0d0a;
+  --ring: #4a9fd8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --radius-control: 6px;
+  --radius-card: 10px;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+
+  /* Foco visible y consistente en ambos temas (R-32). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Los montos siempre se leen en columnas, no en zigzag (identidad de DESIGN.md). */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+ * Efecto líquido en botones: dos blobs circulares que suben desde abajo
+ * al hacer hover, rellenando el botón con color.
+ * --------------------------------------------------------------------------- */
+
+.btn-liquid {
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+  transition:
+    color 0.2s ease-in,
+    border-color 0.2s ease-in;
+}
+
+/* Capa de sombra sutil */
+.btn-liquid::before,
+.btn-liquid::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  display: block;
+  pointer-events: none;
+  z-index: -1;
+  transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1);
+}
+
+.btn-liquid::before {
+  left: 50%;
+  top: 100%;
+  width: 140%;
+  height: 180%;
+  transform: translateX(-50%) scaleY(1) scaleX(1.25);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Capa de color principal */
+.btn-liquid::after {
+  left: 55%;
+  top: 180%;
+  width: 160%;
+  height: 190%;
+  transform: translateX(-50%) scaleY(1) scaleX(1.45);
+}
+
+/* --- Primaria: rellena con --primary ------------------------------------- */
+.btn-liquid-primary::after {
+  background-color: var(--primary);
+}
+.btn-liquid-primary:hover {
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+.btn-liquid-primary:hover::before {
+  top: -35%;
+  background-color: var(--primary);
+  transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
+}
+.btn-liquid-primary:hover::after {
+  top: -45%;
+  background-color: var(--primary);
+  transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
+}
+
+/* --- Secundaria: rellena con --primary-soft ------------------------------ */
+.btn-liquid-secondary::after {
+  background-color: var(--primary-soft);
+}
+.btn-liquid-secondary:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.btn-liquid-secondary:hover::before {
+  top: -35%;
+  background-color: var(--primary-soft);
+  transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
+}
+.btn-liquid-secondary:hover::after {
+  top: -45%;
+  background-color: var(--primary-soft);
+  transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
+}
+
+/* --- Danger: rellena con --danger ----------------------------------------- */
+.btn-liquid-danger::after {
+  background-color: var(--danger);
+}
+.btn-liquid-danger:hover {
+  color: var(--danger-foreground);
+  border-color: var(--danger);
+}
+.btn-liquid-danger:hover::before {
+  top: -35%;
+  background-color: var(--danger);
+  transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
+}
+.btn-liquid-danger:hover::after {
+  top: -45%;
+  background-color: var(--danger);
+  transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
+}
+
+/* Sin efecto cuando está deshabilitado */
+.btn-liquid:disabled::before,
+.btn-liquid:disabled::after {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Animación de la campana: entrada con rotación y pulso.
+ * --------------------------------------------------------------------------- */
+@keyframes bell-icon-in {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    transform: rotate(25deg);
+  }
+  50% {
+    transform: rotate(-20deg) scale(1.2);
+  }
+  75% {
+    transform: rotate(15deg);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.bell-icon-in {
+  animation: bell-icon-in 0.5s;
+}
+
+/* ---------------------------------------------------------------------------
+ * Animación del toggle de tema: el icono entra rotando desde escala 0.
+ * --------------------------------------------------------------------------- */
+@keyframes theme-icon-in {
+  0% {
+    transform: rotate(-360deg) scale(0);
+    opacity: 0;
+  }
+  75% {
+    transform: rotate(25deg);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.theme-icon {
+  animation: theme-icon-in 0.5s;
+}
+
+/* ---------------------------------------------------------------------------
+ * Login: entrada del formulario y flotación del mockup.
+ * --------------------------------------------------------------------------- */
+@keyframes login-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-in {
+  animation: login-in 0.3s ease-out both;
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * React Day Picker: adaptación a la paleta de diseño.
+ * --------------------------------------------------------------------------- */
+.rdp-root {
+  --rdp-accent-color: var(--primary);
+  --rdp-accent-background-color: var(--primary-soft);
+  --rdp-day-height: 36px;
+  --rdp-day-width: 36px;
+  --rdp-day_button-height: 36px;
+  --rdp-day_button-width: 36px;
+  --rdp-day_button-border-radius: 9999px;
+  --rdp-day_button-font-size: 13px;
+  --rdp-selected-border: 2px solid var(--primary);
+  --rdp-range_middle-background-color: var(--primary-soft);
+  --rdp-range_middle-color: var(--primary);
+  --rdp-nav_button-height: 32px;
+  --rdp-nav_button-width: 32px;
+  --rdp-chevron-icon-size: 16px;
+  --rdp-today-color: var(--accent);
+  --rdp-outside-opacity: 0.35;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+}

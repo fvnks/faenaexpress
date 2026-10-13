@@ -1,0 +1,51 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+
+import { updatePartner } from "@/app/actions/partners";
+import { PartnerForm, type PartnerForForm } from "@/components/partner-form";
+import { canWrite, requireContext } from "@/lib/auth";
+import { getPartner } from "@/lib/partners";
+
+export default async function EditSupplierPage(props: PageProps<"/dashboard/proveedores/[id]">) {
+  const ctx = await requireContext("proveedores");
+  if (!canWrite(ctx, "proveedores")) {
+    redirect("/dashboard/proveedores");
+  }
+
+  const { id } = await props.params;
+  const partner = await getPartner(ctx.company.id, id);
+
+  if (!partner) {
+    notFound();
+  }
+
+  const defaults: PartnerForForm = {
+    type: partner.type,
+    name: partner.name,
+    rut: partner.rut ?? "",
+    email: partner.email ?? "",
+    phone: partner.phone ?? "",
+    address: partner.address ?? "",
+    notes: partner.notes ?? "",
+    active: partner.active,
+  };
+
+  const action = updatePartner.bind(null, partner.id);
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <Link
+          href="/dashboard/proveedores"
+          className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+        >
+          ← Proveedores
+        </Link>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight">Editar proveedor</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{partner.name}</p>
+      </div>
+
+      <PartnerForm action={action} defaults={defaults} redirectTo="/dashboard/proveedores" />
+    </div>
+  );
+}

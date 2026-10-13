@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Cache Components está desactivado: esta app es dinámica y por usuario
+  // (todas las páginas usan cookies/sesión). Si se activa, cada acceso a
+  // cookies()/headers() debe ir dentro de <Suspense> o rompe el build.
+  cacheComponents: false,
   turbopack: {
     rules: {
       "*.css": {

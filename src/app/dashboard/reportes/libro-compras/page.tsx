@@ -1,0 +1,93 @@
+import { requireContext } from "@/lib/auth";
+import type { DocumentType } from "@/generated/prisma/client";
+import { formatCLP, formatDate, formatPeriod, currentPeriod, monthRange } from "@/lib/money";
+import { documentTypeLabel } from "@/lib/labels";
+import { libroCompras } from "@/lib/reports";
+import { cardClass } from "@/lib/ui";
+import { PeriodFilter, ReportNav } from "../report-shell";
+
+export default async function LibroComprasPage(props: PageProps<"/dashboard/reportes/libro-compras">) {
+  const ctx = await requireContext("reportes");
+  const searchParams = await props.searchParams;
+  const raw = Array.isArray(searchParams.periodo) ? searchParams.periodo[0] : searchParams.periodo;
+  const period = raw && monthRange(raw) ? raw : currentPeriod();
+  const range = monthRange(period) ?? { from: new Date(), to: new Date() };
+
+  const { rows, totals } = await libroCompras(ctx.company.id, range);
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Libro de compras</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Documentos de compra de {formatPeriod(period)}. Las notas de crédito restan.
+        </p>
+      </div>
+
+      <ReportNav active="/dashboard/reportes/libro-compras" />
+
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <PeriodFilter period={period} />
+        <a
+          href={`/dashboard/reportes/libro-compras/export?periodo=${period}`}
+          className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
+        >
+          Exportar CSV
+        </a>
+      </div>
+
+      <section className={cardClass + " overflow-x-auto"}>
+        {rows.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-muted-foreground">
+            No hay compras registradas en este período.
+          </p>
+        ) : (
+          <table className="w-full min-w-[52rem] text-sm">
+            <caption className="sr-only">Libro de compras del período</caption>
+            <thead>
+              <tr className="border-b border-border text-left text-muted-foreground">
+                <th scope="col" className="px-3 py-3 font-medium">Fecha</th>
+                <th scope="col" className="px-3 py-3 font-medium">Tipo</th>
+                <th scope="col" className="px-3 py-3 font-medium">Folio</th>
+                <th scope="col" className="px-3 py-3 font-medium">RUT</th>
+                <th scope="col" className="px-3 py-3 font-medium">Proveedor</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium">Neto</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium">IVA</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-b border-border last:border-0">
+                  <td className="whitespace-nowrap px-3 py-2.5 tabular">{formatDate(row.date)}</td>
+                  <td className="px-3 py-2.5">{documentTypeLabel(row.documentType as DocumentType)}</td>
+                  <td className="px-3 py-2.5">
+                    {row.documentNumber ?? "—"}
+                    {row.referenceDocumentNumber ? (
+                      <span className="text-xs text-muted-foreground"> ref. {row.referenceDocumentNumber}</span>
+                    ) : null}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 tabular">{row.partnerRut ?? "—"}</td>
+                  <td className="px-3 py-2.5">{row.partnerName}</td>
+                  <td className="px-3 py-2.5 text-right tabular">{formatCLP(row.net)}</td>
+                  <td className="px-3 py-2.5 text-right tabular">{formatCLP(row.iva)}</td>
+                  <td className="px-3 py-2.5 text-right font-medium tabular">{formatCLP(row.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-border font-semibold">
+                <td className="px-3 py-3" colSpan={5}>
+                  Totales
+                </td>
+                <td className="px-3 py-3 text-right tabular">{formatCLP(totals.net)}</td>
+                <td className="px-3 py-3 text-right tabular">{formatCLP(totals.iva)}</td>
+                <td className="px-3 py-3 text-right tabular">{formatCLP(totals.total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </section>
+    </div>
+  );
+}

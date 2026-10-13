@@ -1,0 +1,241 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { recordAudit } from "@/lib/audit";
+import { canWrite, requireContext } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { remunerationTypeLabel } from "@/lib/labels";
+import { formatCLP } from "@/lib/money";
+import { normalizeRut } from "@/lib/rut";
+import { setFlash } from "@/lib/flash";
+import { partnerRutExists } from "@/lib/rrhh";
+import { remunerationSchema, rrhhWorkerSchema } from "@/lib/validation";
+
+export type RrhhFormState = { error?: string; ok?: boolean } | undefined;
+
+// --- Trabajadores -----------------------------------------------------------
+
+export async function createRrhhWorker(_prev: RrhhFormState, formData: FormData): Promise<RrhhFormState> {
+  const ctx = await requireContext("rrhh");
+  if (!canWrite(ctx, "rrhh")) return { error: "No tienes permiso para gestionar RRHH." };
+
+  const parsed = rrhhWorkerSchema.safeParse({
+    name: formData.get("name"),
+    rut: formData.get("rut"),
+    active: formData.get("active") ?? "on",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+
+  const rut = parsed.data.rut ? normalizeRut(parsed.data.rut) : null;
+  if (rut) {
+    const clash = await db.worker.findFirst({ where: { companyId: ctx.company.id, rut } });
+    if (clash) return { error: "Ya existe un trabajador con ese RUT." };
+    // Un cliente o proveedor no se convierte en trabajador: mantén los RUT
+    // separados entre Terceros y RRHH.
+    if (await partnerRutExists(ctx.company.id, rut)) {
+      return { error: "Ese RUT ya está registrado como cliente o proveedor. Los trabajadores llevan RUT propios, separados de Terceros." };
+    }
+  }
+  const clashName = await db.worker.findFirst({
+    where: { companyId: ctx.company.id, name: parsed.data.name },
+  });
+  if (clashName) return { error: "Ya existe un trabajador con ese nombre." };
+
+  const worker = await db.worker.create({
+    data: { companyId: ctx.company.id, name: parsed.data.name, rut, active: parsed.data.active },
+  });
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "Worker",
+    entityId: worker.id,
+    summary: `Creó al trabajador «${worker.name}»${worker.rut ? ` (${worker.rut})` : ""}.`,
+  });
+
+  revalidatePath("/dashboard/rrhh");
+  return { ok: true };
+}
+
+export async function updateRrhhWorker(
+  id: string,
+  _prev: RrhhFormState,
+  formData: FormData,
+): Promise<RrhhFormState> {
+  const ctx = await requireContext("rrhh");
+  if (!canWrite(ctx, "rrhh")) return { error: "No tienes permiso para gestionar RRHH." };
+
+  const parsed = rrhhWorkerSchema.safeParse({
+    name: formData.get("name"),
+    rut: formData.get("rut"),
+    active: formData.get("active") ?? "on",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+
+  const rut = parsed.data.rut ? normalizeRut(parsed.data.rut) : null;
+  if (rut) {
+    const clash = await db.worker.findFirst({ where: { companyId: ctx.company.id, rut } });
+    if (clash && clash.id !== id) return { error: "Ya existe otro trabajador con ese RUT." };
+    if (await partnerRutExists(ctx.company.id, rut)) {
+      return { error: "Ese RUT ya está registrado como cliente o proveedor. Los trabajadores llevan RUT propios, separados de Terceros." };
+    }
+  }
+  const clashName = await db.worker.findFirst({
+    where: { companyId: ctx.company.id, name: parsed.data.name },
+  });
+  if (clashName && clashName.id !== id) return { error: "Ya existe otro trabajador con ese nombre." };
+
+  await db.worker.update({
+    where: { id, companyId: ctx.company.id },
+    data: { name: parsed.data.name, rut, active: parsed.data.active },
+  });
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Worker",
+    entityId: id,
+    summary: `Editó al trabajador «${parsed.data.name}».`,
+  });
+
+  revalidatePath("/dashboard/rrhh");
+  return { ok: true };
+}
+
+// --- Remuneraciones ---------------------------------------------------------
+
+function remunerationDescription(input: {
+  type: string;
+  workerName: string;
+  period?: string | null;
+}) {
+  const periodo = input.period ? ` — ${input.period}` : "";
+  return `${remunerationTypeLabel(input.type)} de ${input.workerName}${periodo}`;
+}
+
+/**
+ * Registra un pago (sueldo, aguinaldo, bono, adelanto) y crea automáticamente
+ * el gasto asociado: con el trabajador, sin IVA (las remuneraciones no dan
+ * crédito fiscal) y con el pagador elegido. Así el desembolso fluye a los
+ * reportes y al desglose por trabajador sin duplicar registro.
+ */
+export async function createRemuneration(
+  _prev: RrhhFormState,
+  formData: FormData,
+): Promise<RrhhFormState> {
+  const ctx = await requireContext("rrhh");
+  if (!canWrite(ctx, "rrhh")) return { error: "No tienes permiso para gestionar RRHH." };
+
+  const parsed = remunerationSchema.safeParse({
+    workerId: formData.get("workerId"),
+    type: formData.get("type"),
+    period: formData.get("period"),
+    date: formData.get("date"),
+    amount: formData.get("amount"),
+    paidById: formData.get("paidById"),
+    paymentMethod: formData.get("paymentMethod"),
+    notes: formData.get("notes"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+
+  const worker = await db.worker.findFirst({
+    where: { id: parsed.data.workerId, companyId: ctx.company.id },
+  });
+  if (!worker) return { error: "El trabajador no existe en esta empresa." };
+
+  const description = remunerationDescription({
+    type: parsed.data.type,
+    workerName: worker.name,
+    period: parsed.data.period,
+  });
+
+  // Gasto automático: categoría "Remuneraciones" si existe, sin IVA.
+  const category = await db.category.findFirst({
+    where: { companyId: ctx.company.id, active: true, name: "Remuneraciones" },
+    select: { id: true },
+  });
+
+  const expense = await db.expense.create({
+    data: {
+      companyId: ctx.company.id,
+      createdById: ctx.user.id,
+      date: parsed.data.date,
+      description,
+      categoryId: category?.id ?? null,
+      workerId: worker.id,
+      netAmount: parsed.data.amount,
+      ivaAmount: 0,
+      totalAmount: parsed.data.amount,
+      paymentMethod: parsed.data.paymentMethod,
+      paidById: parsed.data.paidById,
+      reimbursed: false,
+      notes: parsed.data.notes ?? null,
+    },
+  });
+
+  const remuneration = await db.remuneration.create({
+    data: {
+      companyId: ctx.company.id,
+      workerId: worker.id,
+      type: parsed.data.type,
+      period: parsed.data.period ?? null,
+      date: parsed.data.date,
+      amount: parsed.data.amount,
+      paidById: parsed.data.paidById,
+      expenseId: expense.id,
+      notes: parsed.data.notes ?? null,
+      createdById: ctx.user.id,
+    },
+  });
+
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "Remuneration",
+    entityId: remuneration.id,
+    summary: `Registró ${description.toLowerCase()} por ${formatCLP(parsed.data.amount)} (genera gasto automático).`,
+  });
+
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "Remuneration",
+    entityId: remuneration.id,
+    summary: `Registró ${description.toLowerCase()} por ${formatCLP(parsed.data.amount)} (genera gasto automático).`,
+  });
+
+  revalidatePath("/dashboard/rrhh");
+  revalidatePath("/dashboard/gastos");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/** Elimina el pago y su gasto automático asociado. */
+export async function deleteRemuneration(formData: FormData): Promise<void> {
+  const ctx = await requireContext("rrhh");
+  if (!canWrite(ctx, "rrhh")) {
+    await setFlash("error", "No se pudo eliminar el pago", "No tienes permiso para gestionar RRHH.");
+    redirect("/dashboard/rrhh");
+  }
+
+  const id = String(formData.get("id") ?? "");
+  const remuneration = await db.remuneration.findFirst({
+    where: { id, companyId: ctx.company.id },
+    include: { worker: { select: { name: true } } },
+  });
+  if (!remuneration) redirect("/dashboard/rrhh");
+
+  // Borra primero la remuneración (referencia al gasto) y luego el gasto.
+  await db.remuneration.delete({ where: { id, companyId: ctx.company.id } });
+  if (remuneration.expenseId) {
+    await db.expense.deleteMany({ where: { id: remuneration.expenseId, companyId: ctx.company.id } });
+  }
+
+  await recordAudit(ctx, {
+    action: "DELETE",
+    entityType: "Remuneration",
+    entityId: id,
+    summary: `Eliminó el pago a ${remuneration.worker.name} por ${formatCLP(remuneration.amount)} (y su gasto asociado).`,
+  });
+
+  await setFlash("success", "Pago eliminado", remuneration.worker.name);
+  revalidatePath("/dashboard/rrhh");
+  revalidatePath("/dashboard/gastos");
+  redirect("/dashboard/rrhh");
+}

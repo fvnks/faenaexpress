@@ -1,0 +1,495 @@
+# Facturas — Contexto completo de la aplicación
+
+> Documento de referencia para conocer la app en profundidad: qué hace, cómo está construida,
+> dónde vive cada cosa y qué trampas hay que evitar. Complementa a `AGENTS.md` (reglas para
+> agentes) y `DESIGN.md` (dirección visual).
+
+---
+
+## 1. Qué es
+
+**Facturas** es un sistema web multiempresa para registrar **compras, ventas y gastos** de una
+empresa en Chile, con énfasis en saber **quién pagó cada gasto**. Todo el texto de la interfaz y
+los datos están en **español**; el contexto fiscal es chileno: montos en **CLP (pesos, sin
+decimales)** e **IVA 19 %**.
+
+Funcionalidades principales:
+
+- **Compras**: facturas/boletas de proveedores, con estado de pago (pendiente/pagada), fecha de
+  vencimiento, medio de pago y categoría.
+- **Ventas**: facturas emitidas a clientes, con estado de cobro, vendedor, orden de compra, guía
+  de despacho, N° HES y retención de honorarios.
+- **Gastos**: gastos operacionales con **quién pagó** (pagador) y si ya fue **reembolsado**.
+- **RRHH** (`/dashboard/rrhh`): trabajadores (nombre + RUT) y sus pagos — sueldos, aguinaldos,
+  bonos, adelantos — con registros libres (tipo + período opcional + **monto líquido**). Cada
+  pago genera **automáticamente el gasto** (sin IVA, con trabajador y pagador asociados) que
+  fluye a Gastos, al reporte IVA y al desglose "Por trabajador". Solo ADMIN y ACCOUNTANT.
+  **Guardas de RUT**: un trabajador no puede llevar el RUT de un cliente/proveedor ni
+  viceversa (`workerRutExists`/`partnerRutExists` en `lib/rrhh.ts`, aplicadas en partners,
+  RRHH y el importador XML: un DTE cuyo receptor sea trabajador se marca error).
+- **Terceros**: clientes y proveedores (un mismo registro puede ser ambos, `PartnerType.BOTH`).
+- **Catálogos por empresa**: categorías (gastos y/o compras), áreas, vendedores, pagadores y
+  medios de pago (los trabajadores se gestionan en RRHH).
+- **Reportes fiscales**: IVA mensual (preparación del F29), libro de compras, libro de ventas,
+  pagos y deudas, gastos por área, y **flujo de caja proyectado**.
+- **Importación**: planillas Excel/CSV con plantillas descargables, y **XML DTE del SII**
+  (facturación electrónica chilena) tanto para ventas propias como base para compras.
+- **Notificaciones** automáticas de vencimientos (compras y ventas por pagar/cobrar, vencidas).
+- **Auditoría** de quién creó, editó o eliminó cada registro.
+- **Multiempresa**: un usuario puede pertenecer a varias empresas, con un selector de empresa
+  activa; al crear usuarios se elige si ven una empresa o todas donde el admin es administrador.
+
+---
+
+## 2. Stack
+
+| Capa | Tecnología |
+| --- | --- |
+| Framework | **Next.js 16** (App Router, Turbopack, `src/`) + **React 19** |
+| Lenguaje | TypeScript strict (`pnpm typecheck` = `next typegen` + `tsc --noEmit`) |
+| Estilos | **Tailwind CSS 4** (tokens semánticos en `globals.css` con `@theme inline`) |
+| Base de datos | **PostgreSQL** ( Coolify en producción, TLS con CA propia) |
+| ORM | **Prisma 7** con **driver adapter** (`@prisma/adapter-pg`) — obligatorio, ver gotchas |
+| Auth | Propia: sesiones opacas (token aleatorio, en BD solo su hash SHA-256) + `bcryptjs` |
+| XML | `fast-xml-parser` (parser del DTE del SII) |
+| Fuentes | IBM Plex Sans vía `next/font/google` (pesos 300–700) |
+| Gráficos | SVG/HTML puro propios (`components/charts.tsx`), sin librerías |
+| Iconos | SVG inline propios, **sin lucide-react** ni otras dependencias de iconos |
+| Deploy | Pendiente: VPS Ubuntu + **Coolify** (build `pnpm build`, release `pnpm db:deploy`) |
+
+### Comandos
+
+| Comando | Qué hace |
+| --- | --- |
+| `pnpm dev` | Servidor de desarrollo (Turbopack) |
+| `pnpm build` | `prisma generate` + build de producción |
+| `pnpm lint` | ESLint directo (`next lint` ya no existe en Next 16) |
+| `pnpm typecheck` | `next typegen` + `tsc --noEmit` |
+| `pnpm db:migrate` | Crea y aplica migración de desarrollo (pasa por el puente TLS local) |
+| `pnpm db:generate` | Regenera Prisma Client (`src/generated/prisma`, ignorado por git) |
+| `pnpm db:deploy` | Aplica migraciones en producción |
+| `pnpm db:studio` | Prisma Studio (vía puente TLS) |
+| `pnpm db:bridge` | Levanta solo el puente TLS local (para depurar) |
+| `npx tsx --env-file=.env scripts/xxx.ts` | Scripts sueltos contra la BD (seed incluido) |
+
+No hay tests todavía. El seed del admin/empresa usa `pnpm prisma db seed` con credenciales
+`ADMIN_*` del `.env`.
+
+---
+
+## 3. Arquitectura y estructura
+
+### Flujo de datos
+
+1. **Páginas** (`src/app/**/page.tsx`): Server Components. Cargan datos llamando funciones de
+   `src/lib/*` (nunca Prisma directo en el render, salvo casos puntuales en configuración).
+2. **Mutaciones** (`src/app/actions/*.ts`): Server Actions `"use server"`. Cada una valida auth +
+   rol **por sí misma** (son alcanzables por POST directo).
+3. **UI interactiva** (`src/components/*`): Client Components solo donde hay estado/clicks
+   (dropdowns, calendarios, formularios, selección masiva).
+
+### Mapa de carpetas
+
+```
+src/
+  app/
+    layout.tsx            # IBM Plex Sans + script de tema antes de pintar
+    page.tsx              # Redirect a /dashboard o /login
+    login/                # Split-screen: page.tsx + login-form.tsx + visual.tsx (mockup)
+    dashboard/
+      layout.tsx          # Sidebar + campana + toggle + selector de empresa (top-right)
+      page.tsx            # Panel: KPIs, gráficos 12 meses, top clientes, alertas, módulos
+      compras/            # Lista + [id] + [id]/editar + nueva (+ purchase-form.tsx)
+      ventas/             # Lista + [id] + [id]/editar + nueva (+ sale-form.tsx)
+      gastos/             # Lista + [id] + [id]/editar + nueva (+ expense-form.tsx)
+      clientes/           # Lista + [id] (editar) + nuevo (+ partner-form, partner-list)
+      proveedores/        # Ídem clientes
+      catalogos/          # Categorías, áreas, vendedores, pagadores, medios de pago
+      reportes/           # page (resumen) + iva | libro-compras | libro-ventas | pagos |
+                          # gastos | caja — cada uno con /export/route.ts (CSV)
+      importar/           # XML DTE (dte-import.tsx) + Excel/CSV (import-form.tsx) + plantillas
+      notificaciones/     # Centro de notificaciones con estado leído/no leído
+      configuracion/      # Empresa, usuarios y roles, mis empresas, crear empresa
+      auditoria/          # Historial de cambios con filtros
+  actions/                # Server Actions (auth, companies, purchases, sales, expenses,
+                          # partners, catalogs, import, dte, notifications)
+  components/             # Componentes compartidos (ver §10)
+  lib/                    # Acceso a datos, reglas de negocio y utilidades
+  generated/prisma/       # Prisma Client generado (ignorado por git; importar como
+                          # @/generated/prisma/client)
+  proxy.ts                # (renombrado de middleware) runtime Node, no edge
+prisma/schema.prisma      # Modelo completo (ver §4)
+scripts/                  # pg-tls-bridge.mjs, prisma-with-bridge.mjs, reset-password.mjs
+DESIGN.md                 # Dirección visual (léela antes de tocar UI)
+AGENTS.md                 # Reglas para agentes de código
+CONTEXTO.md               # Este documento
+```
+
+### Responsabilidades de `src/lib/`
+
+| Módulo | Qué contiene |
+| --- | --- |
+| `db.ts` | Singleton de PrismaClient **con `PrismaPg` adapter** (obligatorio en Prisma 7) |
+| `session.ts` | Crear/borrar/leer sesiones opacas; "Recuérdame" y renovación automática |
+| `auth.ts` | `getCurrentUser` (cacheado por request), `requireUser`, `requireContext(section)`, `getActiveMembership`, `canWrite`, `isAdmin`, cookie `facturas_company` |
+| `permissions.ts` | Matriz `ACCESS`/`WRITE` por sección y rol |
+| `password.ts` | `hashPassword`/`verifyPassword` (bcryptjs) |
+| `money.ts` | `formatCLP`, `formatDate` (es-CL, TZ UTC), `todayISO`/`todayDate` (America/Santiago), `computeIva`, `computeTotal`, `documentSign`, `monthRange`, `currentPeriod`, `formatPeriod`, `shiftPeriod`, `daysBetween`, `toISODate` |
+| `rut.ts` | `normalizeRut`, `formatRut`, `isValidRut` (módulo 11) |
+| `labels.ts` | Etiquetas en español de todos los enums + `dteTipoLabel`/`dteMotivoOmision` |
+| `validation.ts` | Schemas zod-like propios (`saleSchema`, `purchaseSchema`, `expenseSchema`, `companySchema`, `memberSchema`, `newUserSchema`, `loginSchema`, `partnerSchema`) y listas de valores (`documentTypeValues`, `paymentMethodValues`, `partnerTypeValues`, `roleValues`, `categoryKindValues`) |
+| `reports.ts` | `ivaSummary`, `libroCompras/Ventas`, `paymentsSummary`, `expensesBreakdown` (categoría/área/trabajador), `pendingTotals`, `pendingCounts`, `monthlyTotals`, `topClients`, `cashFlowProjection` |
+| `flash.ts` | Mensaje "flash" en cookie para toasts tras Server Actions que redirigen (`setFlash`/`getFlash`) |
+| `audit.ts` | `recordAudit(ctx, { action, entityType, entityId, summary, changes? })` |
+| `notifications.ts` | `syncDueNotifications` (recalcula alertas al entrar al panel), `listNotifications`, contadores |
+| `catalogs.ts` / `partners.ts` / `purchases.ts` / `sales.ts` / `expenses.ts` | Consultas + serializadores para formularios (`serializeSale`, etc.) |
+| `dte.ts` | Parser del XML DTE del SII (ver §8) |
+| `sii/runtime.ts` | Integración SII por **@albertomarturelo/sii-core**: lecturas por fetch (sin Chromium), login headless con Playwright desde la web (la Clave se usa una vez y se descarta), sesión en `~/.sii/session.json` |
+| `sii/rcv.ts` | Consultas RCV: `fetchRcvRows` (compras/ventas oficiales) + estado de sesión |
+| `import.ts` | Importador Excel/CSV (ver §9) |
+| `csv.ts` | Exportación CSV de reportes |
+| `ui.ts` | Clases de botones con efecto líquido y `controlClass`/`labelClass`/`fieldClass` |
+
+---
+
+## 4. Modelo de datos (Prisma)
+
+### Enums
+
+- `Role`: `ADMIN` (todo dentro de la empresa), `ACCOUNTANT` (contabilidad), `SALES` (ventas y
+  clientes), `VIEWER` (solo lectura).
+- `PartnerType`: `CUSTOMER`, `SUPPLIER`, `BOTH`.
+- `CategoryKind`: `EXPENSE`, `BOTH` (categoría usable en gastos y/o compras).
+- `DocumentType`: `INVOICE` (factura), `RECEIPT` (boleta), `CREDIT_NOTE`, `DEBIT_NOTE`, `OTHER`.
+- `PaymentStatus`: `PENDING`, `PAID` (en compras = pagada; en ventas = cobrada).
+- `PaymentMethod`: `CASH`, `TRANSFER`, `CREDIT_CARD`, `DEBIT_CARD` (enum fijo) — además existe
+  `PaymentMethodCatalog` (catálogo editable por empresa, usado en compras).
+- `NotificationType`: `PURCHASE_DUE`, `PURCHASE_OVERDUE`, `SALE_DUE`, `SALE_OVERDUE`.
+- `AuditAction`: `CREATE`, `UPDATE`, `DELETE`.
+
+### Tablas
+
+- **User**: name, email único, passwordHash, active. Un usuario global del sistema.
+- **Session**: tokenHash único, userId, expiresAt, createdAt. Solo se guarda el **hash** del token.
+- **Company**: name, rut, address, city, email, phone, `ivaRate` (19), `retentionRate` (0),
+  currency CLP. Borrado en cascada de todo lo suyo (solo ADMIN de esa empresa, nunca la activa).
+- **Membership**: userId + companyId + `Role` + active. Único por (userId, companyId). Es la
+  fuente de verdad de "qué empresas ve un usuario" y con qué rol.
+- **Partner** (clientes y proveedores): companyId, type, name, rut (único por empresa), email,
+  phone, address, notes, active. Se busca por RUT normalizado o nombre.
+- **Category**: companyId, name, kind (`EXPENSE`/`BOTH`), active.
+- **Area**: companyId, name. **Salesperson**: companyId, name. **Payer**: companyId, name
+  (pagadores de gastos).
+- **PaymentMethodCatalog**: companyId, name, active — medios de pago editables para compras.
+- **Purchase**: companyId, date, **dueDate**, partnerId, categoryId?, areaId?, documentType,
+  documentNumber, referenceDocumentNumber (NC/ND), description, netAmount, ivaAmount, totalAmount,
+  status, paymentDate?, paymentMethod? (enum), notes; createdById.
+- **Sale**: ídem compras más `salespersonId?`, `purchaseOrder`, `dispatchGuide`, `hesNumber`,
+  `retentionAmount`. **Unique `(companyId, documentNumber)`** — es la protección anti-duplicados
+  del importador XML (folio). `dueDate` para el flujo de caja.
+- **Expense**: companyId, date, description, categoryId?, areaId?, documentNumber, net/iva/total,
+  paymentMethod (enum), **reimbursed + reimbursedAt** (el reembolso al pagador), notes.
+- **Notification**: companyId, type, title, message, **readAt?**, y referencias opcionales al
+  documento. `syncDueNotifications` las recalcula en cada entrada al panel (puede recrear las de
+  vencimiento; las "de prueba" desaparecen).
+- **AuditLog**: companyId, userId, action, entityType, entityId, summary, changes (JSON con
+  before/after en UPDATE), createdAt.
+
+### Regla de signo de documentos
+
+`documentSign(documentType)`: `CREDIT_NOTE` ⇒ **−1**, todo lo demás ⇒ **+1**. Todos los totales
+del sistema (IVA, libros, panel, gráficos) multiplican por este signo, de modo que las notas de
+crédito **descuentan** en vez de sumarse como positivas.
+
+---
+
+## 5. Autenticación, sesiones y multiempresa
+
+### Sesiones opacas
+
+- Token aleatorio de 32 bytes (base64url) en cookie `facturas_session` (httpOnly, sameSite lax,
+  secure solo en producción); en BD solo su **hash SHA-256**.
+- **"Recuérdame en este equipo"** (checkbox del login, marcado por defecto):
+  - Marcado → cookie persistente con `expires` +90 días y BD +90 días. **Renovación automática**:
+    en cada request, si a la sesión le quedan menos de 30 días, se extiende +90 (usuario activo
+    nunca queda fuera).
+  - Sin marcar → cookie **de sesión** (sin `expires`: muere al cerrar el navegador) y BD +7 días.
+- `logout` borra la fila de Session y la cookie.
+
+### Empresas activas y permisos
+
+- `getCurrentUser` (cacheado por request) devuelve el usuario con sus memberships **activas**
+  incluidas, cada una con la `company`.
+- Cookie `facturas_company` guarda la empresa activa; `getActiveMembership` resuelve la membership
+  de esa empresa (o la primera). Si no hay empresas → redirect a configuración.
+- `requireContext(section?)`: exige sesión + empresa activa (+ acceso a la sección).
+- **Matriz de permisos** (`lib/permissions.ts`):
+
+  | Sección | Ver | Escribir |
+  | --- | --- | --- |
+  | panel | todos | — |
+  | compras | ADMIN, ACCOUNTANT, VIEWER | ADMIN, ACCOUNTANT |
+  | ventas | + SALES | ADMIN, ACCOUNTANT, SALES |
+  | gastos | ADMIN, ACCOUNTANT, VIEWER | ADMIN, ACCOUNTANT |
+  | clientes | + SALES | ADMIN, ACCOUNTANT, SALES |
+  | proveedores | ADMIN, ACCOUNTANT, VIEWER | ADMIN, ACCOUNTANT |
+  | catálogos / reportes / auditoría / importar | ADMIN, ACCOUNTANT | catálogos+importar: ídem; reportes/auditoría: nadie |
+  | configuracion | ADMIN, ACCOUNTANT | ADMIN |
+
+- **Alcance de usuarios al crear** (Configuración): el selector "Empresas visibles" permite
+  *Solo esta empresa* o *Todas mis empresas* — en el segundo caso se crean memberships en todas
+  las empresas donde el admin actual es ADMIN. En la empresa activa el rol elegido manda; en las
+  otras no se pisan roles existentes.
+- Protecciones de roles: no se puede quitar el último ADMIN de una empresa ni quitarse a sí mismo
+  de la lista.
+
+---
+
+## 6. Server Actions (`src/app/actions/`)
+
+| Archivo | Acciones |
+| --- | --- |
+| `auth.ts` | `login` (con remember), `logout` |
+| `companies.ts` | `switchCompany`, `createCompany`, `updateCompany`, `addMember`, `createMember`, `updateMemberRole`, `removeMember`, `deleteCompany` (borrado en cascada con confirmación por nombre) |
+| `purchases.ts` | CRUD + `markPurchasePaid`/`markPurchasePending` + `bulkSetPurchaseStatus` + `deletePurchase` |
+| `sales.ts` | CRUD + `bulkSetSaleStatus` + `deleteSale` |
+| `expenses.ts` | CRUD + toggle reembolso + delete |
+| `partners.ts` | CRUD + `searchPartnersAction` (autocomplete) |
+| `catalogs.ts` | CRUD de categorías/áreas/vendedores/pagadores/medios de pago |
+| `import.ts` | `importFile` (Excel/CSV de compras, ventas o gastos) |
+| `dte.ts` | `previewDteImport` + `confirmDteImport` (XML SII) |
+| `notifications.ts` | Marcar leída / todas leídas |
+
+**Reglas de seguridad (críticas)**: toda acción valida `requireContext` + `canWrite`/`isAdmin`
+**dentro de la función** — nunca confiar en la UI, porque las Server Actions son alcanzables por
+POST directo. El importador revalida folios y tipos en el servidor aunque la vista previa ya los
+haya filtrado. `updateMemberRole`, `removeMember` y `deleteCompany` verifican membresía/rol
+específico de la empresa activa.
+
+---
+
+## 7. Importación de planillas (Excel/CSV)
+
+- Sección "Desde planilla" en `/dashboard/importar`; elige compras/ventas/gastos, sube `.xlsx` o
+  `.csv` (detección de separador `,` vs `;`, BOM tolerado).
+- Columnas por encabezado difuso (`findColumn`): terceros por **nombre o RUT** (si no existe,
+  la fila falla con mensaje; no se crean), fechas `AAAA-MM-DD` o `DD/MM/AAAA`, montos con
+  separadores de miles tolerados, **el total se recalcula en el servidor** como neto + IVA.
+- Filas con error se informan con su número; el resto se importa igual.
+- Plantillas CSV descargables en `/dashboard/importar/plantilla?tipo=…`.
+
+---
+
+## 8. Importación de XML DTE del SII (facturación electrónica)
+
+### Qué acepta
+
+`EnvioDTE` (el sobre estándar con `Carátula` y N documentos) o un `DTE`/`Documento` suelto.
+Codificación **ISO-8859-1** (respetada según declaración; también UTF-8). Máx. 5 MB y 200
+documentos por archivo. Ignora `TED` y `Signature` (no valida firmas).
+
+### Tipos soportados
+
+- **33** factura electrónica, **34** exenta → `INVOICE`
+- **56** nota de débito → `DEBIT_NOTE`
+- **61** nota de crédito → **se detecta pero se omite** (reportada en el resumen), por decisión
+  del usuario; boletas (39/41) y guías (52) también se omiten con motivo visible.
+
+### Mapeo XML → app
+
+| XML | Destino |
+| --- | --- |
+| `IdDoc/Folio` | `documentNumber` (dedup por unique empresa+folio) |
+| `IdDoc/FchEmis`, `FchVenc` | `date`, `dueDate` |
+| `Receptor` (RUT, razón social) | Cliente existente (match por RUT normalizado o nombre) o **creado al vuelo** |
+| `Receptor/DirRecep + CmnaRecep` | `Partner.address` (completa si estaba vacía, no pisa) |
+| `Totales` (MntNeto, IVA, MntTotal) | `netAmount`, `ivaAmount`, `totalAmount` **sin recálculo** |
+| `Referencia TpoDocRef=801` | `purchaseOrder` |
+| `Referencia TpoDocRef=52` | `dispatchGuide` |
+| `Detalle/NmbItem` | `description` (ítems unidos con "·") |
+| `TermPagoGlosa` | `notes` (ej. "CREDITO 30 DIAS") |
+| — | `status: PENDING` siempre; el pago se registra después en la app |
+
+Guardia adicional: si `Company.rut` está configurado y el `RUTEmisor` del XML no coincide, el
+documento se marca **error** (evita meter facturas de terceros en tus ventas).
+
+### Sincronización con el RCV del SII (`@albertomarturelo/sii-core`)
+
+Lectura de las facturas de **compra y venta** registradas oficialmente en el RCV del SII
+(Importar → "Sincronizar con el SII"). **Solo lectura: la app jamás emite documentos.**
+
+**Login desde la propia web** (diseñado para VPS Coolify/Ubuntu): en Importar, el admin
+ingresa RUT + Clave Tributaria; la Clave viaja una sola vez por HTTPS a la Server Action,
+se usa con el login headless del core (llena el formulario real del SII y la descarta con
+el frame — ADR-010 de la librería) y **nunca se guarda ni se audita**. Solo queda el cookie
+jar en `SII_HOME` (default `~/.sii`, **montar volumen en Coolify** para sobrevivir redeploys).
+Límite propio: 3 intentos fallidos por usuario cada 5 min (el SII bloquea cuentas).
+Arquitectura del runtime (`src/lib/sii/runtime.ts`): lecturas por **fetch puro** (driver
+propio, sin Chromium); solo el login usa Playwright (lazy, subpath `/node`); store con el
+mismo formato de la CLI (`~/.sii/session.json` — ambas conviven).
+
+**Cuentas empresa**: el RCV se lee como RUT propio de la sesión; si la sesión es una persona
+que representa empresas, se pasa el RUT de la activa como override (las cuentas empresa
+rechazan overrides, incluso su propio RUT). Requiere el RUT de la empresa configurado.
+
+Importa tipos 33/34 (facturas) y 56 (nota de débito) con los **montos oficiales del RCV**
+(exento va al neto); NC (61), boletas y guías se omiten con motivo visible; dedup por folio;
+terceros creados al vuelo (proveedor/cliente) con la guarda de RUT de trabajadores.
+
+**Dockerfile (Coolify)**: `node:22-bookworm-slim` + pnpm + `playwright install --with-deps
+chromium` (~500 MB). El CMD sincroniza el esquema con `prisma db push` (migraciones
+desalineadas, §12.3) y levanta `next start`. Montar volumen en `/app/.sii`.
+
+### Flujo de UI
+
+1. Subir XML → **"Analizar XML"** (`previewDteImport`) → tabla de vista previa con badges:
+   Nueva / Duplicada / Omitida / Error + resumen.
+2. **"Importar N facturas"** (`confirmDteImport`) → crea clientes que falten + ventas; errores por
+   folio reportados. Queda en auditoría.
+
+---
+
+## 9. Reportes
+
+| Reporte | Ruta | Contenido |
+| --- | --- | --- |
+| Resumen | `/dashboard/reportes` | IVA débito/crédito/resultado, retenciones, estado de pagos |
+| **Flujo de caja** | `reportes/caja` | Pendientes agrupados por vencimiento: Vencido / mes actual / +1 / +2 / más adelante; entradas (ventas por cobrar), salidas (compras por pagar), neto; fila vencida destacada |
+| IVA mensual | `reportes/iva` | Preparación F29 del período con selector de mes (export CSV) |
+| Libro de compras/ventas | `reportes/libro-*` | Detalle por documento con totales (export CSV) |
+| Pagos y deudas | `reportes/pagos` | Pagado vs adeudado, listados de pendientes, reembolsos por pagador (export CSV) |
+| Gastos por área | `reportes/gastos` | Desglose por categoría y área |
+
+**Períodos**: `AAAA-MM`; navegación ← mes → + "Hoy". `monthRange` devuelve UTC `[from, to)`;
+`currentPeriod`/`todayISO` usan `America/Santiago`. El panel agrega **gráficos propios**
+(`components/charts.tsx`): `MonthlyBarsChart` (12 meses × ventas/compras/gastos, SVG sin JS) y
+`RankBars` (top clientes y gastos por categoría).
+
+---
+
+## 10. Sistema de diseño y componentes
+
+Leer **`DESIGN.md`** antes de tocar UI. Puntos clave:
+
+- **Paleta azulada** (nunca verde/teal): `primary #1B5FA8` (claro) / `#4A9FD8` (oscuro), acento
+  ámbar para pendientes, success/danger para estados. Tokens semánticos en `globals.css`
+  (`@theme inline`): `bg-surface`, `bg-background`, `text-foreground`, `text-muted-foreground`,
+  `border-border`, `bg-primary`, `bg-primary-soft`, `bg-accent`, `bg-success-soft`, `bg-danger`…
+  **Nunca colores crudos**.
+- **Dark mode**: clase `dark` en `<html>`, aplicada antes de pintar con script inline
+  (`theme-initializer`) y alternada con `theme-toggle` (sol/luna con animación de rotación).
+  Verificar **ambos** temas siempre (R-34).
+- **Botones con efecto líquido**: `btn-liquid btn-liquid-primary|secondary|danger` (`lib/ui.ts` +
+  CSS en globals) — relleno desde abajo al hover en todos los botones de la app.
+- **Números tabulares**: clase `.tabular` en montos, folios y fechas de tablas.
+- **Estado con texto+color** (badges): `PurchaseStatusBadge`, `SaleStatusBadge`
+  (Pendiente de pago/Pagada, Por cobrar/Cobrada), `ReimbursementBadge` (gastos).
+- Superficies planas; sombras solo en overlays/dropdowns.
+
+### Componentes reutilizables (`src/components/`)
+
+| Componente | Uso |
+| --- | --- |
+| `sidebar.tsx` | Navegación con buscador filtrante, grupos colapsables (chevron en el título) y sub-árbol bajo Reportes; badge de facturas por cobrar solo en Ventas; drawer móvil; **menú de usuario** (iniciales + nombre + rol) con Salir |
+| `company-switcher.tsx` | Selector de empresa (top-right) con patrón dropdown; llama `switchCompany` de forma **imperativa** (`useTransition`) |
+| `select-dropdown.tsx` | Reemplaza todos los `<select>` nativos: trigger + menú con check en el activo; soporta modo controlado (`onValueChange`), `allowEmpty`, valor en input oculto (sirve en forms GET y de server actions) |
+| `actions-dropdown.tsx` | Menú (⋮) Editar/Eliminar; posicionamiento **fixed** (tablas con scroll horizontal) con clamp al viewport; delete con confirm + acción imperativa |
+| `date-range-filter.tsx` / `period-picker.tsx` | Calendarios react-day-picker v9 en popovers `right-0` |
+| `autocomplete-partner.tsx` | Búsqueda de cliente/proveedor por RUT/nombre vía Server Action; muestra el nombre inicial en edición |
+| `bulk-select.tsx` | "Seleccionar todas" + contador para acciones masivas |
+| `charts.tsx` | `MonthlyBarsChart` (SVG) y `RankBars` |
+| `toaster-flash.tsx` | Toasts (sonner) + consumo del mensaje flash de las acciones |
+| `alert.tsx` | Alertas info/warning/destructive/success |
+| `breadcrumb.tsx`, `submit-button.tsx`, `confirm-submit.tsx`, `partner-form/list.tsx`, badges | Soporte general |
+
+**Patrón de dropdowns (unificado)**: trigger de contorno + chevron doble; menú `w-56 rounded-card
+border bg-surface p-1 shadow-lg` con label opcional, ítems `gap-3`, check azul en el activo,
+separador antes de acciones destructivas; cierre por Escape/click afuera/scroll/resize. Cualquier
+dropdown nuevo debe seguirlo.
+
+---
+
+## 11. Convenciones
+
+- **Idioma**: todo en español (UI, mensajes, auditoría). Comentarios de código también.
+- **Moneda**: enteros CLP sin decimales; `formatCLP` con separador de miles es-CL.
+- **Fechas**: almacenamiento UTC (`Date.UTC(año, mes, 1)` en rangos; `toDateOnly`), hora local
+  Chile solo para "hoy" (`todayISO`). Formato visual `dd-MM-aaaa`.
+- **Firmas**: notas de crédito siempre con signo −1 vía `documentSign`.
+- **Server Components por defecto**; `"use client"` solo para interacción.
+- **Rutas tipadas**: `PageProps<"/ruta">` y `LayoutProps<"/ruta">` generados por `next typegen`;
+  `params`/`searchParams` son promesas en Next 16.
+- **`middleware` se renombró a `proxy`** (`src/proxy.ts`, runtime Node, no edge).
+- ESLint directo (`pnpm lint`); warning conocido y aceptado en `period-picker.tsx`
+  (`window.location.href`, decisión deliberada para evitar hooks de navegación y Suspense).
+- Antes de construir UI nueva: resolver dirección en `DESIGN.md` (R-37 de antislop).
+
+---
+
+## 12. Gotchas críticos (leer antes de debuguear)
+
+1. **Prisma 7 exige driver adapter**: `new PrismaClient()` a secas no conecta. El singleton en
+   `lib/db.ts` usa `PrismaPg`. Regenerar el client tras cambiar el schema: `pnpm db:migrate` +
+   `pnpm db:generate`.
+2. **CLI de Prisma en Windows + TLS**: el motor CLI usa schannel (TLS ≤ 1.2) y falla contra el
+   certificado ECDSA de Coolify (`P1011 … os error -2146893018`). Por eso `db:migrate`,
+   `db:deploy` y `db:studio` corren a través de `scripts/prisma-with-bridge.mjs`, un **puente TLS
+   local** (`127.0.0.1:15433`, `sslmode=disable`) que sí verifica la CA (`certs/`, ignorado por
+   git). **La app en runtime no lo necesita** (usa `pg`/OpenSSL directo). En Linux funciona sin
+   puente.
+3. **⚠️ Migraciones desalineadas**: `pnpm db:migrate` llegó a pedir **resetear la base** (drift
+   entre el historial de migraciones y el esquema real, probablemente por cambios previos aplicados
+   con `db push`). **NUNCA aceptar el reset en desarrollo con datos reales**. Cambios de esquema
+   recientes se han implementado evitando migraciones. Pendiente revisar el historial antes del
+   deploy (posible `migrate diff`/baseline).
+4. **Turbopack cachea**: tras regenerar Prisma Client o crear archivos nuevos, el dev server puede
+   quedar con bundles viejos (síntomas: "X is not defined"). Solución: parar dev, **borrar
+   `.next`** y reiniciar.
+5. **`pnpm build` sobrescribe el `.next` del dev server**: tras un build, reiniciar dev.
+6. **Al cambiar `globals.css`** a veces hace falta reinicio completo del dev para ver los cambios
+   de variables.
+7. **Server Actions = POST directo**: validar auth/rol dentro de cada acción (hecho; mantenerlo).
+8. **Cache Components desactivado a propósito** en `next.config.ts`; si se activa, todo
+   `cookies()`/`headers()` debe ir dentro de `<Suspense>`.
+9. **Dropdowns dentro de tablas con scroll horizontal**: usar posicionamiento fixed anclado al
+   botón (como `ActionsDropdown`), no `absolute` (queda recortado).
+10. **No desmontar un `<form>` en el mismo click que lo envía**: puede cancelar la Server Action.
+    Para casos sensibles se llama la acción de forma imperativa (`startTransition`) — ver
+    `company-switcher` y el delete de `actions-dropdown`.
+11. **`syncDueNotifications` recalcula alertas** en cada load del layout: las notificaciones
+    manuales/de prueba de vencimiento pueden ser recreadas o eliminadas.
+12. **pnpm 12**: los build scripts se permiten en `pnpm-workspace.yaml` (`allowBuilds`); el campo
+    `pnpm` de `package.json` ya no se lee.
+
+---
+
+## 13. Estado actual y pendientes
+
+### Funcional y probado
+
+- CRUD completo de compras/ventas/gastos/clientes/proveedores/catálogos con filtros (búsqueda,
+  selects patrón dropdown, rango de fechas con calendario), badges, KPIs y acciones masivas.
+- Multiempresa completa (crear/cambiar/editar/borrar empresa con confirmación, usuarios con
+  alcance de empresas y roles).
+- Importador Excel/CSV y **importador XML DTE del SII** probado con un EnvioDTE real
+  (factura 33 → venta con OC, guía, vencimiento y cliente auto-creado; duplicados detectados).
+- Reportes con export CSV; flujo de caja proyectado; panel con gráficos propios.
+- Login split-screen con Recuérdame persistente (90 días + renovación automática).
+- Auditoría y notificaciones de vencimiento.
+
+### Pendientes / ideas
+
+- **Deploy**: VPS Ubuntu + Coolify (build `pnpm build`, release `pnpm db:deploy`, variables
+  `DATABASE_URL` + `ADMIN_*`). Antes: arreglar el desalineo de migraciones (§12.3).
+- **Pagos parciales (abonos)**: hoy el estado es binario PENDING/PAID; registrar abonos con saldo
+  pendiente es la mejora más pedida por el uso real.
+- **XML de compras**: reutilizar el parser para DTEs recibidos de proveedores (emisor = proveedor).
+- Adjuntar XML/PDF a cada documento (requiere almacenamiento de archivos).
+- OAuth (Google/Microsoft) y recuperación de contraseña (requiere servicio de email) — hoy el
+  login no muestra esos botones/enlaces a propósito.
+- F29 preliminar en formato de declaración; boletas de honorarios fin de flujo.
+- Tests automatizados (no hay ninguno aún).
+
+---
+
+*Última actualización: 2026-10-11.*
