@@ -258,3 +258,67 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
   revalidatePath("/dashboard/ventas");
   redirect("/dashboard/ventas");
 }
+
+/**
+ * Anula una venta asociándola a una nota de crédito/débito del SII o a una razón.
+ * Se usa desde el modal de cancelación.
+ */
+export async function cancelSale(formData: FormData): Promise<void> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+
+  const saleId = String(formData.get("saleId") ?? "");
+  const cancellationType = String(formData.get("cancellationType") ?? "");
+  const cancellationNoteNumber = String(formData.get("cancellationNoteNumber") ?? "").trim();
+  const cancellationReason = String(formData.get("cancellationReason") ?? "").trim();
+
+  if (!saleId) redirect("/dashboard/ventas");
+
+  const sale = await db.sale.findFirst({
+    where: { id: saleId, companyId: ctx.company.id },
+  });
+  if (!sale) redirect("/dashboard/ventas");
+
+  // Si ya tiene una nota asociada, no se puede cambiar
+  if (sale.cancellationNoteNumber) {
+    await setFlash("error", "Esta venta ya tiene una nota asociada y no se puede modificar.");
+    redirect("/dashboard/ventas");
+  }
+
+  // Validaciones según el tipo
+  if (cancellationType === "CREDIT_NOTE" || cancellationType === "DEBIT_NOTE") {
+    if (!cancellationNoteNumber) {
+      await setFlash("error", "Debes indicar el número de la nota de crédito o débito.");
+      redirect("/dashboard/ventas");
+    }
+  } else if (cancellationType === "REASON") {
+    if (!cancellationReason) {
+      await setFlash("error", "Debes indicar la razón de la cancelación.");
+      redirect("/dashboard/ventas");
+    }
+  } else {
+    await setFlash("error", "Tipo de cancelación inválido.");
+    redirect("/dashboard/ventas");
+  }
+
+  await db.sale.update({
+    where: { id: saleId },
+    data: {
+      status: "CANCELLED",
+      cancellationType,
+      cancellationNoteNumber: cancellationType === "REASON" ? null : cancellationNoteNumber,
+      cancellationReason: cancellationType === "REASON" ? cancellationReason : null,
+    },
+  });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Sale",
+    entityId: saleId,
+    summary: `Anuló la venta ${sale.documentNumber ?? saleId} (${cancellationType === "CREDIT_NOTE" ? "NC" : cancellationType === "DEBIT_NOTE" ? "ND" : "razón"}).`,
+  });
+
+  await setFlash("success", "Venta anulada", `Se registró la anulación correctamente.`);
+  revalidatePath("/dashboard/ventas");
+  redirect("/dashboard/ventas");
+}

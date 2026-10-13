@@ -788,3 +788,81 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
 
   return { ok: true, imported, errores: errores.length > 0 ? errores : undefined };
 }
+
+/**
+ * Nota de crédito o débito disponible en el SII para asociar a una venta
+ * que se está anulando.
+ */
+export type AvailableNote = {
+  folio: string;
+  tipoDoc: number;
+  tipoDocLabel: string;
+  fecha: string;
+  rut: string;
+  nombre: string;
+  total: number;
+};
+
+/**
+ * Consulta las notas de crédito y débito del RCV del SII para un cliente
+ * específico, en un rango de períodos alrededor de la fecha de la factura.
+ * Se usa en el modal de cancelación de ventas.
+ */
+export async function getAvailableNotesForSale(
+  saleId: string,
+): Promise<{ notes: AvailableNote[]; error?: string }> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) return { notes: [], error: "No tienes permiso para cancelar ventas." };
+
+  const sale = await db.sale.findFirst({
+    where: { id: saleId, companyId: ctx.company.id },
+    include: { partner: true },
+  });
+  if (!sale) return { notes: [], error: "No se encontró la venta." };
+
+  const companyRut = ctx.company.rut;
+  if (!companyRut) return { notes: [], error: "Configura el RUT de la empresa en Configuración." };
+
+  // Períodos a consultar: el de la factura y los dos siguientes (las NC/ND
+  // pueden emitirse en un período posterior al de la factura original).
+  const saleDate = new Date(sale.date);
+  const periods: string[] = [];
+  for (let i = 0; i <= 2; i++) {
+    const d = new Date(saleDate.getFullYear(), saleDate.getMonth() + i, 1);
+    periods.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+
+  const notes: AvailableNote[] = [];
+  const seen = new Set<string>();
+
+  for (const periodo of periods) {
+    try {
+      const result = await fetchRcvRows({ companyId: ctx.company.id, companyRut, periodo, side: "VENTA" });
+      for (const row of result.rows) {
+        // Solo notas de crédito (61) y débito (56)
+        if (row.tipoDoc !== 61 && row.tipoDoc !== 56) continue;
+        // Solo del mismo cliente
+        if (row.rut !== sale.partner.rut) continue;
+        // No duplicar
+        const key = `${row.tipoDoc}-${row.folio}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        notes.push({
+          folio: row.folio,
+          tipoDoc: row.tipoDoc,
+          tipoDocLabel: row.tipoDoc === 61 ? "Nota de crédito" : "Nota de débito",
+          fecha: row.fecha,
+          rut: row.rut,
+          nombre: row.nombre,
+          total: row.total,
+        });
+      }
+    } catch {
+      // Si un período falla (sin sesión, sin datos), sigue con el siguiente.
+    }
+  }
+
+  // Ordenar por fecha descendente (más recientes primero)
+  notes.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  return { notes };
+}

@@ -648,6 +648,11 @@ model Sale {
   paymentMethod        PaymentMethod?
   notes                String?
 
+  // Cancelación: cuando status=CANCELLED, estos campos indican el motivo.
+  cancellationType     String? // CREDIT_NOTE | DEBIT_NOTE | REASON
+  cancellationNoteNumber String? // folio de la NC/ND asociada (obligatorio si type es NC/ND)
+  cancellationReason   String? // razón libre (obligatorio si type es REASON)
+
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
