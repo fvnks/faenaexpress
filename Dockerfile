@@ -2,10 +2,21 @@
 #
 # Requisitos en Coolify:
 #   - Build: este Dockerfile (Coolify lo detecta automáticamente)
-#   - Variables de entorno: DATABASE_URL, ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD
-#     (y SII_HOME opcional, ver abajo)
+#   - Variables de entorno (ver abajo): DATABASE_URL es la única obligatoria;
+#     el resto crea el admin y la empresa en el primer arranque (el seed es
+#     idempotente: si ya existen, no toca nada).
 #   - Storage persistente: monta un volumen en /app/.sii para que la sesión
 #     del SII (cookie jar) sobreviva a los redeploys.
+#
+# Variables:
+#   DATABASE_URL      postgres://usuario:password@host:5432/bd  (obligatoria)
+#   SII_SECRET_KEY    llave para cifrar las credenciales del SII (AES-256-GCM).
+#                     Si no se define, el guardado de credenciales SII se
+#                     desactiva con un aviso; el resto funciona igual.
+#   ADMIN_NAME        nombre del admin (default: "Administrador")
+#   ADMIN_EMAIL       correo del admin (default: admin@facturas.local)
+#   ADMIN_PASSWORD    contraseña del admin (default: cambiar-esto-123)
+#   COMPANY_NAME      nombre de la empresa inicial (default: "Mi Empresa")
 #
 # Nota sobre la BD: las migraciones de Prisma están desalineadas con el
 # esquema real (histórico de db push; ver CONTEXTO.md §12.3). Por eso el
@@ -41,5 +52,6 @@ RUN mkdir -p /app/.sii
 
 EXPOSE 3000
 
-# Sincroniza el esquema (ver nota arriba) y levanta el servidor.
-CMD ["sh", "-c", "pnpm exec prisma db push --skip-generate && pnpm start -H 0.0.0.0"]
+# Sincroniza el esquema (ver nota arriba), crea la empresa y el admin si no
+# existen (seed idempotente) y levanta el servidor.
+CMD ["sh", "-c", "pnpm exec prisma db push --skip-generate && pnpm exec tsx prisma/seed.ts && pnpm start -H 0.0.0.0"]
