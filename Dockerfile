@@ -54,4 +54,6 @@ EXPOSE 3000
 
 # Sincroniza el esquema (ver nota arriba), crea la empresa y el admin si no
 # existen (seed idempotente) y levanta el servidor.
-CMD ["sh", "-c", "pnpm exec prisma db push && pnpm exec tsx prisma/seed.ts && pnpm start -H 0.0.0.0"]
+# --accept-data-loss: la BD puede tener tablas de un schema anterior que el
+# nuevo schema no reconoce; se eliminan sin pedir confirmación.
+CMD ["sh", "-c", "pnpm exec prisma db push --accept-data-loss && pnpm exec tsx prisma/seed.ts && pnpm start -H 0.0.0.0"]
