@@ -560,6 +560,7 @@ enum DocumentType {
   RECEIPT // Boleta
   CREDIT_NOTE // Nota de crédito
   DEBIT_NOTE // Nota de débito
+  QUOTATION // Cotización (no tributario)
   OTHER
 }
 

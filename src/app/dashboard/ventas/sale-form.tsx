@@ -25,6 +25,7 @@ export function SaleForm({
   retentionRate,
   today,
   defaults,
+  defaultDocumentType,
 }: {
   action: (prev: SaleFormState, formData: FormData) => Promise<SaleFormState>;
   customers: CustomerOption[];
@@ -35,11 +36,14 @@ export function SaleForm({
   retentionRate: number;
   today: string;
   defaults?: SaleForForm;
+  defaultDocumentType?: string;
 }) {
   const [state, formAction] = useActionState<SaleFormState, FormData>(action, undefined);
 
   const [partnerId, setPartnerId] = useState(defaults?.partnerId ?? "");
-  const [documentType, setDocumentType] = useState(defaults?.documentType ?? "INVOICE");
+  const [documentType, setDocumentType] = useState(
+    defaults?.documentType ?? defaultDocumentType ?? "INVOICE",
+  );
   const [net, setNet] = useState(defaults ? String(defaults.netAmount) : "");
   const [iva, setIva] = useState(defaults ? String(defaults.ivaAmount) : "");
   const [retention, setRetention] = useState(defaults ? String(defaults.retentionAmount) : "");

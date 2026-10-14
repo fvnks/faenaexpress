@@ -197,6 +197,34 @@ export async function markSalePending(formData: FormData): Promise<void> {
   redirect(`/dashboard/ventas/${id}`);
 }
 
+export async function convertQuoteToInvoice(formData: FormData): Promise<void> {
+  const ctx = await requireContext();
+  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+
+  const id = String(formData.get("id") ?? "");
+  const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
+  if (!sale) redirect("/dashboard/ventas/cotizaciones");
+  if (sale.documentType !== "QUOTATION") redirect(`/dashboard/ventas/${id}`);
+
+  await db.sale.update({
+    where: { id, companyId: ctx.company.id },
+    data: { documentType: "INVOICE" },
+  });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Sale",
+    entityId: id,
+    summary: `Convirtió la cotización en factura de venta por ${formatCLP(sale.totalAmount)}.`,
+    changes: { documentType: { before: "QUOTATION", after: "INVOICE" } },
+  });
+
+  await setFlash("success", "Cotización convertida a factura");
+  revalidatePath("/dashboard/ventas");
+  revalidatePath("/dashboard/ventas/cotizaciones");
+  revalidatePath(`/dashboard/ventas/${id}`);
+  redirect(`/dashboard/ventas/${id}/editar`);
+}
 export async function deleteSale(formData: FormData): Promise<void> {
   const ctx = await requireContext();
   if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");

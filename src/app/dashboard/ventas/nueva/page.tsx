@@ -9,11 +9,18 @@ import { todayISO } from "@/lib/money";
 import { listCustomers } from "@/lib/partners";
 import { cardClass, primaryButtonClass } from "@/lib/ui";
 
-export default async function NewSalePage() {
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+export default async function NewSalePage(props: PageProps<"/dashboard/ventas/nueva">) {
   const ctx = await requireContext("ventas");
   if (!canWrite(ctx, "ventas")) {
     redirect("/dashboard/ventas");
   }
+
+  const searchParams = await props.searchParams;
+  const tipo = one(searchParams.tipo)?.toUpperCase() ?? "INVOICE";
+  const isQuote = tipo === "QUOTATION";
+  const defaultDocumentType = isQuote ? "QUOTATION" : "INVOICE";
 
   const [customers, salespeople, categories, areas] = await Promise.all([
     listCustomers(ctx.company.id),
@@ -22,17 +29,24 @@ export default async function NewSalePage() {
     listAreas(ctx.company.id),
   ]);
 
+  const title = isQuote ? "Nueva cotización" : "Nueva venta";
+  const subtitle = isQuote
+    ? "Registra la cotización enviada a un cliente."
+    : "Registra la factura emitida a un cliente.";
+  const backHref = isQuote ? "/dashboard/ventas/cotizaciones" : "/dashboard/ventas";
+  const backLabel = isQuote ? "← Cotizaciones" : "← Ventas";
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          href="/dashboard/ventas"
+          href={backHref}
           className="text-sm text-muted-foreground underline-offset-2 hover:underline"
         >
-          ← Ventas
+          {backLabel}
         </Link>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">Nueva venta</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Registra la factura emitida a un cliente.</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight">{title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
       {customers.length === 0 ? (
@@ -58,7 +72,8 @@ export default async function NewSalePage() {
           ivaRate={ctx.company.ivaRate}
           retentionRate={ctx.company.retentionRate}
           today={todayISO()}
-/>
+          defaultDocumentType={defaultDocumentType}
+        />
       )}
     </div>
   );

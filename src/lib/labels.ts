@@ -65,6 +65,7 @@ const documentTypeLabels: Record<DocumentType, string> = {
   RECEIPT: "Boleta",
   CREDIT_NOTE: "Nota de crédito",
   DEBIT_NOTE: "Nota de débito",
+  QUOTATION: "Cotización",
   OTHER: "Otro",
 };
 

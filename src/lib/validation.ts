@@ -13,6 +13,7 @@ export const documentTypeValues = [
   "RECEIPT",
   "CREDIT_NOTE",
   "DEBIT_NOTE",
+  "QUOTATION",
   "OTHER",
 ] as const;
 
