@@ -49,7 +49,7 @@ export type DteDocumento = {
 
   // --- Ítems ---
   descripcion: string | null; // nombres de ítems del Detalle
-  itemsDetalle: { nombre: string; cantidad: string; precio: number; monto: number }[] | null;
+  itemsDetalle: { codigo?: string; nombre: string; cantidad: string; precio: number; monto: number }[] | null;
 
   // --- Referencias ---
   ordenCompra: string | null; // Referencia TpoDocRef 801
@@ -174,14 +174,17 @@ export function parseDteXml(buffer: Buffer): DteParseResult {
       .map((detalle) => {
         const nombre = text(detalle.NmbItem);
         if (!nombre || /^\d+$/.test(nombre)) return null; // sin líneas de ajuste
+        const cdg = detalle.CdgItem as Record<string, unknown> | undefined;
+        const codigo = text(cdg?.VlrCodigo) ?? text(detalle.VlrCodigo);
         return {
+          ...(codigo ? { codigo } : {}),
           nombre: nombre.slice(0, 200),
           cantidad: text(detalle.QtyItem) ?? "1",
           precio: toInt(detalle.PrcItem),
           monto: toInt(detalle.MontoItem),
         };
       })
-      .filter((item): item is { nombre: string; cantidad: string; precio: number; monto: number } => item !== null);
+      .filter((item): item is { codigo?: string; nombre: string; cantidad: string; precio: number; monto: number } => item !== null);
 
     // Referencias: OC (801), guía (52), HES y factura base para notas (33/34).
     const referencias = asArray<Record<string, unknown>>(
