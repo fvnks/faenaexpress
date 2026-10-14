@@ -5,7 +5,6 @@ import { updatePurchase } from "@/app/actions/purchases";
 import { PurchaseForm } from "@/app/dashboard/compras/purchase-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories } from "@/lib/catalogs";
-import { listPaymentMethods } from "@/lib/catalogs";
 import { todayISO } from "@/lib/money";
 import { listSuppliers } from "@/lib/partners";
 import { getPurchase, serializePurchase } from "@/lib/purchases";
@@ -18,12 +17,11 @@ export default async function EditPurchasePage(props: PageProps<"/dashboard/comp
 
   const { id } = await props.params;
 
-  const [purchase, suppliers, categories, areas, paymentMethods] = await Promise.all([
+  const [purchase, suppliers, categories, areas] = await Promise.all([
     getPurchase(ctx.company.id, id),
     listSuppliers(ctx.company.id),
     listCategories(ctx.company.id),
     listAreas(ctx.company.id),
-    listPaymentMethods(ctx.company.id),
   ]);
 
   if (!purchase) {
@@ -53,7 +51,6 @@ export default async function EditPurchasePage(props: PageProps<"/dashboard/comp
         suppliers={suppliers}
         categories={categories}
         areas={areas}
-        paymentMethods={paymentMethods}
         ivaRate={ctx.company.ivaRate}
         today={todayISO()}
         defaults={serializePurchase(purchase)}

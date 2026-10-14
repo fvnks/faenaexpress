@@ -7,7 +7,6 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories } from "@/lib/catalogs";
 import { todayISO } from "@/lib/money";
 import { listSuppliers } from "@/lib/partners";
-import { listPaymentMethods } from "@/lib/catalogs";
 import { cardClass, primaryButtonClass } from "@/lib/ui";
 
 export default async function NewPurchasePage() {
@@ -16,11 +15,10 @@ export default async function NewPurchasePage() {
     redirect("/dashboard/compras");
   }
 
-  const [suppliers, categories, areas, paymentMethods] = await Promise.all([
+  const [suppliers, categories, areas] = await Promise.all([
     listSuppliers(ctx.company.id),
     listCategories(ctx.company.id),
     listAreas(ctx.company.id),
-    listPaymentMethods(ctx.company.id),
   ]);
 
   return (
@@ -44,7 +42,10 @@ export default async function NewPurchasePage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Crea el primer proveedor para poder registrar compras.
           </p>
-          <Link href="/dashboard/proveedores/nuevo" className={primaryButtonClass + " mt-4 inline-block"}>
+          <Link
+            href="/dashboard/proveedores/nuevo"
+            className={primaryButtonClass + " mt-4 inline-block"}
+          >
             Nuevo proveedor
           </Link>
         </div>
@@ -56,7 +57,6 @@ export default async function NewPurchasePage() {
           areas={areas}
           ivaRate={ctx.company.ivaRate}
           today={todayISO()}
-          paymentMethods={paymentMethods}
         />
       )}
     </div>
