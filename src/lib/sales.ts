@@ -129,13 +129,17 @@ export async function listSales(companyId: string, filters: SaleFilters) {
 
   // Por cobrar = todo lo que no está pagado ni anulado (con signo)
   const porCobrar = (signedTotals["PENDING"] ?? 0) + (signedTotals["PARTIAL"] ?? 0) + (signedTotals["OVERDUE"] ?? 0);
-  const totalSigned = (signedTotals["PENDING"] ?? 0) + (signedTotals["PARTIAL"] ?? 0) + (signedTotals["OVERDUE"] ?? 0) + (signedTotals["PAID"] ?? 0) + (signedTotals["CANCELLED"] ?? 0);
+
+  // Total facturado: solo facturas (INVOICE), no NC. Las NC restan del total.
+  const totalFacturas = items
+    .filter((sale) => sale.documentType === "INVOICE")
+    .reduce((acc, sale) => acc + sale.totalAmount, 0);
 
   return {
     items,
     totals: {
       count: items.length,
-      total: totalSigned,
+      total: totalFacturas,
       paid: signedTotals["PAID"] ?? 0,
       pending: porCobrar,
       partial: signedTotals["PARTIAL"] ?? 0,
