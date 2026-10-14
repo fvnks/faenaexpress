@@ -804,8 +804,10 @@ export type AvailableNote = {
 };
 
 /**
- * Consulta las notas de crédito y débito del RCV del SII para un cliente
- * específico, en un rango de períodos alrededor de la fecha de la factura.
+ * Consulta las notas de crédito y débito disponibles para asociar a una venta
+ * que se está anula. Combina dos fuentes:
+ * 1. NC/ND ya registradas en la BD (importadas previamente desde el SII)
+ * 2. NC/ND del RCV del SII (consulta en tiempo real)
  * Se usa en el modal de cancelación de ventas.
  */
 export async function getAvailableNotesForSale(
@@ -823,8 +825,43 @@ export async function getAvailableNotesForSale(
   const companyRut = ctx.company.rut;
   if (!companyRut) return { notes: [], error: "Configura el RUT de la empresa en Configuración." };
 
-  // Períodos a consultar: el de la factura y los dos siguientes (las NC/ND
-  // pueden emitirse en un período posterior al de la factura original).
+  const notes: AvailableNote[] = [];
+  const seen = new Set<string>();
+
+  // Fuente 1: NC/ND ya registradas en la BD (importadas previamente)
+  const dbNotes = await db.sale.findMany({
+    where: {
+      companyId: ctx.company.id,
+      partnerId: sale.partnerId,
+      documentType: { in: ["CREDIT_NOTE", "DEBIT_NOTE"] },
+    },
+    select: {
+      documentNumber: true,
+      documentType: true,
+      date: true,
+      totalAmount: true,
+    },
+    orderBy: { date: "desc" },
+  });
+
+  for (const note of dbNotes) {
+    if (!note.documentNumber) continue;
+    const tipoDoc = note.documentType === "CREDIT_NOTE" ? 61 : 56;
+    const key = `${tipoDoc}-${note.documentNumber}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    notes.push({
+      folio: note.documentNumber,
+      tipoDoc,
+      tipoDocLabel: note.documentType === "CREDIT_NOTE" ? "Nota de crédito" : "Nota de débito",
+      fecha: note.date.toISOString().split("T")[0],
+      rut: sale.partner.rut ?? "",
+      nombre: sale.partner.name,
+      total: note.totalAmount,
+    });
+  }
+
+  // Fuente 2: NC/ND del RCV del SII (consulta en tiempo real)
   const saleDate = new Date(sale.date);
   const periods: string[] = [];
   for (let i = 0; i <= 2; i++) {
@@ -832,18 +869,12 @@ export async function getAvailableNotesForSale(
     periods.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
 
-  const notes: AvailableNote[] = [];
-  const seen = new Set<string>();
-
   for (const periodo of periods) {
     try {
       const result = await fetchRcvRows({ companyId: ctx.company.id, companyRut, periodo, side: "VENTA" });
       for (const row of result.rows) {
-        // Solo notas de crédito (61) y débito (56)
         if (row.tipoDoc !== 61 && row.tipoDoc !== 56) continue;
-        // Solo del mismo cliente
         if (row.rut !== sale.partner.rut) continue;
-        // No duplicar
         const key = `${row.tipoDoc}-${row.folio}`;
         if (seen.has(key)) continue;
         seen.add(key);
