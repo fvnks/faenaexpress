@@ -242,6 +242,36 @@ export async function createMember(
   return { ok: true };
 }
 
+// Actualiza los umbrales de las alertas automáticas de la empresa activa.
+export async function updateAlertSettings(formData: FormData): Promise<void> {
+  const ctx = await requireContext("configuracion");
+  if (!isAdmin(ctx)) redirect("/dashboard/configuracion");
+
+  const dueSoonDays = Number(formData.get("alertDueSoonDays") ?? "5");
+  const porCobrarRaw = String(formData.get("alertPorCobrarLimit") ?? "").trim();
+  const porPagarRaw = String(formData.get("alertPorPagarLimit") ?? "").trim();
+  const reembRaw = String(formData.get("alertReembolsosLimit") ?? "").trim();
+
+  await db.company.update({
+    where: { id: ctx.company.id },
+    data: {
+      alertDueSoonDays: Number.isFinite(dueSoonDays) ? Math.max(1, Math.round(dueSoonDays)) : 5,
+      alertPorCobrarLimit: porCobrarRaw === "" ? null : Number(porCobrarRaw),
+      alertPorPagarLimit: porPagarRaw === "" ? null : Number(porPagarRaw),
+      alertReembolsosLimit: reembRaw === "" ? null : Number(reembRaw),
+    },
+  });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Company",
+    entityId: ctx.company.id,
+    summary: "Actualizó los umbrales de alertas automáticas.",
+  });
+
+  revalidatePath("/dashboard/configuracion");
+  redirect("/dashboard/configuracion");
+}
 export async function updateMemberRole(
   _prev: MemberFormState,
   formData: FormData,

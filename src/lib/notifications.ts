@@ -1,6 +1,7 @@
 import type { NotificationType } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { daysBetween, formatDate, todayDate } from "@/lib/money";
+import { pendingTotals } from "@/lib/reports";
 
 const DUE_SOON_DAYS = 5;
 const DUE_TYPES: NotificationType[] = [
@@ -9,6 +10,7 @@ const DUE_TYPES: NotificationType[] = [
   "SALE_DUE_SOON",
   "SALE_OVERDUE",
 ];
+const LIMIT_TYPE: NotificationType = "LIMIT_EXCEEDED";
 
 type Alert = {
   type: NotificationType;
@@ -22,6 +24,12 @@ type Alert = {
 // existen (conserva el estado leído) y borra las que dejaron de aplicar.
 export async function syncDueNotifications(companyId: string): Promise<void> {
   const today = todayDate();
+
+  const company = await db.company.findUnique({
+    where: { id: companyId },
+    select: { alertDueSoonDays: true, alertPorCobrarLimit: true, alertPorPagarLimit: true, alertReembolsosLimit: true },
+  });
+  const dueSoonDays = company?.alertDueSoonDays ?? 5;
 
   const [purchases, sales] = await Promise.all([
     db.purchase.findMany({
@@ -53,7 +61,7 @@ export async function syncDueNotifications(companyId: string): Promise<void> {
     if (!row.dueDate) return;
     const days = daysBetween(today, row.dueDate);
     const overdue = days < 0;
-    if (!overdue && days > DUE_SOON_DAYS) return;
+    if (!overdue && days > dueSoonDays) return;
 
     const type = `${kind}_${overdue ? "OVERDUE" : "DUE_SOON"}` as NotificationType;
     const label = kind === "PURCHASE" ? "compra" : "venta";
@@ -91,6 +99,52 @@ export async function syncDueNotifications(companyId: string): Promise<void> {
       companyId,
       type: { in: DUE_TYPES },
       ...(keys.length > 0 ? { dedupeKey: { notIn: keys } } : {}),
+    },
+  });
+
+  // --- Alertas por umbrales configurables -------------------------------
+  const pending = await pendingTotals(companyId);
+  const limitAlerts: Alert[] = [];
+  if (company?.alertPorCobrarLimit && pending.porCobrar > company.alertPorCobrarLimit) {
+    limitAlerts.push({
+      type: LIMIT_TYPE,
+      dedupeKey: "LIMIT:POR_COBRAR",
+      title: "Por cobrar alto",
+      message: `El monto por cobrar (${pending.porCobrar}) supera el límite configurado (${company.alertPorCobrarLimit}).`,
+      href: "/dashboard/reportes",
+    });
+  }
+  if (company?.alertPorPagarLimit && pending.porPagar > company.alertPorPagarLimit) {
+    limitAlerts.push({
+      type: LIMIT_TYPE,
+      dedupeKey: "LIMIT:POR_PAGAR",
+      title: "Por pagar alto",
+      message: `El monto por pagar (${pending.porPagar}) supera el límite configurado (${company.alertPorPagarLimit}).`,
+      href: "/dashboard/reportes",
+    });
+  }
+  if (company?.alertReembolsosLimit && pending.reembolsosPendientes > company.alertReembolsosLimit) {
+    limitAlerts.push({
+      type: LIMIT_TYPE,
+      dedupeKey: "LIMIT:REEMBOLSOS",
+      title: "Reembolsos pendientes altos",
+      message: `Los reembolsos pendientes (${pending.reembolsosPendientes}) superan el límite configurado (${company.alertReembolsosLimit}).`,
+      href: "/dashboard/reportes/pagos",
+    });
+  }
+
+  const limitKeys = limitAlerts.map((a) => a.dedupeKey);
+  if (limitAlerts.length > 0) {
+    await db.notification.createMany({
+      data: limitAlerts.map((alert) => ({ companyId, ...alert })),
+      skipDuplicates: true,
+    });
+  }
+  await db.notification.deleteMany({
+    where: {
+      companyId,
+      type: LIMIT_TYPE,
+      ...(limitKeys.length > 0 ? { dedupeKey: { notIn: limitKeys } } : {}),
     },
   });
 }

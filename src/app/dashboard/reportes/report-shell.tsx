@@ -10,6 +10,8 @@ const reports = [
   { href: "/dashboard/reportes/libro-ventas", label: "Libro de ventas" },
   { href: "/dashboard/reportes/pagos", label: "Pagos y deudas" },
   { href: "/dashboard/reportes/gastos", label: "Gastos por área" },
+  { href: "/dashboard/reportes/ventas-por-vendedor", label: "Ventas por vendedor" },
+  { href: "/dashboard/reportes/ventas-por-cliente", label: "Ventas por cliente" },
 ];
 
 export function ReportNav({ active }: { active: string }) {

@@ -1,4 +1,4 @@
-import { deleteCompany, switchCompany } from "@/app/actions/companies";
+import { deleteCompany, switchCompany, updateAlertSettings } from "@/app/actions/companies";
 import { CompanyForm } from "@/app/dashboard/configuracion/company-form";
 import { AddMemberForm, MemberRow, NewMemberForm } from "@/app/dashboard/configuracion/member-forms";
 import { NewCompanyForm } from "@/app/dashboard/configuracion/new-company-form";
@@ -81,6 +81,60 @@ export default async function ConfigurationPage() {
                 hasCredentials={Boolean(active.company.siiRut && active.company.siiClaveEnc)}
                 keyConfigured={siiSecretKeyConfigured()}
               />
+            </section>
+          ) : null}
+
+          {admin ? (
+            <section className={cardClass + " p-5"}>
+              <h2 className="font-semibold">Alertas automáticas</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Umbrales para disparar notificaciones. Deja vacío para desactivar.
+              </p>
+              <form action={updateAlertSettings} className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs text-muted-foreground">Días para aviso de vencimiento</span>
+                  <input
+                    name="alertDueSoonDays"
+                    type="number"
+                    min={1}
+                    defaultValue={active.company.alertDueSoonDays}
+                    className="rounded-control border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs text-muted-foreground">Límite &quot;por cobrar&quot; (null = desactivado)</span>
+                  <input
+                    name="alertPorCobrarLimit"
+                    type="number"
+                    min={0}
+                    defaultValue={active.company.alertPorCobrarLimit ?? ""}
+                    className="rounded-control border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs text-muted-foreground">Límite &quot;por pagar&quot;</span>
+                  <input
+                    name="alertPorPagarLimit"
+                    type="number"
+                    min={0}
+                    defaultValue={active.company.alertPorPagarLimit ?? ""}
+                    className="rounded-control border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs text-muted-foreground">Límite reembolsos pendientes</span>
+                  <input
+                    name="alertReembolsosLimit"
+                    type="number"
+                    min={0}
+                    defaultValue={active.company.alertReembolsosLimit ?? ""}
+                    className="rounded-control border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  />
+                </label>
+                <button type="submit" className={secondaryButtonClass + " py-1.5 text-sm sm:col-span-2"}>
+                  Guardar umbrales
+                </button>
+              </form>
             </section>
           ) : null}
 

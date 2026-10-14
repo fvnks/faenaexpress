@@ -490,6 +490,50 @@ export async function topClients(companyId: string, period: Period, limit = 5) {
     .slice(0, limit);
 }
 
+// --- Ventas por vendedor (drill-down) ----------------------------------------
+export type SalesByDimension = { id: string | null; name: string; count: number; total: number };
+
+export async function salesBySalesperson(companyId: string, period: Period) {
+  const sales = await db.sale.findMany({
+    where: { companyId, date: { gte: period.from, lt: period.to } },
+    select: { salespersonId: true, totalAmount: true, documentType: true, salesperson: { select: { name: true } } },
+  });
+
+  const map = new Map<string, SalesByDimension>();
+  for (const sale of sales) {
+    const key = sale.salespersonId ?? "__none__";
+    const entry = map.get(key) ?? { id: sale.salespersonId, name: sale.salesperson?.name ?? "Sin vendedor", count: 0, total: 0 };
+    entry.count += 1;
+    entry.total += documentSign(sale.documentType) * sale.totalAmount;
+    map.set(key, entry);
+  }
+
+  const rows = [...map.values()].sort((a, b) => b.total - a.total);
+  const total = rows.reduce((acc, r) => acc + r.total, 0);
+  return { rows, total };
+}
+
+// --- Ventas por cliente (drill-down) ------------------------------------------
+export async function salesByClient(companyId: string, period: Period) {
+  const sales = await db.sale.findMany({
+    where: { companyId, date: { gte: period.from, lt: period.to } },
+    select: { partnerId: true, totalAmount: true, documentType: true, partner: { select: { id: true, name: true } } },
+  });
+
+  const map = new Map<string, SalesByDimension>();
+  for (const sale of sales) {
+    const key = sale.partnerId;
+    const entry = map.get(key) ?? { id: sale.partner.id, name: sale.partner.name, count: 0, total: 0 };
+    entry.count += 1;
+    entry.total += documentSign(sale.documentType) * sale.totalAmount;
+    map.set(key, entry);
+  }
+
+  const rows = [...map.values()].sort((a, b) => b.total - a.total);
+  const total = rows.reduce((acc, r) => acc + r.total, 0);
+  return { rows, total };
+}
+
 // --- Flujo de caja proyectado --------------------------------------------------
 
 export type CashBucket = { key: string; label: string; entradas: number; salidas: number; countEntradas: number; countSalidas: number };

@@ -1,6 +1,6 @@
 import { requireContext } from "@/lib/auth";
 import { formatCLP, formatPeriod, currentPeriod, monthRange } from "@/lib/money";
-import { ivaSummary } from "@/lib/reports";
+import { ivaSummary, libroVentas, libroCompras, expensesBreakdown } from "@/lib/reports";
 import { cardClass } from "@/lib/ui";
 import { PeriodFilter, ReportNav } from "../report-shell";
 
@@ -14,6 +14,16 @@ export default async function IvaReportPage(props: PageProps<"/dashboard/reporte
   const range = monthRange(period) ?? { from: new Date(), to: new Date() };
 
   const iva = await ivaSummary(ctx.company.id, range);
+  const [libroV, libroC, gastos] = await Promise.all([
+    libroVentas(ctx.company.id, range),
+    libroCompras(ctx.company.id, range),
+    expensesBreakdown(ctx.company.id, range),
+  ]);
+
+  const cuadreVentasNeto = iva.sales.net - libroV.totals.net;
+  const cuadreComprasNeto = iva.purchases.net - libroC.totals.net;
+  const cuadreGastosIva = iva.expenses.iva - gastos.total; // no IVA drill available; better 0 placeholder? Need reconsider.
+  const cuadreOk = Math.abs(cuadreVentasNeto) < 1 && Math.abs(cuadreComprasNeto) < 1;
 
   const rows = [
     {
@@ -123,6 +133,33 @@ export default async function IvaReportPage(props: PageProps<"/dashboard/reporte
         El IVA crédito incluye las compras y los gastos registrados con IVA. Si algún gasto no da
         derecho a crédito, ajústalo al declarar.
       </p>
+
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Cuadre libros ↔ IVA</h2>
+        <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div>
+            <dt className="text-sm text-muted-foreground">Diferencia neto ventas</dt>
+            <dd className={"text-lg font-semibold tabular " + (cuadreVentasNeto === 0 ? "text-success" : "text-danger")}>
+              {formatCLP(cuadreVentasNeto)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-muted-foreground">Diferencia neto compras</dt>
+            <dd className={"text-lg font-semibold tabular " + (cuadreComprasNeto === 0 ? "text-success" : "text-danger")}>
+              {formatCLP(cuadreComprasNeto)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-muted-foreground">Estado</dt>
+            <dd className={"text-lg font-semibold " + (cuadreOk ? "text-success" : "text-danger")}>
+              {cuadreOk ? "Cuadrado" : "Descuadre"}
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-2 text-xs text-muted-foreground">
+          El cuadre compara los totales del Libro de ventas y del Libro de compras contra el resumen de IVA del mismo período. Un valor distinto de cero indica documentos sin importar o con diferencia de montos.
+        </p>
+      </section>
     </div>
   );
 }

@@ -103,6 +103,11 @@ model Company {
   ivaRate       Int      @default(19) // porcentaje de IVA
   retentionRate Int      @default(0) // porcentaje de retención de honorarios (boletas)
   currency      String   @default("CLP")
+  // Alertas configurables (notificaciones).
+  alertDueSoonDays     Int    @default(5)
+  alertPorCobrarLimit   Int?   // límite de "por cobrar" para disparar alerta (null = desactivado)
+  alertPorPagarLimit    Int?   // límite de "por pagar"
+  alertReembolsosLimit  Int?   // límite de reembolsos pendientes
 
   // Login automático del SII. `siiClaveEnc` guarda la Clave Tributaria CIFRADA
   // con AES-256-GCM (llave SII_SECRET_KEY); nunca en claro. Ver src/lib/sii-credentials.ts.
@@ -908,6 +913,7 @@ enum NotificationType {
   PURCHASE_OVERDUE
   SALE_DUE_SOON
   SALE_OVERDUE
+  LIMIT_EXCEEDED
 }
 
 model Notification {
