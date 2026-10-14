@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import type { SaleFormState } from "@/app/actions/sales";
 import { AutocompletePartner } from "@/components/autocomplete-partner";
 import { SelectDropdown } from "@/components/select-dropdown";
+import { InlineCreateSelect } from "@/components/inline-create-select";
 import { SubmitButton } from "@/components/submit-button";
 import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
@@ -193,7 +194,8 @@ export function SaleForm({
             <label htmlFor="areaId" className={labelClass}>
               Área <span className="text-muted-foreground">(opcional)</span>
             </label>
-            <SelectDropdown
+            <InlineCreateSelect
+              kind="area"
               id="areaId"
               name="areaId"
               value={defaults?.areaId ?? ""}
@@ -206,7 +208,8 @@ export function SaleForm({
             <label htmlFor="categoryId" className={labelClass}>
               Categoría <span className="text-muted-foreground">(opcional)</span>
             </label>
-            <SelectDropdown
+            <InlineCreateSelect
+              kind="category"
               id="categoryId"
               name="categoryId"
               value={defaults?.categoryId ?? ""}
