@@ -59,15 +59,31 @@ export function diffChanges(
 
 export async function listAuditLogs(
   companyId: string,
-  filters: { entityType?: string; action?: AuditAction; limit?: number } = {},
+  filters: {
+    entityType?: string;
+    action?: AuditAction;
+    from?: Date;
+    to?: Date;
+    limit?: number;
+    offset?: number;
+  } = {},
 ) {
   return db.auditLog.findMany({
     where: {
       companyId,
       entityType: filters.entityType,
       action: filters.action,
+      ...(filters.from || filters.to
+        ? {
+            createdAt: {
+              ...(filters.from ? { gte: filters.from } : {}),
+              ...(filters.to ? { lt: filters.to } : {}),
+            },
+          }
+        : {}),
     },
     orderBy: { createdAt: "desc" },
-    take: filters.limit ?? 100,
+    take: filters.limit ?? 50,
+    skip: filters.offset ?? 0,
   });
 }
