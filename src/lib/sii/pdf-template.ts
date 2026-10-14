@@ -1,7 +1,8 @@
+import type { DocumentType } from "@/generated/prisma/client";
 import { promises as fsp } from "node:fs";
 import { join } from "node:path";
 
-import { formatCLP, formatDate } from "@/lib/money";
+import { formatDate } from "@/lib/money";
 import { documentTypeLabel } from "@/lib/labels";
 
 /**
@@ -82,7 +83,7 @@ const DOC_TYPE_TO_TD: Record<string, string> = {
 
 export async function renderFacturaHtml(data: FacturaPdfData): Promise<string> {
   const lib = await loadPdf417();
-  const tipoDoc = documentTypeLabel(data.documento.documentType as any);
+  const tipoDoc = documentTypeLabel(data.documento.documentType as DocumentType);
   const rutEmisor = data.empresa.rut ?? "";
   const folio = data.documento.documentNumber ?? "";
   const tdCode = DOC_TYPE_TO_TD[data.documento.documentType] ?? "33";

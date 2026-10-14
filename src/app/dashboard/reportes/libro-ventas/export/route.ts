@@ -4,6 +4,7 @@ import { csvResponse, csvDate, toCsv } from "@/lib/csv";
 import { documentTypeLabel } from "@/lib/labels";
 import { currentPeriod, monthRange } from "@/lib/money";
 import { libroVentas } from "@/lib/reports";
+import { documentTypeValues } from "@/lib/validation";
 
 export async function GET(request: Request) {
   const ctx = await requireContext("reportes");
@@ -11,7 +12,10 @@ export async function GET(request: Request) {
   const period = monthRange(raw) ? raw : currentPeriod();
   const range = monthRange(period) ?? { from: new Date(), to: new Date() };
 
-  const { rows } = await libroVentas(ctx.company.id, range);
+  const rawTipo = new URL(request.url).searchParams.get("tipo");
+  const tipo = documentTypeValues.find((v) => v === rawTipo) ?? null;
+
+  const { rows } = await libroVentas(ctx.company.id, range, tipo);
 
   const csv = toCsv(
     [

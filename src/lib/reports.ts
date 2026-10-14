@@ -1,3 +1,4 @@
+import type { DocumentType } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { documentSign, formatPeriod } from "@/lib/money";
 
@@ -78,9 +79,9 @@ export async function ivaSummary(companyId: string, period: Period) {
 
 // --- Libros de compras y ventas ----------------------------------------------
 
-export async function libroCompras(companyId: string, period: Period) {
+export async function libroCompras(companyId: string, period: Period, documentType?: DocumentType | null) {
   const purchases = await db.purchase.findMany({
-    where: { companyId, date: { gte: period.from, lt: period.to } },
+    where: { companyId, date: { gte: period.from, lt: period.to }, ...(documentType ? { documentType } : {}) },
     orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     include: { partner: { select: { name: true, rut: true } }, category: { select: { name: true } } },
   });
@@ -110,9 +111,9 @@ export async function libroCompras(companyId: string, period: Period) {
   return { rows, totals };
 }
 
-export async function libroVentas(companyId: string, period: Period) {
+export async function libroVentas(companyId: string, period: Period, documentType?: DocumentType | null) {
   const sales = await db.sale.findMany({
-    where: { companyId, date: { gte: period.from, lt: period.to } },
+    where: { companyId, date: { gte: period.from, lt: period.to }, ...(documentType ? { documentType } : {}) },
     orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     include: {
       partner: { select: { name: true, rut: true } },

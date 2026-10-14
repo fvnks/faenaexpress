@@ -3,6 +3,7 @@ import { requireContext } from "@/lib/auth";
 import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP, formatDate, formatPeriod, currentPeriod, monthRange } from "@/lib/money";
 import { libroVentas } from "@/lib/reports";
+import { documentTypeValues } from "@/lib/validation";
 import { cardClass } from "@/lib/ui";
 import { PeriodFilter, ReportNav } from "../report-shell";
 
@@ -13,7 +14,10 @@ export default async function LibroVentasPage(props: PageProps<"/dashboard/repor
   const period = raw && monthRange(raw) ? raw : currentPeriod();
   const range = monthRange(period) ?? { from: new Date(), to: new Date() };
 
-  const { rows, totals } = await libroVentas(ctx.company.id, range);
+  const rawTipo = Array.isArray(searchParams.tipo) ? searchParams.tipo[0] : searchParams.tipo;
+  const tipo = documentTypeValues.find((v) => v === rawTipo) ?? null;
+
+  const { rows, totals } = await libroVentas(ctx.company.id, range, tipo);
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,8 +32,31 @@ export default async function LibroVentasPage(props: PageProps<"/dashboard/repor
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PeriodFilter period={period} />
+        <form method="get" className="flex items-end gap-2">
+          <input type="hidden" name="periodo" value={period} />
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Tipo
+            <select
+              name="tipo"
+              defaultValue={tipo ?? ""}
+              className="rounded-control border border-border bg-background px-2 py-1.5 text-sm"
+            >
+              <option value="">Todos</option>
+              {documentTypeValues
+                .filter((v) => v !== "QUOTATION")
+                .map((v) => (
+                  <option key={v} value={v}>
+                    {documentTypeLabel(v as DocumentType)}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <button type="submit" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground">
+            Filtrar
+          </button>
+        </form>
         <a
-          href={`/dashboard/reportes/libro-ventas/export?periodo=${period}`}
+          href={`/dashboard/reportes/libro-ventas/export?periodo=${period}${tipo ? `&tipo=${tipo}` : ""}`}
           className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
         >
           Exportar CSV

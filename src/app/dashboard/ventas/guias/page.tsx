@@ -25,6 +25,9 @@ export default async function GuiasPage() {
             {items.length === 1 ? "guía" : "guías"}.
           </p>
         </div>
+        <Link href="/dashboard/ventas/guias/nueva" className={primaryButtonClass}>
+          Nueva guía
+        </Link>
       </div>
 
       {items.length === 0 ? (

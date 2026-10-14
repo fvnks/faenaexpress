@@ -1,8 +1,10 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { recordAudit } from "@/lib/audit";
+import { setFlash } from "@/lib/flash";
 import { canWrite, requireContext } from "@/lib/auth";
 import {
   closeCommissionMonth,
@@ -349,6 +351,67 @@ export async function registerDispatchGuide(
 
   revalidatePath("/dashboard/comisiones");
   revalidatePath("/dashboard/comisiones/asignaciones");
+  return { ok: true, guideId: guide.id, message: `Guía N° ${guideNumber} registrada.` };
+}
+
+export async function registerGuideFromVentas(
+  _prev: RegisterDispatchGuideState,
+  formData: FormData,
+): Promise<RegisterDispatchGuideState> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) return { error: "No tienes permiso." };
+
+  // reuse same logic by delegating: convert and call registerDispatchGuide is not possible
+  // because context differs. Duplicate minimal logic.
+  const guideNumber = String(formData.get("guideNumber") ?? "").trim();
+  const partnerId = String(formData.get("partnerId") ?? "").trim();
+  const salespersonId = String(formData.get("salespersonId") ?? "").trim();
+  const dateRaw = String(formData.get("date") ?? "").trim();
+  const netAmount = parseInt(String(formData.get("netAmount") ?? ""), 10);
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  if (!guideNumber) return { error: "Indica el número de guía." };
+  if (!partnerId) return { error: "Selecciona el cliente." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) return { error: "Fecha inválida. Usa AAAA-MM-DD." };
+  if (!Number.isFinite(netAmount) || netAmount <= 0) return { error: "El neto debe ser un número positivo." };
+
+  const date = new Date(dateRaw + "T00:00:00Z");
+  const existing = await db.dispatchGuide.findFirst({ where: { companyId: ctx.company.id, guideNumber }, select: { id: true } });
+  if (existing) return { error: `Ya existe una guía con número «${guideNumber}».` };
+
+  const partner = await db.partner.findFirst({ where: { id: partnerId, companyId: ctx.company.id }, select: { id: true, name: true } });
+  if (!partner) return { error: "Cliente no encontrado." };
+
+  let vendedorNombre: string | null = null;
+  if (salespersonId) {
+    const salesperson = await db.salesperson.findFirst({ where: { id: salespersonId, companyId: ctx.company.id }, select: { id: true, name: true } });
+    if (!salesperson) return { error: "Vendedor no encontrado." };
+    vendedorNombre = salesperson.name;
+  }
+
+  const guide = await db.dispatchGuide.create({
+    data: {
+      companyId: ctx.company.id,
+      guideNumber,
+      date,
+      partnerId,
+      salespersonId: salespersonId || null,
+      netAmount,
+      note,
+      createdById: ctx.user.id,
+    },
+  });
+
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "DispatchGuide",
+    entityId: guide.id,
+    summary: `Registró la guía N° ${guideNumber} de ${partner.name}${vendedorNombre ? ` por ${vendedorNombre}` : ""}.`,
+  });
+
+  await setFlash("success", "Guía registrada", `N° ${guideNumber}`);
+  revalidatePath("/dashboard/ventas/guias");
+  redirect("/dashboard/ventas/guias");
   return { ok: true, guideId: guide.id, message: `Guía N° ${guideNumber} registrada.` };
 }
 
