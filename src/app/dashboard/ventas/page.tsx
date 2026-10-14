@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DateRangeFilter } from "@/components/date-range-filter";
+import { FilterPersist } from "@/components/filter-persist";
 import { SelectDropdown } from "@/components/select-dropdown";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { canWrite, requireContext } from "@/lib/auth";
@@ -44,14 +45,16 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
   const writable = canWrite(ctx, "ventas");
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Ventas</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Facturas emitidas a clientes, con su estado de cobro.
-          </p>
-        </div>
+    <>
+      <FilterPersist router="/dashboard/ventas" />
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Ventas</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Facturas emitidas a clientes, con su estado de cobro.
+            </p>
+          </div>
         {writable ? (
           <div className="flex flex-wrap gap-2">
             {canWrite(ctx, "importar") ? (
@@ -218,8 +221,9 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
           ) : null}
         </div>
       ) : (
-        <SalesTable items={items} writable={writable} />
+        <SalesTable items={items} writable={writable} salespeople={salespeople} />
       )}
-    </div>
+      </div>
+    </>
   );
 }

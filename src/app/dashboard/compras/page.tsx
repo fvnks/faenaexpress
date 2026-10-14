@@ -4,6 +4,7 @@ import { bulkSetPurchaseStatus, deletePurchase } from "@/app/actions/purchases";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { DateRangeFilter } from "@/components/date-range-filter";
+import { FilterPersist } from "@/components/filter-persist";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
 import { SelectDropdown } from "@/components/select-dropdown";
 import { SubmitButton } from "@/components/submit-button";
@@ -45,14 +46,16 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
   const writable = canWrite(ctx, "compras");
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Compras</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Facturas y boletas de proveedores, con su estado de pago.
-          </p>
-        </div>
+    <>
+      <FilterPersist router="/dashboard/compras" />
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Compras</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Facturas y boletas de proveedores, con su estado de pago.
+            </p>
+          </div>
         {writable ? (
           <div className="flex flex-wrap gap-2">
             {canWrite(ctx, "importar") ? (
@@ -298,6 +301,7 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
           </div>
         </form>
       )}
-    </div>
+      </div>
+    </>
   );
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
-import { bulkSetSaleStatus, deleteSale, markSalePaid } from "@/app/actions/sales";
+import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid } from "@/app/actions/sales";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
@@ -33,9 +33,10 @@ type SaleItem = {
 type Props = {
   items: SaleItem[];
   writable: boolean;
+  salespeople: { id: string; name: string }[];
 };
 
-export function SalesTable({ items, writable }: Props) {
+export function SalesTable({ items, writable, salespeople }: Props) {
   const [cancelModalSaleId, setCancelModalSaleId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const cancelSaleItem = cancelModalSaleId ? items.find((s) => s.id === cancelModalSaleId) : null;
@@ -96,6 +97,48 @@ export function SalesTable({ items, writable }: Props) {
                 Marcar anuladas
               </button>
             </div>
+          </div>
+        ) : null}
+        {writable && salespeople.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="asignar-vendedor" className="text-xs text-muted-foreground">
+                Asignar vendedor a seleccionadas
+              </label>
+              <select
+                id="asignar-vendedor"
+                name="salespersonId"
+                defaultValue=""
+                className="rounded-md border border-border bg-transparent px-3 py-1.5 text-sm"
+              >
+                <option value="">Seleccionar vendedor…</option>
+                {salespeople.map((sp) => (
+                  <option key={sp.id} value={sp.id}>
+                    {sp.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="ids"]:checked');
+                if (checkboxes.length === 0) return;
+                const ids = Array.from(checkboxes).map((c) => c.value).join(",");
+                const select = document.getElementById("asignar-vendedor") as HTMLSelectElement;
+                const salespersonId = select?.value ?? "";
+                if (!salespersonId) return;
+                const formData = new FormData();
+                formData.set("ids", ids);
+                formData.set("salespersonId", salespersonId);
+                startTransition(async () => {
+                  await bulkAssignSalesperson(formData);
+                });
+              }}
+              className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+            >
+              Asignar
+            </button>
           </div>
         ) : null}
         <div className="overflow-x-auto">

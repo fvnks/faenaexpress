@@ -260,6 +260,63 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
 }
 
 /**
+ * Asigna un vendedor a todas las ventas seleccionadas (masivo).
+ * No borra la información existente: solo actualiza salespersonId.
+ */
+export async function bulkAssignSalesperson(formData: FormData): Promise<void> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+
+  const ids = String(formData.get("ids") ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const salespersonId = String(formData.get("salespersonId") ?? "").trim();
+
+  if (ids.length === 0) {
+    await setFlash("error", "No hay ventas seleccionadas.", "Selecciona al menos una venta.");
+    redirect("/dashboard/ventas");
+  }
+  if (!salespersonId) {
+    await setFlash("error", "Debes seleccionar un vendedor.");
+    redirect("/dashboard/ventas");
+  }
+
+  // Validar que el vendedor pertenece a la empresa
+  const salesperson = await db.salesperson.findFirst({
+    where: { id: salespersonId, companyId: ctx.company.id },
+  });
+  if (!salesperson) {
+    await setFlash("error", "Vendedor no encontrado.");
+    redirect("/dashboard/ventas");
+  }
+
+  const result = await db.sale.updateMany({
+    where: { id: { in: ids }, companyId: ctx.company.id },
+    data: { salespersonId },
+  });
+
+  if (result.count > 0) {
+    await recordAudit(ctx, {
+      action: "UPDATE",
+      entityType: "Sale",
+      entityId: "bulk",
+      summary: `Asignó vendedor ${salesperson.name} a ${result.count} ${result.count === 1 ? "venta" : "ventas"}.`,
+    });
+    await setFlash(
+      "success",
+      `${result.count} ${result.count === 1 ? "venta actualizada" : "ventas actualizadas"}`,
+      `Vendedor asignado: ${salesperson.name}.`,
+    );
+  } else {
+    await setFlash("error", "Ninguna venta fue actualizada.", "Las ventas ya tenían ese vendedor o no existen.");
+  }
+
+  revalidatePath("/dashboard/ventas");
+  redirect("/dashboard/ventas");
+}
+
+/**
  * Anula una venta asociándola a una nota de crédito/débito del SII o a una razón.
  * Se usa desde el modal de cancelación.
  */
