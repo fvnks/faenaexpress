@@ -30,6 +30,15 @@ export default async function CashFlowPage() {
 
       <ReportNav active="/dashboard/reportes/caja" />
 
+      <div className="flex justify-end">
+        <a
+          href="/dashboard/reportes/caja/export"
+          className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
+        >
+          Exportar Excel
+        </a>
+      </div>
+
       <section aria-labelledby="caja-kpis">
         <h2 id="caja-kpis" className="text-sm font-semibold text-muted-foreground">
           Totales pendientes

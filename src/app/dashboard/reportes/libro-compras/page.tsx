@@ -59,7 +59,7 @@ export default async function LibroComprasPage(props: PageProps<"/dashboard/repo
           href={`/dashboard/reportes/libro-compras/export?periodo=${period}${tipo ? `&tipo=${tipo}` : ""}`}
           className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
         >
-          Exportar CSV
+          Exportar Excel
         </a>
       </div>
 

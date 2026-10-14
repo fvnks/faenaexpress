@@ -42,7 +42,7 @@ export default async function ReportsPage() {
           href={`/dashboard/reportes/export?periodo=${period}`}
           className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
         >
-          Exportar resumen (CSV)
+          Exportar resumen (Excel)
         </a>
       </div>
 

@@ -64,7 +64,7 @@ export default async function IvaReportPage(props: PageProps<"/dashboard/reporte
           href={`/dashboard/reportes/iva/export?periodo=${period}`}
           className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
         >
-          Exportar CSV
+          Exportar Excel
         </a>
       </div>
 

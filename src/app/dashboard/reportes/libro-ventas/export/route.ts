@@ -1,10 +1,12 @@
 import type { DocumentType } from "@/generated/prisma/client";
+
 import { requireContext } from "@/lib/auth";
-import { csvResponse, csvDate, toCsv } from "@/lib/csv";
 import { documentTypeLabel } from "@/lib/labels";
-import { currentPeriod, monthRange } from "@/lib/money";
+import { csvDate } from "@/lib/csv";
+import { currentPeriod, formatPeriod, monthRange } from "@/lib/money";
 import { libroVentas } from "@/lib/reports";
 import { documentTypeValues } from "@/lib/validation";
+import { createWorkbook, addStyledSheet, xlsxResponse } from "@/lib/xlsx";
 
 export async function GET(request: Request) {
   const ctx = await requireContext("reportes");
@@ -13,25 +15,29 @@ export async function GET(request: Request) {
   const range = monthRange(period) ?? { from: new Date(), to: new Date() };
 
   const rawTipo = new URL(request.url).searchParams.get("tipo");
-  const tipo = documentTypeValues.find((v) => v === rawTipo) ?? null;
+  const tipo = documentTypeValues.find((value) => value === rawTipo) ?? null;
 
-  const { rows } = await libroVentas(ctx.company.id, range, tipo);
+  const { rows, totals } = await libroVentas(ctx.company.id, range, tipo);
 
-  const csv = toCsv(
-    [
-      "Fecha",
-      "Tipo",
-      "Folio",
-      "Folio referencia",
-      "RUT",
-      "Cliente",
-      "Vendedor",
-      "Neto",
-      "IVA",
-      "Total",
-      "Retención",
+  const workbook = createWorkbook("Libro de ventas");
+
+  addStyledSheet(workbook, "Libro de ventas", {
+    title: `${ctx.company.name} - Libro de ventas`,
+    subtitle: `${formatPeriod(period)}${tipo ? ` · Tipo: ${documentTypeLabel(tipo as DocumentType)}` : ""} · CLP`,
+    columns: [
+      { header: "Fecha", width: 12, style: "text" },
+      { header: "Tipo", width: 22, style: "text" },
+      { header: "Folio", width: 12, style: "text" },
+      { header: "Folio referencia", width: 16, style: "text" },
+      { header: "RUT", width: 14, style: "text" },
+      { header: "Cliente", width: 34, style: "text" },
+      { header: "Vendedor", width: 22, style: "text" },
+      { header: "Neto", width: 14, style: "currency" },
+      { header: "IVA", width: 14, style: "currency" },
+      { header: "Total", width: 14, style: "currency" },
+      { header: "Retención", width: 14, style: "currency" },
     ],
-    rows.map((row) => [
+    rows: rows.map((row) => [
       csvDate(row.date),
       documentTypeLabel(row.documentType as DocumentType),
       row.documentNumber ?? "",
@@ -44,7 +50,20 @@ export async function GET(request: Request) {
       row.total,
       row.retention,
     ]),
-  );
+    totalRow: [
+      "",
+      "Totales",
+      "",
+      "",
+      "",
+      `${rows.length} documentos`,
+      "",
+      totals.net,
+      totals.iva,
+      totals.total,
+      totals.retention,
+    ],
+  });
 
-  return csvResponse(`libro-ventas-${period}.csv`, csv);
+  return xlsxResponse(`libro-ventas-${period}.xlsx`, workbook);
 }

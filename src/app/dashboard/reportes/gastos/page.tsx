@@ -80,7 +80,15 @@ export default async function ExpensesReportPage(props: PageProps<"/dashboard/re
 
       <ReportNav active="/dashboard/reportes/gastos" />
 
-      <PeriodFilter period={period} />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <PeriodFilter period={period} />
+        <a
+          href={`/dashboard/reportes/gastos/export?periodo=${period}`}
+          className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
+        >
+          Exportar Excel
+        </a>
+      </div>
 
       <section className={cardClass + " p-5"}>
         <div className="text-sm text-muted-foreground">Total del período</div>
