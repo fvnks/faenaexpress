@@ -379,7 +379,7 @@ export async function purchasesBreakdown(companyId: string, period: Period) {
 // --- KPIs del panel ----------------------------------------------------------
 
 export async function pendingTotals(companyId: string) {
-  const [purchases, sales] = await Promise.all([
+  const [purchases, sales, expenses] = await Promise.all([
     db.purchase.findMany({
       where: { companyId, status: "PENDING" },
       select: { documentType: true, totalAmount: true },
@@ -388,11 +388,16 @@ export async function pendingTotals(companyId: string) {
       where: { companyId, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
       select: { documentType: true, totalAmount: true },
     }),
+    db.expense.aggregate({
+      where: { companyId, reimbursed: false },
+      _sum: { totalAmount: true },
+    }),
   ]);
 
   return {
     porPagar: sumAmounts(purchases),
     porCobrar: sumAmounts(sales),
+    reembolsosPendientes: expenses._sum.totalAmount ?? 0,
   };
 }
 
