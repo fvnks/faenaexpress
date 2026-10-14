@@ -20,18 +20,31 @@ export type DtePreviewRow = {
   folio: string;
   fecha: string;
   vencimiento: string | null;
+  formaPago: string | null;
+  terminoPago: string | null;
   rut: string;
   cliente: string;
   giro: string | null;
   direccion: string | null;
   comuna: string | null;
+  ciudad: string | null;
+  telefono: string | null;
+  email: string | null;
   neto: number;
+  exento: number;
   iva: number;
+  ivaRecargo: number;
   total: number;
+  tasaIVA: number | null;
   descripcion: string | null;
   ordenCompra: string | null;
   guiaDespacho: string | null;
-  terminoPago: string | null;
+  hesNumber: string | null;
+  facturaOriginal: string | null;
+  tipoDocRefOriginal: string | null;
+  fechaRecepcion: string | null;
+  estadoReceptor: string | null;
+  montoExe: number;
   estado: DteEstado;
   mensaje: string | null;
 };
@@ -153,19 +166,32 @@ function rowBase(doc: DteDocumento) {
     folio: doc.folio,
     fecha: doc.fecha,
     vencimiento: doc.vencimiento,
+    formaPago: doc.formaPago,
+    terminoPago: doc.terminoPago,
     rut: doc.rutReceptor,
     cliente: doc.razonSocialReceptor,
     giro: doc.giroReceptor,
     direccion: doc.direccionReceptor,
     comuna: doc.comunaReceptor,
+    ciudad: doc.ciudadReceptor,
+    telefono: doc.telefonoReceptor,
+    email: doc.emailReceptor,
     neto: doc.neto,
+    exento: doc.exento,
     iva: doc.iva,
+    ivaRecargo: doc.ivaRecargo,
     total: doc.total,
+    tasaIVA: doc.tasaIVA,
     descripcion: doc.descripcion,
     itemsDetalle: doc.itemsDetalle ?? null,
     ordenCompra: doc.ordenCompra,
     guiaDespacho: doc.guiaDespacho,
-    terminoPago: doc.terminoPago,
+    hesNumber: doc.hesNumber,
+    facturaOriginal: doc.facturaOriginal,
+    tipoDocRefOriginal: doc.tipoDocRefOriginal,
+    fechaRecepcion: doc.fechaRecepcion,
+    estadoReceptor: doc.estadoReceptor,
+    montoExe: doc.montoExe,
   };
 }
 
@@ -174,19 +200,32 @@ type PayloadDoc = {
   folio: string;
   fecha: string;
   vencimiento: string | null;
+  formaPago: string | null;
+  terminoPago: string | null;
   rut: string;
   cliente: string;
   giro: string | null;
   direccion: string | null;
   comuna: string | null;
+  ciudad: string | null;
+  telefono: string | null;
+  email: string | null;
   neto: number;
+  exento: number;
   iva: number;
+  ivaRecargo: number;
   total: number;
+  tasaIVA: number | null;
   descripcion: string | null;
   itemsDetalle: { nombre: string; cantidad: string; precio: number; monto: number }[] | null;
   ordenCompra: string | null;
   guiaDespacho: string | null;
-  terminoPago: string | null;
+  hesNumber: string | null;
+  facturaOriginal: string | null;
+  tipoDocRefOriginal: string | null;
+  fechaRecepcion: string | null;
+  estadoReceptor: string | null;
+  montoExe: number;
 };
 
 /**
@@ -315,6 +354,8 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
       const fecha = dteDate(String(doc.fecha));
       const venc = doc.vencimiento && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.vencimiento)) ? dteDate(String(doc.vencimiento)) : null;
 
+      const fechaRecepcion = doc.fechaRecepcion && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.fechaRecepcion)) ? dteDate(String(doc.fechaRecepcion)) : null;
+
       const sale = await db.sale.create({
         data: {
           companyId: ctx.company.id,
@@ -326,12 +367,23 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
           dueDate: venc,
           purchaseOrder: doc.ordenCompra ? String(doc.ordenCompra).slice(0, 80) : null,
           dispatchGuide: doc.guiaDespacho ? String(doc.guiaDespacho).slice(0, 80) : null,
+          hesNumber: doc.hesNumber ? String(doc.hesNumber).slice(0, 80) : null,
+          facturaOriginal: doc.facturaOriginal ? String(doc.facturaOriginal).slice(0, 60) : null,
+          tipoDocRefOriginal: doc.tipoDocRefOriginal ? String(doc.tipoDocRefOriginal).slice(0, 10) : null,
+          fechaRecepcion,
+          estadoReceptor: doc.estadoReceptor ? String(doc.estadoReceptor).slice(0, 30) : null,
           description: doc.descripcion ? String(doc.descripcion).slice(0, 200) : null,
           xmlContent: (formData.get("xmlContent") as string) || null,
           netAmount: Math.max(0, Math.round(Number(doc.neto) || 0)),
           ivaAmount: Math.max(0, Math.round(Number(doc.iva) || 0)),
+          exento: Math.max(0, Math.round(Number(doc.exento) || 0)),
+          ivaRecargo: Math.max(0, Math.round(Number(doc.ivaRecargo) || 0)),
           totalAmount: Math.max(0, Math.round(Number(doc.total) || 0)),
-          notes: doc.terminoPago ? String(doc.terminoPago).slice(0, 200) : null,
+          tasaIVA: doc.tasaIVA ? Number(doc.tasaIVA) : null,
+          notes: [doc.terminoPago, doc.formaPago ? `Forma pago: ${doc.formaPago}` : null, doc.estadoReceptor ? `Estado receptor: ${doc.estadoReceptor}` : null]
+            .filter(Boolean)
+            .join(" · ")
+            .slice(0, 500),
           status: "PENDING",
         },
       });
@@ -387,16 +439,32 @@ type PurchaseXmlPayload = {
   folio: string;
   fecha: string;
   vencimiento: string | null;
+  formaPago: string | null;
+  terminoPago: string | null;
   rut: string; // RUT del proveedor (emisor)
   cliente: string; // Razón social del proveedor
+  giro: string | null;
+  direccion: string | null;
+  comuna: string | null;
+  ciudad: string | null;
+  telefono: string | null;
+  email: string | null;
   neto: number;
+  exento: number;
   iva: number;
+  ivaRecargo: number;
   total: number;
+  tasaIVA: number | null;
   descripcion: string | null;
   itemsDetalle: { nombre: string; cantidad: string; precio: number; monto: number }[] | null;
   ordenCompra: string | null;
   guiaDespacho: string | null;
-  terminoPago: string | null;
+  hesNumber: string | null;
+  facturaOriginal: string | null;
+  tipoDocRefOriginal: string | null;
+  fechaRecepcion: string | null;
+  estadoReceptor: string | null;
+  montoExe: number;
 };
 
 /** Analiza un XML de proveedor y arma la vista previa para importar compras. */
@@ -561,6 +629,8 @@ export async function confirmPurchaseXml(
         ? new Date(`${String(doc.vencimiento)}T00:00:00.000Z`)
         : null;
 
+      const fechaRecepcion = doc.fechaRecepcion && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.fechaRecepcion)) ? dteDate(String(doc.fechaRecepcion)) : null;
+
       const purchase = await db.purchase.create({
         data: {
           companyId: ctx.company.id,
@@ -570,12 +640,26 @@ export async function confirmPurchaseXml(
           documentNumber: folio,
           date: fecha,
           dueDate: venc,
+          purchaseOrder: doc.ordenCompra ? String(doc.ordenCompra).slice(0, 80) : null,
+          dispatchGuide: doc.guiaDespacho ? String(doc.guiaDespacho).slice(0, 80) : null,
+          hesNumber: doc.hesNumber ? String(doc.hesNumber).slice(0, 80) : null,
+          facturaOriginal: doc.facturaOriginal ? String(doc.facturaOriginal).slice(0, 60) : null,
+          tipoDocRefOriginal: doc.tipoDocRefOriginal ? String(doc.tipoDocRefOriginal).slice(0, 10) : null,
+          fechaRecepcion,
+          estadoReceptor: doc.estadoReceptor ? String(doc.estadoReceptor).slice(0, 30) : null,
           description: doc.descripcion ? String(doc.descripcion).slice(0, 200) : null,
           xmlContent,
           netAmount: Math.max(0, Math.round(Number(doc.neto) || 0)),
           ivaAmount: Math.max(0, Math.round(Number(doc.iva) || 0)),
+          exento: Math.max(0, Math.round(Number(doc.exento) || 0)),
+          ivaRecargo: Math.max(0, Math.round(Number(doc.ivaRecargo) || 0)),
           totalAmount: Math.max(0, Math.round(Number(doc.total) || 0)),
-          notes: doc.terminoPago ? String(doc.terminoPago).slice(0, 200) : null,
+          tasaIVA: doc.tasaIVA ? Number(doc.tasaIVA) : null,
+          formaPago: doc.formaPago || null,
+          notes: [doc.terminoPago, doc.formaPago ? `Forma pago: ${doc.formaPago}` : null, doc.estadoReceptor ? `Estado receptor: ${doc.estadoReceptor}` : null]
+            .filter(Boolean)
+            .join(" · ")
+            .slice(0, 500),
           status: "PENDING",
         },
       });

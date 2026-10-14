@@ -594,11 +594,22 @@ model Purchase {
   documentType         DocumentType   @default(INVOICE)
   documentNumber       String?
   referenceDocumentNumber String? // folio del documento original en notas de crédito/débito
+  purchaseOrder        String?
+  dispatchGuide        String?
+  hesNumber            String?
+  facturaOriginal      String? // folio del documento original (notas)
+  tipoDocRefOriginal   String? // tipo de documento original (33/34)
+  fechaRecepcion       DateTime? // fecha de recepción del SII
+  estadoReceptor       String? // estado del receptor en el SII (A/R)
   description          String?
   xmlContent           String? // XML DTE original: el PDF lo parsea al vuelo
   netAmount            Int
   ivaAmount            Int            @default(0)
+  exento               Int            @default(0) // monto exento del XML
+  ivaRecargo           Int            @default(0) // IVA recargo del XML
   totalAmount          Int
+  tasaIVA              Float? // tasa de IVA del XML (ej: 19)
+  formaPago            String? // CONTADO | CRÉDITO | SIN COSTO
   status               PaymentStatus  @default(PENDING)
   paymentDate          DateTime?
   paymentMethod        PaymentMethod?
@@ -643,6 +654,16 @@ model Sale {
   ivaAmount            Int            @default(0)
   totalAmount          Int
   retentionAmount      Int            @default(0)
+
+  // Campos adicionales del XML DTE para mejor identificación y registro
+  formaPago            String? // CONTADO | CRÉDITO | SIN COSTO
+  exento               Int            @default(0) // monto exento del XML
+  ivaRecargo           Int            @default(0) // IVA recargo del XML
+  tasaIVA              Float? // tasa de IVA del XML (ej: 19)
+  facturaOriginal      String? // folio del documento original (notas)
+  tipoDocRefOriginal   String? // tipo de documento original (33/34)
+  fechaRecepcion       DateTime? // fecha de recepción del SII
+  estadoReceptor       String? // estado del receptor en el SII (A/R)
   status               SaleStatus     @default(PENDING)
   paymentDate          DateTime?
   paymentMethod        PaymentMethod?
