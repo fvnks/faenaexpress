@@ -114,23 +114,16 @@ export async function listSales(companyId: string, filters: SaleFilters) {
   const overdue = Number(grouped.find((group) => group.status === "OVERDUE")?._sum.totalAmount ?? 0);
   const cancelled = Number(grouped.find((group) => group.status === "CANCELLED")?._sum.totalAmount ?? 0);
 
-  // Totales con signo: las notas de crédito restan, las facturas suman.
-  // Esto es importante porque una NC puede tener status PENDING y no debe
-  // sumarse al "por cobrar".
-  const signedTotals = items.reduce(
-    (acc, sale) => {
-      const sign = documentSign(sale.documentType);
-      const amount = sign * sale.totalAmount;
-      acc[sale.status as SaleStatus] = (acc[sale.status as SaleStatus] ?? 0) + amount;
-      return acc;
-    },
-    {} as Record<string, number>,
+  // Por cobrar: solo facturas (INVOICE), no NC. Las NC no representan
+  // dinero por cobrar, son abonos. Se calculan separando por tipo de documento.
+  const facturasPendientes = items.filter(
+    (sale) =>
+      sale.documentType === "INVOICE" &&
+      (sale.status === "PENDING" || sale.status === "PARTIAL" || sale.status === "OVERDUE"),
   );
+  const porCobrar = facturasPendientes.reduce((acc, sale) => acc + sale.totalAmount, 0);
 
-  // Por cobrar = todo lo que no está pagado ni anulado (con signo)
-  const porCobrar = (signedTotals["PENDING"] ?? 0) + (signedTotals["PARTIAL"] ?? 0) + (signedTotals["OVERDUE"] ?? 0);
-
-  // Total facturado: solo facturas (INVOICE), no NC. Las NC restan del total.
+  // Total facturado: solo facturas (INVOICE), no NC.
   const totalFacturas = items
     .filter((sale) => sale.documentType === "INVOICE")
     .reduce((acc, sale) => acc + sale.totalAmount, 0);
@@ -140,11 +133,11 @@ export async function listSales(companyId: string, filters: SaleFilters) {
     totals: {
       count: items.length,
       total: totalFacturas,
-      paid: signedTotals["PAID"] ?? 0,
+      paid,
       pending: porCobrar,
-      partial: signedTotals["PARTIAL"] ?? 0,
-      overdue: signedTotals["OVERDUE"] ?? 0,
-      cancelled: signedTotals["CANCELLED"] ?? 0,
+      partial,
+      overdue,
+      cancelled,
     },
   };
 }
