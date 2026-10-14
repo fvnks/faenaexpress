@@ -113,9 +113,20 @@ export async function listSales(companyId: string, filters: SaleFilters) {
   const overdue = Number(grouped.find((group) => group.status === "OVERDUE")?._sum.totalAmount ?? 0);
   const cancelled = Number(grouped.find((group) => group.status === "CANCELLED")?._sum.totalAmount ?? 0);
 
+  // Por cobrar = todo lo que no está pagado ni anulado
+  const porCobrar = pending + partial + overdue;
+
   return {
     items,
-    totals: { count: items.length, total: paid + pending + partial + overdue + cancelled, paid, pending, partial, overdue, cancelled },
+    totals: {
+      count: items.length,
+      total: paid + pending + partial + overdue + cancelled,
+      paid,
+      pending: porCobrar,
+      partial,
+      overdue,
+      cancelled,
+    },
   };
 }
 

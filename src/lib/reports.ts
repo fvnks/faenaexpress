@@ -385,7 +385,7 @@ export async function pendingTotals(companyId: string) {
       select: { documentType: true, totalAmount: true },
     }),
     db.sale.findMany({
-      where: { companyId, status: "PENDING" },
+      where: { companyId, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
       select: { documentType: true, totalAmount: true },
     }),
     db.expense.aggregate({
@@ -404,7 +404,9 @@ export async function pendingTotals(companyId: string) {
 // Conteo de ventas por cobrar para el badge del sidebar (solo ventas:
 // las compras no llevan número, por decisión de producto).
 export async function pendingCounts(companyId: string) {
-  const sales = await db.sale.count({ where: { companyId, status: "PENDING" } });
+  const sales = await db.sale.count({
+    where: { companyId, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
+  });
   return { sales };
 }
 
@@ -505,7 +507,7 @@ export async function cashFlowProjection(companyId: string) {
 
   const [ventas, compras] = await Promise.all([
     db.sale.findMany({
-      where: { companyId, status: "PENDING" },
+      where: { companyId, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
       select: { documentType: true, totalAmount: true, dueDate: true, date: true },
     }),
     db.purchase.findMany({
