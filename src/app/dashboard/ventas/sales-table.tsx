@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
-import { bulkSetSaleStatus, deleteSale } from "@/app/actions/sales";
+import { bulkSetSaleStatus, deleteSale, markSalePaid } from "@/app/actions/sales";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
@@ -25,6 +25,7 @@ type SaleItem = {
   cancellationNoteNumber: string | null;
   cancellationType: string | null;
   cancellationReason: string | null;
+  companyId: string;
 };
 
 type Props = {
@@ -34,6 +35,7 @@ type Props = {
 
 export function SalesTable({ items, writable }: Props) {
   const [cancelModalSaleId, setCancelModalSaleId] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
   const cancelSaleItem = cancelModalSaleId ? items.find((s) => s.id === cancelModalSaleId) : null;
 
   return (
@@ -161,9 +163,21 @@ export function SalesTable({ items, writable }: Props) {
                       <ActionsDropdown
                         editHref={`/dashboard/ventas/${sale.id}/editar`}
                         pdfHref={`/dashboard/ventas/${sale.id}/pdf`}
+                        printHref={`/dashboard/ventas/${sale.id}/print`}
                         deleteAction={deleteSale}
                         deleteId={sale.id}
                         deleteMessage="¿Eliminar esta venta? Esta acción no se puede deshacer."
+                        onMarkPaid={() => {
+                          const formData = new FormData();
+                          formData.set("id", sale.id);
+                          formData.set("status", "PAID");
+                          startTransition(async () => {
+                            await markSalePaid(formData);
+                          });
+                        }}
+                        onCancel={() => {
+                          setCancelModalSaleId(sale.id);
+                        }}
                       />
                     </td>
                   ) : null}

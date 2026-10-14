@@ -40,32 +40,63 @@ function PdfIcon() {
   );
 }
 
+function PrintIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+    </svg>
+  );
+}
+
 /**
- * Menú de acciones (⋮) con opciones de editar, descargar PDF y eliminar.
+ * Menú de acciones (⋮) para facturas de venta.
+ * Incluye: editar, PDF, imprimir, marcar como cobrado, anular y eliminar.
  */
 export function ActionsDropdown({
   editHref,
   pdfHref,
+  printHref,
   deleteAction,
   deleteId,
   deleteMessage,
+  onMarkPaid,
+  onCancel,
 }: {
   editHref: string;
   pdfHref?: string;
+  printHref?: string;
   deleteAction: (formData: FormData) => Promise<void>;
   deleteId: string;
   deleteMessage: string;
+  onMarkPaid?: () => void;
+  onCancel?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Las tablas tienen scroll horizontal: un dropdown absolute queda recortado
-  // por el contenedor. Se posiciona fixed respecto al viewport, alineado a la
-  // derecha del botón y con clamp para no salirse de la pantalla. Si no hay
-  // espacio debajo (última fila), se abre hacia arriba.
-  const MENU_HEIGHT = 150;
+  const MENU_HEIGHT = 220;
 
   const openMenu = () => {
     if (open) {
@@ -153,6 +184,53 @@ export function ActionsDropdown({
                   <PdfIcon />
                   Descargar PDF
                 </a>
+              </li>
+            ) : null}
+            {printHref ? (
+              <li>
+                <Link
+                  href={printHref}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 rounded-control px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-background"
+                >
+                  <PrintIcon />
+                  Imprimir
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+          <div className="mx-1 my-1 border-t border-border" />
+          <ul className="flex flex-col">
+            {onMarkPaid ? (
+              <li>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    setOpen(false);
+                    onMarkPaid();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-success transition-colors hover:bg-success-soft"
+                >
+                  <CheckIcon />
+                  Marcar como cobrado
+                </button>
+              </li>
+            ) : null}
+            {onCancel ? (
+              <li>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    setOpen(false);
+                    onCancel();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-warning transition-colors hover:bg-warning-soft"
+                >
+                  <XIcon />
+                  Anular
+                </button>
               </li>
             ) : null}
           </ul>
