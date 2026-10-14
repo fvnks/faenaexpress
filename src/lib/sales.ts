@@ -1,5 +1,6 @@
 import type { DocumentType, SaleStatus, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { documentSign } from "@/lib/money";
 import { toISODate } from "@/lib/money";
 import { documentTypeValues } from "@/lib/validation";
 
@@ -113,19 +114,33 @@ export async function listSales(companyId: string, filters: SaleFilters) {
   const overdue = Number(grouped.find((group) => group.status === "OVERDUE")?._sum.totalAmount ?? 0);
   const cancelled = Number(grouped.find((group) => group.status === "CANCELLED")?._sum.totalAmount ?? 0);
 
-  // Por cobrar = todo lo que no está pagado ni anulado
-  const porCobrar = pending + partial + overdue;
+  // Totales con signo: las notas de crédito restan, las facturas suman.
+  // Esto es importante porque una NC puede tener status PENDING y no debe
+  // sumarse al "por cobrar".
+  const signedTotals = items.reduce(
+    (acc, sale) => {
+      const sign = documentSign(sale.documentType);
+      const amount = sign * sale.totalAmount;
+      acc[sale.status as SaleStatus] = (acc[sale.status as SaleStatus] ?? 0) + amount;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  // Por cobrar = todo lo que no está pagado ni anulado (con signo)
+  const porCobrar = (signedTotals["PENDING"] ?? 0) + (signedTotals["PARTIAL"] ?? 0) + (signedTotals["OVERDUE"] ?? 0);
+  const totalSigned = (signedTotals["PENDING"] ?? 0) + (signedTotals["PARTIAL"] ?? 0) + (signedTotals["OVERDUE"] ?? 0) + (signedTotals["PAID"] ?? 0) + (signedTotals["CANCELLED"] ?? 0);
 
   return {
     items,
     totals: {
       count: items.length,
-      total: paid + pending + partial + overdue + cancelled,
-      paid,
-      pending: porCobrar,
-      partial,
-      overdue,
-      cancelled,
+      total: Math.abs(totalSigned),
+      paid: Math.abs(signedTotals["PAID"] ?? 0),
+      pending: Math.abs(porCobrar),
+      partial: Math.abs(signedTotals["PARTIAL"] ?? 0),
+      overdue: Math.abs(signedTotals["OVERDUE"] ?? 0),
+      cancelled: Math.abs(signedTotals["CANCELLED"] ?? 0),
     },
   };
 }
