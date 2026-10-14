@@ -23,7 +23,7 @@ export async function GET(
   }
 
   // Si hay XML original guardado, parsear el detalle completo al vuelo.
-  let items: { nombre: string; cantidad: string; precio: number; monto: number }[] | null = null;
+  let items: { codigo?: string; nombre: string; cantidad: string; precio: number; monto: number }[] | null = null;
   if (purchase.xmlContent) {
     try {
       const parsed = parseDteXml(Buffer.from(purchase.xmlContent, "utf8"));
@@ -39,14 +39,18 @@ export async function GET(
       rut: ctx.company.rut,
       address: ctx.company.address,
       city: ctx.company.city,
+      commune: ctx.company.commune,
       email: ctx.company.email,
       phone: ctx.company.phone,
+      giro: ctx.company.giro,
     },
     tercero: {
       name: purchase.partner.name,
       rut: purchase.partner.rut,
       address: purchase.partner.address,
-      city: null,
+      city: purchase.partner.city,
+      commune: purchase.partner.commune,
+      giro: purchase.partner.giro,
     },
     documento: {
       documentType: purchase.documentType,
@@ -56,6 +60,7 @@ export async function GET(
       status: purchase.status,
       paymentDate: purchase.paymentDate,
       notes: purchase.notes,
+      formaPago: purchase.formaPago ?? null,
     },
     montos: {
       netAmount: purchase.netAmount,
@@ -64,7 +69,9 @@ export async function GET(
     },
     extras: {
       description: purchase.description,
-      hesNumber: null,
+      purchaseOrder: purchase.purchaseOrder,
+      dispatchGuide: purchase.dispatchGuide,
+      hesNumber: purchase.hesNumber,
     },
     items,
   });

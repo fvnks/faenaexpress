@@ -96,6 +96,8 @@ model Company {
   rut       String?
   address   String?
   city      String?
+  commune   String? // comuna del emisor (para el PDF)
+  giro      String? // giro del emisor (para el PDF)
   email     String?
   phone     String?
   ivaRate       Int      @default(19) // porcentaje de IVA
@@ -151,13 +153,16 @@ enum PartnerType {
 
 model Partner {
   id        String      @id @default(cuid())
-  companyId String
+ companyId String
   type      PartnerType @default(CUSTOMER)
   name      String
   rut       String?
   email     String?
   phone     String?
   address   String?
+  city      String?
+  commune   String? // comuna del socio (para el PDF)
+  giro      String? // giro del socio (para el PDF)
   notes     String?
   active    Boolean     @default(true)
 

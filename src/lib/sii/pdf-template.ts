@@ -5,9 +5,8 @@ import { formatCLP, formatDate } from "@/lib/money";
 import { documentTypeLabel } from "@/lib/labels";
 
 /**
- * Genera el HTML de una factura estilo chilena para renderizar a PDF con
- * Playwright/Chromium. Incluye el timbre PDF417 generado en el propio
- * navegador headless (la librería usa Canvas, disponible en Chromium).
+ * Genera el HTML de una factura chilena siguiendo el template visual del SII.
+ * Optimizado para Playwright/Chromium.
  */
 
 const pdf417Path = join(process.cwd(), "node_modules", "pdf417-generator", "lib", "pdf417.js");
@@ -18,7 +17,6 @@ async function loadPdf417(): Promise<string> {
     try {
       pdf417Code = await fsp.readFile(pdf417Path, "utf8");
     } catch {
-      // Si no se puede leer (Docker multi-stage, etc.), el PDF se genera sin timbre.
       pdf417Code = "";
     }
   }
@@ -32,14 +30,18 @@ export type FacturaPdfData = {
     rut: string | null;
     address: string | null;
     city: string | null;
+    commune?: string | null;
     email: string | null;
     phone: string | null;
+    giro?: string | null;
   };
   tercero: {
     name: string;
     rut: string | null;
     address: string | null;
     city: string | null;
+    commune?: string | null;
+    giro?: string | null;
   };
   documento: {
     documentType: string;
@@ -49,14 +51,16 @@ export type FacturaPdfData = {
     status: string;
     paymentDate: Date | null;
     notes: string | null;
+    formaPago?: string | null;
   };
   montos: {
     netAmount: number;
     ivaAmount: number;
     totalAmount: number;
     retentionAmount?: number;
+    exento?: number;
   };
-  items?: { nombre: string; cantidad: string; precio: number; monto: number }[] | null;
+  items?: { codigo?: string; nombre: string; cantidad: string; precio: number; monto: number }[] | null;
   extras?: {
     description?: string | null;
     salesperson?: string | null;
@@ -66,20 +70,17 @@ export type FacturaPdfData = {
   };
 };
 
-function statusLabel(status: string): string {
-  return status === "PAID" ? "PAGADA" : "PENDIENTE";
-}
-
 export async function renderFacturaHtml(data: FacturaPdfData): Promise<string> {
   const lib = await loadPdf417();
-  const es = data.tipo === "compra";
-  const tipoDoc = documentTypeLabel(data.documento.documentType as "INVOICE" | "RECEIPT" | "CREDIT_NOTE" | "DEBIT_NOTE" | "OTHER");
+  const tipoDoc = documentTypeLabel(data.documento.documentType as any);
+  const rutEmisor = data.empresa.rut ?? "";
+  const folio = data.documento.documentNumber ?? "";
 
-  // TED visual: los campos clave del timbre (sin firma CAF — representación visual)
+  // TED visual simplificado para el timbre
   const tedData = [
-    `RE:${data.empresa.rut ?? ""}`,
+    `RE:${rutEmisor}`,
     `TD:${data.documento.documentType === "INVOICE" ? "33" : "OTHER"}`,
-    `F:${data.documento.documentNumber ?? ""}`,
+    `F:${folio}`,
     `FE:${data.documento.date.toISOString().slice(0, 10)}`,
     `RR:${data.tercero.rut ?? ""}`,
     `MNT:${data.montos.totalAmount}`,
@@ -92,7 +93,7 @@ export async function renderFacturaHtml(data: FacturaPdfData): Promise<string> {
       const canvas = document.getElementById('barcode');
       PDF417.draw(${JSON.stringify(tedData)}, canvas, 3, 3, 2, '#000');
     } catch(e) {
-      canvas.style.display = 'none';
+      console.error(e);
     }
   </script>`
     : "";
@@ -104,210 +105,236 @@ export async function renderFacturaHtml(data: FacturaPdfData): Promise<string> {
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'DejaVu Sans', 'Segoe UI', Arial, sans-serif;
-    font-size: 11px;
-    color: #1a1a1a;
-    padding: 30px 40px;
-    line-height: 1.5;
-  }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-  .empresa { max-width: 55%; }
-  .empresa h1 { font-size: 18px; color: #1B5FA8; margin-bottom: 4px; }
-  .empresa p { color: #555; font-size: 10px; }
-  .doc-box { text-align: right; }
-  .doc-box .tipo { font-size: 16px; font-weight: bold; color: #1B5FA8; text-transform: uppercase; }
-  .doc-box .folio { font-size: 14px; margin-top: 4px; }
-  .doc-box .fecha { font-size: 10px; color: #555; margin-top: 2px; }
-  .doc-box .estado {
-    display: inline-block; margin-top: 6px; padding: 3px 10px;
-    border-radius: 4px; font-size: 10px; font-weight: bold;
-    ${data.documento.status === "PAID"
-      ? "background: #e8f5e9; color: #2e7d32;"
-      : "background: #fff3e0; color: #e65100;"}
+    font-family: 'Helvetica', 'Arial', sans-serif;
+    font-size: 9px;
+    color: #333;
+    padding: 30px;
+    line-height: 1.2;
+    background: white;
   }
 
-  .section { margin-bottom: 16px; }
-  .section-title {
-    font-size: 10px; font-weight: bold; text-transform: uppercase;
-    color: #1B5FA8; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 8px;
-    letter-spacing: 1px;
+  /* Header */
+  .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+  .emisor-info { flex: 1; }
+  .emisor-name { font-size: 14px; font-weight: bold; color: #555; margin-bottom: 4px; }
+  .emisor-giro { font-size: 9px; font-weight: bold; color: #666; margin-bottom: 4px; }
+  .emisor-detail { font-size: 9px; color: #666; }
+
+  .recuadro-dte {
+    border: 3px solid #ff0000;
+    width: 280px;
+    padding: 15px;
+    text-align: center;
+    color: #ff0000;
+    font-weight: bold;
   }
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .info-item label { font-size: 9px; color: #888; text-transform: uppercase; display: block; }
-  .info-item span { font-size: 11px; font-weight: 500; }
+  .recuadro-dte .rut { font-size: 14px; margin-bottom: 8px; }
+  .recuadro-dte .tipo { font-size: 14px; text-transform: uppercase; margin-bottom: 8px; }
+  .recuadro-dte .folio { font-size: 14px; }
 
-  table.detalle { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  table.detalle th {
-    background: #1B5FA8; color: white; padding: 8px 12px;
-    font-size: 10px; text-transform: uppercase; text-align: left;
+  .unidad-sii { text-align: right; color: #ff0000; font-weight: bold; font-size: 9px; margin-top: 5px; margin-right: 50px; }
+
+  /* Client Box */
+  .client-box {
+    border: 2px solid #000;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
   }
-  table.detalle td { padding: 8px 12px; border-bottom: 1px solid #e0e0e0; }
+  .client-box div { display: flex; gap: 5px; }
+  .client-box label { font-weight: bold; min-width: 60px; }
 
-  .totales { margin-top: 16px; margin-left: auto; width: 280px; }
-  .totales .row { display: flex; justify-content: space-between; padding: 6px 12px; }
-  .totales .row:last-child {
-    background: #1B5FA8; color: white; font-weight: bold;
-    border-radius: 4px; padding: 10px 12px; margin-top: 4px;
+  /* References Table */
+  .references-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+    border: 1px solid #000;
   }
-  .totales .label { color: #666; font-size: 10px; text-transform: uppercase; }
-  .totales .value { font-weight: 600; font-size: 12px; }
+  .references-table th {
+    background: #f2f2f2;
+    border: 1px solid #000;
+    padding: 3px 5px;
+    text-align: center;
+    font-size: 8px;
+  }
+  .references-table td {
+    border: 1px solid #000;
+    padding: 3px 5px;
+    text-align: center;
+    font-size: 8px;
+  }
 
-  .timbre { margin-top: 24px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; display: flex; gap: 16px; align-items: center; }
-  .timbre-info { flex: 1; }
-  .timbre-info p { font-size: 8px; color: #888; margin: 1px 0; }
-  .timbre-info .titulo { font-size: 9px; font-weight: bold; color: #1B5FA8; margin-bottom: 4px; }
-  canvas { border: 1px solid #ccc; }
+  /* Items Table */
+  .items-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 2px solid #000;
+    min-height: 400px;
+  }
+  .items-table thead th {
+    background: #f2f2f2;
+    border: 1px solid #000;
+    padding: 5px;
+    font-size: 8px;
+  }
+  .items-table tbody td {
+    border-left: 1px solid #000;
+    border-right: 1px solid #000;
+    padding: 5px;
+    vertical-align: top;
+  }
+  .items-table .monto-col { text-align: right; }
+  .items-table .center-col { text-align: center; }
 
-  .footer { margin-top: 24px; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 12px; }
+  /* Footer */
+  .footer-container {
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    border: 2px solid #000;
+    padding: 10px;
+  }
+
+  .timbre-box { width: 350px; text-align: center; }
+  #barcode { width: 100%; height: auto; margin-bottom: 5px; }
+  .timbre-text { font-size: 7px; color: #666; }
+
+  .totals-box { width: 250px; }
+  .totals-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #eee; }
+  .totals-row.main { font-weight: bold; font-size: 10px; border-bottom: 2px solid #000; padding: 5px 0; }
+  .totals-label { font-weight: bold; }
+
+  .signature-box { flex: 1; padding: 10px; font-size: 8px; }
+  .signature-field { border-bottom: 1px solid #000; margin-bottom: 10px; display: flex; justify-content: space-between; }
 
   @page { size: A4; margin: 0; }
 </style>
 </head>
 <body>
   <div class="header">
-    <div class="empresa">
-      <h1>${data.empresa.name}</h1>
-      <p>RUT: ${data.empresa.rut ?? "—"}</p>
-      ${data.empresa.address ? `<p>${data.empresa.address}</p>` : ""}
-      ${data.empresa.city ? `<p>${data.empresa.city}</p>` : ""}
-      ${data.empresa.email ? `<p>${data.empresa.email}</p>` : ""}
-      ${data.empresa.phone ? `<p>Tel: ${data.empresa.phone}</p>` : ""}
+    <div class="emisor-info">
+      <div class="emisor-name">${data.empresa.name}</div>
+      <div class="emisor-giro">${data.empresa.giro ?? ""}</div>
+      <div class="emisor-detail">${data.empresa.address ?? ""}</div>
+      <div class="emisor-detail">${data.empresa.commune ?? ""}</div>
+      <div class="emisor-detail">${data.empresa.city ?? ""}</div>
     </div>
-    <div class="doc-box">
-      <div class="tipo">${tipoDoc}</div>
-      <div class="folio">N° ${data.documento.documentNumber ?? "—"}</div>
-      <div class="fecha">Fecha: ${formatDate(data.documento.date)}</div>
-      ${data.documento.dueDate ? `<div class="fecha">Vencimiento: ${formatDate(data.documento.dueDate)}</div>` : ""}
-      <span class="estado">${statusLabel(data.documento.status)}</span>
-      ${data.documento.paymentDate ? `<div class="fecha" style="color:#2e7d32;">Pagada: ${formatDate(data.documento.paymentDate)}</div>` : ""}
+    <div>
+      <div class="recuadro-dte">
+        <div class="rut">R.U.T.: ${rutEmisor}</div>
+        <div class="tipo">${tipoDoc}</div>
+        <div class="folio">Folio N° ${folio}</div>
+      </div>
+      <div class="unidad-sii">UNIDAD S.I.I.</div>
     </div>
   </div>
 
-  <div class="section">
-    <div class="section-title">${es ? "Proveedor" : "Cliente"}</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <label>Razón Social</label>
-        <span>${data.tercero.name}</span>
-      </div>
-      <div class="info-item">
-        <label>RUT</label>
-        <span>${data.tercero.rut ?? "—"}</span>
-      </div>
-      ${data.tercero.address ? `
-      <div class="info-item">
-        <label>Dirección</label>
-        <span>${data.tercero.address}</span>
-      </div>` : ""}
-      ${data.tercero.city ? `
-      <div class="info-item">
-        <label>Ciudad</label>
-        <span>${data.tercero.city}</span>
-      </div>` : ""}
-    </div>
+  <div class="client-box">
+    <div><label>Fecha:</label> <span>${formatDate(data.documento.date)}</span></div>
+    <div style="justify-content: flex-end;"><label>Fecha vencimiento:</label> <span>${data.documento.dueDate ? formatDate(data.documento.dueDate) : "—"}</span></div>
+    <div><label>Señor(es):</label> <span>${data.tercero.name}</span></div>
+    <div></div>
+    <div><label>Giro:</label> <span>${data.tercero.giro ?? ""}</span></div>
+    <div></div>
+    <div><label>Comuna:</label> <span>${data.tercero.commune ?? ""}</span></div>
+    <div><label>Ciudad:</label> <span>${data.tercero.city ?? ""}</span></div>
+    <div><label>R.U.T.:</label> <span>${data.tercero.rut ?? "—"}</span></div>
+    <div><label>Dirección:</label> <span>${data.tercero.address ?? ""}</span></div>
+    <div><label>Forma de pago:</label> <span>${data.documento.formaPago ?? "Contado"}</span></div>
   </div>
 
-  ${data.extras?.description ? `
-  <div class="section">
-    <div class="section-title">Descripción</div>
-    <p>${data.extras.description}</p>
-  </div>` : ""}
-
-  ${data.items && data.items.length > 0 ? `
-  <div class="section">
-    <div class="section-title">Detalle de Productos / Servicios</div>
-    <table class="detalle">
-      <thead>
-        <tr>
-          <th style="width:5%;">#</th>
-          <th>Producto / Servicio</th>
-          <th style="text-align:right; width:10%;">Cant.</th>
-          <th style="text-align:right; width:15%;">Precio Unit.</th>
-          <th style="text-align:right; width:15%;">Subtotal</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.items.map((item, i) => `
-        <tr>
-          <td>${i + 1}</td>
-          <td>${item.nombre}</td>
-          <td style="text-align:right;">${item.cantidad}</td>
-          <td style="text-align:right;">${formatCLP(item.precio)}</td>
-          <td style="text-align:right;">${formatCLP(item.monto)}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>
-  </div>` : ""}
-
-  <div class="section">
-    <div class="section-title">Resumen de Montos</div>
-    <table class="detalle">
-      <thead>
-        <tr>
-          <th>Concepto</th>
-          <th style="text-align:right;">Monto</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Monto Neto</td>
-          <td style="text-align:right;">${formatCLP(data.montos.netAmount)}</td>
-        </tr>
-        <tr>
-          <td>IVA (19%)</td>
-          <td style="text-align:right;">${formatCLP(data.montos.ivaAmount)}</td>
-        </tr>
-        ${data.montos.retentionAmount && data.montos.retentionAmount > 0 ? `
-        <tr>
-          <td>Retención</td>
-          <td style="text-align:right;">${formatCLP(data.montos.retentionAmount)}</td>
-        </tr>` : ""}
-      </tbody>
-    </table>
-    <div class="totales">
-      <div class="row">
-        <span class="label">Total</span>
-        <span class="value">${formatCLP(data.montos.totalAmount)}</span>
-      </div>
-    </div>
-  </div>
-
-  ${data.extras?.salesperson || data.extras?.purchaseOrder || data.extras?.dispatchGuide || data.extras?.hesNumber ? `
-  <div class="section">
-    <div class="section-title">Referencias</div>
-    <div class="info-grid">
-      ${data.extras.salesperson ? `
-      <div class="info-item"><label>Vendedor</label><span>${data.extras.salesperson}</span></div>` : ""}
+  ${(data.extras?.purchaseOrder || data.extras?.dispatchGuide) ? `
+  <table class="references-table">
+    <thead>
+      <tr>
+        <th>Tipo documento</th>
+        <th>Folio</th>
+        <th>Fecha</th>
+      </tr>
+    </thead>
+    <tbody>
       ${data.extras.purchaseOrder ? `
-      <div class="info-item"><label>Orden de Compra / EDP</label><span>${data.extras.purchaseOrder}</span></div>` : ""}
+      <tr>
+        <td>Orden de compra</td>
+        <td>${data.extras.purchaseOrder}</td>
+        <td>${formatDate(data.documento.date)}</td>
+      </tr>` : ""}
       ${data.extras.dispatchGuide ? `
-      <div class="info-item"><label>Guía de Despacho</label><span>${data.extras.dispatchGuide}</span></div>` : ""}
-      ${data.extras.hesNumber ? `
-      <div class="info-item"><label>N° HES</label><span>${data.extras.hesNumber}</span></div>` : ""}
+      <tr>
+        <td>Guía de despacho electrónica</td>
+        <td>${data.extras.dispatchGuide}</td>
+        <td>${formatDate(data.documento.date)}</td>
+      </tr>` : ""}
+    </tbody>
+  </table>` : ""}
+
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th style="width:15%;">CÓDIGO</th>
+        <th>DESCRIPCIÓN</th>
+        <th style="width:10%;">CANT.</th>
+        <th style="width:12%;">P.UNITARIO</th>
+        <th style="width:8%;">RECARGO</th>
+        <th style="width:8%;">DESCUENTO</th>
+        <th style="width:12%;">TOTAL</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${data.items ? data.items.map((item) => `
+      <tr>
+        <td class="center-col">${item.codigo ?? ""}</td>
+        <td>${item.nombre}</td>
+        <td class="center-col">${item.cantidad}</td>
+        <td class="monto-col">${item.precio.toLocaleString("es-CL")}</td>
+        <td class="monto-col"></td>
+        <td class="monto-col"></td>
+        <td class="monto-col">${item.monto.toLocaleString("es-CL")}</td>
+      </tr>`).join("") : ""}
+      <!-- Espaciador para forzar altura mínima -->
+      <tr><td colspan="7" style="height: 300px; border:none;"></td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer-container">
+    <div class="timbre-box">
+      <canvas id="barcode"></canvas>
+      <div class="timbre-text">
+        Timbre electrónico SII<br/>
+        Resolución 0 del 2026 - Verifique su documento en: www.sii.cl
+      </div>
     </div>
-  </div>` : ""}
 
-  ${data.documento.notes ? `
-  <div class="section">
-    <div class="section-title">Observaciones</div>
-    <p>${data.documento.notes}</p>
-  </div>` : ""}
-
-  <div class="timbre">
-    <canvas id="barcode"></canvas>
-    <div class="timbre-info">
-      <div class="titulo">Timbre Electrónico</div>
-      <p>RE: ${data.empresa.rut ?? ""}</p>
-      <p>TD: ${data.documento.documentType === "INVOICE" ? "33" : "OTHER"}</p>
-      <p>F: ${data.documento.documentNumber ?? ""}</p>
-      <p>FE: ${data.documento.date.toISOString().slice(0, 10)}</p>
-      <p>RR: ${data.tercero.rut ?? ""}</p>
-      <p>MNT: ${formatCLP(data.montos.totalAmount)}</p>
+    <div class="signature-box">
+       <div class="signature-field"><span>NOMBRE:</span> <span>R.U.T.:</span></div>
+       <div class="signature-field"><span>FECHA:</span> <span>RECINTO:</span></div>
+       <div class="signature-field" style="margin-top:20px;"><span>FIRMA:</span></div>
+       <div style="font-size:7px; color:#666; margin-top:5px;">
+         "El acuse de recibo que se declara en este acto, de acuerdo a lo dispuesto en la letra b) del artículo 4° y la letra c) del artículo 5° de la ley 19.983, acredita que la entrega de mercadería(s) o servicio(s) prestado(s) ha(n) sido recibido(s)"
+       </div>
     </div>
-  </div>
 
-  <div class="footer">
-    Documento generado desde Facturas — Representación visual de ${tipoDoc.toLowerCase()} N° ${data.documento.documentNumber ?? "—"}
+    <div class="totals-box">
+      <div class="totals-row">
+        <span class="totals-label">Neto</span>
+        <span>${data.montos.netAmount.toLocaleString("es-CL")}</span>
+      </div>
+      <div class="totals-row">
+        <span class="totals-label">Exento</span>
+        <span>${(data.montos.exento ?? 0).toLocaleString("es-CL")}</span>
+      </div>
+      <div class="totals-row">
+        <span class="totals-label">IVA (19%)</span>
+        <span>${data.montos.ivaAmount.toLocaleString("es-CL")}</span>
+      </div>
+      <div class="totals-row main">
+        <span class="totals-label">Total</span>
+        <span>${data.montos.totalAmount.toLocaleString("es-CL")}</span>
+      </div>
+    </div>
   </div>
 
   ${timbreScript}
