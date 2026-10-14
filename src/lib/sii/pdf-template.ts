@@ -70,16 +70,27 @@ export type FacturaPdfData = {
   };
 };
 
+// Mapeo de DocumentType a los códigos de tipo de documento del SII (TED)
+const DOC_TYPE_TO_TD: Record<string, string> = {
+  INVOICE: "33",       // Factura electrónica
+  RECEIPT: "39",       // Boleta electrónica
+  CREDIT_NOTE: "61",   // Nota de crédito
+  DEBIT_NOTE: "56",    // Nota de débito
+  GUIDE: "52",         // Guía de despacho
+  OTHER: "33",         // Por defecto: facturas
+};
+
 export async function renderFacturaHtml(data: FacturaPdfData): Promise<string> {
   const lib = await loadPdf417();
   const tipoDoc = documentTypeLabel(data.documento.documentType as any);
   const rutEmisor = data.empresa.rut ?? "";
   const folio = data.documento.documentNumber ?? "";
+  const tdCode = DOC_TYPE_TO_TD[data.documento.documentType] ?? "33";
 
   // TED visual simplificado para el timbre
   const tedData = [
     `RE:${rutEmisor}`,
-    `TD:${data.documento.documentType === "INVOICE" ? "33" : "OTHER"}`,
+    `TD:${tdCode}`,
     `F:${folio}`,
     `FE:${data.documento.date.toISOString().slice(0, 10)}`,
     `RR:${data.tercero.rut ?? ""}`,

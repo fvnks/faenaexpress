@@ -60,7 +60,7 @@ export async function GET(
       status: sale.status,
       paymentDate: sale.paymentDate,
       notes: sale.notes,
-      formaPago: sale.notes ? null : null,
+      formaPago: null,
     },
     montos: {
       netAmount: sale.netAmount,

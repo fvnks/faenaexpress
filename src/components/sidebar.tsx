@@ -140,8 +140,29 @@ const groups: SidebarGroup[] = [
   {
     label: "Movimientos",
     items: [
-      { href: "/dashboard/compras", label: "Compras", section: "compras", icon: "compras" },
-      { href: "/dashboard/ventas", label: "Ventas", section: "ventas", icon: "ventas" },
+      {
+        href: "/dashboard/compras",
+        label: "Compras",
+        section: "compras",
+        icon: "compras",
+        children: [
+          { href: "/dashboard/compras/orden-compra", label: "Orden de Compra" },
+          { href: "/dashboard/compras", label: "Facturas de Compra" },
+        ],
+      },
+      {
+        href: "/dashboard/ventas",
+        label: "Ventas",
+        section: "ventas",
+        icon: "ventas",
+        children: [
+          { href: "/dashboard/ventas/cotizaciones", label: "Cotizaciones" },
+          { href: "/dashboard/ventas/guias", label: "Guías de Despacho" },
+          { href: "/dashboard/ventas/nota-credito", label: "Nota de Crédito" },
+          { href: "/dashboard/ventas/nota-debito", label: "Nota de Débito" },
+          { href: "/dashboard/ventas", label: "Facturas de Venta" },
+        ],
+      },
       { href: "/dashboard/gastos", label: "Gastos", section: "gastos", icon: "gastos" },
       { href: "/dashboard/rrhh", label: "RRHH", section: "rrhh", icon: "rrhh" },
     ],
