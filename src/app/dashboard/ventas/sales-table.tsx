@@ -25,6 +25,8 @@ type SaleItem = {
   cancellationNoteNumber: string | null;
   cancellationType: string | null;
   cancellationReason: string | null;
+  cancellationComment: string | null;
+  refacturadaNumber: string | null;
   companyId: string;
 };
 
@@ -194,6 +196,8 @@ export function SalesTable({ items, writable }: Props) {
           existingNoteNumber={cancelSaleItem.cancellationNoteNumber}
           existingNoteType={cancelSaleItem.cancellationType}
           existingReason={cancelSaleItem.cancellationReason}
+          existingComment={cancelSaleItem.cancellationComment}
+          existingRefacturada={cancelSaleItem.refacturadaNumber}
         />
       ) : null}
     </>

@@ -175,6 +175,48 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
             )
           ) : null}
         </section>
+
+        {sale.status === "CANCELLED" ? (
+          <section className={cardClass + " flex flex-col gap-3 border-destructive/30 p-5"}>
+            <h2 className="font-semibold text-destructive">Cancelación</h2>
+            <dl className="flex flex-col gap-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Tipo</dt>
+                <dd>
+                  {sale.cancellationType === "CREDIT_NOTE"
+                    ? "Nota de crédito"
+                    : sale.cancellationType === "DEBIT_NOTE"
+                      ? "Nota de débito"
+                      : "Razón"}
+                </dd>
+              </div>
+              {sale.cancellationNoteNumber ? (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Folio NC/ND</dt>
+                  <dd className="tabular">{sale.cancellationNoteNumber}</dd>
+                </div>
+              ) : null}
+              {sale.cancellationReason ? (
+                <div className="flex flex-col gap-0.5">
+                  <dt className="text-muted-foreground">Razón</dt>
+                  <dd className="whitespace-pre-line">{sale.cancellationReason}</dd>
+                </div>
+              ) : null}
+              {sale.refacturadaNumber ? (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Factura que reemplazó</dt>
+                  <dd className="tabular">{sale.refacturadaNumber}</dd>
+                </div>
+              ) : null}
+              {sale.cancellationComment ? (
+                <div className="flex flex-col gap-0.5">
+                  <dt className="text-muted-foreground">Comentario</dt>
+                  <dd className="whitespace-pre-line">{sale.cancellationComment}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </section>
+        ) : null}
       </div>
 
       <DocItemsTable items={sale.items} netAmount={sale.netAmount} />

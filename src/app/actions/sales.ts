@@ -271,6 +271,8 @@ export async function cancelSale(formData: FormData): Promise<void> {
   const cancellationType = String(formData.get("cancellationType") ?? "");
   const cancellationNoteNumber = String(formData.get("cancellationNoteNumber") ?? "").trim();
   const cancellationReason = String(formData.get("cancellationReason") ?? "").trim();
+  const cancellationComment = String(formData.get("cancellationComment") ?? "").trim();
+  const refacturadaNumber = String(formData.get("refacturadaNumber") ?? "").trim();
 
   if (!saleId) redirect("/dashboard/ventas");
 
@@ -308,6 +310,8 @@ export async function cancelSale(formData: FormData): Promise<void> {
       cancellationType,
       cancellationNoteNumber: cancellationType === "REASON" ? null : cancellationNoteNumber,
       cancellationReason: cancellationType === "REASON" ? cancellationReason : null,
+      cancellationComment: cancellationComment || null,
+      refacturadaNumber: refacturadaNumber || null,
     },
   });
 

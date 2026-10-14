@@ -10,9 +10,18 @@ type Props = {
   existingNoteNumber?: string | null;
   existingNoteType?: string | null;
   existingReason?: string | null;
+  existingComment?: string | null;
+  existingRefacturada?: string | null;
 };
 
-export function CancelSaleModal({ saleId, existingNoteNumber, existingNoteType, existingReason }: Props) {
+export function CancelSaleModal({
+  saleId,
+  existingNoteNumber,
+  existingNoteType,
+  existingReason,
+  existingComment,
+  existingRefacturada,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [noteType, setNoteType] = useState<"CREDIT_NOTE" | "DEBIT_NOTE" | "REASON">(
@@ -22,6 +31,8 @@ export function CancelSaleModal({ saleId, existingNoteNumber, existingNoteType, 
   );
   const [selectedFolio, setSelectedFolio] = useState(existingNoteNumber ?? "");
   const [reason, setReason] = useState(existingReason ?? "");
+  const [comment, setComment] = useState(existingComment ?? "");
+  const [refacturada, setRefacturada] = useState(existingRefacturada ?? "");
   const [notes, setNotes] = useState<AvailableNote[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +76,8 @@ export function CancelSaleModal({ saleId, existingNoteNumber, existingNoteType, 
     } else {
       formData.set("cancellationNoteNumber", selectedFolio);
     }
+    formData.set("cancellationComment", comment.trim());
+    formData.set("refacturadaNumber", refacturada.trim());
 
     startTransition(async () => {
       await cancelSale(formData);
@@ -74,7 +87,7 @@ export function CancelSaleModal({ saleId, existingNoteNumber, existingNoteType, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-xl">
         <h2 className="text-lg font-semibold">Anular venta</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {hasExistingNote
@@ -83,12 +96,35 @@ export function CancelSaleModal({ saleId, existingNoteNumber, existingNoteType, 
         </p>
 
         {hasExistingNote ? (
-          <div className="mt-4 rounded-md border border-border bg-muted p-3 text-sm">
-            <p className="font-medium">
-              {existingNoteType === "CREDIT_NOTE" ? "Nota de crédito" : "Nota de débito"} asociada
-            </p>
-            <p className="mt-1 text-muted-foreground">Folio: {existingNoteNumber}</p>
-            {existingReason && <p className="mt-1 text-muted-foreground">Razón: {existingReason}</p>}
+          <div className="mt-4 flex flex-col gap-3">
+            <div className="rounded-md border border-border bg-muted p-3 text-sm">
+              <p className="font-medium">
+                {existingNoteType === "CREDIT_NOTE" ? "Nota de crédito" : "Nota de débito"} asociada
+              </p>
+              <p className="mt-1 text-muted-foreground">Folio: {existingNoteNumber}</p>
+              {existingReason && <p className="mt-1 text-muted-foreground">Razón: {existingReason}</p>}
+            </div>
+            {existingComment && (
+              <div className="rounded-md border border-border bg-muted p-3 text-sm">
+                <p className="font-medium">Comentario</p>
+                <p className="mt-1 text-muted-foreground">{existingComment}</p>
+              </div>
+            )}
+            {existingRefacturada && (
+              <div className="rounded-md border border-border bg-muted p-3 text-sm">
+                <p className="font-medium">Factura que reemplazó</p>
+                <p className="mt-1 text-muted-foreground">N° {existingRefacturada}</p>
+              </div>
+            )}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="rounded-md border border-border bg-transparent px-4 py-2 text-sm text-foreground hover:bg-muted"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
@@ -104,7 +140,7 @@ export function CancelSaleModal({ saleId, existingNoteNumber, existingNoteType, 
                       : "border-border bg-transparent text-foreground hover:bg-muted"
                   }`}
                 >
-                  Nota de crédito
+                  NC
                 </button>
                 <button
                   type="button"
@@ -115,7 +151,7 @@ export function CancelSaleModal({ saleId, existingNoteNumber, existingNoteType, 
                       : "border-border bg-transparent text-foreground hover:bg-muted"
                   }`}
                 >
-                  Nota de débito
+                  ND
                 </button>
                 <button
                   type="button"
@@ -178,12 +214,38 @@ export function CancelSaleModal({ saleId, existingNoteNumber, existingNoteType, 
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   className="rounded-md border border-border bg-transparent px-3 py-2 text-sm"
-                  rows={3}
-                  placeholder="Ej: cliente canceló el pedido, error en la facturación…"
+                  rows={2}
+                  placeholder="Ej: cliente canceló el pedido…"
                   required
                 />
               </div>
             )}
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">
+                Factura que reemplazó (opcional)
+              </label>
+              <input
+                type="text"
+                value={refacturada}
+                onChange={(e) => setRefacturada(e.target.value)}
+                className="rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+                placeholder="N° de la factura de reemplazo"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">
+                Comentario (opcional)
+              </label>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+                rows={2}
+                placeholder="Notas sobre la anulación…"
+              />
+            </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -204,18 +266,6 @@ export function CancelSaleModal({ saleId, existingNoteNumber, existingNoteType, 
               </button>
             </div>
           </form>
-        )}
-
-        {hasExistingNote && (
-          <div className="mt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="rounded-md border border-border bg-transparent px-4 py-2 text-sm text-foreground hover:bg-muted"
-            >
-              Cerrar
-            </button>
-          </div>
         )}
       </div>
     </div>

@@ -652,6 +652,8 @@ model Sale {
   cancellationType     String? // CREDIT_NOTE | DEBIT_NOTE | REASON
   cancellationNoteNumber String? // folio de la NC/ND asociada (obligatorio si type es NC/ND)
   cancellationReason   String? // razón libre (obligatorio si type es REASON)
+  cancellationComment  String? // comentario opcional sobre la anulación
+  refacturadaNumber    String? // folio de la factura que reemplazó a la anulada
 
   createdById String
   createdAt   DateTime @default(now())
