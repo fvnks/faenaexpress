@@ -135,12 +135,12 @@ export async function listSales(companyId: string, filters: SaleFilters) {
     items,
     totals: {
       count: items.length,
-      total: Math.abs(totalSigned),
-      paid: Math.abs(signedTotals["PAID"] ?? 0),
-      pending: Math.abs(porCobrar),
-      partial: Math.abs(signedTotals["PARTIAL"] ?? 0),
-      overdue: Math.abs(signedTotals["OVERDUE"] ?? 0),
-      cancelled: Math.abs(signedTotals["CANCELLED"] ?? 0),
+      total: totalSigned,
+      paid: signedTotals["PAID"] ?? 0,
+      pending: porCobrar,
+      partial: signedTotals["PARTIAL"] ?? 0,
+      overdue: signedTotals["OVERDUE"] ?? 0,
+      cancelled: signedTotals["CANCELLED"] ?? 0,
     },
   };
 }
