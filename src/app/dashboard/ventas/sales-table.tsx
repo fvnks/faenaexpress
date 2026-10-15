@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
-import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming } from "@/app/actions/sales";
+import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
@@ -23,6 +23,7 @@ type SaleItem = {
   hesNumber: string | null;
   partner: { name: string; rut: string | null };
   salesperson: { name: string } | null;
+  salespersonId: string | null;
   cancellationNoteNumber: string | null;
   cancellationType: string | null;
   cancellationReason: string | null;
@@ -39,8 +40,11 @@ type Props = {
 
 export function SalesTable({ items, writable, salespeople }: Props) {
   const [cancelModalSaleId, setCancelModalSaleId] = useState<string | null>(null);
+  const [assignModalSaleId, setAssignModalSaleId] = useState<string | null>(null);
+  const [assignSalespersonId, setAssignSalespersonId] = useState<string>("");
   const [, startTransition] = useTransition();
   const cancelSaleItem = cancelModalSaleId ? items.find((s) => s.id === cancelModalSaleId) : null;
+  const assignSaleItem = assignModalSaleId ? items.find((s) => s.id === assignModalSaleId) : null;
 
   return (
     <>
@@ -268,6 +272,10 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                             await markSaleConfirming(formData);
                           });
                         }}
+                        onAssignSalesperson={() => {
+                          setAssignModalSaleId(sale.id);
+                          setAssignSalespersonId(sale.salespersonId ?? "");
+                        }}
                         onCancel={() => {
                           setCancelModalSaleId(sale.id);
                         }}
@@ -290,6 +298,59 @@ export function SalesTable({ items, writable, salespeople }: Props) {
           existingComment={cancelSaleItem.cancellationComment}
           existingRefacturada={cancelSaleItem.refacturadaNumber}
         />
+      ) : null}
+
+      {assignSaleItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 p-4">
+          <div className="w-full max-w-sm rounded-card border border-border bg-surface p-4 shadow-lg">
+            <h2 className="text-base font-semibold">Asignar vendedor</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {assignSaleItem.partner.name} - {assignSaleItem.documentNumber ?? "sin folio"}
+            </p>
+            <form
+              className="mt-4 flex flex-col gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                formData.set("id", assignSaleItem.id);
+                formData.set("salespersonId", assignSalespersonId);
+                startTransition(async () => {
+                  await assignSaleSalesperson(formData);
+                  setAssignModalSaleId(null);
+                });
+              }}
+            >
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Vendedor</span>
+                <select
+                  name="salespersonId"
+                  value={assignSalespersonId}
+                  onChange={(e) => setAssignSalespersonId(e.target.value)}
+                  className={cardClass + " px-3 py-2"}
+                >
+                  <option value="">Sin vendedor</option>
+                  {salespeople.map((sp) => (
+                    <option key={sp.id} value={sp.id}>
+                      {sp.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAssignModalSaleId(null)}
+                  className="rounded-control border border-border px-3 py-1.5 text-sm"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="rounded-control bg-primary px-3 py-1.5 text-sm text-primary-foreground">
+                  Asignar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       ) : null}
     </>
   );

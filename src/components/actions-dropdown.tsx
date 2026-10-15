@@ -82,6 +82,8 @@ export function ActionsDropdown({
   onMarkPaid,
   confirming,
   onToggleConfirming,
+  assignSalesperson,
+  onAssignSalesperson,
   onCancel,
 }: {
   editHref: string;
@@ -93,6 +95,8 @@ export function ActionsDropdown({
   onMarkPaid?: () => void;
   confirming?: boolean;
   onToggleConfirming?: () => void;
+  assignSalesperson?: boolean;
+  onAssignSalesperson?: () => void;
   onCancel?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -234,6 +238,21 @@ export function ActionsDropdown({
                 >
                   <CheckIcon />
                   {confirming ? "Quitar Confirming" : "Marcar Confirming"}
+                </button>
+              </li>
+            ) : null}
+            {onAssignSalesperson ? (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onAssignSalesperson();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-background"
+                >
+                  <PencilIcon />
+                  Asignar vendedor
                 </button>
               </li>
             ) : null}

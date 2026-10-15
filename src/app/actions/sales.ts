@@ -485,3 +485,42 @@ export async function cancelSale(formData: FormData): Promise<void> {
   revalidatePath("/dashboard/ventas");
   redirect("/dashboard/ventas");
 }
+
+export async function assignSaleSalesperson(formData: FormData): Promise<void> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+
+  const id = String(formData.get("id") ?? "").trim();
+  const salespersonIdRaw = String(formData.get("salespersonId") ?? "").trim();
+  if (!id) redirect("/dashboard/ventas");
+
+  const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
+  if (!sale) redirect("/dashboard/ventas");
+
+  if (salespersonIdRaw) {
+    const salesperson = await db.salesperson.findFirst({
+      where: { id: salespersonIdRaw, companyId: ctx.company.id },
+    });
+    if (!salesperson) redirect("/dashboard/ventas");
+    await db.sale.update({ where: { id, companyId: ctx.company.id }, data: { salespersonId: salespersonIdRaw } });
+    await recordAudit(ctx, {
+      action: "UPDATE",
+      entityType: "Sale",
+      entityId: id,
+      summary: `Asignó vendedor ${salesperson.name} a la venta ${sale.documentNumber ? `Nº ${sale.documentNumber} ` : ""}.`,
+    });
+  } else {
+    await db.sale.update({ where: { id, companyId: ctx.company.id }, data: { salespersonId: null } });
+    await recordAudit(ctx, {
+      action: "UPDATE",
+      entityType: "Sale",
+      entityId: id,
+      summary: `Quitó el vendedor de la venta ${sale.documentNumber ? `Nº ${sale.documentNumber} ` : ""}.`,
+    });
+  }
+
+  await setFlash("success", "Vendedor actualizado.");
+  revalidatePath("/dashboard/ventas", "page");
+  revalidatePath(`/dashboard/ventas/${id}`);
+}
+
