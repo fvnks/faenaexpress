@@ -11,6 +11,8 @@ export default async function PayrollPeriodPage(props: PageProps<"/dashboard/rrh
   const writable = canWrite(ctx, "rrhh");
   const params = await props.params;
   const periodId = params.periodId;
+  const searchParams = await props.searchParams;
+  const pageError = typeof searchParams?.error === "string" ? searchParams.error : null;
 
   const [period, entries, company] = await Promise.all([
     db.payrollPeriod.findFirst({ where: { id: periodId, companyId: ctx.company.id } }),
@@ -50,6 +52,7 @@ export default async function PayrollPeriodPage(props: PageProps<"/dashboard/rrh
           <h1 className="mt-2 text-2xl font-bold tracking-tight">
             Nomina {period.year}-{String(period.month).padStart(2, "0")}
           </h1>
+          {pageError ? <div className="mt-2 rounded-control border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{pageError}</div> : null}
           <p className="mt-1 text-sm text-muted-foreground">
             Estado: {payrollStatusLabels[period.status]} · Tasas AFP {company?.afpRate ?? 0}% / salud {company?.healthRate ?? 0}% / cesantía {company?.unemploymentRate ?? 0}%.
           </p>

@@ -7,8 +7,10 @@ import { cardClass, controlClass } from "@/lib/ui";
 
 import { createPayrollPeriodAction } from "@/app/actions/payroll";
 
-export default async function PayrollPage() {
+export default async function PayrollPage(props: PageProps<"/dashboard/rrhh/nomina">) {
   const ctx = await requireContext("rrhh");
+  const searchParams = await props.searchParams;
+  const pageError = typeof searchParams?.error === "string" ? searchParams.error : null;
   const writable = ctx.role === "ADMIN" || ctx.role === "ACCOUNTANT";
   const company = await db.company.findUnique({ where: { id: ctx.company.id }, select: { id: true } });
   const periods = await db.payrollPeriod.findMany({
@@ -28,6 +30,7 @@ export default async function PayrollPage() {
             Períodos mensuales y liquidaciones de sueldos. Tasas configuradas en RRHH/Empresa.
           </p>
         </div>
+        {pageError ? <div className="mt-2 rounded-control border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{pageError}</div> : null}
         {writable ? (
           <form action={createPayrollPeriodAction} className="flex items-end gap-2">
             <div className="flex flex-col gap-1.5">
