@@ -177,12 +177,18 @@ export async function markSaleConfirming(formData: FormData): Promise<void> {
   if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
 
   const id = String(formData.get("id") ?? "");
+  const rawDate = formData.get("confirmingDate") ?? formData.get("confirmingAt");
+  const confirmingDate =
+    typeof rawDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+      ? new Date(`${rawDate}T00:00:00.000Z`)
+      : new Date();
+
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!sale) redirect("/dashboard/ventas");
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
-    data: { confirmingAt: new Date() },
+    data: { confirmingAt: confirmingDate },
   });
 
   await recordAudit(ctx, {

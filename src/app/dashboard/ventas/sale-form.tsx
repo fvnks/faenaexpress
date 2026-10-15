@@ -349,13 +349,25 @@ export function SaleForm({
           <label htmlFor="confirmingAt" className={labelClass}>
             Fecha Confirming
           </label>
-          <input
-            id="confirmingAt"
-            name="confirmingAt"
-            type="date"
-            defaultValue={defaults?.confirmingAt || ""}
-            className={controlClass}
-          />
+          <div className="flex items-center gap-2">
+            <input
+              id="confirmingAt"
+              name="confirmingAt"
+              type="date"
+              defaultValue={defaults?.confirmingAt || ""}
+              className={controlClass}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const input = document.getElementById("confirmingAt") as HTMLInputElement | null;
+                if (input) input.value = today;
+              }}
+              className="rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
+            >
+              Hoy
+            </button>
+          </div>
         </div>
 
         <div className={fieldClass}>

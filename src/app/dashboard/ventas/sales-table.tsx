@@ -230,9 +230,18 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                         onToggleConfirming={() => {
                           const formData = new FormData();
                           formData.set("id", sale.id);
+                          if (sale.confirmingAt) {
+                            startTransition(async () => {
+                              await clearSaleConfirming(formData);
+                            });
+                            return;
+                          }
+                          const suggested = new Date().toISOString().slice(0, 10);
+                          const entered = window.prompt("Fecha Confirming (AAAA-MM-DD):", suggested);
+                          if (!entered || !/^\d{4}-\d{2}-\d{2}$/.test(entered)) return;
+                          formData.set("confirmingDate", entered);
                           startTransition(async () => {
-                            if (sale.confirmingAt) await clearSaleConfirming(formData);
-                            else await markSaleConfirming(formData);
+                            await markSaleConfirming(formData);
                           });
                         }}
                         onCancel={() => {
