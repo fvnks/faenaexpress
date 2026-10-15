@@ -122,7 +122,7 @@ export default async function MovimientosPage(props: PageProps<"/dashboard/inven
             {hasFilters ? "Ningún movimiento coincide con el filtro." : "Sin movimientos."}
           </p>
         ) : (
-          <MovementsList movements={mapped} showWarehouse={multiWarehouse} />
+          <MovementsList movements={mapped} showWarehouse={multiWarehouse} writable={writable} />
         )}
       </div>
     </div>

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { moneyToInt, registerMovement, MOVEMENT_TYPES, getOrCreateDefaultWarehouse, aggregateStock } from "@/lib/inventory";
+import { reverseStockMovement } from "@/lib/inventory-reversal";
 import { recordAudit } from "@/lib/audit";
 import { stockMovementTypeLabel } from "@/lib/labels";
 
@@ -189,4 +190,28 @@ export async function createStockMovement(
   revalidatePath("/dashboard/inventario/movimientos");
   revalidatePath(`/dashboard/inventario/productos/${productId}`);
   return { ok: true };
+}
+
+export async function reverseStockMovementAction(formData: FormData): Promise<void> {
+  const ctx = await requireContext("inventario");
+  if (!canInventoryEdit(ctx)) redirect("/dashboard/inventario/movimientos");
+
+  const movementId = String(formData.get("movementId") ?? "");
+  if (!movementId) redirect("/dashboard/inventario/movimientos");
+
+  const result = await reverseStockMovement(ctx.company.id, movementId, ctx.user.id);
+  if (!result.ok) {
+    redirect(`/dashboard/inventario/movimientos?error=${encodeURIComponent(result.error)}`);
+  }
+
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "StockMovement",
+    entityId: result.movementId ?? "reverse",
+    summary: `Revirtio el movimiento ${movementId}.`,
+  });
+
+  revalidatePath("/dashboard/inventario");
+  revalidatePath("/dashboard/inventario/movimientos");
+  redirect("/dashboard/inventario/movimientos");
 }

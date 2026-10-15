@@ -3,6 +3,8 @@
 import { cardClass } from "@/lib/ui";
 import { stockMovementTypeLabel } from "@/lib/labels";
 import { formatDate } from "@/lib/money";
+import { ConfirmSubmit } from "@/components/confirm-submit";
+import { reverseStockMovementAction } from "@/app/actions/inventory";
 
 type M = {
   id: string;
@@ -17,7 +19,6 @@ type M = {
   toWarehouse?: { name: string } | null;
 };
 
-// La bodega solo aporta señal cuando hay más de una en juego.
 function warehouseLabel(m: M): string | null {
   const from = m.warehouse?.name ?? null;
   const to = m.toWarehouse?.name ?? null;
@@ -28,11 +29,15 @@ function warehouseLabel(m: M): string | null {
 export function MovementsList({
   movements,
   showWarehouse,
+  writable,
 }: {
   movements: M[];
   showWarehouse?: boolean;
+  writable?: boolean;
 }) {
-  const cols = showWarehouse ? 7 : 6;
+  const baseCols = showWarehouse ? 7 : 6;
+  const cols = writable ? baseCols + 1 : baseCols;
+
   return (
     <div className={cardClass + " overflow-x-auto"}>
       <table className="min-w-full divide-y divide-border text-sm">
@@ -45,6 +50,7 @@ export function MovementsList({
             <th className="px-4 py-2 text-right">Cantidad</th>
             <th className="px-4 py-2 text-right">Costo unit.</th>
             <th className="px-4 py-2">Referencia/Razón</th>
+            {writable ? <th className="px-4 py-2">Acción</th> : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-border tabular">
@@ -69,6 +75,19 @@ export function MovementsList({
                 <td className="px-4 py-2 text-right">{Number(m.quantity).toFixed(3)}</td>
                 <td className="px-4 py-2 text-right">{m.unitCost ?? "—"}</td>
                 <td className="px-4 py-2 text-muted-foreground">{m.reference || m.reason || "—"}</td>
+                {writable ? (
+                  <td className="px-4 py-2">
+                    <form action={reverseStockMovementAction}>
+                      <input type="hidden" name="movementId" value={m.id} />
+                      <ConfirmSubmit
+                        message={`¿Revertir el movimiento de ${m.product.name}?`}
+                        className="text-sm text-primary underline-offset-2 hover:underline"
+                      >
+                        Revertir
+                      </ConfirmSubmit>
+                    </form>
+                  </td>
+                ) : null}
               </tr>
             ))
           )}
