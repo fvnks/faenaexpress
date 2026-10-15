@@ -33,6 +33,25 @@ export type WorkerWithTotals = {
   active: boolean;
   yearTotal: number;
   lastPayment: Date | null;
+  // Ficha básica.
+  position: string | null;
+  areaId: string | null;
+  areaName: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  birthDate: Date | null;
+  hireDate: Date | null;
+  terminationDate: Date | null;
+  contractType: string | null;
+  status: string | null;
+  baseAmount: number | null;
+  bankName: string | null;
+  bankAccount: string | null;
+  afp: string | null;
+  healthPlan: string | null;
+  notes: string | null;
 };
 
 /** Trabajadores con el total pagado en el año en curso y su último pago. */
@@ -43,6 +62,7 @@ export async function listWorkersWithTotals(companyId: string): Promise<WorkerWi
     where: { companyId },
     orderBy: [{ active: "desc" }, { name: "asc" }],
     include: {
+      area: { select: { id: true, name: true } },
       remunerations: {
         where: { date: { gte: yearStart } },
         orderBy: { date: "desc" },
@@ -58,6 +78,24 @@ export async function listWorkersWithTotals(companyId: string): Promise<WorkerWi
     active: worker.active,
     yearTotal: worker.remunerations.reduce((acc, rem) => acc + rem.amount, 0),
     lastPayment: worker.remunerations[0]?.date ?? null,
+    position: worker.position,
+    areaId: worker.areaId,
+    areaName: worker.area?.name ?? null,
+    email: worker.email,
+    phone: worker.phone,
+    address: worker.address,
+    city: worker.city,
+    birthDate: worker.birthDate,
+    hireDate: worker.hireDate,
+    terminationDate: worker.terminationDate,
+    contractType: worker.contractType,
+    status: worker.status,
+    baseAmount: worker.baseAmount,
+    bankName: worker.bankName,
+    bankAccount: worker.bankAccount,
+    afp: worker.afp,
+    healthPlan: worker.healthPlan,
+    notes: worker.notes,
   }));
 }
 

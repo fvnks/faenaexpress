@@ -227,6 +227,23 @@ export const rrhhWorkerSchema = z.object({
     (value) => value === "on" || value === "true" || value === true,
     z.boolean(),
   ),
+  position: optionalText(120),
+  areaId: z.preprocess(emptyToUndefined, z.string().optional()),
+  email: z.preprocess(emptyToUndefined, z.email({ error: "Ingresa un correo válido." }).trim().optional()),
+  phone: optionalText(40),
+  address: optionalText(180),
+  city: optionalText(80),
+  birthDate: optionalDate,
+  hireDate: optionalDate,
+  terminationDate: optionalDate,
+  contractType: optionalText(80),
+  status: z.preprocess(emptyToUndefined, z.string().trim().max(40).optional()),
+  baseAmount: z.preprocess(emptyToUndefined, amount.optional()),
+  bankName: optionalText(80),
+  bankAccount: optionalText(80),
+  afp: optionalText(80),
+  healthPlan: optionalText(80),
+  notes: optionalText(500),
 });
 
 // Pago de remuneración: registros libres (tipo + período opcional + monto líquido).

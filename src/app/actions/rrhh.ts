@@ -44,7 +44,29 @@ export async function createRrhhWorker(_prev: RrhhFormState, formData: FormData)
   if (clashName) return { error: "Ya existe un trabajador con ese nombre." };
 
   const worker = await db.worker.create({
-    data: { companyId: ctx.company.id, name: parsed.data.name, rut, active: parsed.data.active },
+    data: {
+      companyId: ctx.company.id,
+      name: parsed.data.name,
+      rut,
+      active: parsed.data.active,
+      position: parsed.data.position ?? null,
+      areaId: parsed.data.areaId ?? null,
+      email: parsed.data.email ?? null,
+      phone: parsed.data.phone ?? null,
+      address: parsed.data.address ?? null,
+      city: parsed.data.city ?? null,
+      birthDate: parsed.data.birthDate ?? null,
+      hireDate: parsed.data.hireDate ?? null,
+      terminationDate: parsed.data.terminationDate ?? null,
+      contractType: parsed.data.contractType ?? null,
+      status: parsed.data.status ?? null,
+      baseAmount: parsed.data.baseAmount ?? null,
+      bankName: parsed.data.bankName ?? null,
+      bankAccount: parsed.data.bankAccount ?? null,
+      afp: parsed.data.afp ?? null,
+      healthPlan: parsed.data.healthPlan ?? null,
+      notes: parsed.data.notes ?? null,
+    },
   });
   await recordAudit(ctx, {
     action: "CREATE",
@@ -87,7 +109,28 @@ export async function updateRrhhWorker(
 
   await db.worker.update({
     where: { id, companyId: ctx.company.id },
-    data: { name: parsed.data.name, rut, active: parsed.data.active },
+    data: {
+      name: parsed.data.name,
+      rut,
+      active: parsed.data.active,
+      position: parsed.data.position ?? null,
+      areaId: parsed.data.areaId ?? null,
+      email: parsed.data.email ?? null,
+      phone: parsed.data.phone ?? null,
+      address: parsed.data.address ?? null,
+      city: parsed.data.city ?? null,
+      birthDate: parsed.data.birthDate ?? null,
+      hireDate: parsed.data.hireDate ?? null,
+      terminationDate: parsed.data.terminationDate ?? null,
+      contractType: parsed.data.contractType ?? null,
+      status: parsed.data.status ?? null,
+      baseAmount: parsed.data.baseAmount ?? null,
+      bankName: parsed.data.bankName ?? null,
+      bankAccount: parsed.data.bankAccount ?? null,
+      afp: parsed.data.afp ?? null,
+      healthPlan: parsed.data.healthPlan ?? null,
+      notes: parsed.data.notes ?? null,
+    },
   });
   await recordAudit(ctx, {
     action: "UPDATE",

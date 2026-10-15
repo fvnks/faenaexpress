@@ -225,6 +225,7 @@ model Area {
   purchases Purchase[]
   sales     Sale[]
   expenses  Expense[]
+  workers   Worker[]
 
   @@unique([companyId, name])
   @@index([companyId])
@@ -287,16 +288,37 @@ model Worker {
   name      String
   rut       String?
   active    Boolean  @default(true)
+  // Ficha laboral básica.
+  position        String?
+  areaId          String?
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  birthDate       DateTime? @db.Date
+  hireDate        DateTime? @db.Date
+  terminationDate DateTime? @db.Date
+  contractType    String?
+  baseAmount      Int?
+  bankName        String?
+  bankAccount     String?
+  afp             String?
+  healthPlan      String?
+  status          String?
+  notes           String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  area          Area?          @relation(fields: [areaId], references: [id], onDelete: SetNull)
   expenses      Expense[]
   remunerations Remuneration[]
 
   @@unique([companyId, name])
   @@unique([companyId, rut])
   @@index([companyId])
+  @@index([companyId, areaId])
+  @@index([companyId, active])
 }
 
 // Pago de remuneración registrado en RRHH: sueldos, aguinaldos, bonos o

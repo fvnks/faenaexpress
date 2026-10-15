@@ -6,6 +6,7 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { remunerationTypeLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
 import { listPayers } from "@/lib/catalogs";
+import { listAreas } from "@/lib/catalogs";
 import { listRemunerations, listWorkersWithTotals, rrhhYearTotal } from "@/lib/rrhh";
 import { cardClass, controlClass } from "@/lib/ui";
 import { remunerationTypeValues } from "@/lib/validation";
@@ -33,7 +34,7 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
     ? (typeRaw as (typeof remunerationTypeValues)[number])
     : undefined;
 
-  const [workers, remunerations, payers, yearTotal] = await Promise.all([
+  const [workers, remunerations, payers, areas, yearTotal] = await Promise.all([
     listWorkersWithTotals(ctx.company.id),
     listRemunerations(ctx.company.id, {
       workerId,
@@ -44,6 +45,7 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
       to: hasta ? new Date(hasta) : undefined,
     }),
     listPayers(ctx.company.id),
+    listAreas(ctx.company.id),
     rrhhYearTotal(ctx.company.id),
   ]);
 
@@ -166,7 +168,10 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2 font-medium">Nombre</th>
+                  <th className="px-3 py-2 font-medium">Cargo</th>
+                  <th className="px-3 py-2 font-medium">Área</th>
                   <th className="px-3 py-2 font-medium">RUT</th>
+                  <th className="px-3 py-2 font-medium">Estado laboral</th>
                   <th className="px-3 py-2 font-medium">Estado</th>
                   <th className="tabular px-3 py-2 text-right font-medium">Pagado este año</th>
                   <th className="px-3 py-2 font-medium">Último pago</th>
@@ -176,7 +181,10 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
                 {workers.map((worker) => (
                   <tr key={worker.id} className="border-b border-border last:border-0 align-top">
                     <td className="px-3 py-3 font-medium">{worker.name}</td>
+                    <td className="px-3 py-3">{worker.position ?? "—"}</td>
+                    <td className="px-3 py-3">{worker.areaName ?? "—"}</td>
                     <td className="tabular px-3 py-3">{worker.rut ?? "—"}</td>
+                    <td className="px-3 py-3">{worker.status ?? "—"}</td>
                     <td className="px-3 py-3">
                       {worker.active ? (
                         <span className="inline-flex whitespace-nowrap rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">
@@ -208,12 +216,35 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
               {workers.map((worker) => (
                 <WorkerRowForm
                   key={worker.id}
-                  worker={{ id: worker.id, name: worker.name, rut: worker.rut, active: worker.active }}
+                  worker={{
+                    id: worker.id,
+                    name: worker.name,
+                    rut: worker.rut,
+                    active: worker.active,
+                    position: worker.position,
+                    areaId: worker.areaId ?? null,
+                    email: worker.email,
+                    phone: worker.phone,
+                    address: worker.address,
+                    city: worker.city,
+                    birthDate: worker.birthDate,
+                    hireDate: worker.hireDate,
+                    terminationDate: worker.terminationDate,
+                    contractType: worker.contractType,
+                    status: worker.status,
+                    baseAmount: worker.baseAmount,
+                    bankName: worker.bankName,
+                    bankAccount: worker.bankAccount,
+                    afp: worker.afp,
+                    healthPlan: worker.healthPlan,
+                    notes: worker.notes,
+                  }}
+                  areas={areas}
                 />
               ))}
             </div>
             <h3 className="text-sm font-semibold">Nuevo trabajador</h3>
-            <NewWorkerForm />
+            <NewWorkerForm areas={areas} />
           </div>
         ) : null}
       </section>
