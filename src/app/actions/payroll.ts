@@ -72,6 +72,7 @@ export async function updatePayrollEntryAction(formData: FormData): Promise<void
   const allowances = Number(formData.get("allowances") ?? "0");
   const overtime = Number(formData.get("overtime") ?? "0");
   const otherDeductions = Number(formData.get("otherDeductions") ?? "0");
+  const taxAmount = Number(formData.get("taxAmount") ?? "0");
 
   let error: string | null = null;
   try {
@@ -80,6 +81,7 @@ export async function updatePayrollEntryAction(formData: FormData): Promise<void
       allowances: Number.isFinite(allowances) ? allowances : 0,
       overtime: Number.isFinite(overtime) ? overtime : 0,
       otherDeductions: Number.isFinite(otherDeductions) ? otherDeductions : 0,
+      taxAmount: Number.isFinite(taxAmount) ? taxAmount : 0,
     });
   } catch (thrown) {
     if (thrown && typeof thrown === "object" && "digest" in thrown) throw thrown;

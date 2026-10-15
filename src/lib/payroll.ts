@@ -12,19 +12,20 @@ export function calcPayrollEntry(input: {
   allowances: number;
   overtime: number;
   otherDeductions: number;
+  taxAmount: number;
   company: { afpRate: number; healthRate: number; unemploymentRate: number; anualBonusRate: number };
 }) {
   const grossAmount = Math.max(0, input.grossAmount);
   const allowances = Math.max(0, input.allowances);
   const overtime = Math.max(0, input.overtime);
   const otherDeductions = Math.max(0, input.otherDeductions);
+  const taxAmount = Math.max(0, input.taxAmount);
   const baseGross = grossAmount + allowances + overtime;
   const anualBonus = input.company.anualBonusRate > 0 ? Math.round((baseGross * input.company.anualBonusRate) / 100) : 0;
   const gross = baseGross + anualBonus;
   const afpAmount = Math.round((gross * input.company.afpRate) / 100);
   const healthAmount = Math.round((gross * input.company.healthRate) / 100);
   const unemploymentAmount = Math.round((gross * input.company.unemploymentRate) / 100);
-  const taxAmount = 0;
   const deductionsTotal = afpAmount + healthAmount + unemploymentAmount + taxAmount + otherDeductions;
   const netAmount = Math.max(0, gross - deductionsTotal);
   return {
@@ -72,6 +73,7 @@ export async function generatePayrollEntries(companyId: string, periodId: string
         allowances: 0,
         overtime: 0,
         otherDeductions: 0,
+        taxAmount: 0,
         company,
       });
       await tx.payrollEntry.create({
@@ -101,7 +103,7 @@ export async function updatePayrollEntry(
   companyId: string,
   periodId: string,
   entryId: string,
-  input: { baseAmount: number; allowances: number; overtime: number; otherDeductions: number },
+  input: { baseAmount: number; allowances: number; overtime: number; otherDeductions: number; taxAmount: number },
 ) {
   const entry = await db.payrollEntry.findFirst({ where: { id: entryId, periodId } });
   if (!entry) throw new Error("Liquidación no existe.");
@@ -117,6 +119,7 @@ export async function updatePayrollEntry(
     allowances: input.allowances,
     overtime: input.overtime,
     otherDeductions: input.otherDeductions,
+    taxAmount: input.taxAmount,
     company,
   });
   await db.payrollEntry.update({

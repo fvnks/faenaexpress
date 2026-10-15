@@ -77,6 +77,10 @@ export default async function LiquidacionPage(props: PageProps<"/dashboard/rrhh/
             <td className="py-2">Otras deducciones</td>
             <td className="py-2 text-right">-{formatCLP(entry.otherDeductions)}</td>
           </tr>
+          <tr className="border-b border-border">
+            <td className="py-2">Impuesto unico</td>
+            <td className="py-2 text-right">-{formatCLP(entry.taxAmount)}</td>
+          </tr>
           <tr className="border-b border-border font-semibold">
             <td className="py-2">Total descuentos</td>
             <td className="py-2 text-right">-{formatCLP(entry.deductionsTotal)}</td>

@@ -137,6 +137,7 @@ export default async function PayrollPeriodPage(props: PageProps<"/dashboard/rrh
                       <input name="allowances" type="number" defaultValue={entry.allowances} className="w-20 rounded-control border border-border bg-background px-2 py-1 text-right tabular" />
                       <input name="overtime" type="number" defaultValue={entry.overtime} className="w-20 rounded-control border border-border bg-background px-2 py-1 text-right tabular" />
                       <input name="otherDeductions" type="number" defaultValue={entry.otherDeductions} className="w-24 rounded-control border border-border bg-background px-2 py-1 text-right tabular" />
+                      <input name="taxAmount" type="number" defaultValue={entry.taxAmount} className="w-24 rounded-control border border-border bg-background px-2 py-1 text-right tabular" />
                       <span className="text-xs text-muted-foreground">{entry.netAmount.toLocaleString("es-CL")} neto actual</span>
                       <button type="submit" className="rounded-control border border-border bg-transparent px-2 py-1 text-sm text-foreground">Recalcular</button>
                     </form>
