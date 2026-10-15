@@ -15,6 +15,10 @@ export type CompanyForForm = {
   city: string;
   ivaRate: number;
   retentionRate: number;
+  afpRate: number;
+  healthRate: number;
+  unemploymentRate: number;
+  anualBonusRate: number;
 };
 
 export function CompanyForm({
@@ -126,6 +130,34 @@ export function CompanyForm({
             defaultValue={defaults.retentionRate}
             className={controlClass}
           />
+        </div>
+
+        <div className={fieldClass}>
+          <label htmlFor="company-afp" className={labelClass}>
+            AFP / descuento previsional (%)
+          </label>
+          <input id="company-afp" name="afpRate" type="number" min={0} max={100} defaultValue={defaults.afpRate} className={controlClass} />
+        </div>
+
+        <div className={fieldClass}>
+          <label htmlFor="company-health" className={labelClass}>
+            Salud (%)
+          </label>
+          <input id="company-health" name="healthRate" type="number" min={0} max={100} defaultValue={defaults.healthRate} className={controlClass} />
+        </div>
+
+        <div className={fieldClass}>
+          <label htmlFor="company-unemployment" className={labelClass}>
+            Cesantía (%)
+          </label>
+          <input id="company-unemployment" name="unemploymentRate" type="number" min={0} max={100} defaultValue={defaults.unemploymentRate} className={controlClass} />
+        </div>
+
+        <div className={fieldClass}>
+          <label htmlFor="company-bonus" className={labelClass}>
+            Aguinaldo / bono anual (%)
+          </label>
+          <input id="company-bonus" name="anualBonusRate" type="number" min={0} max={100} defaultValue={defaults.anualBonusRate} className={controlClass} />
         </div>
 
         <div className={fieldClass + " sm:col-span-2"}>

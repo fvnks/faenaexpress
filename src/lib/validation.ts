@@ -304,6 +304,10 @@ export const companySchema = z.object({
     .min(0, { error: "La retención no puede ser negativa." })
     .max(100, { error: "La retención no puede superar 100." })
     .default(0),
+  afpRate: z.coerce.number().int().min(0).max(100).default(10),
+  healthRate: z.coerce.number().int().min(0).max(100).default(7),
+  unemploymentRate: z.coerce.number().int().min(0).max(100).default(1),
+  anualBonusRate: z.coerce.number().int().min(0).max(100).default(0),
 });
 
 function baseNameSchemaFactory() {

@@ -52,6 +52,10 @@ function companyData(input: ReturnType<typeof companySchema.parse>) {
     phone: input.phone ?? null,
     ivaRate: input.ivaRate,
     retentionRate: input.retentionRate,
+    afpRate: input.afpRate,
+    healthRate: input.healthRate,
+    unemploymentRate: input.unemploymentRate,
+    anualBonusRate: input.anualBonusRate,
   };
 }
 
@@ -71,6 +75,10 @@ export async function createCompany(
     phone: formData.get("phone"),
     ivaRate: formData.get("ivaRate"),
     retentionRate: formData.get("retentionRate"),
+    afpRate: formData.get("afpRate"),
+    healthRate: formData.get("healthRate"),
+    unemploymentRate: formData.get("unemploymentRate"),
+    anualBonusRate: formData.get("anualBonusRate"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos de la empresa." };
@@ -108,6 +116,10 @@ export async function updateCompany(
     phone: formData.get("phone"),
     ivaRate: formData.get("ivaRate"),
     retentionRate: formData.get("retentionRate"),
+    afpRate: formData.get("afpRate"),
+    healthRate: formData.get("healthRate"),
+    unemploymentRate: formData.get("unemploymentRate"),
+    anualBonusRate: formData.get("anualBonusRate"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos de la empresa." };

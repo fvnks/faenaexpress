@@ -18,7 +18,9 @@ export function calcPayrollEntry(input: {
   const allowances = Math.max(0, input.allowances);
   const overtime = Math.max(0, input.overtime);
   const otherDeductions = Math.max(0, input.otherDeductions);
-  const gross = grossAmount + allowances + overtime;
+  const baseGross = grossAmount + allowances + overtime;
+  const anualBonus = input.company.anualBonusRate > 0 ? Math.round((baseGross * input.company.anualBonusRate) / 100) : 0;
+  const gross = baseGross + anualBonus;
   const afpAmount = Math.round((gross * input.company.afpRate) / 100);
   const healthAmount = Math.round((gross * input.company.healthRate) / 100);
   const unemploymentAmount = Math.round((gross * input.company.unemploymentRate) / 100);

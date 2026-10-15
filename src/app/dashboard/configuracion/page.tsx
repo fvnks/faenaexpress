@@ -63,6 +63,10 @@ export default async function ConfigurationPage() {
                   city: active.company.city ?? "",
                   ivaRate: active.company.ivaRate,
                   retentionRate: active.company.retentionRate,
+                  afpRate: active.company.afpRate,
+                  healthRate: active.company.healthRate,
+                  unemploymentRate: active.company.unemploymentRate,
+                  anualBonusRate: active.company.anualBonusRate,
                 }}
               />
             </div>
