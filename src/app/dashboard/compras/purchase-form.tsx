@@ -234,13 +234,19 @@ export function PurchaseForm({
               <label htmlFor="paymentMethod" className={labelClass}>
                 Tipo de pago
               </label>
-              <SelectDropdown
+              <select
                 id="paymentMethod"
                 name="paymentMethod"
-                value={defaults?.paymentMethod ?? ""}
-                emptyLabel="Selecciona un medio de pago"
-                options={paymentMethodValues.map((value) => ({ value, label: paymentMethodLabel(value) }))}
-              />
+                defaultValue={defaults?.paymentMethod ?? ""}
+                className={controlClass}
+              >
+                <option value="">Selecciona un medio de pago</option>
+                {paymentMethodValues.map((value) => (
+                  <option key={value} value={value}>
+                    {paymentMethodLabel(value)}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className={fieldClass}>
               <label htmlFor="paymentDate" className={labelClass}>
@@ -249,8 +255,8 @@ export function PurchaseForm({
               <input
                 id="paymentDate"
                 name="paymentDate"
-                type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
-                defaultValue={defaults?.paymentDate ?? today}
+                type="text" data-date="1" pattern="^\d{2}-\d{2}(-\d{4})?$" placeholder="DD-MM o DD-MM-AAAA"
+                defaultValue={defaults?.paymentDate ?? ""}
                 className={controlClass}
               />
             </div>

@@ -5,11 +5,10 @@ import { ActionsDropdown } from "@/components/actions-dropdown";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
-import { SelectDropdown } from "@/components/select-dropdown";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
 import { paymentMethodLabel } from "@/lib/labels";
-import { formatCLP, formatDate, todayISO } from "@/lib/money";
+import { formatCLP, formatDate } from "@/lib/money";
 import { getPurchase } from "@/lib/purchases";
 import {
   cardClass,
@@ -140,13 +139,13 @@ export default async function PurchaseDetailPage(props: PageProps<"/dashboard/co
                   <label htmlFor="paymentMethod" className={labelClass}>
                     Método de pago
                   </label>
-                  <SelectDropdown
-                    id="paymentMethod"
-                    name="paymentMethod"
-                    value="TRANSFER"
-                    allowEmpty={false}
-                    options={paymentMethodValues.map((value) => ({ value, label: paymentMethodLabel(value) }))}
-                  />
+                  <select id="paymentMethod" name="paymentMethod" defaultValue="TRANSFER" className={controlClass}>
+                    {paymentMethodValues.map((value) => (
+                      <option key={value} value={value}>
+                        {paymentMethodLabel(value)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className={fieldClass}>
                   <label htmlFor="paymentDate" className={labelClass}>
@@ -155,8 +154,8 @@ export default async function PurchaseDetailPage(props: PageProps<"/dashboard/co
                   <input
                     id="paymentDate"
                     name="paymentDate"
-                    type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
-                    defaultValue={todayISO()}
+                    type="text" data-date="1" pattern="^\d{2}-\d{2}(-\d{4})?$" placeholder="DD-MM o DD-MM-AAAA"
+                    defaultValue=""
                     className={controlClass}
                   />
                 </div>

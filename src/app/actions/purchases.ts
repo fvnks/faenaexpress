@@ -145,6 +145,19 @@ export async function updatePurchase(
   redirect(`/dashboard/compras/${id}`);
 }
 
+function normalizePaymentDate(value: unknown): string | null {
+  if (!(typeof value === "string")) return null;
+  const cleaned = value.trim().replace(/\//g, "-");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return cleaned;
+  const match = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
+  if (!match) return null;
+  const day = match[1].padStart(2, "0");
+  const month = match[2].padStart(2, "0");
+  const year = match[3] ?? String(new Date().getFullYear());
+  const iso = `${year}-${month}-${day}`;
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
+}
+
 export async function markPurchasePaid(formData: FormData): Promise<void> {
   const ctx = await requireContext();
   if (!canWrite(ctx, "compras")) {
@@ -156,10 +169,12 @@ export async function markPurchasePaid(formData: FormData): Promise<void> {
   const paymentMethod = paymentMethodValues.find((value) => value === rawMethod) ?? "OTHER";
 
   const rawDate = formData.get("paymentDate");
-  const paymentDate =
-    typeof rawDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
-      ? new Date(`${rawDate}T00:00:00.000Z`)
-      : new Date();
+  const wired = normalizePaymentDate(rawDate);
+  if (!wired) {
+    await setFlash("error", "Ingresa la fecha de pago en formato DD-MM o DD-MM-AAAA.");
+    redirect(`/dashboard/compras/${id}`);
+  }
+  const paymentDate = new Date(`${wired}T00:00:00.000Z`);
 
   const purchase = await db.purchase.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!purchase) redirect("/dashboard/compras");

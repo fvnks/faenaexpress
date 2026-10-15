@@ -54,7 +54,21 @@ const optionalRut = z.preprocess(
     .optional(),
 );
 
-const optionalDate = z.preprocess(emptyToUndefined, z.coerce.date({ error: "Fecha inválida." }).optional());
+// Acepta AAAA-MM-DD, DD-MM-AAAA y DD-MM (el año en curso) en cualquier fecha manual.
+function normalizeDateValue(value: unknown): unknown {
+  if (!(typeof value === "string")) return value;
+  const cleaned = value.trim().replace(/\//g, "-");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return cleaned;
+  const match = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
+  if (!match) return cleaned;
+  const day = match[1].padStart(2, "0");
+  const month = match[2].padStart(2, "0");
+  const year = match[3] ?? String(new Date().getFullYear());
+  const iso = `${year}-${month}-${day}`;
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : cleaned;
+}
+
+const optionalDate = z.preprocess((value) => normalizeDateValue(emptyToUndefined(value)), z.coerce.date({ error: "Fecha inválida." }).optional());
 
 // Las notas de crédito y débito ajustan un documento: hay que indicar su folio.
 function requireReference(
