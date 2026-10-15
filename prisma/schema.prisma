@@ -780,6 +780,7 @@ model Sale {
   estadoReceptor       String? // estado del receptor en el SII (A/R)
   status               SaleStatus     @default(PENDING)
   paymentDate          DateTime?
+  confirmingAt         DateTime?
   paymentMethod        PaymentMethod?
   notes                String?
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
-import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid } from "@/app/actions/sales";
+import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming } from "@/app/actions/sales";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
@@ -18,6 +18,7 @@ type SaleItem = {
   totalAmount: number;
   status: string;
   paymentDate: Date | null;
+  confirmingAt: Date | null;
   purchaseOrder: string | null;
   hesNumber: string | null;
   partner: { name: string; rut: string | null };
@@ -199,6 +200,11 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                         {formatDate(sale.paymentDate)}
                       </span>
                     ) : null}
+                    {sale.confirmingAt ? (
+                      <span className="mt-0.5 block text-xs text-primary">
+                        Confirming: {formatDate(sale.confirmingAt)}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="tabular whitespace-nowrap px-3 py-2 text-right align-top font-semibold">
                     {formatCLP(sale.totalAmount)}
@@ -218,6 +224,15 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                           formData.set("status", "PAID");
                           startTransition(async () => {
                             await markSalePaid(formData);
+                          });
+                        }}
+                        confirming={Boolean(sale.confirmingAt)}
+                        onToggleConfirming={() => {
+                          const formData = new FormData();
+                          formData.set("id", sale.id);
+                          startTransition(async () => {
+                            if (sale.confirmingAt) await clearSaleConfirming(formData);
+                            else await markSaleConfirming(formData);
                           });
                         }}
                         onCancel={() => {

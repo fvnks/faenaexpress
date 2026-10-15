@@ -80,6 +80,8 @@ export function ActionsDropdown({
   deleteId,
   deleteMessage,
   onMarkPaid,
+  confirming,
+  onToggleConfirming,
   onCancel,
 }: {
   editHref: string;
@@ -89,6 +91,8 @@ export function ActionsDropdown({
   deleteId: string;
   deleteMessage: string;
   onMarkPaid?: () => void;
+  confirming?: boolean;
+  onToggleConfirming?: () => void;
   onCancel?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -214,6 +218,22 @@ export function ActionsDropdown({
                 >
                   <CheckIcon />
                   Marcar como cobrado
+                </button>
+              </li>
+            ) : null}
+            {onToggleConfirming ? (
+              <li>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    setOpen(false);
+                    onToggleConfirming();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-primary transition-colors hover:bg-primary-soft"
+                >
+                  <CheckIcon />
+                  {confirming ? "Quitar Confirming" : "Marcar Confirming"}
                 </button>
               </li>
             ) : null}

@@ -170,6 +170,60 @@ export async function markSalePaid(formData: FormData): Promise<void> {
   redirect(`/dashboard/ventas/${id}`);
 }
 
+export async function markSaleConfirming(formData: FormData): Promise<void> {
+  const ctx = await requireContext();
+  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+
+  const id = String(formData.get("id") ?? "");
+  const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
+  if (!sale) redirect("/dashboard/ventas");
+
+  await db.sale.update({
+    where: { id, companyId: ctx.company.id },
+    data: { confirmingAt: new Date() },
+  });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Sale",
+    entityId: id,
+    summary: `Marcó la venta ${sale.documentNumber ? `Nº ${sale.documentNumber} ` : ""}en Confirming.`,
+    changes: { confirmingAt: { before: sale.confirmingAt, after: new Date() } },
+  });
+
+  await setFlash("success", "Venta marcada como Confirming");
+  revalidatePath("/dashboard/ventas");
+  revalidatePath(`/dashboard/ventas/${id}`);
+  redirect(`/dashboard/ventas/${id}`);
+}
+
+export async function clearSaleConfirming(formData: FormData): Promise<void> {
+  const ctx = await requireContext();
+  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+
+  const id = String(formData.get("id") ?? "");
+  const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
+  if (!sale) redirect("/dashboard/ventas");
+
+  await db.sale.update({
+    where: { id, companyId: ctx.company.id },
+    data: { confirmingAt: null },
+  });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Sale",
+    entityId: id,
+    summary: `Quitó Confirming de la venta ${sale.documentNumber ? `Nº ${sale.documentNumber} ` : ""}.`,
+    changes: { confirmingAt: { before: sale.confirmingAt, after: null } },
+  });
+
+  await setFlash("success", "Confirming quitado");
+  revalidatePath("/dashboard/ventas");
+  revalidatePath(`/dashboard/ventas/${id}`);
+  redirect(`/dashboard/ventas/${id}`);
+}
+
 export async function markSalePending(formData: FormData): Promise<void> {
   const ctx = await requireContext();
   if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
