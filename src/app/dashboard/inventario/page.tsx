@@ -70,6 +70,9 @@ export default async function InventarioPage(props: PageProps<"/dashboard/invent
         <Link href="/dashboard/inventario/reportes/abc" className="text-sm text-primary underline-offset-2 hover:underline">
           Clasificación ABC
         </Link>
+        <Link href="/dashboard/inventario/lotes" className="text-sm text-primary underline-offset-2 hover:underline">
+          Lotes y vencimiento
+        </Link>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

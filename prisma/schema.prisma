@@ -51,6 +51,7 @@ model User {
   approvedAbsences Absence[] @relation("AbsenceApprovedBy")
   uploadedWorkerDocuments WorkerDocument[] @relation("WorkerDocumentUploadedBy")
   createdStockMovements StockMovement[] @relation("StockMovementCreatedBy")
+  createdProductLots    ProductLot[]    @relation("ProductLotCreatedBy")
   createdStockCounts    StockCount[]    @relation("StockCountCreatedBy")
   createdCommissionAssignments CommissionAssignment[] @relation("CommissionAssignmentCreatedBy")
   createdDispatchGuides        DispatchGuide[]        @relation("DispatchGuideCreatedBy")
@@ -154,6 +155,7 @@ model Company {
   payrollPeriods         PayrollPeriod[]
   absences              Absence[]
   workerDocuments       WorkerDocument[]
+  productLots           ProductLot[]
 }
 
 // ---------------------------------------------------------------------------
@@ -521,6 +523,7 @@ model Warehouse {
   origins   StockMovement[]  @relation("MovementOrigin")
   targets   StockMovement[]  @relation("MovementDestination")
   counts    StockCount[]
+  lots      ProductLot[]
 
   @@unique([companyId, name])
   @@index([companyId])
@@ -554,6 +557,7 @@ model Product {
   countItems StockCountItem[]
   purchaseItems PurchaseItem[] @relation("PurchaseItemProduct")
   saleItems     SaleItem[]     @relation("SaleItemProduct")
+  lots          ProductLot[]
 
   @@unique([companyId, sku])
   @@index([companyId, name])
@@ -1124,3 +1128,31 @@ model PayrollEntry {
   @@unique([periodId, workerId])
   @@index([workerId])
 }
+
+// ---------------------------------------------------------------------------
+// Lotes de producto y vencimiento
+// ---------------------------------------------------------------------------
+
+model ProductLot {
+  id             String   @id @default(cuid())
+  companyId      String
+  productId      String
+  warehouseId    String?
+  code           String
+  expirationDate DateTime? @db.Date
+  quantity       Decimal  @db.Decimal(14, 3) @default(0)
+  notes          String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  createdBy User       @relation("ProductLotCreatedBy", fields: [createdById], references: [id])
+
+  @@index([companyId, productId])
+  @@index([expirationDate])
+  @@index([companyId, expirationDate])
+}
+
