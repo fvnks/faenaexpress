@@ -4,9 +4,13 @@ import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 
 import {
+  createAbsence,
   createBulkRemuneration,
   createRemuneration,
   createRrhhWorker,
+  deleteAbsence,
+  deleteWorkerDocument,
+  uploadWorkerDocument,
   updateRrhhWorker,
   type RrhhFormState,
 } from "@/app/actions/rrhh";
@@ -397,6 +401,121 @@ export function BulkRemunerationForm({
         <span className="text-xs text-muted-foreground">Crea gastos automaticos por cada trabajador.</span>
       </div>
       {state?.error ? <p className="text-sm text-danger">{state.error}</p> : null}
+    </form>
+  );
+}
+
+// --- Ausencias / licencias ---------------------------------------------------
+
+const absenceTypes = [
+  { value: "SICK", label: "Enfermedad" },
+  { value: "VACATION", label: "Vacaciones" },
+  { value: "PERSONAL", label: "Permiso personal" },
+  { value: "UNPAID", label: "Sin goce de sueldo" },
+  { value: "OTHER", label: "Otro" },
+];
+
+const absenceStatuses = [
+  { value: "PENDING", label: "Pendiente" },
+  { value: "APPROVED", label: "Aprobada" },
+  { value: "REJECTED", label: "Rechazada" },
+];
+
+export function AbsenceForm({ workerId, today }: { workerId: string; today: string }) {
+  const [state, action] = useActionState<RrhhFormState, FormData>(createAbsence, undefined);
+  useEffect(() => {
+    if (state?.ok) toast.success("Ausencia registrada");
+  }, [state]);
+
+  return (
+    <form action={action} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <input type="hidden" name="workerId" value={workerId} />
+      <div className={fieldClass}>
+        <label className={labelClass}>Tipo</label>
+        <select name="type" defaultValue="SICK" className={controlClass}>
+          {absenceTypes.map((item) => (
+            <option key={item.value} value={item.value}>{item.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className={fieldClass}>
+        <label className={labelClass}>Estado</label>
+        <select name="status" defaultValue="APPROVED" className={controlClass}>
+          {absenceStatuses.map((item) => (
+            <option key={item.value} value={item.value}>{item.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className={fieldClass}>
+        <label className={labelClass}>Desde</label>
+        <input name="startDate" type="date" required defaultValue={today} className={controlClass} />
+      </div>
+      <div className={fieldClass}>
+        <label className={labelClass}>Hasta</label>
+        <input name="endDate" type="date" required defaultValue={today} className={controlClass} />
+      </div>
+      <label className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-2">
+        <input type="checkbox" name="paid" defaultChecked={false} className="h-4 w-4 accent-primary" />
+        Periodo remunerado
+      </label>
+      <div className={fieldClass + " sm:col-span-2"}>
+        <label className={labelClass}>Motivo (opcional)</label>
+        <input name="reason" maxLength={200} className={controlClass} />
+      </div>
+      <div className={fieldClass + " sm:col-span-2 lg:col-span-4"}>
+        <label className={labelClass}>Notas (opcional)</label>
+        <input name="notes" maxLength={500} className={controlClass} />
+      </div>
+      <div className="sm:col-span-2 lg:col-span-4">
+        <SubmitButton pendingLabel="Registrando..." className="btn-liquid btn-liquid-primary rounded-control border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary">
+          Registrar ausencia
+        </SubmitButton>
+        {state?.error ? <p className="mt-2 text-sm text-danger">{state.error}</p> : null}
+      </div>
+    </form>
+  );
+}
+
+// --- Adjuntos de trabajador --------------------------------------------------
+
+export function DocumentUploadForm({ workerId }: { workerId: string }) {
+  const [state, action] = useActionState<RrhhFormState, FormData>(uploadWorkerDocument, undefined);
+  useEffect(() => {
+    if (state?.ok) toast.success("Documento adjuntado");
+  }, [state]);
+
+  return (
+    <form action={action} className="flex flex-col gap-3" encType="multipart/form-data">
+      <input type="hidden" name="workerId" value={workerId} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className={fieldClass}>
+          <label className={labelClass}>Titulo</label>
+          <input name="title" required maxLength={120} className={controlClass} />
+        </div>
+        <div className={fieldClass}>
+          <label className={labelClass}>Tipo</label>
+          <select name="type" defaultValue="OTHER" className={controlClass}>
+            <option value="CONTRACT">Contrato</option>
+            <option value="ANNEX">Anexo</option>
+            <option value="CERTIFICATE">Certificado</option>
+            <option value="OTHER">Otro</option>
+          </select>
+        </div>
+      </div>
+      <div className={fieldClass}>
+        <label className={labelClass}>Descripcion (opcional)</label>
+        <input name="description" maxLength={500} className={controlClass} />
+      </div>
+      <div className={fieldClass}>
+        <label className={labelClass}>Archivo (max 5 MB)</label>
+        <input name="file" type="file" required className={controlClass} />
+      </div>
+      <div>
+        <SubmitButton pendingLabel="Subiendo..." className="btn-liquid btn-liquid-primary rounded-control border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary">
+          Adjuntar
+        </SubmitButton>
+        {state?.error ? <p className="mt-2 text-sm text-danger">{state.error}</p> : null}
+      </div>
     </form>
   );
 }

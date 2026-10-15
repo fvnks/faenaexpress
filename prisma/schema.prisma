@@ -47,6 +47,8 @@ model User {
   sales           Sale[]     @relation("SaleCreatedBy")
   createdExpenses Expense[]  @relation("ExpenseCreatedBy")
   createdRemunerations Remuneration[] @relation("RemunerationCreatedBy")
+  approvedAbsences Absence[] @relation("AbsenceApprovedBy")
+  uploadedWorkerDocuments WorkerDocument[] @relation("WorkerDocumentUploadedBy")
   createdStockMovements StockMovement[] @relation("StockMovementCreatedBy")
   createdStockCounts    StockCount[]    @relation("StockCountCreatedBy")
   createdCommissionAssignments CommissionAssignment[] @relation("CommissionAssignmentCreatedBy")
@@ -144,6 +146,8 @@ model Company {
   commissionEntries      CommissionEntry[]
   commissionCloses       CommissionClose[]
   dispatchGuides         DispatchGuide[]
+  absences              Absence[]
+  workerDocuments       WorkerDocument[]
 }
 
 // ---------------------------------------------------------------------------
@@ -313,12 +317,82 @@ model Worker {
   area          Area?          @relation(fields: [areaId], references: [id], onDelete: SetNull)
   expenses      Expense[]
   remunerations Remuneration[]
+  absences      Absence[]
+  documents     WorkerDocument[]
 
   @@unique([companyId, name])
   @@unique([companyId, rut])
   @@index([companyId])
   @@index([companyId, areaId])
   @@index([companyId, active])
+}
+
+// Ausencias o licencias de un trabajador. Registro laboral, independiente del pago.
+enum AbsenceType {
+  SICK
+  VACATION
+  PERSONAL
+  UNPAID
+  OTHER
+}
+
+enum AbsenceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Absence {
+  id           String         @id @default(cuid())
+  companyId    String
+  workerId     String
+  type         AbsenceType
+  status       AbsenceStatus  @default(PENDING)
+  startDate    DateTime       @db.Date
+  endDate      DateTime       @db.Date
+  paid         Boolean        @default(false)
+  reason       String?
+  notes        String?
+  approvedById String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  worker     Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  approvedBy User?   @relation("AbsenceApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([companyId, workerId])
+  @@index([companyId, startDate])
+  @@index([companyId, type])
+}
+
+// Documento adjunto a un trabajador (contrato, anexo, certificado, etc.).
+enum WorkerDocumentType {
+  CONTRACT
+  ANNEX
+  CERTIFICATE
+  OTHER
+}
+
+model WorkerDocument {
+  id            String @id @default(cuid())
+  companyId     String
+  workerId      String
+  title         String
+  type          WorkerDocumentType @default(OTHER)
+  description   String?
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  fileData      Bytes
+  uploadedById  String
+  createdAt     DateTime @default(now())
+
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  worker     Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation("WorkerDocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([companyId, workerId])
 }
 
 // Pago de remuneración registrado en RRHH: sueldos, aguinaldos, bonos o

@@ -11,7 +11,7 @@ import { formatCLP } from "@/lib/money";
 import { normalizeRut } from "@/lib/rut";
 import { setFlash } from "@/lib/flash";
 import { partnerRutExists } from "@/lib/rrhh";
-import { remunerationSchema, rrhhWorkerSchema } from "@/lib/validation";
+import { remunerationSchema, rrhhAbsenceSchema, rrhhWorkerSchema } from "@/lib/validation";
 
 export type RrhhFormState = { error?: string; ok?: boolean } | undefined;
 
@@ -396,4 +396,146 @@ export async function createBulkRemuneration(
   return { ok: true };
 }
 
-// --- Busca las remuneraciones por trabajador en src/lib/rrhh.ts ----------------
+// --- Ausencias y licencias ----------------------------------------------------
+
+export async function createAbsence(
+  _prev: RrhhFormState,
+  formData: FormData,
+): Promise<RrhhFormState> {
+  const ctx = await requireContext("rrhh");
+  if (!canWrite(ctx, "rrhh")) return { error: "No tienes permiso para gestionar RRHH." };
+
+  const parsed = rrhhAbsenceSchema.safeParse({
+    workerId: formData.get("workerId"),
+    type: formData.get("type"),
+    status: formData.get("status"),
+    startDate: formData.get("startDate"),
+    endDate: formData.get("endDate"),
+    paid: formData.get("paid"),
+    reason: formData.get("reason"),
+    notes: formData.get("notes"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+
+  const worker = await db.worker.findFirst({ where: { id: parsed.data.workerId, companyId: ctx.company.id } });
+  if (!worker) return { error: "Trabajador no encontrado." };
+  if (parsed.data.endDate < parsed.data.startDate) return { error: "La fecha de término no puede ser anterior al inicio." };
+
+  const absence = await db.absence.create({
+    data: {
+      companyId: ctx.company.id,
+      workerId: worker.id,
+      type: parsed.data.type,
+      status: parsed.data.status,
+      startDate: parsed.data.startDate,
+      endDate: parsed.data.endDate,
+      paid: parsed.data.paid,
+      reason: parsed.data.reason ?? null,
+      notes: parsed.data.notes ?? null,
+      approvedById: (parsed.data.status === "APPROVED" || parsed.data.status === "REJECTED") ? ctx.user.id : null,
+    },
+  });
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "Absence",
+    entityId: absence.id,
+    summary: `Registró ${parsed.data.type} para ${worker.name}.`,
+  });
+  revalidatePath("/dashboard/rrhh");
+  revalidatePath(`/dashboard/rrhh/trabajadores/${worker.id}`);
+  return { ok: true };
+}
+
+export async function deleteAbsence(formData: FormData): Promise<void> {
+  const ctx = await requireContext("rrhh");
+  if (!canWrite(ctx, "rrhh")) {
+    await setFlash("error", "No se pudo eliminar la ausencia", "Sin permiso.");
+    redirect("/dashboard/rrhh");
+  }
+  const id = String(formData.get("id") ?? "");
+  const absence = await db.absence.findFirst({ where: { id, companyId: ctx.company.id }, include: { worker: { select: { name: true } } } });
+  if (!absence) redirect("/dashboard/rrhh");
+  await db.absence.delete({ where: { id, companyId: ctx.company.id } });
+  await recordAudit(ctx, {
+    action: "DELETE",
+    entityType: "Absence",
+    entityId: id,
+    summary: `Eliminó una ausencia de ${absence.worker.name}.`,
+  });
+  revalidatePath(`/dashboard/rrhh/trabajadores/${absence.workerId}`);
+  redirect(`/dashboard/rrhh/trabajadores/${absence.workerId}`);
+}
+
+// --- Documentos adjuntos ------------------------------------------------------
+
+const workerDocumentTypeValues = ["CONTRACT", "ANNEX", "CERTIFICATE", "OTHER"] as const;
+
+export async function uploadWorkerDocument(
+  _prev: RrhhFormState,
+  formData: FormData,
+): Promise<RrhhFormState> {
+  const ctx = await requireContext("rrhh");
+  if (!canWrite(ctx, "rrhh")) return { error: "No tienes permiso para gestionar RRHH." };
+
+  const workerId = String(formData.get("workerId") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const type = (formData.get("type") ?? "OTHER") as (typeof workerDocumentTypeValues)[number];
+  const descriptionRaw = formData.get("description");
+  const file = formData.get("file");
+
+  if (!workerId) return { error: "Trabajador requerido." };
+  if (title.length < 1 || title.length > 120) return { error: "Ingresa un título (1-120)." };
+  if (!(file instanceof File) || file.size === 0) return { error: "Selecciona un archivo." };
+  if (file.size > 5 * 1024 * 1024) return { error: "El archivo supera 5 MB." };
+
+  const worker = await db.worker.findFirst({ where: { id: workerId, companyId: ctx.company.id } });
+  if (!worker) return { error: "Trabajador no encontrado." };
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const doc = await db.workerDocument.create({
+    data: {
+      companyId: ctx.company.id,
+      workerId,
+      title,
+      type,
+      description: descriptionRaw ? String(descriptionRaw).trim().slice(0, 500) : null,
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+      fileData: buffer,
+      uploadedById: ctx.user.id,
+    },
+  });
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "WorkerDocument",
+    entityId: doc.id,
+    summary: `Adjuntó «${title}» a ${worker.name}.`,
+  });
+  revalidatePath(`/dashboard/rrhh/trabajadores/${workerId}`);
+  return { ok: true };
+}
+
+export async function deleteWorkerDocument(formData: FormData): Promise<void> {
+  const ctx = await requireContext("rrhh");
+  if (!canWrite(ctx, "rrhh")) {
+    await setFlash("error", "No se pudo eliminar el documento", "Sin permiso.");
+    redirect("/dashboard/rrhh");
+  }
+  const id = String(formData.get("id") ?? "");
+  const workerId = String(formData.get("workerId") ?? "");
+  const doc = await db.workerDocument.findFirst({ where: { id, companyId: ctx.company.id } });
+  if (!doc) redirect("/dashboard/rrhh");
+  await db.workerDocument.delete({ where: { id, companyId: ctx.company.id } });
+  await recordAudit(ctx, {
+    action: "DELETE",
+    entityType: "WorkerDocument",
+    entityId: id,
+    summary: `Eliminó un documento adjunto.`,
+  });
+  revalidatePath(`/dashboard/rrhh/trabajadores/${workerId}`);
+  redirect(`/dashboard/rrhh/trabajadores/${workerId}`);
+}
+
+// --- Descarga de documentos --------------------------------------------------
+// (la descarga se sirve directamente desde la tabla; no requiere ruta extra)

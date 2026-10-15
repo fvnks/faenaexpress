@@ -267,7 +267,19 @@ export const remunerationSchema = z.object({
   notes: optionalText(500),
 });
 
-export type RrhhWorkerInput = z.infer<typeof rrhhWorkerSchema>;
+export const absenceTypeValues = ["SICK", "VACATION", "PERSONAL", "UNPAID", "OTHER"] as const;
+export const absenceStatusValues = ["PENDING", "APPROVED", "REJECTED"] as const;
+
+export const rrhhAbsenceSchema = z.object({
+  workerId: z.string().min(1, { error: "Selecciona el trabajador." }),
+  type: z.enum(absenceTypeValues, { error: "Selecciona el tipo de ausencia." }),
+  status: z.enum(absenceStatusValues, { error: "Selecciona el estado." }).default("PENDING"),
+  startDate: z.coerce.date({ error: "Ingresa la fecha de inicio." }),
+  endDate: z.coerce.date({ error: "Ingresa la fecha de término." }),
+  paid: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean()),
+  reason: optionalText(200),
+  notes: optionalText(500),
+});
 export type RemunerationInput = z.infer<typeof remunerationSchema>;
 
 export const companySchema = z.object({

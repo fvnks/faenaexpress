@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { deleteRemuneration } from "@/app/actions/rrhh";
+import { deleteAbsence, deleteRemuneration, deleteWorkerDocument, uploadWorkerDocument } from "@/app/actions/rrhh";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -10,7 +10,7 @@ import { formatCLP, formatDate } from "@/lib/money";
 import { listAreas } from "@/lib/catalogs";
 import { workerRemunerationHistory } from "@/lib/rrhh";
 import { cardClass } from "@/lib/ui";
-import { WorkerRowForm } from "../../rrhh-forms";
+import { AbsenceForm, DocumentUploadForm, WorkerRowForm } from "../../rrhh-forms";
 
 export default async function TrabajadorDetailPage(props: PageProps<"/dashboard/rrhh/trabajadores/[id]">) {
   const ctx = await requireContext("rrhh");
@@ -18,10 +18,12 @@ export default async function TrabajadorDetailPage(props: PageProps<"/dashboard/
   const params = await props.params;
   const id = params.id;
 
-  const [worker, remunerations, areas] = await Promise.all([
+  const [worker, remunerations, areas, absences, documents] = await Promise.all([
     db.worker.findFirst({ where: { id, companyId: ctx.company.id }, include: { area: { select: { id: true, name: true } } } }),
     workerRemunerationHistory(ctx.company.id, id),
     listAreas(ctx.company.id),
+    db.absence.findMany({ where: { workerId: id, companyId: ctx.company.id }, orderBy: { startDate: "desc" } }),
+    db.workerDocument.findMany({ where: { workerId: id, companyId: ctx.company.id }, orderBy: { createdAt: "desc" }, select: { id: true, title: true, type: true, fileName: true, sizeBytes: true, createdAt: true } }),
   ]);
 
   if (!worker) notFound();
@@ -139,7 +141,115 @@ export default async function TrabajadorDetailPage(props: PageProps<"/dashboard/
             </table>
           </div>
         )}
+
+      {/* Ausencias y licencias */}
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Ausencias y licencias</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Enfermedad, vacaciones, permisos y su estatus.
+        </p>
+        {writable ? (
+          <div className="mt-4">
+            <AbsenceForm workerId={worker.id} today={new Date().toISOString().slice(0, 10)} />
+          </div>
+        ) : null}
+        {absences.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">Sin ausencias registradas.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[44rem] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="px-4 py-2 font-medium">Tipo</th>
+                  <th className="px-4 py-2 font-medium">Desde</th>
+                  <th className="px-4 py-2 font-medium">Hasta</th>
+                  <th className="px-4 py-2 font-medium">Estado</th>
+                  <th className="px-4 py-2 font-medium">Remunerada</th>
+                  <th className="px-4 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {absences.map((absence) => (
+                  <tr key={absence.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5">{absence.type}</td>
+                    <td className="tabular px-4 py-2.5">{new Date(absence.startDate).toISOString().slice(0, 10)}</td>
+                    <td className="tabular px-4 py-2.5">{new Date(absence.endDate).toISOString().slice(0, 10)}</td>
+                    <td className="px-4 py-2.5">{absence.status}</td>
+                    <td className="px-4 py-2.5">{absence.paid ? "Si" : "No"}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      {writable ? (
+                        <form action={deleteAbsence}>
+                          <input type="hidden" name="id" value={absence.id} />
+                          <ConfirmSubmit message="Eliminar ausencia?" className="text-sm text-danger underline-offset-2 hover:underline">
+                            Eliminar
+                          </ConfirmSubmit>
+                        </form>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
+
+      {/* Documentos adjuntos */}
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Documentos adjuntos</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Contratos, anexos y certificados (max 5 MB).
+        </p>
+        {writable ? (
+          <div className="mt-4">
+            <DocumentUploadForm workerId={worker.id} />
+          </div>
+        ) : null}
+        {documents.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">Sin documentos adjuntos.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[40rem] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="px-4 py-2 font-medium">Titulo</th>
+                  <th className="px-4 py-2 font-medium">Tipo</th>
+                  <th className="px-4 py-2 font-medium">Archivo</th>
+                  <th className="px-4 py-2 text-right font-medium">Tamano</th>
+                  <th className="px-4 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {documents.map((doc) => (
+                  <tr key={doc.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5 font-medium">{doc.title}</td>
+                    <td className="px-4 py-2.5">{doc.type}</td>
+                    <td className="px-4 py-2.5">
+                      <a href={"/dashboard/rrhh/trabajadores/" + worker.id + "/documentos/" + doc.id + "/download"} className="text-primary underline-offset-2 hover:underline">
+                        {doc.fileName}
+                      </a>
+                    </td>
+                    <td className="tabular px-4 py-2.5 text-right">{Math.round(doc.sizeBytes / 1024)} KB</td>
+                    <td className="px-4 py-2.5 text-right">
+                      {writable ? (
+                        <form action={deleteWorkerDocument}>
+                          <input type="hidden" name="id" value={doc.id} />
+                          <input type="hidden" name="workerId" value={worker.id} />
+                          <ConfirmSubmit message="Eliminar documento?" className="text-sm text-danger underline-offset-2 hover:underline">
+                            Eliminar
+                          </ConfirmSubmit>
+                        </form>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+            </section>
     </div>
   );
 }
