@@ -64,6 +64,9 @@ export default async function InventarioPage(props: PageProps<"/dashboard/invent
         <Link href="/dashboard/inventario/reportes/stock-muerto" className="text-sm text-primary underline-offset-2 hover:underline">
           Stock muerto / lento
         </Link>
+        <Link href="/dashboard/inventario/reportes/rotacion" className="text-sm text-primary underline-offset-2 hover:underline">
+          Rotación y cobertura
+        </Link>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
