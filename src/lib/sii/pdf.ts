@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { chromium } from "playwright";
 
 import type { FacturaPdfData } from "./pdf-template";
@@ -11,7 +12,12 @@ import { renderFacturaHtml } from "./pdf-template";
 export async function generateFacturaPdf(data: FacturaPdfData): Promise<Uint8Array> {
   const html = await renderFacturaHtml(data);
 
-  const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || (process.platform === "linux" ? "/usr/bin/chromium" : undefined) });
+  const chromiumExecutable =
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+    (process.platform === "linux"
+      ? ["/usr/bin/chromium", "/usr/bin/chromium-browser"].find((candidate) => existsSync(candidate))
+      : undefined);
+  const browser = await chromium.launch({ headless: true, executablePath: chromiumExecutable });
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle" });
