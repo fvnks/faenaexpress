@@ -114,6 +114,7 @@ export const saleSchema = z.object({
   retentionAmount: z.preprocess(emptyToUndefined, amount.optional()),
   status: z.enum(paymentStatusValues, { error: "Selecciona el estado." }),
   paymentDate: optionalDate,
+  confirmingAt: optionalDate,
   notes: optionalText(1000),
 }).superRefine(requireReference);
 

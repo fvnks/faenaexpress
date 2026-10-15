@@ -175,6 +175,7 @@ export type SaleForForm = {
   retentionAmount: number;
   status: string;
   paymentDate: string;
+  confirmingAt: string;
   notes: string;
 };
 
@@ -197,6 +198,7 @@ export function serializeSale(sale: {
   retentionAmount: { toString(): string };
   status: string;
   paymentDate: Date | null;
+  confirmingAt: Date | null;
   notes: string | null;
 }): SaleForForm {
   return {
@@ -218,6 +220,7 @@ export function serializeSale(sale: {
     retentionAmount: Number(sale.retentionAmount.toString()),
     status: sale.status,
     paymentDate: sale.paymentDate ? toISODate(sale.paymentDate) : "",
+    confirmingAt: sale.confirmingAt ? toISODate(sale.confirmingAt) : "",
     notes: sale.notes ?? "",
   };
 }

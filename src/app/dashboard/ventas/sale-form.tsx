@@ -346,6 +346,19 @@ export function SaleForm({
         ) : null}
 
         <div className={fieldClass}>
+          <label htmlFor="confirmingAt" className={labelClass}>
+            Fecha Confirming
+          </label>
+          <input
+            id="confirmingAt"
+            name="confirmingAt"
+            type="date"
+            defaultValue={defaults?.confirmingAt || ""}
+            className={controlClass}
+          />
+        </div>
+
+        <div className={fieldClass}>
           <label htmlFor="notes" className={labelClass}>
             Observaciones <span className="text-muted-foreground">(opcional)</span>
           </label>

@@ -30,6 +30,7 @@ function readForm(formData: FormData) {
     retentionAmount: formData.get("retentionAmount"),
     status: formData.get("status"),
     paymentDate: formData.get("paymentDate"),
+    confirmingAt: formData.get("confirmingAt"),
     notes: formData.get("notes"),
   };
 }
@@ -56,6 +57,7 @@ function toData(input: SaleInput) {
     status: input.status,
     paymentDate: paid ? (input.paymentDate ?? new Date()) : null,
     paymentMethod: null,
+    confirmingAt: input.confirmingAt ?? null,
     notes: input.notes ?? null,
   };
 }
