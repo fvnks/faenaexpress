@@ -25,5 +25,5 @@ export function ToasterFlash({ flash }: { flash: Flash | null }) {
     void clearFlash();
   }, [flash]);
 
-  return <Toaster position="bottom-right" richColors closeButton />;
+  return <Toaster position="top-center" richColors closeButton />;
 }
