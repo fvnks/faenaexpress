@@ -58,6 +58,9 @@ export default async function InventarioPage(props: PageProps<"/dashboard/invent
         {writable ? (
           <Link href="/dashboard/inventario/productos/nuevo" className={primaryButtonClass}>Nuevo producto</Link>
         ) : null}
+        <Link href="/dashboard/inventario/reportes/valorizacion" className="text-sm text-primary underline-offset-2 hover:underline">
+          Valuación de inventario
+        </Link>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
