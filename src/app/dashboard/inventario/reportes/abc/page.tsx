@@ -5,6 +5,7 @@ import { cardClass, controlClass } from "@/lib/ui";
 import { formatCLP } from "@/lib/money";
 import { listProducts } from "@/lib/inventory";
 import { db } from "@/lib/db";
+import { classifyAbcInventory } from "@/lib/inventory-abc";
 
 export default async function InventoryAbcPage(props: PageProps<"/dashboard/inventario/reportes/abc">) {
   const ctx = await requireContext("inventario");
@@ -31,29 +32,8 @@ export default async function InventoryAbcPage(props: PageProps<"/dashboard/inve
   const saleAmountByProduct = new Map<string, number>();
   for (const row of saleRows) saleAmountByProduct.set(row.productId, Number(row.amount) || 0);
 
-  const ranked = products
-    .map((product) => {
-      const amount = saleAmountByProduct.get(product.id) ?? 0;
-      const currentStock = Number(product.quantity);
-      return { ...product, amount, currentStock };
-    })
-    .filter((product) => product.amount > 0)
-    .sort((a, b) => b.amount - a.amount);
+  const { rows, summary } = classifyAbcInventory(products, saleAmountByProduct, fromDate, now);
 
-  const totalAmount = ranked.reduce((sum, product) => sum + product.amount, 0);
-  let cumulative = 0;
-  const rows = ranked.map((product) => {
-    cumulative += product.amount;
-    const cumulativePercentage = totalAmount > 0 ? Math.round((cumulative / totalAmount) * 1000) / 10 : 0;
-    const abc = cumulativePercentage <= 80 ? "A" : cumulativePercentage <= 95 ? "B" : "C";
-    return { ...product, cumulativePercentage, abc };
-  });
-
-  const summary = {
-    A: rows.filter((row) => row.abc === "A"),
-    B: rows.filter((row) => row.abc === "B"),
-    C: rows.filter((row) => row.abc === "C"),
-  };
 
   return (
     <div className="flex flex-col gap-6">
