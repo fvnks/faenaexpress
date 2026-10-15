@@ -483,6 +483,7 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     if (row.rut && rutsTrabajadores.has(normalizeRut(row.rut))) return false;
     return !foliosExistentes.has(row.folio);
   });
+  const fallos: string[] = [];
   const omitidas = rows.filter((row) => !TIPOS_IMPORTABLES[row.tipoDoc]).length;
   const duplicadas = rows.filter(
     (row) => TIPOS_IMPORTABLES[row.tipoDoc] && foliosExistentes.has(row.folio),
@@ -596,8 +597,11 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
       imported += 1;
     } catch {
       // El resto sigue importándose; el conteo final refleja lo logrado.
+      fallos.push(`Folio ${folio}: no se pudo guardar.`);
     }
   }
+
+  const diagnostico = `SII devolvió ${rows.length} documentos: ${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con error. Puede omitir boletas (39/41).`;
 
   if (imported > 0) {
     await recordAudit(ctx, {
@@ -611,10 +615,10 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     await setFlash(
       "success",
       `${imported} ${imported === 1 ? (side === "COMPRA" ? "compra importada" : "venta importada") : `${etiqueta} importadas`}`,
-      `RCV SII ${periodo} · ${duplicadas} ya registradas · ${omitidas} omitidas`,
+      `${destino === "/dashboard/ventas" ? "Ventas" : "Compras"} · ${periodo} · ${diagnostico}`,
     );
   } else {
-    await setFlash("error", "No se pudo importar ningún documento del RCV.");
+    await setFlash("error", "No se importó ningún documento nuevo del RCV.", diagnostico);
   }
   redirect(destino);
 }
