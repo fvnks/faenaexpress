@@ -194,7 +194,14 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                     {sale.hesNumber ?? "—"}
                   </td>
                   <td className="px-3 py-2 align-top">
-                    <SaleStatusBadge status={sale.status as never} />
+                    {sale.confirmingAt ? (
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-primary">
+                        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        Confirming
+                      </span>
+                    ) : (
+                      <SaleStatusBadge status={sale.status as never} />
+                    )}
                     {sale.paymentDate ? (
                       <span className="mt-0.5 block text-xs text-muted-foreground">
                         {formatDate(sale.paymentDate)}
@@ -202,7 +209,7 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                     ) : null}
                     {sale.confirmingAt ? (
                       <span className="mt-0.5 block text-xs text-primary">
-                        Confirming: {formatDate(sale.confirmingAt)}
+                        {formatDate(sale.confirmingAt)}
                       </span>
                     ) : null}
                   </td>

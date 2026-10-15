@@ -361,11 +361,11 @@ export function SaleForm({
               type="button"
               onClick={() => {
                 const input = document.getElementById("confirmingAt") as HTMLInputElement | null;
-                if (input) input.value = today;
+                if (input && !input.value) input.value = today;
               }}
               className="rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
             >
-              Hoy
+              Marcar Confirming
             </button>
           </div>
         </div>
