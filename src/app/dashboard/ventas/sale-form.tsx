@@ -338,7 +338,7 @@ export function SaleForm({
                 id="paymentDate"
                 name="paymentDate"
                 type="date"
-                defaultValue={defaults?.paymentDate ?? today}
+                defaultValue={defaults?.paymentDate ?? ""}
                 className={controlClass}
               />
             </div>

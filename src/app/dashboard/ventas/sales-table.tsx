@@ -243,8 +243,7 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                             });
                             return;
                           }
-                          const suggested = new Date().toISOString().slice(0, 10);
-                          const entered = window.prompt("Fecha Confirming (AAAA-MM-DD):", suggested);
+                          const entered = window.prompt("Fecha Confirming (AAAA-MM-DD):");
                           if (!entered || !/^\d{4}-\d{2}-\d{2}$/.test(entered)) return;
                           formData.set("confirmingDate", entered);
                           startTransition(async () => {

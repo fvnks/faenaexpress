@@ -55,7 +55,7 @@ function toData(input: SaleInput) {
     totalAmount: computeTotal(input.netAmount, input.ivaAmount),
     retentionAmount: input.retentionAmount ?? 0,
     status: input.status,
-    paymentDate: paid ? (input.paymentDate ?? new Date()) : null,
+    paymentDate: paid ? input.paymentDate : null,
     paymentMethod: null,
     confirmingAt: input.confirmingAt ?? null,
     notes: input.notes ?? null,
