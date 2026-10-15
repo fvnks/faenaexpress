@@ -1083,6 +1083,8 @@ model PayrollPeriod {
   createdById String
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  ratesSource String?
+  indicatorsSnapshot Json?
 
   company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdBy  User           @relation("PayrollPeriodCreatedBy", fields: [createdById], references: [id])

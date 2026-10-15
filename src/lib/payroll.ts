@@ -1,6 +1,8 @@
 import type { PayrollStatus } from "@/generated/prisma/client";
 
 import { db } from "@/lib/db";
+import { fetchPreviredIndicators, resolvePayrollRates } from "@/lib/previred";
+import type { PreviredIndicators } from "@/lib/previred";
 
 export const payrollStatusLabels: Record<PayrollStatus, string> = {
   DRAFT: "Borrador",
@@ -13,7 +15,7 @@ export function calcPayrollEntry(input: {
   overtime: number;
   otherDeductions: number;
   taxAmount: number;
-  company: { afpRate: number; healthRate: number; unemploymentRate: number; anualBonusRate: number };
+  rates: { afpRate: number; healthRate: number; unemploymentRate: number; anualBonusRate: number };
 }) {
   const grossAmount = Math.max(0, input.grossAmount);
   const allowances = Math.max(0, input.allowances);
@@ -21,11 +23,11 @@ export function calcPayrollEntry(input: {
   const otherDeductions = Math.max(0, input.otherDeductions);
   const taxAmount = Math.max(0, input.taxAmount);
   const baseGross = grossAmount + allowances + overtime;
-  const anualBonus = input.company.anualBonusRate > 0 ? Math.round((baseGross * input.company.anualBonusRate) / 100) : 0;
+  const anualBonus = input.rates.anualBonusRate > 0 ? Math.round((baseGross * input.rates.anualBonusRate) / 100) : 0;
   const gross = baseGross + anualBonus;
-  const afpAmount = Math.round((gross * input.company.afpRate) / 100);
-  const healthAmount = Math.round((gross * input.company.healthRate) / 100);
-  const unemploymentAmount = Math.round((gross * input.company.unemploymentRate) / 100);
+  const afpAmount = Math.round((gross * input.rates.afpRate) / 100);
+  const healthAmount = Math.round((gross * input.rates.healthRate) / 100);
+  const unemploymentAmount = Math.round((gross * input.rates.unemploymentRate) / 100);
   const deductionsTotal = afpAmount + healthAmount + unemploymentAmount + taxAmount + otherDeductions;
   const netAmount = Math.max(0, gross - deductionsTotal);
   return {
@@ -60,6 +62,23 @@ export async function generatePayrollEntries(companyId: string, periodId: string
   });
   if (!company) throw new Error("Empresa no existe.");
 
+  let indicators = (period.indicatorsSnapshot ?? null) as PreviredIndicators;
+  if (!indicators && process.env.PREVIRED_API_TOKEN) {
+    indicators = await fetchPreviredIndicators(period.year, period.month);
+    if (!indicators) throw new Error("No se pudieron obtener los indicadores previsionales.");
+  }
+  if (indicators && !period.indicatorsSnapshot) {
+    await db.payrollPeriod.update({
+      where: { id: periodId },
+      data: { indicatorsSnapshot: indicators as never, ratesSource: "previred-api" },
+    });
+  } else if (!period.indicatorsSnapshot) {
+    await db.payrollPeriod.update({
+      where: { id: periodId },
+      data: { ratesSource: indicators ? "previred-api" : "configuracion-empresa" },
+    });
+  }
+
   const workers = await db.worker.findMany({
     where: { companyId, active: true },
     orderBy: { name: "asc" },
@@ -67,6 +86,7 @@ export async function generatePayrollEntries(companyId: string, periodId: string
 
   await db.$transaction(async (tx) => {
     for (const worker of workers) {
+      const rates = resolvePayrollRates(indicators, worker, company);
       const baseAmount = worker.baseAmount ?? 0;
       const computed = calcPayrollEntry({
         grossAmount: baseAmount,
@@ -74,7 +94,7 @@ export async function generatePayrollEntries(companyId: string, periodId: string
         overtime: 0,
         otherDeductions: 0,
         taxAmount: 0,
-        company,
+        rates,
       });
       await tx.payrollEntry.create({
         data: {
@@ -105,7 +125,7 @@ export async function updatePayrollEntry(
   entryId: string,
   input: { baseAmount: number; allowances: number; overtime: number; otherDeductions: number; taxAmount: number },
 ) {
-  const entry = await db.payrollEntry.findFirst({ where: { id: entryId, periodId } });
+  const entry = await db.payrollEntry.findFirst({ where: { id: entryId, periodId }, include: { worker: true } });
   if (!entry) throw new Error("Liquidación no existe.");
   const period = await db.payrollPeriod.findFirst({ where: { id: periodId, companyId, status: "DRAFT" } });
   if (!period) throw new Error("Periodo no editable.");
@@ -114,13 +134,15 @@ export async function updatePayrollEntry(
     select: { afpRate: true, healthRate: true, unemploymentRate: true, anualBonusRate: true },
   });
   if (!company) throw new Error("Empresa no existe.");
+  const indicators = (period.indicatorsSnapshot ?? null) as PreviredIndicators;
+  const rates = resolvePayrollRates(indicators, entry.worker, company);
   const computed = calcPayrollEntry({
     grossAmount: input.baseAmount,
     allowances: input.allowances,
     overtime: input.overtime,
     otherDeductions: input.otherDeductions,
     taxAmount: input.taxAmount,
-    company,
+    rates,
   });
   await db.payrollEntry.update({
     where: { id: entryId },
