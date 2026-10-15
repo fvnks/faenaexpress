@@ -61,6 +61,12 @@ export default async function PayrollCostReportPage(props: PageProps<"/dashboard
         <button type="submit" className="rounded-control border border-border bg-transparent px-4 py-2 text-sm text-foreground">
           Actualizar
         </button>
+        <a
+          href={`/dashboard/rrhh/nomina/reportes/costos/export/xlsx?year=${year}`}
+          className="rounded-control border border-border bg-transparent px-4 py-2 text-sm text-foreground"
+        >
+          Exportar Excel
+        </a>
       </form>
 
       <section className={cardClass + " overflow-x-auto"}>
