@@ -243,9 +243,13 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                             });
                             return;
                           }
-                          const entered = window.prompt("Fecha Confirming (AAAA-MM-DD):");
-                          if (!entered || !/^\d{4}-\d{2}-\d{2}$/.test(entered)) return;
-                          formData.set("confirmingDate", entered);
+                          const entered = window.prompt("Fecha Confirming (DD-MM-AAAA):");
+                          const matched = entered ? /^\d{2}-\d{2}-\d{4}$/.exec(entered) : null;
+                          if (!matched) return;
+                          const day = entered!.slice(0, 2);
+                          const month = entered!.slice(3, 5);
+                          const year = entered!.slice(6, 10);
+                          formData.set("confirmingDate", `${year}-${month}-${day}`);
                           startTransition(async () => {
                             await markSaleConfirming(formData);
                           });
