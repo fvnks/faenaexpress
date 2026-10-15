@@ -163,12 +163,25 @@ export async function markSalePaid(formData: FormData): Promise<void> {
   if (!wired) return;
   const paymentDate = new Date(`${wired}T00:00:00.000Z`);
 
+  const rawSalespersonId = formData.get("salespersonId");
+  const salespersonId = typeof rawSalespersonId === "string" ? rawSalespersonId.trim() : null;
+  if (salespersonId) {
+    const salesperson = await db.salesperson.findFirst({
+      where: { id: salespersonId, companyId: ctx.company.id },
+    });
+    if (!salesperson) redirect("/dashboard/ventas");
+  }
+
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!sale) redirect("/dashboard/ventas");
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
-    data: { status: "PAID", paymentDate },
+    data: {
+      status: "PAID",
+      paymentDate,
+      ...(rawSalespersonId !== null ? { salespersonId: salespersonId || null } : {}),
+    },
   });
 
   await recordAudit(ctx, {
@@ -194,12 +207,24 @@ export async function markSaleConfirming(formData: FormData): Promise<void> {
   if (!wired) return;
   const confirmingDate = new Date(`${wired}T00:00:00.000Z`);
 
+  const rawSalespersonId = formData.get("salespersonId");
+  const salespersonId = typeof rawSalespersonId === "string" ? rawSalespersonId.trim() : null;
+  if (salespersonId) {
+    const salesperson = await db.salesperson.findFirst({
+      where: { id: salespersonId, companyId: ctx.company.id },
+    });
+    if (!salesperson) redirect("/dashboard/ventas");
+  }
+
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!sale) redirect("/dashboard/ventas");
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
-    data: { confirmingAt: confirmingDate },
+    data: {
+      confirmingAt: confirmingDate,
+      ...(rawSalespersonId !== null ? { salespersonId: salespersonId || null } : {}),
+    },
   });
 
   await recordAudit(ctx, {

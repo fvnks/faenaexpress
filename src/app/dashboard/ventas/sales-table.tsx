@@ -38,13 +38,49 @@ type Props = {
   salespeople: { id: string; name: string }[];
 };
 
+function parseShortDate(input: string | null): string | null {
+  if (!input) return null;
+  const cleaned = input.trim().replace(/\//g, "-");
+  const parsed = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
+  if (!parsed) return null;
+  const day = parsed[1].padStart(2, "0");
+  const month = parsed[2].padStart(2, "0");
+  const year = parsed[3] ?? String(new Date().getFullYear());
+  const wire = `${year}-${month}-${day}`;
+  return /^\d{4}-\d{2}-\d{2}$/.test(wire) ? wire : null;
+}
+
 export function SalesTable({ items, writable, salespeople }: Props) {
   const [cancelModalSaleId, setCancelModalSaleId] = useState<string | null>(null);
   const [assignModalSaleId, setAssignModalSaleId] = useState<string | null>(null);
   const [assignSalespersonId, setAssignSalespersonId] = useState<string>("");
+  const [actionModal, setActionModal] = useState<{ saleId: string; kind: "PAID" | "CONFIRMING"; date: string } | null>(null);
+  const [actionSalespersonId, setActionSalespersonId] = useState<string>("");
   const [, startTransition] = useTransition();
   const cancelSaleItem = cancelModalSaleId ? items.find((s) => s.id === cancelModalSaleId) : null;
   const assignSaleItem = assignModalSaleId ? items.find((s) => s.id === assignModalSaleId) : null;
+  const actionModalSale = actionModal ? items.find((s) => s.id === actionModal.saleId) : null;
+
+  const submitActionModal = async () => {
+    if (!actionModal || !actionModalSale) return;
+    const formData = new FormData();
+    formData.set("id", actionModal.saleId);
+    if (actionModal.kind === "PAID") {
+      formData.set("paymentDate", actionModal.date);
+    } else {
+      formData.set("confirmingDate", actionModal.date);
+    }
+    formData.set("salespersonId", actionSalespersonId);
+    startTransition(async () => {
+      if (actionModal.kind === "PAID") {
+        await markSalePaid(formData);
+      } else {
+        await markSaleConfirming(formData);
+      }
+      setActionModal(null);
+    });
+  };
+
 
   return (
     <>
@@ -231,21 +267,10 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                         deleteMessage="¿Eliminar esta venta? Esta acción no se puede deshacer."
                         onMarkPaid={() => {
                           const entered = window.prompt("Fecha cobrada (DD-MM o DD-MM-AAAA):");
-                          const cleaned = entered ? entered.trim().replace(/\//g, "-") : null;
-                          if (!cleaned) return;
-                          const parsed = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
-                          if (!parsed) return;
-                          const day = parsed[1].padStart(2, "0");
-                          const month = parsed[2].padStart(2, "0");
-                          const year = parsed[3] ?? String(new Date().getFullYear());
-                          const wire = `${year}-${month}-${day}`;
-                          if (!/^\d{4}-\d{2}-\d{2}$/.test(wire)) return;
-                          const formData = new FormData();
-                          formData.set("id", sale.id);
-                          formData.set("paymentDate", wire);
-                          startTransition(async () => {
-                            await markSalePaid(formData);
-                          });
+                          const wire = parseShortDate(entered);
+                          if (!wire) return;
+                          setActionModal({ saleId: sale.id, kind: "PAID", date: wire });
+                          setActionSalespersonId(sale.salespersonId ?? "");
                         }}
                         confirming={Boolean(sale.confirmingAt)}
                         onToggleConfirming={() => {
@@ -258,19 +283,10 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                             return;
                           }
                           const entered = window.prompt("Fecha Confirming (DD-MM o DD-MM-AAAA):");
-                          const cleaned = entered ? entered.trim().replace(/\//g, "-") : null;
-                          if (!cleaned) return;
-                          const parsed = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
-                          if (!parsed) return;
-                          const day = parsed[1].padStart(2, "0");
-                          const month = parsed[2].padStart(2, "0");
-                          const year = parsed[3] ?? String(new Date().getFullYear());
-                          const wire = `${year}-${month}-${day}`;
-                          if (!/^\d{4}-\d{2}-\d{2}$/.test(wire)) return;
-                          formData.set("confirmingDate", wire);
-                          startTransition(async () => {
-                            await markSaleConfirming(formData);
-                          });
+                          const wire = parseShortDate(entered);
+                          if (!wire) return;
+                          setActionModal({ saleId: sale.id, kind: "CONFIRMING", date: wire });
+                          setActionSalespersonId(sale.salespersonId ?? "");
                         }}
                         onAssignSalesperson={() => {
                           setAssignModalSaleId(sale.id);
@@ -346,6 +362,58 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                 </button>
                 <button type="submit" className="rounded-control bg-primary px-3 py-1.5 text-sm text-primary-foreground">
                   Asignar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {actionModal && actionModalSale ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 p-4">
+          <div className="w-full max-w-sm rounded-card border border-border bg-surface p-4 shadow-lg">
+            <h2 className="text-base font-semibold">
+              {actionModal.kind === "PAID" ? "Cobrar factura" : "Marcar Confirming"}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {actionModalSale.partner.name} - {actionModalSale.documentNumber ?? "sin folio"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Fecha: {formatDate(new Date(`${actionModal.date}T00:00:00.000Z`))}
+            </p>
+            <form
+              className="mt-4 flex flex-col gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submitActionModal();
+              }}
+            >
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Vendedor</span>
+                <select
+                  name="salespersonId"
+                  value={actionSalespersonId}
+                  onChange={(e) => setActionSalespersonId(e.target.value)}
+                  className={cardClass + " px-3 py-2"}
+                >
+                  <option value="">Sin vendedor</option>
+                  {salespeople.map((sp) => (
+                    <option key={sp.id} value={sp.id}>
+                      {sp.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActionModal(null)}
+                  className="rounded-control border border-border px-3 py-1.5 text-sm"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="rounded-control bg-primary px-3 py-1.5 text-sm text-primary-foreground">
+                  Confirmar
                 </button>
               </div>
             </form>
