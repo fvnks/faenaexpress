@@ -40,12 +40,8 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# Chromium de sistema para el SII (evita descargar/importar Playwright en cada build).
-# Se usa desde Playwright mediante PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium \
-  && rm -rf /var/lib/apt/lists/*
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+# Chromium para el login del SII (playwright). ~500 MB con deps de sistema.
+RUN pnpm exec playwright install --with-deps chromium
 
 # Código y build de producción.
 COPY . .

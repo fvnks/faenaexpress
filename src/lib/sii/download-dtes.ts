@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { promises as fsp } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -71,12 +70,7 @@ async function openSiiSession(companyId: string): Promise<{ browser: Browser; pa
   const cookies = extractCookies(session);
   if (cookies.length === 0) return null;
 
-  const chromiumExecutable =
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-    (process.platform === "linux"
-      ? ["/usr/bin/chromium", "/usr/bin/chromium-browser"].find((candidate) => existsSync(candidate))
-      : undefined);
-  const browser = await chromium.launch({ headless: true, executablePath: chromiumExecutable });
+  const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
 
   // Convertir cookies al formato que espera Playwright addCookies.
