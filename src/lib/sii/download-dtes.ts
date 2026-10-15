@@ -70,7 +70,7 @@ async function openSiiSession(companyId: string): Promise<{ browser: Browser; pa
   const cookies = extractCookies(session);
   if (cookies.length === 0) return null;
 
-  const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || (process.platform === "linux" ? "/usr/bin/chromium" : undefined) });
   const context = await browser.newContext();
 
   // Convertir cookies al formato que espera Playwright addCookies.

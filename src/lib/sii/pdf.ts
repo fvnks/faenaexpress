@@ -11,7 +11,7 @@ import { renderFacturaHtml } from "./pdf-template";
 export async function generateFacturaPdf(data: FacturaPdfData): Promise<Uint8Array> {
   const html = await renderFacturaHtml(data);
 
-  const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || (process.platform === "linux" ? "/usr/bin/chromium" : undefined) });
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle" });
