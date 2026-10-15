@@ -204,7 +204,7 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                     )}
                     {sale.paymentDate ? (
                       <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {formatDate(sale.paymentDate)}
+                        Cobrado: {formatDate(sale.paymentDate)}
                       </span>
                     ) : null}
                     {sale.confirmingAt ? (
