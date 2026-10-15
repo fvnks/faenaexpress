@@ -139,16 +139,29 @@ export async function updateSale(
   redirect(`/dashboard/ventas/${id}`);
 }
 
+function normalizeDateInput(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim().replace(/\//g, "-");
+  let match = /^\d{4}-\d{2}-\d{2}$/.exec(cleaned);
+  if (match) return cleaned;
+  match = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
+  if (!match) return null;
+  const day = match[1].padStart(2, "0");
+  const month = match[2].padStart(2, "0");
+  const year = match[3] ?? String(new Date().getFullYear());
+  const iso = `${year}-${month}-${day}`;
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
+}
+
 export async function markSalePaid(formData: FormData): Promise<void> {
   const ctx = await requireContext();
   if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
 
   const id = String(formData.get("id") ?? "");
   const rawDate = formData.get("paymentDate");
-  const paymentDate =
-    typeof rawDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
-      ? new Date(`${rawDate}T00:00:00.000Z`)
-      : new Date();
+  const wired = normalizeDateInput(rawDate);
+  if (!wired) return;
+  const paymentDate = new Date(`${wired}T00:00:00.000Z`);
 
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!sale) redirect("/dashboard/ventas");
@@ -178,10 +191,9 @@ export async function markSaleConfirming(formData: FormData): Promise<void> {
 
   const id = String(formData.get("id") ?? "");
   const rawDate = formData.get("confirmingDate") ?? formData.get("confirmingAt");
-  const confirmingDate =
-    typeof rawDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
-      ? new Date(`${rawDate}T00:00:00.000Z`)
-      : new Date();
+  const wired = normalizeDateInput(rawDate);
+  if (!wired) return;
+  const confirmingDate = new Date(`${wired}T00:00:00.000Z`);
 
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!sale) redirect("/dashboard/ventas");

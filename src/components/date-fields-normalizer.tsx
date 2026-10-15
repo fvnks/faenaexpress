@@ -8,10 +8,20 @@ function toDisplay(value: string): string {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+function pad(value: string): string {
+  return value.padStart(2, "0");
+}
+
 function toWire(value: string): string {
-  const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+  const cleaned = value.trim().replace(/\//g, "-");
+  let m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(cleaned);
+  if (m) return cleaned;
+  m = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
   if (!m) return value;
-  return `${m[3]}-${m[2]}-${m[1]}`;
+  const day = pad(m[1]);
+  const month = pad(m[2]);
+  const year = m[3] ?? String(new Date().getFullYear());
+  return `${year}-${month}-${day}`;
 }
 
 export function DateFieldsNormalizer() {

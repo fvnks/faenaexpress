@@ -226,9 +226,19 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                         deleteId={sale.id}
                         deleteMessage="¿Eliminar esta venta? Esta acción no se puede deshacer."
                         onMarkPaid={() => {
+                          const entered = window.prompt("Fecha cobrada (DD-MM o DD-MM-AAAA):");
+                          const cleaned = entered ? entered.trim().replace(/\//g, "-") : null;
+                          if (!cleaned) return;
+                          const parsed = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
+                          if (!parsed) return;
+                          const day = parsed[1].padStart(2, "0");
+                          const month = parsed[2].padStart(2, "0");
+                          const year = parsed[3] ?? String(new Date().getFullYear());
+                          const wire = `${year}-${month}-${day}`;
+                          if (!/^\d{4}-\d{2}-\d{2}$/.test(wire)) return;
                           const formData = new FormData();
                           formData.set("id", sale.id);
-                          formData.set("status", "PAID");
+                          formData.set("paymentDate", wire);
                           startTransition(async () => {
                             await markSalePaid(formData);
                           });
@@ -243,13 +253,17 @@ export function SalesTable({ items, writable, salespeople }: Props) {
                             });
                             return;
                           }
-                          const entered = window.prompt("Fecha Confirming (DD-MM-AAAA):");
-                          const matched = entered ? /^\d{2}-\d{2}-\d{4}$/.exec(entered) : null;
-                          if (!matched) return;
-                          const day = entered!.slice(0, 2);
-                          const month = entered!.slice(3, 5);
-                          const year = entered!.slice(6, 10);
-                          formData.set("confirmingDate", `${year}-${month}-${day}`);
+                          const entered = window.prompt("Fecha Confirming (DD-MM o DD-MM-AAAA):");
+                          const cleaned = entered ? entered.trim().replace(/\//g, "-") : null;
+                          if (!cleaned) return;
+                          const parsed = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
+                          if (!parsed) return;
+                          const day = parsed[1].padStart(2, "0");
+                          const month = parsed[2].padStart(2, "0");
+                          const year = parsed[3] ?? String(new Date().getFullYear());
+                          const wire = `${year}-${month}-${day}`;
+                          if (!/^\d{4}-\d{2}-\d{2}$/.test(wire)) return;
+                          formData.set("confirmingDate", wire);
                           startTransition(async () => {
                             await markSaleConfirming(formData);
                           });
