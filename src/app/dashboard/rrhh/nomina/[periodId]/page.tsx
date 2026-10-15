@@ -44,6 +44,9 @@ export default async function PayrollPeriodPage(props: PageProps<"/dashboard/rrh
           <Link href="/dashboard/rrhh/nomina" className="text-sm text-primary underline-offset-2 hover:underline">
             ← Volver a nómina
           </Link>
+          <a href={`/dashboard/rrhh/nomina/${period.id}/export/xlsx`} className="ml-4 text-sm text-primary underline-offset-2 hover:underline">
+            Exportar Excel
+          </a>
           <h1 className="mt-2 text-2xl font-bold tracking-tight">
             Nomina {period.year}-{String(period.month).padStart(2, "0")}
           </h1>
