@@ -143,3 +143,52 @@ export async function rrhhYearTotal(companyId: string) {
   });
   return result._sum.amount ?? 0;
 }
+
+/** Últimas remuneraciones de un trabajador. */
+export async function workerRemunerationHistory(companyId: string, workerId: string) {
+  return db.remuneration.findMany({
+    where: { companyId, workerId },
+    orderBy: { date: "desc" },
+    include: {
+      paidBy: { select: { name: true } },
+      expense: { select: { id: true } },
+    },
+  });
+}
+
+/** Costo laboral total por mes/año. */
+export async function rrhhMonthlyCosts(companyId: string, year: number) {
+  const from = new Date(Date.UTC(year, 0, 1));
+  const to = new Date(Date.UTC(year + 1, 0, 1));
+  const remunerations = await db.remuneration.findMany({
+    where: { companyId, date: { gte: from, lt: to } },
+    select: {
+      workerId: true,
+      amount: true,
+      date: true,
+      worker: { select: { name: true, baseAmount: true, area: { select: { name: true } } } },
+    },
+  });
+
+  const workerNames = new Map(remunerations.map((item) => [item.workerId, item.worker.name]));
+  const byWorker = new Map<string, number[]>();
+  remunerations.forEach((item) => {
+    const month = item.date.getUTCMonth();
+    const row = byWorker.get(item.workerId) ?? Array.from({ length: 12 }, () => 0);
+    row[month] += item.amount;
+    byWorker.set(item.workerId, row);
+  });
+
+  const months = Array.from({ length: 12 }, (_, month) =>
+    [...byWorker.values()].reduce((acc, row) => acc + row[month], 0),
+  );
+
+  const rows = [...byWorker.entries()].map(([workerId, monthly]) => ({
+    workerId,
+    name: workerNames.get(workerId) ?? workerId,
+    monthly,
+    total: monthly.reduce((acc, value) => acc + value, 0),
+  })).sort((a, b) => b.total - a.total);
+
+  return { year, rows, months, total: months.reduce((acc, value) => acc + value, 0) };
+}

@@ -279,3 +279,121 @@ export async function deleteRemuneration(formData: FormData): Promise<void> {
   revalidatePath("/dashboard/gastos");
   redirect("/dashboard/rrhh");
 }
+
+// --- Pagos por lote ----------------------------------------------------------
+
+export async function createBulkRemuneration(
+  _prev: RrhhFormState,
+  formData: FormData,
+): Promise<RrhhFormState> {
+  const ctx = await requireContext("rrhh");
+  if (!canWrite(ctx, "rrhh")) return { error: "No tienes permiso para gestionar RRHH." };
+
+  const dateRaw = formData.get("date");
+  const typeRaw = formData.get("type");
+  const paidById = String(formData.get("paidById") ?? "");
+  const periodRaw = formData.get("period");
+  const notesRaw = formData.get("notes");
+
+  const common = remunerationSchema.safeParse({
+    workerId: "temp",
+    type: typeRaw,
+    period: periodRaw,
+    date: dateRaw,
+    amount: 1,
+    paidById: paidById,
+    paymentMethod: formData.get("paymentMethod"),
+    notes: notesRaw,
+  });
+  if (!common.success) {
+    const first = common.error.issues.filter((i) => i.path[0] !== "workerId" && i.path[0] !== "amount")[0];
+    return { error: first?.message ?? "Revisa los datos comunes del pago por lote." };
+  }
+
+  const workerIds = formData.getAll("workerId").map(String);
+  const amounts = formData.getAll("amount").map(String);
+  const selected = new Set(formData.getAll("selected").map(String));
+
+  const entries: { workerId: string; amount: number }[] = [];
+  for (let i = 0; i < workerIds.length; i += 1) {
+    const id = workerIds[i];
+    if (!selected.has(id)) continue;
+    const amount = Number(amounts[i] ?? "0");
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { error: `Monto inválido para el trabajador #${i + 1}.` };
+    }
+    entries.push({ workerId: id, amount: Math.round(amount) });
+  }
+  if (entries.length === 0) return { error: "Selecciona al menos un trabajador." };
+
+  const workers = await db.worker.findMany({
+    where: { companyId: ctx.company.id, id: { in: entries.map((entry) => entry.workerId) } },
+    select: { id: true, name: true },
+  });
+  if (workers.length !== entries.length) return { error: "Algún trabajador no existe en esta empresa." };
+
+  const category = await db.category.findFirst({
+    where: { companyId: ctx.company.id, active: true, name: "Remuneraciones" },
+    select: { id: true },
+  });
+
+  const total = entries.reduce((acc, entry) => acc + entry.amount, 0);
+  const created = await db.$transaction(async (tx) => {
+    const createdIds: string[] = [];
+    for (const entry of entries) {
+      const worker = workers.find((item) => item.id === entry.workerId)!;
+      const description = remunerationDescription({
+        type: common.data.type,
+        workerName: worker.name,
+        period: common.data.period ?? null,
+      });
+      const expense = await tx.expense.create({
+        data: {
+          companyId: ctx.company.id,
+          createdById: ctx.user.id,
+          date: common.data.date,
+          description,
+          categoryId: category?.id ?? null,
+          workerId: worker.id,
+          netAmount: entry.amount,
+          ivaAmount: 0,
+          totalAmount: entry.amount,
+          paymentMethod: common.data.paymentMethod,
+          paidById: common.data.paidById,
+          reimbursed: false,
+          notes: common.data.notes ?? null,
+        },
+      });
+      const remuneration = await tx.remuneration.create({
+        data: {
+          companyId: ctx.company.id,
+          workerId: worker.id,
+          type: common.data.type,
+          period: common.data.period ?? null,
+          date: common.data.date,
+          amount: entry.amount,
+          paidById: common.data.paidById,
+          expenseId: expense.id,
+          notes: common.data.notes ?? null,
+          createdById: ctx.user.id,
+        },
+      });
+      createdIds.push(remuneration.id);
+    }
+    return createdIds;
+  });
+
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "Remuneration",
+    entityId: created[0] ?? ctx.company.id,
+    summary: `Registró pago por lote: ${entries.length} trabajador(es), total ${formatCLP(total)}.`,
+  });
+
+  revalidatePath("/dashboard/rrhh");
+  revalidatePath("/dashboard/gastos");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// --- Busca las remuneraciones por trabajador en src/lib/rrhh.ts ----------------

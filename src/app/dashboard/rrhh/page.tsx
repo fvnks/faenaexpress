@@ -7,11 +7,11 @@ import { remunerationTypeLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
 import { listPayers } from "@/lib/catalogs";
 import { listAreas } from "@/lib/catalogs";
-import { listRemunerations, listWorkersWithTotals, rrhhYearTotal } from "@/lib/rrhh";
+import { listRemunerations, listWorkersWithTotals, rrhhMonthlyCosts, rrhhYearTotal } from "@/lib/rrhh";
 import { cardClass, controlClass } from "@/lib/ui";
 import { remunerationTypeValues } from "@/lib/validation";
 
-import { NewRemunerationForm, NewWorkerForm, WorkerRowForm } from "./rrhh-forms";
+import { BulkRemunerationForm, NewRemunerationForm, NewWorkerForm, WorkerRowForm } from "./rrhh-forms";
 
 export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
   const ctx = await requireContext("rrhh");
@@ -49,7 +49,8 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
     rrhhYearTotal(ctx.company.id),
   ]);
 
-  const activeWorkers = workers.filter((worker) => worker.active);
+  const monthNames = ["E", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+  const monthly = await rrhhMonthlyCosts(ctx.company.id, new Date().getUTCFullYear());
 
   return (
     <div className="flex flex-col gap-6">
@@ -138,6 +139,60 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
         <a href="/dashboard/rrhh/export" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground">Exportar Excel</a>
       </div>
 
+      {/* Pagos por lote */}
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Pagos por lote</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Registra sueldos mensuales con un clic para los trabajadores activos seleccionados.
+        </p>
+        <div className="mt-4">
+          <BulkRemunerationForm
+            workers={workers.filter((worker) => worker.active).map((worker) => ({ id: worker.id, name: worker.name, baseAmount: worker.baseAmount ?? null }))}
+            payers={payers}
+            today={todayISO()}
+          />
+        </div>
+      </section>
+
+      {/* Costos laborales por mes */}
+      <section className={cardClass + " p-5 overflow-x-auto"}>
+        <h2 className="font-semibold">Costos laborales por mes ({monthly.year})</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Pagos registrados por trabajador. Total anual: {formatCLP(monthly.total)}.
+        </p>
+        <table className="mt-4 w-full min-w-[64rem] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th className="px-3 py-2 font-medium">Trabajador</th>
+              {monthNames.map((name, index) => (
+                <th key={index} className="tabular px-2 py-2 text-right font-medium">{name}</th>
+              ))}
+              <th className="tabular px-3 py-2 text-right font-medium">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {monthly.rows.length === 0 ? (
+              <tr><td colSpan={14} className="px-3 py-6 text-sm text-muted-foreground">Sin pagos en el año.</td></tr>
+            ) : monthly.rows.map((row) => (
+              <tr key={row.workerId} className="border-b border-border last:border-0">
+                <td className="px-3 py-2.5 font-medium">{row.name}</td>
+                {row.monthly.map((value, index) => (
+                  <td key={index} className="tabular px-2 py-2.5 text-right">{value ? formatCLP(value) : "—"}</td>
+                ))}
+                <td className="tabular px-3 py-2.5 text-right font-semibold">{formatCLP(row.total)}</td>
+              </tr>
+            ))}
+            <tr className="border-t border-border font-semibold">
+              <td className="px-3 py-2.5">Total</td>
+              {monthly.months.map((value, index) => (
+                <td key={index} className="tabular px-2 py-2.5 text-right">{value ? formatCLP(value) : "—"}</td>
+              ))}
+              <td className="tabular px-3 py-2.5 text-right">{formatCLP(monthly.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
       {/* Registrar pago */}
       <section className={cardClass + " p-5"}>
         <h2 className="font-semibold">Registrar pago a trabajador</h2>
@@ -146,7 +201,7 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
         </p>
         <div className="mt-4">
           <NewRemunerationForm
-            workers={activeWorkers.map((worker) => ({ id: worker.id, name: worker.name }))}
+            workers={workers.filter((worker) => worker.active).map((worker) => ({ id: worker.id, name: worker.name }))}
             payers={payers}
             today={todayISO()}
           />
@@ -180,7 +235,11 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
               <tbody>
                 {workers.map((worker) => (
                   <tr key={worker.id} className="border-b border-border last:border-0 align-top">
-                    <td className="px-3 py-3 font-medium">{worker.name}</td>
+                    <td className="px-3 py-3 font-medium">
+                      <Link href={`/dashboard/rrhh/trabajadores/${worker.id}`} className="text-primary underline-offset-2 hover:underline">
+                        {worker.name}
+                      </Link>
+                    </td>
                     <td className="px-3 py-3">{worker.position ?? "—"}</td>
                     <td className="px-3 py-3">{worker.areaName ?? "—"}</td>
                     <td className="tabular px-3 py-3">{worker.rut ?? "—"}</td>

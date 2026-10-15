@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 
 import {
+  createBulkRemuneration,
   createRemuneration,
   createRrhhWorker,
   updateRrhhWorker,
@@ -12,6 +13,7 @@ import {
 import { SelectDropdown } from "@/components/select-dropdown";
 import { SubmitButton } from "@/components/submit-button";
 import { remunerationTypeLabel } from "@/lib/labels";
+import { formatCLP } from "@/lib/money";
 import { controlClass, fieldClass, labelClass } from "@/lib/ui";
 import { remunerationTypeValues } from "@/lib/validation";
 
@@ -308,6 +310,93 @@ export function NewRemunerationForm({
       <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
         Al registrar el pago se crea automáticamente el gasto sin IVA con el trabajador asociado.
       </p>
+    </form>
+  );
+}
+// --- Pagos por lote ---------------------------------------------------------
+
+export function BulkRemunerationForm({
+  workers,
+  payers,
+  today,
+}: {
+  workers: { id: string; name: string; baseAmount: number | null }[];
+  payers: { id: string; name: string }[];
+  today: string;
+}) {
+  const activeWorkers = workers;
+  const [state, action] = useActionState<RrhhFormState, FormData>(createBulkRemuneration, undefined);
+
+  useEffect(() => {
+    if (state?.ok) toast.success("Pagos por lote registrados");
+  }, [state]);
+
+  if (activeWorkers.length === 0) return null;
+
+  return (
+    <form action={action} className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={fieldClass}>
+          <label className={labelClass}>Tipo de pago</label>
+          <select name="type" defaultValue="SUELDO" className={controlClass}>
+            <option value="SUELDO">Sueldo</option>
+            <option value="AGUINALDO">Aguinaldo</option>
+            <option value="BONO">Bono</option>
+            <option value="ADELANTO">Adelanto</option>
+            <option value="OTRO">Otro</option>
+          </select>
+        </div>
+        <div className={fieldClass}>
+          <label className={labelClass}>Periodo (opcional)</label>
+          <input name="period" type="month" className={controlClass} />
+        </div>
+        <div className={fieldClass}>
+          <label className={labelClass}>Fecha de pago</label>
+          <input name="date" type="date" required defaultValue={today} className={controlClass} />
+        </div>
+        <div className={fieldClass}>
+          <label className={labelClass}>Pagado por</label>
+          <SelectDropdown name="paidById" value="" emptyLabel="Selecciona" allowEmpty={false} options={payers.map((payer) => ({ value: payer.id, label: payer.name }))} />
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th className="px-3 py-2" />
+              <th className="px-3 py-2 font-medium">Trabajador</th>
+              <th className="px-3 py-2 font-medium">Sueldo base</th>
+              <th className="px-3 py-2 text-right font-medium">Monto a pagar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activeWorkers.map((worker) => (
+              <tr key={worker.id} className="border-b border-border last:border-0">
+                <td className="px-3 py-2.5">
+                  <input type="checkbox" name="selected" value={worker.id} defaultChecked={worker.baseAmount != null} className="h-4 w-4 accent-primary" />
+                  <input type="hidden" name="workerId" value={worker.id} />
+                </td>
+                <td className="px-3 py-2.5">{worker.name}</td>
+                <td className="tabular px-3 py-2.5 text-muted-foreground">
+                  {worker.baseAmount != null ? formatCLP(worker.baseAmount) : "Sin sueldo base"}
+                </td>
+                <td className="px-3 py-2.5 text-right">
+                  <input type="number" name="amount" defaultValue={worker.baseAmount ?? 0} min={0} step={1} className={controlClass + " w-32 tabular text-right"} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <SubmitButton pendingLabel="Registrando..." className="btn-liquid btn-liquid-primary rounded-control border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary">
+          Registrar pagos seleccionados
+        </SubmitButton>
+        <span className="text-xs text-muted-foreground">Crea gastos automaticos por cada trabajador.</span>
+      </div>
+      {state?.error ? <p className="text-sm text-danger">{state.error}</p> : null}
     </form>
   );
 }
