@@ -1,13 +1,13 @@
 "use client";
 
-export function PrintButton() {
+export function PrintButton({ label = "Imprimir liquidación" }: { label?: string }) {
   return (
     <button
       type="button"
       onClick={() => window.print()}
-      className="rounded bg-black px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
+      className="no-print rounded-control border border-border bg-surface px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary hover:text-primary"
     >
-      Imprimir
+      {label}
     </button>
   );
 }
