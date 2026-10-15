@@ -12,6 +12,7 @@ import {
   loadProductIndex,
   prepareDocItems,
 } from "@/lib/doc-items";
+import { syncPurchaseItemsToInventory, syncSaleItemsToInventory } from "@/lib/inventory-sync";
 import { dteMotivoOmision, dteTipoLabel } from "@/lib/labels";
 import { formatRut, normalizeRut } from "@/lib/rut";
 
@@ -394,6 +395,16 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
         prepareDocItems(indiceProductos, doc.itemsDetalle),
       );
 
+      const saleSync = await syncSaleItemsToInventory({
+        companyId: ctx.company.id,
+        saleId: sale.id,
+        date: fecha,
+        createdById: ctx.user.id,
+      });
+      if (!saleSync.ok) {
+        errores.push(`Folio ${folio}: stock no actualizado (${saleSync.errors.join("; ")}).`);
+      }
+
       foliosExistentes.add(folio);
       imported += 1;
     } catch {
@@ -669,6 +680,17 @@ export async function confirmPurchaseXml(
         ctx.company.id,
         prepareDocItems(indiceProductos, doc.itemsDetalle),
       );
+
+      const purchaseSync = await syncPurchaseItemsToInventory({
+        companyId: ctx.company.id,
+        purchaseId: purchase.id,
+        date: fecha,
+        createdById: ctx.user.id,
+      });
+      if (!purchaseSync.ok) {
+        errores.push(`Folio ${folio}: stock no actualizado (${purchaseSync.errors.join("; ")}).`);
+      }
+
 
       foliosExistentes.add(folio);
       imported += 1;
