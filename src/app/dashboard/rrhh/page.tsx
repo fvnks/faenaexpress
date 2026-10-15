@@ -112,11 +112,11 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-muted-foreground">Desde</label>
-            <input type="date" name="desde" defaultValue={desde ?? ""} className={controlClass} />
+            <input type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" name="desde" defaultValue={desde ?? ""} className={controlClass} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-muted-foreground">Hasta</label>
-            <input type="date" name="hasta" defaultValue={hasta ?? ""} className={controlClass} />
+            <input type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" name="hasta" defaultValue={hasta ?? ""} className={controlClass} />
           </div>
           <div className="flex items-end gap-2 sm:col-span-3 lg:col-span-6">
             <button

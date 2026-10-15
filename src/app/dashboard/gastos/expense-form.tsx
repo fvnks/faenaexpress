@@ -55,7 +55,7 @@ export function ExpenseForm({
             <input
               id="date"
               name="date"
-              type="date"
+              type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
               required
               defaultValue={defaults?.date ?? today}
               className={controlClass}
@@ -235,7 +235,7 @@ export function ExpenseForm({
               <input
                 id="reimbursedAt"
                 name="reimbursedAt"
-                type="date"
+                type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
                 defaultValue={defaults?.reimbursedAt ?? today}
                 className={controlClass}
               />

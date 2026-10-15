@@ -102,7 +102,7 @@ export function NewWorkerForm({ areas = [] }: { areas?: AreaLike[] }) {
       </div>
       <div className={fieldClass}>
         <label htmlFor="worker-new-hire" className={labelClass}>Fecha de ingreso</label>
-        <input id="worker-new-hire" name="hireDate" type="date" className={controlClass} />
+        <input id="worker-new-hire" name="hireDate" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" className={controlClass} />
       </div>
       <div className={fieldClass}>
         <label htmlFor="worker-new-contract" className={labelClass}>Tipo de contrato</label>
@@ -185,15 +185,15 @@ export function WorkerRowForm({
       </div>
       <div className={fieldClass}>
         <label className={labelClass}>Nacimiento</label>
-        <input name="birthDate" type="date" defaultValue={dateValue(worker.birthDate)} className={controlClass} />
+        <input name="birthDate" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" defaultValue={dateValue(worker.birthDate)} className={controlClass} />
       </div>
       <div className={fieldClass}>
         <label className={labelClass}>Ingreso</label>
-        <input name="hireDate" type="date" defaultValue={dateValue(worker.hireDate)} className={controlClass} />
+        <input name="hireDate" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" defaultValue={dateValue(worker.hireDate)} className={controlClass} />
       </div>
       <div className={fieldClass}>
         <label className={labelClass}>Término contrato</label>
-        <input name="terminationDate" type="date" defaultValue={dateValue(worker.terminationDate)} className={controlClass} />
+        <input name="terminationDate" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" defaultValue={dateValue(worker.terminationDate)} className={controlClass} />
       </div>
       <div className={fieldClass}>
         <label className={labelClass}>Tipo de contrato</label>
@@ -289,7 +289,7 @@ export function NewRemunerationForm({
       </div>
       <div className={fieldClass}>
         <label htmlFor="rem-date" className={labelClass}>Fecha de pago</label>
-        <input id="rem-date" name="date" type="date" required defaultValue={today} className={controlClass} />
+        <input id="rem-date" name="date" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" required defaultValue={today} className={controlClass} />
       </div>
       <div className={fieldClass}>
         <label htmlFor="rem-amount" className={labelClass}>Monto pagado (líquido)</label>
@@ -356,7 +356,7 @@ export function BulkRemunerationForm({
         </div>
         <div className={fieldClass}>
           <label className={labelClass}>Fecha de pago</label>
-          <input name="date" type="date" required defaultValue={today} className={controlClass} />
+          <input name="date" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" required defaultValue={today} className={controlClass} />
         </div>
         <div className={fieldClass}>
           <label className={labelClass}>Pagado por</label>
@@ -448,11 +448,11 @@ export function AbsenceForm({ workerId, today }: { workerId: string; today: stri
       </div>
       <div className={fieldClass}>
         <label className={labelClass}>Desde</label>
-        <input name="startDate" type="date" required defaultValue={today} className={controlClass} />
+        <input name="startDate" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" required defaultValue={today} className={controlClass} />
       </div>
       <div className={fieldClass}>
         <label className={labelClass}>Hasta</label>
-        <input name="endDate" type="date" required defaultValue={today} className={controlClass} />
+        <input name="endDate" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" required defaultValue={today} className={controlClass} />
       </div>
       <label className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-2">
         <input type="checkbox" name="paid" defaultChecked={false} className="h-4 w-4 accent-primary" />

@@ -101,7 +101,7 @@ export default async function ProductLotsPage(props: PageProps<"/dashboard/inven
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="expirationDate" className={labelClass}>Vencimiento</label>
-              <input id="expirationDate" name="expirationDate" type="date" className={controlClass} />
+              <input id="expirationDate" name="expirationDate" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" className={controlClass} />
             </div>
             <div className="flex flex-col gap-1.5 lg:col-span-2">
               <label htmlFor="notes" className={labelClass}>Notas</label>

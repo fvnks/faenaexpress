@@ -148,7 +148,7 @@ export default async function ExpenseDetailPage(props: PageProps<"/dashboard/gas
                   <input
                     id="reimbursedAt"
                     name="reimbursedAt"
-                    type="date"
+                    type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
                     defaultValue={todayISO()}
                     className={controlClass}
                   />

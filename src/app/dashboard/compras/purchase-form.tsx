@@ -116,7 +116,7 @@ export function PurchaseForm({
             <input
               id="date"
               name="date"
-              type="date"
+              type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
               required
               defaultValue={defaults?.date ?? today}
               className={controlClass}
@@ -249,7 +249,7 @@ export function PurchaseForm({
               <input
                 id="paymentDate"
                 name="paymentDate"
-                type="date"
+                type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
                 defaultValue={defaults?.paymentDate ?? today}
                 className={controlClass}
               />

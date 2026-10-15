@@ -163,7 +163,7 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
                   <input
                     id="paymentDate"
                     name="paymentDate"
-                    type="date"
+                    type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
                     defaultValue={todayISO()}
                     className={controlClass}
                   />

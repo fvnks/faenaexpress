@@ -62,7 +62,7 @@ export function GuiaForm({
         </label>
         <label className="flex flex-col gap-1.5">
           <span className={labelClass}>Fecha</span>
-          <input name="date" type="date" required defaultValue={today} className={controlClass} />
+          <input name="date" type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA" required defaultValue={today} className={controlClass} />
         </label>
         <label className="flex flex-col gap-1.5">
           <span className={labelClass}>Neto</span>

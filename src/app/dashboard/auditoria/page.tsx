@@ -117,7 +117,7 @@ export default async function AuditPage(props: PageProps<"/dashboard/auditoria">
           <input
             id="desde"
             name="desde"
-            type="date"
+            type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
             defaultValue={desde ?? ""}
             className={controlClass}
           />
@@ -129,7 +129,7 @@ export default async function AuditPage(props: PageProps<"/dashboard/auditoria">
           <input
             id="hasta"
             name="hasta"
-            type="date"
+            type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
             defaultValue={hasta ?? ""}
             className={controlClass}
           />

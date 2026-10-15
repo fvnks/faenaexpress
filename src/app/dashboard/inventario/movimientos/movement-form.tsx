@@ -156,7 +156,7 @@ export function MovementForm({
           <input
             id="mv-date"
             name="date"
-            type="date"
+            type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
             defaultValue={today}
             required
             className={controlClass}

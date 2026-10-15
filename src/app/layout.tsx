@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
+import { DateFieldsNormalizer } from "@/components/date-fields-normalizer";
 import { ThemeInitializer } from "@/components/theme-initializer";
 
 const plex = IBM_Plex_Sans({
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="es-CL" className={plex.variable} suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
         <ThemeInitializer />
+        <DateFieldsNormalizer />
         {children}
       </body>
     </html>
