@@ -50,8 +50,22 @@ function readForm(formData: FormData) {
     phone: formData.get("phone"),
     address: formData.get("address"),
     notes: formData.get("notes"),
+    salespersonId: formData.get("salespersonId"),
     active: formData.get("active"),
   };
+}
+
+async function checkSalesperson(
+  companyId: string,
+  salespersonId: string | undefined,
+): Promise<string | undefined> {
+  if (!salespersonId) return undefined;
+  const salesperson = await db.salesperson.findFirst({
+    where: { id: salespersonId, companyId },
+    select: { id: true },
+  });
+  if (!salesperson) return "El vendedor seleccionado no existe.";
+  return undefined;
 }
 
 async function checkRut(
@@ -88,8 +102,12 @@ export async function createPartner(
 
   const rutError = await checkRut(ctx.company.id, parsed.data.rut);
   if (rutError) return { error: rutError };
+  const salespersonError = await checkSalesperson(ctx.company.id, parsed.data.salespersonId);
+  if (salespersonError) return { error: salespersonError };
 
-  const partner = await db.partner.create({ data: { ...parsed.data, companyId: ctx.company.id } });
+  const partner = await db.partner.create({
+    data: { ...parsed.data, salespersonId: parsed.data.salespersonId ?? null, companyId: ctx.company.id },
+  });
 
   await recordAudit(ctx, {
     action: "CREATE",
@@ -120,9 +138,14 @@ export async function updatePartner(
 
   const rutError = await checkRut(ctx.company.id, parsed.data.rut, id);
   if (rutError) return { error: rutError };
+  const salespersonError = await checkSalesperson(ctx.company.id, parsed.data.salespersonId);
+  if (salespersonError) return { error: salespersonError };
 
   const before = await db.partner.findFirst({ where: { id, companyId: ctx.company.id } });
-  await db.partner.update({ where: { id, companyId: ctx.company.id }, data: parsed.data });
+  await db.partner.update({
+    where: { id, companyId: ctx.company.id },
+    data: { ...parsed.data, salespersonId: parsed.data.salespersonId ?? null },
+  });
 
   if (before) {
     await recordAudit(ctx, {

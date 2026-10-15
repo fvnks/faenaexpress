@@ -4,12 +4,15 @@ import { redirect } from "next/navigation";
 import { createPartner } from "@/app/actions/partners";
 import { PartnerForm } from "@/components/partner-form";
 import { canWrite, requireContext } from "@/lib/auth";
+import { listSalespeople } from "@/lib/catalogs";
 
 export default async function NewCustomerPage() {
   const ctx = await requireContext("clientes");
   if (!canWrite(ctx, "clientes")) {
     redirect("/dashboard/clientes");
   }
+
+  const salespeople = await listSalespeople(ctx.company.id);
 
   return (
     <div className="flex flex-col gap-6">
@@ -24,7 +27,7 @@ export default async function NewCustomerPage() {
         <p className="mt-1 text-sm text-muted-foreground">A quién le facturas.</p>
       </div>
 
-      <PartnerForm action={createPartner} defaultType="CUSTOMER" redirectTo="/dashboard/clientes" />
+      <PartnerForm action={createPartner} defaultType="CUSTOMER" redirectTo="/dashboard/clientes" salespeople={salespeople} />
     </div>
   );
 }

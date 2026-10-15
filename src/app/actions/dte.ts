@@ -291,13 +291,14 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
 
   const partners = await db.partner.findMany({
     where: { companyId: ctx.company.id },
-    select: { id: true, name: true, rut: true, address: true },
+    select: { id: true, name: true, rut: true, address: true, salespersonId: true },
   });
-  const partnerPorRut = new Map<string, { id: string; address: string | null }>();
-  const partnerPorNombre = new Map<string, { id: string; address: string | null }>();
+  const partnerPorRut = new Map<string, { id: string; address: string | null; salespersonId: string | null }>();
+  const partnerPorNombre = new Map<string, { id: string; address: string | null; salespersonId: string | null }>();
   for (const partner of partners) {
-    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), { id: partner.id, address: partner.address });
-    partnerPorNombre.set(partner.name.trim().toLowerCase(), { id: partner.id, address: partner.address });
+    const info = { id: partner.id, address: partner.address, salespersonId: partner.salespersonId };
+    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), info);
+    partnerPorNombre.set(partner.name.trim().toLowerCase(), info);
   }
 
   const errores: string[] = [];
@@ -350,7 +351,7 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
             address: xmlDireccion,
           },
         });
-        partner = { id: creado.id, address: xmlDireccion };
+        partner = { id: creado.id, address: xmlDireccion, salespersonId: null };
         if (rutNormalizado) partnerPorRut.set(rutNormalizado, partner);
         partnerPorNombre.set(cliente.toLowerCase(), partner);
       } else if (!partner.address && xmlDireccion) {
@@ -388,6 +389,7 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
           partnerId,
           documentType: Number(doc.tipoDTE) === 56 ? "DEBIT_NOTE" : "INVOICE",
           documentNumber: folio,
+          salespersonId: partner.salespersonId ?? null,
           date: fecha,
           dueDate: venc,
           purchaseOrder: doc.ordenCompra ? String(doc.ordenCompra).slice(0, 80) : null,

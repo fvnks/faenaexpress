@@ -83,6 +83,13 @@ export async function createSale(_prev: SaleFormState, formData: FormData): Prom
   }
 
   const data = toData(parsed.data);
+  if (!data.salespersonId) {
+    const partner = await db.partner.findFirst({
+      where: { id: parsed.data.partnerId, companyId: ctx.company.id },
+      select: { salespersonId: true },
+    });
+    if (partner?.salespersonId) data.salespersonId = partner.salespersonId;
+  }
   const sale = await db.sale.create({
     data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
   });

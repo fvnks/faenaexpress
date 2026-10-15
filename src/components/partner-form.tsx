@@ -17,6 +17,7 @@ export type PartnerForForm = {
   phone: string;
   address: string;
   notes: string;
+  salespersonId?: string;
   active: boolean;
 };
 
@@ -25,11 +26,13 @@ export function PartnerForm({
   defaults,
   defaultType,
   redirectTo,
+  salespeople,
 }: {
   action: (prev: PartnerFormState, formData: FormData) => Promise<PartnerFormState>;
   defaults?: PartnerForForm;
   defaultType?: string;
   redirectTo?: string;
+  salespeople?: { id: string; name: string }[];
 }) {
   const [state, formAction] = useActionState<PartnerFormState, FormData>(action, undefined);
 
@@ -71,6 +74,21 @@ export function PartnerForm({
             </label>
             <input id="rut" name="rut" maxLength={20} defaultValue={defaults?.rut ?? ""} className={controlClass} />
           </div>
+
+          {salespeople ? (
+            <div className={fieldClass}>
+              <label htmlFor="salespersonId" className={labelClass}>
+                Vendedor por defecto <span className="text-muted-foreground">(opcional)</span>
+              </label>
+              <SelectDropdown
+                id="salespersonId"
+                name="salespersonId"
+                value={defaults?.salespersonId ?? ""}
+                emptyLabel="Sin vendedor"
+                options={salespeople.map((sp) => ({ value: sp.id, label: sp.name }))}
+              />
+            </div>
+          ) : null}
 
           <div className={fieldClass}>
             <label htmlFor="email" className={labelClass}>

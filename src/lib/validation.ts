@@ -148,6 +148,7 @@ export const partnerSchema = z.object({
   phone: optionalText(40),
   address: optionalText(200),
   notes: optionalText(500),
+  salespersonId: optionalText(50),
   active: z.preprocess(
     (value) => value === "on" || value === "true" || value === true,
     z.boolean(),

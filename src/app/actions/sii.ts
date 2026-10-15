@@ -500,13 +500,13 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
   // 3. Importar (misma lógica que confirmRcvSync)
   const partners = await db.partner.findMany({
     where: { companyId: ctx.company.id },
-    select: { id: true, name: true, rut: true },
+    select: { id: true, name: true, rut: true, salespersonId: true },
   });
-  const partnerPorRut = new Map<string, { id: string }>();
-  const partnerPorNombre = new Map<string, { id: string }>();
+  const partnerPorRut = new Map<string, { id: string; salespersonId: string | null }>();
+  const partnerPorNombre = new Map<string, { id: string; salespersonId: string | null }>();
   for (const partner of partners) {
-    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), { id: partner.id });
-    partnerPorNombre.set(partner.name.trim().toLowerCase(), { id: partner.id });
+    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), { id: partner.id, salespersonId: partner.salespersonId });
+    partnerPorNombre.set(partner.name.trim().toLowerCase(), { id: partner.id, salespersonId: partner.salespersonId });
   }
 
   let imported = 0;
@@ -522,8 +522,9 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
       const rutNormalizado = rut ? normalizeRut(rut) : "";
       if (rutNormalizado && (await workerRutExists(ctx.company.id, rutNormalizado))) continue;
 
-      let partnerId = rutNormalizado ? partnerPorRut.get(rutNormalizado)?.id : undefined;
-      if (!partnerId) partnerId = partnerPorNombre.get(nombre.toLowerCase())?.id;
+      const partnerInfo = rutNormalizado ? partnerPorRut.get(rutNormalizado) : undefined;
+      const partner = partnerInfo ?? partnerPorNombre.get(nombre.toLowerCase());
+      let partnerId = partner?.id;
       if (!partnerId) {
         const creado = await db.partner.create({
           data: {
@@ -534,8 +535,9 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
           },
         });
         partnerId = creado.id;
-        if (rutNormalizado) partnerPorRut.set(rutNormalizado, { id: creado.id });
-        partnerPorNombre.set(nombre.toLowerCase(), { id: creado.id });
+        const info = { id: creado.id, salespersonId: null };
+        if (rutNormalizado) partnerPorRut.set(rutNormalizado, info);
+        partnerPorNombre.set(nombre.toLowerCase(), info);
       }
 
       const fecha = new Date(`${String(row.fecha)}T00:00:00.000Z`);
@@ -578,7 +580,7 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
             data: {
               ...base,
               dueDate: null,
-              salespersonId: null,
+              salespersonId: partner?.salespersonId ?? null,
               purchaseOrder: row.purchaseOrder,
               dispatchGuide: null,
               hesNumber: row.hesNumber,
@@ -657,13 +659,13 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
 
   const partners = await db.partner.findMany({
     where: { companyId: ctx.company.id },
-    select: { id: true, name: true, rut: true },
+    select: { id: true, name: true, rut: true, salespersonId: true },
   });
-  const partnerPorRut = new Map<string, { id: string }>();
-  const partnerPorNombre = new Map<string, { id: string }>();
+  const partnerPorRut = new Map<string, { id: string; salespersonId: string | null }>();
+  const partnerPorNombre = new Map<string, { id: string; salespersonId: string | null }>();
   for (const partner of partners) {
-    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), { id: partner.id });
-    partnerPorNombre.set(partner.name.trim().toLowerCase(), { id: partner.id });
+    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), { id: partner.id, salespersonId: partner.salespersonId });
+    partnerPorNombre.set(partner.name.trim().toLowerCase(), { id: partner.id, salespersonId: partner.salespersonId });
   }
 
   const errores: string[] = [];
@@ -694,8 +696,9 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
         errores.push(`Folio ${folio}: el tercero es un trabajador de RRHH; no se registra como tercero.`);
         continue;
       }
-      let partnerId = rutNormalizado ? partnerPorRut.get(rutNormalizado)?.id : undefined;
-      if (!partnerId) partnerId = partnerPorNombre.get(nombre.toLowerCase())?.id;
+      const partnerInfo = rutNormalizado ? partnerPorRut.get(rutNormalizado) : undefined;
+      const partner = partnerInfo ?? partnerPorNombre.get(nombre.toLowerCase());
+      let partnerId = partner?.id;
       if (!partnerId) {
         const creado = await db.partner.create({
           data: {
@@ -706,8 +709,9 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
           },
         });
         partnerId = creado.id;
-        if (rutNormalizado) partnerPorRut.set(rutNormalizado, { id: creado.id });
-        partnerPorNombre.set(nombre.toLowerCase(), { id: creado.id });
+        const info = { id: creado.id, salespersonId: null };
+        if (rutNormalizado) partnerPorRut.set(rutNormalizado, info);
+        partnerPorNombre.set(nombre.toLowerCase(), info);
       }
 
       const fecha = new Date(`${String(row.fecha)}T00:00:00.000Z`);
@@ -750,7 +754,7 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
             data: {
               ...base,
               dueDate: null,
-              salespersonId: null,
+              salespersonId: partner?.salespersonId ?? null,
               purchaseOrder: row.purchaseOrder,
               dispatchGuide: null,
               hesNumber: row.hesNumber,

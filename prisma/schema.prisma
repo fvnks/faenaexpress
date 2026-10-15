@@ -183,6 +183,9 @@ model Partner {
   notes     String?
   active    Boolean     @default(true)
 
+  salespersonId String?
+  salesperson   Salesperson? @relation("PartnerDefaultSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -266,6 +269,7 @@ model Salesperson {
 
   company     Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
   sales       Sale[]
+  defaultPartners Partner[] @relation("PartnerDefaultSalesperson")
   assignments CommissionAssignment[]
   entries     CommissionEntry[]
   dispatchGuides DispatchGuide[]
