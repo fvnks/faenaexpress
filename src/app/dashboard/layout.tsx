@@ -5,6 +5,7 @@ import { CompanySwitcher } from "@/components/company-switcher";
 import { PeriodNav } from "@/components/period-nav";
 import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LiveSearchInputs } from "@/components/live-search-inputs";
 import { ToasterFlash } from "@/components/toaster-flash";
 import { getActiveMembership, requireUser } from "@/lib/auth";
 import { getFlash } from "@/lib/flash";
@@ -92,6 +93,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </div>
         <main className="min-w-0 flex-1 px-4 py-4 lg:px-10 lg:py-6">{children}</main>
       </div>
+      <LiveSearchInputs />
       <ToasterFlash flash={flash} />
     </div>
   );
