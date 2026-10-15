@@ -60,6 +60,9 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
           <p className="mt-1 text-sm text-muted-foreground">
             Trabajadores y pagos de {ctx.company.name}: sueldos, aguinaldos, bonos y adelantos.
           </p>
+          <p className="mt-1 text-sm">
+            <Link href="/dashboard/rrhh/nomina" className="text-primary underline-offset-2 hover:underline">Abrir nomina →</Link>
+          </p>
         </div>
         <div className="text-right">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Pagado en el año</p>
