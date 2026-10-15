@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { canWrite, requireContext } from "@/lib/auth";
 import { recordAudit } from "@/lib/audit";
@@ -734,4 +735,36 @@ export async function confirmPurchaseXml(
   }
 
   return { ok: true, imported, errores: errores.length > 0 ? errores : undefined };
+}
+
+
+/**
+ * Recarga el detalle de items de una venta importada desde XML cuando quedó
+ * vacía por un import parcial. Usa el XML guardado en la venta.
+ */
+export async function backfillSaleItemsFromXml(saleId: string): Promise<void> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+
+  const sale = await db.sale.findFirst({
+    where: { id: saleId, companyId: ctx.company.id },
+    select: { id: true, documentType: true, documentNumber: true, date: true, xmlContent: true },
+  });
+  if (!sale || !sale.xmlContent) redirect(`/dashboard/ventas/${saleId}`);
+
+  const parsed = parseDteXml(Buffer.from(sale.xmlContent!, "utf8"));
+  const doc = parsed.documentos.find((d) => d.folio === sale.documentNumber);
+  if (!doc || !doc.itemsDetalle?.length) redirect(`/dashboard/ventas/${saleId}`);
+
+  const index = await loadProductIndex(ctx.company.id);
+  await createSaleItems(sale.id, ctx.company.id, prepareDocItems(index, doc.itemsDetalle));
+  await syncSaleItemsToInventory({
+    companyId: ctx.company.id,
+    saleId: sale.id,
+    date: sale.date,
+    createdById: ctx.user.id,
+  });
+
+  revalidatePath(`/dashboard/ventas/${saleId}`);
+  redirect(`/dashboard/ventas/${saleId}`);
 }

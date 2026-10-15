@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { deleteSale, markSalePaid, markSalePending } from "@/app/actions/sales";
+import { backfillSaleItemsFromXml } from "@/app/actions/dte";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
@@ -218,6 +219,20 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
           </section>
         ) : null}
       </div>
+
+      {sale.items.length === 0 && sale.xmlContent ? (
+        <form
+          action={backfillSaleItemsFromXml.bind(null, sale.id)}
+          className="max-w-md rounded-card border border-border bg-surface p-4"
+        >
+          <p className="text-sm text-muted-foreground">
+            Esta factura quedó sin detalle de productos (importación parcial).
+          </p>
+          <button type="submit" className={secondaryButtonClass + " mt-3"}>
+            Cargar detalle desde XML
+          </button>
+        </form>
+      ) : null}
 
       <DocItemsTable items={sale.items} netAmount={sale.netAmount} />
 
