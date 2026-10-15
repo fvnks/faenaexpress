@@ -153,44 +153,41 @@ export async function createRemuneration(
     select: { id: true },
   });
 
-  const expense = await db.expense.create({
-    data: {
-      companyId: ctx.company.id,
-      createdById: ctx.user.id,
-      date: parsed.data.date,
-      description,
-      categoryId: category?.id ?? null,
-      workerId: worker.id,
-      netAmount: parsed.data.amount,
-      ivaAmount: 0,
-      totalAmount: parsed.data.amount,
-      paymentMethod: parsed.data.paymentMethod,
-      paidById: parsed.data.paidById,
-      reimbursed: false,
-      notes: parsed.data.notes ?? null,
-    },
-  });
+  const { expense, remuneration } = await db.$transaction(async (tx) => {
+    const expense = await tx.expense.create({
+      data: {
+        companyId: ctx.company.id,
+        createdById: ctx.user.id,
+        date: parsed.data.date,
+        description,
+        categoryId: category?.id ?? null,
+        workerId: worker.id,
+        netAmount: parsed.data.amount,
+        ivaAmount: 0,
+        totalAmount: parsed.data.amount,
+        paymentMethod: parsed.data.paymentMethod,
+        paidById: parsed.data.paidById,
+        reimbursed: false,
+        notes: parsed.data.notes ?? null,
+      },
+    });
 
-  const remuneration = await db.remuneration.create({
-    data: {
-      companyId: ctx.company.id,
-      workerId: worker.id,
-      type: parsed.data.type,
-      period: parsed.data.period ?? null,
-      date: parsed.data.date,
-      amount: parsed.data.amount,
-      paidById: parsed.data.paidById,
-      expenseId: expense.id,
-      notes: parsed.data.notes ?? null,
-      createdById: ctx.user.id,
-    },
-  });
+    const remuneration = await tx.remuneration.create({
+      data: {
+        companyId: ctx.company.id,
+        workerId: worker.id,
+        type: parsed.data.type,
+        period: parsed.data.period ?? null,
+        date: parsed.data.date,
+        amount: parsed.data.amount,
+        paidById: parsed.data.paidById,
+        expenseId: expense.id,
+        notes: parsed.data.notes ?? null,
+        createdById: ctx.user.id,
+      },
+    });
 
-  await recordAudit(ctx, {
-    action: "CREATE",
-    entityType: "Remuneration",
-    entityId: remuneration.id,
-    summary: `Registró ${description.toLowerCase()} por ${formatCLP(parsed.data.amount)} (genera gasto automático).`,
+    return { expense, remuneration };
   });
 
   await recordAudit(ctx, {

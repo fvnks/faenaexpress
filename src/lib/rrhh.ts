@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { formatRut, normalizeRut } from "@/lib/rut";
+import type { RemunerationType } from "@/generated/prisma/client";
 
 /**
  * Guardas de RUT entre RRHH y terceros: un trabajador no debe aparecer como
@@ -60,10 +61,32 @@ export async function listWorkersWithTotals(companyId: string): Promise<WorkerWi
   }));
 }
 
-/** Últimas remuneraciones registradas (con trabajador y pagador). */
-export async function listRemunerations(companyId: string, take = 30) {
+export type RrhhFilters = {
+  workerId?: string;
+  paidById?: string;
+  type?: RemunerationType;
+  period?: string;
+  from?: Date;
+  to?: Date;
+};
+
+/** Últimas remuneraciones registradas (con trabajador y pagador), con filtros opcionales. */
+export async function listRemunerations(
+  companyId: string,
+  filters: RrhhFilters = {},
+  take = 500,
+) {
   return db.remuneration.findMany({
-    where: { companyId },
+    where: {
+      companyId,
+      ...(filters.workerId ? { workerId: filters.workerId } : {}),
+      ...(filters.paidById ? { paidById: filters.paidById } : {}),
+      ...(filters.type ? { type: filters.type } : {}),
+      ...(filters.period ? { period: filters.period } : {}),
+      ...(filters.from || filters.to
+        ? { date: { ...(filters.from ? { gte: filters.from } : {}), ...(filters.to ? { lte: filters.to } : {}) } }
+        : {}),
+    },
     orderBy: { date: "desc" },
     take,
     include: {
