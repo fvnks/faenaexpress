@@ -49,6 +49,7 @@ export type DtePreviewRow = {
   montoExe: number;
   estado: DteEstado;
   mensaje: string | null;
+  existingSaleId?: string | null;
 };
 
 export type DteImportState = {
@@ -104,8 +105,9 @@ export async function previewDteImport(_prev: DteImportState, formData: FormData
   const folios = documentos.map((doc) => doc.folio);
   const existentes = await db.sale.findMany({
     where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-    select: { documentNumber: true },
+    select: { id: true, documentNumber: true, partner: { select: { name: true } }, date: true, status: true },
   });
+  const existentesPorFolio = new Map(existentes.map((row) => [row.documentNumber, row]));
   const foliosExistentes = new Set(existentes.map((row) => row.documentNumber));
 
   const rutEmpresa = ctx.company.rut ? normalizeRut(ctx.company.rut) : null;
@@ -137,7 +139,11 @@ export async function previewDteImport(_prev: DteImportState, formData: FormData
       };
     }
     if (foliosExistentes.has(doc.folio)) {
-      return { ...rowBase(doc), estado: "duplicada", mensaje: "El folio ya está registrado en ventas." };
+      const ventaExistente = existentesPorFolio.get(doc.folio);
+      const detalle = ventaExistente
+        ? ` (${ventaExistente.partner.name}, ${new Date(ventaExistente.date).toLocaleDateString("es-CL")}, ${ventaExistente.status})`
+        : "";
+      return { ...rowBase(doc), estado: "duplicada", mensaje: `El folio ya está registrado en ventas.${detalle}`, existingSaleId: ventaExistente?.id };
     }
     if (rutEmpresa && normalizeRut(doc.rutEmisor) !== rutEmpresa) {
       return {

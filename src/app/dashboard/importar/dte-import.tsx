@@ -125,6 +125,11 @@ export function DteImportForm() {
                       {row.estado !== "nueva" && row.mensaje ? (
                         <span className="block text-xs text-muted-foreground">{row.mensaje}</span>
                       ) : null}
+                      {row.existingSaleId ? (
+                        <a href={`/dashboard/ventas/${row.existingSaleId}`} className="block text-xs font-medium text-primary underline">
+                          Ver venta existente
+                        </a>
+                      ) : null}
                     </td>
                     <td className="tabular whitespace-nowrap px-3 py-2 text-right align-top">{formatCLP(row.neto)}</td>
                     <td className="tabular whitespace-nowrap px-3 py-2 text-right align-top">{formatCLP(row.iva)}</td>
