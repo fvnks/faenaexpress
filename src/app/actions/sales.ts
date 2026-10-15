@@ -134,7 +134,7 @@ export async function updateSale(
   });
 
   await setFlash("success", "Venta actualizada", describe(data));
-  revalidatePath("/dashboard/ventas");
+  revalidatePath("/dashboard/ventas", "page");
   revalidatePath(`/dashboard/ventas/${id}`);
   redirect(`/dashboard/ventas/${id}`);
 }
@@ -167,7 +167,7 @@ export async function markSalePaid(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Venta marcada como cobrada");
-  revalidatePath("/dashboard/ventas");
+  revalidatePath("/dashboard/ventas", "page");
   revalidatePath(`/dashboard/ventas/${id}`);
   redirect(`/dashboard/ventas/${id}`);
 }
@@ -200,7 +200,7 @@ export async function markSaleConfirming(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Venta marcada como Confirming");
-  revalidatePath("/dashboard/ventas");
+  revalidatePath("/dashboard/ventas", "page");
   revalidatePath(`/dashboard/ventas/${id}`);
   redirect(`/dashboard/ventas/${id}`);
 }
@@ -227,7 +227,7 @@ export async function clearSaleConfirming(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Confirming quitado");
-  revalidatePath("/dashboard/ventas");
+  revalidatePath("/dashboard/ventas", "page");
   revalidatePath(`/dashboard/ventas/${id}`);
   redirect(`/dashboard/ventas/${id}`);
 }
@@ -254,7 +254,7 @@ export async function markSalePending(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Venta marcada como por cobrar");
-  revalidatePath("/dashboard/ventas");
+  revalidatePath("/dashboard/ventas", "page");
   revalidatePath(`/dashboard/ventas/${id}`);
   redirect(`/dashboard/ventas/${id}`);
 }
