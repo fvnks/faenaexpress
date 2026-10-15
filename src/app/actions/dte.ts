@@ -13,6 +13,7 @@ import {
   prepareDocItems,
 } from "@/lib/doc-items";
 import { syncPurchaseItemsToInventory, syncSaleItemsToInventory } from "@/lib/inventory-sync";
+import { getAvailableStock } from "@/lib/inventory-stock-check";
 import { dteMotivoOmision, dteTipoLabel } from "@/lib/labels";
 import { formatRut, normalizeRut } from "@/lib/rut";
 
@@ -357,6 +358,22 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
 
       const fechaRecepcion = doc.fechaRecepcion && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.fechaRecepcion)) ? dteDate(String(doc.fechaRecepcion)) : null;
 
+      const proposedSaleItems = prepareDocItems(indiceProductos, doc.itemsDetalle);
+      const saleProductIds = [...new Set(proposedSaleItems.map((item) => item.productId).filter((id): id is string => Boolean(id)))];
+      const stockShortages: string[] = [];
+      for (const productId of saleProductIds) {
+        const availability = await getAvailableStock(ctx.company.id, productId);
+        if (!availability.tracksStock) continue;
+        const required = proposedSaleItems.filter((item) => item.productId === productId).reduce((sum, item) => sum + item.quantity, 0);
+        if (availability.quantity < required) {
+          stockShortages.push(`${availability.productName ?? "Producto"}: disponible ${availability.quantity.toFixed(3)}, requerido ${required.toFixed(3)}`);
+        }
+      }
+      if (stockShortages.length > 0) {
+        errores.push(`Folio ${folio}: no se pudo importar por stock insuficiente (${stockShortages.join("; ")}).`);
+        continue;
+      }
+
       const sale = await db.sale.create({
         data: {
           companyId: ctx.company.id,
@@ -392,7 +409,7 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
       await createSaleItems(
         sale.id,
         ctx.company.id,
-        prepareDocItems(indiceProductos, doc.itemsDetalle),
+        proposedSaleItems,
       );
 
       const saleSync = await syncSaleItemsToInventory({
