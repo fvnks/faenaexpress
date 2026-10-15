@@ -22,7 +22,6 @@ export function calcPayrollEntry(input: {
   const afpAmount = Math.round((gross * input.company.afpRate) / 100);
   const healthAmount = Math.round((gross * input.company.healthRate) / 100);
   const unemploymentAmount = Math.round((gross * input.company.unemploymentRate) / 100);
-  const anualBonus = input.company.anualBonusRate > 0 ? Math.round((gross * input.company.anualBonusRate) / 100) : 0;
   const taxAmount = 0;
   const deductionsTotal = afpAmount + healthAmount + unemploymentAmount + taxAmount + otherDeductions;
   const netAmount = Math.max(0, gross - deductionsTotal);
@@ -32,7 +31,6 @@ export function calcPayrollEntry(input: {
     healthAmount,
     unemploymentAmount,
     taxAmount,
-    anualBonus,
     deductionsTotal,
     netAmount,
   };
@@ -103,6 +101,8 @@ export async function updatePayrollEntry(
   entryId: string,
   input: { baseAmount: number; allowances: number; overtime: number; otherDeductions: number },
 ) {
+  const entry = await db.payrollEntry.findFirst({ where: { id: entryId, periodId } });
+  if (!entry) throw new Error("Liquidación no existe.");
   const period = await db.payrollPeriod.findFirst({ where: { id: periodId, companyId, status: "DRAFT" } });
   if (!period) throw new Error("Periodo no editable.");
   const company = await db.company.findUnique({

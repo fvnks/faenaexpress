@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 
 import { recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { closePayrollPeriod, generatePayrollEntries, getOrCreatePayrollPeriod, reopenPayrollPeriod, updatePayrollEntry } from "@/lib/payroll";
 
 export async function createPayrollPeriodAction(formData: FormData): Promise<void> {

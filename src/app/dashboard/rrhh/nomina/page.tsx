@@ -1,9 +1,8 @@
 import Link from "next/link";
 
 import { requireContext } from "@/lib/auth";
-import { formatPeriod } from "@/lib/money";
-import { db } from "@/lib/db";
 import { payrollStatusLabels } from "@/lib/payroll";
+import { db } from "@/lib/db";
 import { cardClass, controlClass } from "@/lib/ui";
 
 import { createPayrollPeriodAction } from "@/app/actions/payroll";
@@ -75,7 +74,6 @@ export default async function PayrollPage() {
           </tbody>
         </table>
       </section>
-      {void company}
     </div>
   );
 }
