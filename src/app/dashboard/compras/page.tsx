@@ -3,23 +3,19 @@ import Link from "next/link";
 import { bulkSetPurchaseStatus, deletePurchase } from "@/app/actions/purchases";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
-import { DateRangeFilter } from "@/components/date-range-filter";
-import { FilterPersist } from "@/components/filter-persist";
+import { FilterBar, type FilterField } from "@/components/filter-bar";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
-import { SelectDropdown } from "@/components/select-dropdown";
-import { SubmitButton } from "@/components/submit-button";
+import { SortableHeader } from "@/components/sortable-header";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
-import { downloadSiiXmlForPurchases } from "@/app/actions/sii-download";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listCategories } from "@/lib/catalogs";
 import { documentTypeLabel } from "@/lib/labels";
-import { formatCLP, formatDate, currentPeriod } from "@/lib/money";
+import { formatCLP, formatDate } from "@/lib/money";
 import { listSuppliers } from "@/lib/partners";
 import { listPurchases, parsePurchaseFilters } from "@/lib/purchases";
 import { parseSortDir, sortHref } from "@/lib/sort";
-import { cardClass, controlClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
+import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
-import { SortableHeader } from "@/components/sortable-header";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
@@ -56,9 +52,47 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
   );
   const writable = canWrite(ctx, "compras");
 
+  const filterFields: FilterField[] = [
+    { kind: "text", name: "q", label: "Buscar", placeholder: "Razón social, Nº factura u observaciones", grow: true },
+    {
+      kind: "select",
+      name: "proveedor",
+      label: "Proveedor",
+      emptyLabel: "Todos",
+      width: "w-full sm:w-52",
+      options: suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name })),
+    },
+    {
+      kind: "select",
+      name: "categoria",
+      label: "Categoría",
+      emptyLabel: "Todas",
+      width: "w-full sm:w-48",
+      options: categories.map((category) => ({ value: category.id, label: category.name })),
+    },
+    {
+      kind: "select",
+      name: "tipo",
+      label: "Tipo de documento",
+      emptyLabel: "Todos",
+      width: "w-full sm:w-52",
+      options: documentTypeValues.map((value) => ({ value, label: documentTypeLabel(value) })),
+    },
+    {
+      kind: "select",
+      name: "estado",
+      label: "Estado",
+      emptyLabel: "Todas",
+      width: "w-full sm:w-44",
+      options: [
+        { value: "pendientes", label: "Pendientes de pago" },
+        { value: "pagadas", label: "Pagadas" },
+      ],
+    },
+  ];
+
   return (
     <>
-      <FilterPersist router="/dashboard/compras" />
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -79,93 +113,7 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
         ) : null}
       </div>
 
-      <form method="get" className={cardClass + " p-4"}>
-        {raw.orden ? <input type="hidden" name="orden" value={raw.orden} /> : null}
-        {raw.orden ? <input type="hidden" name="dir" value={sortDir} /> : null}
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="q" className={labelClass}>
-              Buscar
-            </label>
-            <input
-              id="q"
-              name="q"
-              type="search"
-              defaultValue={raw.q ?? ""}
-              placeholder="Razón social, Nº factura u observaciones"
-              className={controlClass}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="proveedor" className={labelClass}>
-              Proveedor
-            </label>
-            <SelectDropdown
-              id="proveedor"
-              name="proveedor"
-              value={raw.proveedor ?? ""}
-              emptyLabel="Todos"
-              options={suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name }))}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="categoria" className={labelClass}>
-              Categoría
-            </label>
-            <SelectDropdown
-              id="categoria"
-              name="categoria"
-              value={raw.categoria ?? ""}
-              emptyLabel="Todas"
-              options={categories.map((category) => ({ value: category.id, label: category.name }))}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="tipo" className={labelClass}>
-              Tipo de documento
-            </label>
-            <SelectDropdown
-              id="tipo"
-              name="tipo"
-              value={raw.tipo ?? ""}
-              emptyLabel="Todos"
-              options={documentTypeValues.map((value) => ({ value, label: documentTypeLabel(value) }))}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="estado" className={labelClass}>
-              Estado
-            </label>
-            <SelectDropdown
-              id="estado"
-              name="estado"
-              value={raw.estado ?? ""}
-              emptyLabel="Todas"
-              options={[
-                { value: "pendientes", label: "Pendientes de pago" },
-                { value: "pagadas", label: "Pagadas" },
-              ]}
-            />
-          </div>
-
-          <DateRangeFilter from={raw.desde} to={raw.hasta} />
-
-          <div className="flex items-end gap-2">
-            <button type="submit" className={primaryButtonClass}>
-              Filtrar
-            </button>
-            {hasFilters ? (
-              <Link href="/dashboard/compras" className={secondaryButtonClass}>
-                Limpiar
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      </form>
+      <FilterBar fields={filterFields} />
 
       <div className={cardClass + " grid grid-cols-2 divide-border sm:grid-cols-3 sm:divide-x"}>
         <div className="p-4">

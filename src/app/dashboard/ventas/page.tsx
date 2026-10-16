@@ -1,8 +1,6 @@
 import Link from "next/link";
 
-import { DateRangeFilter } from "@/components/date-range-filter";
-import { FilterPersist } from "@/components/filter-persist";
-import { SelectDropdown } from "@/components/select-dropdown";
+import { FilterBar, type FilterField } from "@/components/filter-bar";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listCategories, listSalespeople } from "@/lib/catalogs";
@@ -11,13 +9,11 @@ import { formatCLP } from "@/lib/money";
 import { listCustomers } from "@/lib/partners";
 import { listSales, parseSaleFilters } from "@/lib/sales";
 import { parseSortDir } from "@/lib/sort";
-import { cardClass, controlClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
+import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
 import { SalesTable } from "./sales-table";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
-
-const fieldRow = "flex min-w-[6rem] flex-1 flex-col gap-1";
 
 export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
   const ctx = await requireContext("ventas");
@@ -49,9 +45,59 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
   );
   const writable = canWrite(ctx, "ventas");
 
+  const filterFields: FilterField[] = [
+    { kind: "text", name: "q", label: "Buscar", placeholder: "Cliente, N° factura, OC, guía…", grow: true },
+    {
+      kind: "select",
+      name: "cliente",
+      label: "Cliente",
+      emptyLabel: "Todos",
+      width: "w-full sm:w-52",
+      options: customers.map((customer) => ({ value: customer.id, label: customer.name })),
+    },
+    {
+      kind: "select",
+      name: "categoria",
+      label: "Categoría",
+      emptyLabel: "Todas",
+      width: "w-full sm:w-48",
+      options: categories.map((category) => ({ value: category.id, label: category.name })),
+    },
+    {
+      kind: "select",
+      name: "vendedor",
+      label: "Vendedor",
+      emptyLabel: "Todos",
+      width: "w-full sm:w-48",
+      options: salespeople.map((salesperson) => ({ value: salesperson.id, label: salesperson.name })),
+    },
+    {
+      kind: "select",
+      name: "tipo",
+      label: "Tipo de documento",
+      emptyLabel: "Todos",
+      width: "w-full sm:w-52",
+      options: documentTypeValues.map((value) => ({ value, label: documentTypeLabel(value) })),
+    },
+    {
+      kind: "select",
+      name: "estado",
+      label: "Estado",
+      emptyLabel: "Todas",
+      width: "w-full sm:w-44",
+      options: [
+        { value: "pendientes", label: "Por cobrar" },
+        { value: "confirming", label: "En confirming" },
+        { value: "cobradas", label: "Cobradas" },
+        { value: "parciales", label: "Parciales" },
+        { value: "vencidas", label: "Vencidas" },
+        { value: "anuladas", label: "Anuladas" },
+      ],
+    },
+  ];
+
   return (
     <>
-      <FilterPersist router="/dashboard/ventas" />
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -77,106 +123,7 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
         ) : null}
       </div>
 
-      <form method="get" className={cardClass + " flex flex-wrap items-end gap-3 p-4"}>
-        {raw.orden ? <input type="hidden" name="orden" value={raw.orden} /> : null}
-        {raw.orden ? <input type="hidden" name="dir" value={sortDir} /> : null}
-        <div className={fieldRow + " sm:min-w-[14rem]"}>
-          <label htmlFor="q" className={labelClass}>
-            Buscar
-          </label>
-          <input
-            id="q"
-            name="q"
-            defaultValue={raw.q ?? ""}
-            placeholder="Cliente, N° factura, OC, guía…"
-            className={controlClass}
-          />
-        </div>
-
-        <div className={fieldRow + " sm:w-52"}>
-          <label htmlFor="cliente" className={labelClass}>
-            Cliente
-          </label>
-          <SelectDropdown
-            id="cliente"
-            name="cliente"
-            value={raw.cliente ?? ""}
-            emptyLabel="Todos"
-            options={customers.map((customer) => ({ value: customer.id, label: customer.name }))}
-          />
-        </div>
-
-        <div className={fieldRow + " sm:w-48"}>
-          <label htmlFor="categoria" className={labelClass}>
-            Categoría
-          </label>
-          <SelectDropdown
-            id="categoria"
-            name="categoria"
-            value={raw.categoria ?? ""}
-            emptyLabel="Todas"
-            options={categories.map((category) => ({ value: category.id, label: category.name }))}
-          />
-        </div>
-
-        <div className={fieldRow + " sm:w-48"}>
-          <label htmlFor="vendedor" className={labelClass}>
-            Vendedor
-          </label>
-          <SelectDropdown
-            id="vendedor"
-            name="vendedor"
-            value={raw.vendedor ?? ""}
-            emptyLabel="Todos"
-            options={salespeople.map((salesperson) => ({ value: salesperson.id, label: salesperson.name }))}
-          />
-        </div>
-
-        <div className={fieldRow + " sm:w-48"}>
-          <label htmlFor="tipo" className={labelClass}>
-            Tipo de documento
-          </label>
-          <SelectDropdown
-            id="tipo"
-            name="tipo"
-            value={raw.tipo ?? ""}
-            emptyLabel="Todos"
-            options={documentTypeValues.map((value) => ({ value, label: documentTypeLabel(value) }))}
-          />
-        </div>
-
-        <div className={fieldRow + " sm:w-44"}>
-          <label htmlFor="estado" className={labelClass}>
-            Estado
-          </label>
-          <SelectDropdown
-            id="estado"
-            name="estado"
-            value={raw.estado ?? ""}
-            emptyLabel="Todas"
-            options={[
-              { value: "pendientes", label: "Por cobrar" },
-              { value: "cobradas", label: "Cobradas" },
-              { value: "parciales", label: "Parciales" },
-              { value: "vencidas", label: "Vencidas" },
-              { value: "anuladas", label: "Anuladas" },
-            ]}
-          />
-        </div>
-
-        <DateRangeFilter from={raw.desde} to={raw.hasta} />
-
-        <div className="flex items-center gap-2">
-          <button type="submit" className={primaryButtonClass}>
-            Filtrar
-          </button>
-          {hasFilters ? (
-            <Link href="/dashboard/ventas" className={secondaryButtonClass}>
-              Limpiar
-            </Link>
-          ) : null}
-        </div>
-      </form>
+      <FilterBar fields={filterFields} />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className={cardClass + " p-4"}>

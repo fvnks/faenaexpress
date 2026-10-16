@@ -1,12 +1,14 @@
 import type { DocumentType, SaleStatus, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
-import { documentSign } from "@/lib/money";
 import { toISODate } from "@/lib/money";
 import { compareFolio, compareText, parseSortDir, type SortDir } from "@/lib/sort";
 import { documentTypeValues } from "@/lib/validation";
 
 export type SaleFilters = {
   status: SaleStatus | "ALL";
+  // Las ventas en confirming ya se cobraron, así que "por cobrar" las excluye
+  // y "En confirming" las muestra por separado.
+  confirming?: "only" | "exclude";
   q: string;
   partnerId?: string;
   categoryId?: string;
@@ -40,23 +42,38 @@ export function parseSaleFilters(searchParams: {
   orden?: string;
   dir?: string;
 }): SaleFilters {
-  const status: SaleFilters["status"] =
-    searchParams.estado === "pendientes"
-      ? "PENDING"
-      : searchParams.estado === "cobradas"
-        ? "PAID"
-        : searchParams.estado === "parciales"
-          ? "PARTIAL"
-          : searchParams.estado === "vencidas"
-            ? "OVERDUE"
-            : searchParams.estado === "anuladas"
-              ? "CANCELLED"
-              : "ALL";
+  let status: SaleFilters["status"] = "ALL";
+  let confirming: SaleFilters["confirming"];
+
+  switch (searchParams.estado) {
+    case "pendientes":
+      status = "PENDING";
+      confirming = "exclude";
+      break;
+    case "confirming":
+      confirming = "only";
+      break;
+    case "cobradas":
+      status = "PAID";
+      break;
+    case "parciales":
+      status = "PARTIAL";
+      confirming = "exclude";
+      break;
+    case "vencidas":
+      status = "OVERDUE";
+      confirming = "exclude";
+      break;
+    case "anuladas":
+      status = "CANCELLED";
+      break;
+  }
 
   const documentType = documentTypeValues.find((value) => value === searchParams.tipo);
 
   return {
     status,
+    confirming,
     q: (searchParams.q ?? "").trim(),
     partnerId: searchParams.cliente || undefined,
     categoryId: searchParams.categoria || undefined,
@@ -74,6 +91,15 @@ function buildWhere(companyId: string, filters: SaleFilters): Prisma.SaleWhereIn
 
   if (filters.status !== "ALL") {
     where.status = filters.status;
+  }
+
+  if (filters.confirming === "only") {
+    // En confirming: ya se cobraron (aunque el cliente pague después), por eso
+    // no cuentan como pagadas ni anuladas.
+    where.confirmingAt = { not: null };
+    where.status = { notIn: ["PAID", "CANCELLED"] };
+  } else if (filters.confirming === "exclude") {
+    where.confirmingAt = null;
   }
 
   if (filters.partnerId) {
@@ -164,7 +190,6 @@ export async function listSales(companyId: string, filters: SaleFilters) {
   });
 
   const paid = Number(grouped.find((group) => group.status === "PAID")?._sum.totalAmount ?? 0);
-  const pending = Number(grouped.find((group) => group.status === "PENDING")?._sum.totalAmount ?? 0);
   const partial = Number(grouped.find((group) => group.status === "PARTIAL")?._sum.totalAmount ?? 0);
   const overdue = Number(grouped.find((group) => group.status === "OVERDUE")?._sum.totalAmount ?? 0);
   const cancelled = Number(grouped.find((group) => group.status === "CANCELLED")?._sum.totalAmount ?? 0);
