@@ -257,6 +257,12 @@ export function RcvImportForm({
         </p>
       ) : null}
 
+      {preview?.advertencia ? (
+        <p role="alert" className="rounded-control border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-accent">
+          {preview.advertencia}
+        </p>
+      ) : null}
+
       {/* Vista previa */}
       {rows.length > 0 ? (
         <div className="flex flex-col gap-3">

@@ -83,6 +83,13 @@ function extractHesNumber(raw: Record<string, unknown>): string | null {
   return null;
 }
 
+// El SII a veces manda la fecha con hora ("AAAA-MM-DD HH:MM:SS"); nos quedamos
+// solo con el día porque el resto del sistema trabaja con fechas simples.
+function soloFecha(value: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(value);
+  return match ? match[1] : value;
+}
+
 function projectDoc(doc: RcvDetalleAllDoc): RcvRow {
   const raw = doc.raw as Record<string, unknown>;
   return {
@@ -90,7 +97,7 @@ function projectDoc(doc: RcvDetalleAllDoc): RcvRow {
     folio: doc.folio !== null ? String(doc.folio) : "",
     rut: doc.rutEmisor ?? "",
     nombre: doc.razonSocial ?? "(sin razón social)",
-    fecha: doc.fechaEmision ?? "",
+    fecha: soloFecha(doc.fechaEmision ?? ""),
     // El exento entra al neto: no da crédito fiscal pero es parte del costo/venta.
     neto: toInt(doc.montoNeto) + toInt(doc.montoExento),
     iva: toInt(doc.montoIva),
@@ -116,7 +123,7 @@ export async function fetchRcvRows(input: {
   companyRut: string;
   periodo: string; // AAAA-MM
   side: RcvSide;
-}): Promise<{ rows: RcvRow[]; sessionRut: string }> {
+}): Promise<{ rows: RcvRow[]; sessionRut: string; incomplete: boolean; rejectedTypes: readonly string[] }> {
   const runtime = createAppRuntime(input.companyId);
 
   // ¿La sesión es la propia empresa o una persona que la representa?
@@ -133,5 +140,9 @@ export async function fetchRcvRows(input: {
   return {
     rows: result.docs.map(projectDoc).filter((row) => row.folio !== ""),
     sessionRut: result.rut,
+    // El SII puede rechazar el detalle de un tipo de documento (p. ej. exentas)
+    // mientras devuelve el resto. Sin esto, esos folios desaparecían en silencio.
+    incomplete: result.incomplete,
+    rejectedTypes: result.rejectedTypes ?? [],
   };
 }

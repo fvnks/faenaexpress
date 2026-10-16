@@ -25,6 +25,7 @@ import { workerRutExists } from "@/lib/rrhh";
 
 export type RcvSyncState = {
   error?: string;
+  advertencia?: string;
   side?: RcvSide;
   periodo?: string;
   resumen?: { nuevas: number; duplicadas: number; omitidas: number; conError: number; total: number };
@@ -65,6 +66,79 @@ function parsePeriodo(raw: unknown): string | null {
 
 function parseSide(raw: unknown): RcvSide | null {
   return raw === "VENTA" ? "VENTA" : raw === "COMPRA" ? "COMPRA" : null;
+}
+
+/**
+ * Los folios NO son únicos a nivel global: cada emisor tiene su propia
+ * numeración y las notas/guías llevan secuencias separadas de las facturas.
+ * Comparar un folio de venta contra las compras (o contra las guías) hacía
+ * que ventas legítimas se marcaran como "duplicada" y se saltaran.
+ */
+
+// Fecha simple del DTE; acepta "AAAA-MM-DD" con o sin hora y descarta el resto.
+function fechaDteISO(value: unknown): string | null {
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(String(value ?? "").trim());
+  return match ? match[1] : null;
+}
+
+type FoliosExistentes = {
+  compras: Set<string>; // folio del documento de compra
+  ventas: Set<string>; // folio del documento de venta (el emisor es la empresa)
+  guias: Set<string>; // número de guía
+};
+
+async function cargarFoliosExistentes(
+  companyId: string,
+  folios: string[],
+): Promise<FoliosExistentes> {
+  const [compras, ventas, guias] = await Promise.all([
+    db.purchase.findMany({
+      where: { companyId, documentNumber: { in: folios } },
+      select: { documentNumber: true },
+    }),
+    db.sale.findMany({
+      where: { companyId, documentNumber: { in: folios } },
+      select: { documentNumber: true },
+    }),
+    db.dispatchGuide.findMany({
+      where: { companyId, guideNumber: { in: folios } },
+      select: { guideNumber: true },
+    }),
+  ]);
+
+  return {
+    compras: new Set(compras.map((row) => row.documentNumber).filter(Boolean) as string[]),
+    ventas: new Set(ventas.map((row) => row.documentNumber).filter(Boolean) as string[]),
+    guias: new Set(guias.map((row) => row.guideNumber)),
+  };
+}
+
+function esFolioExistente(
+  row: { tipoDoc: number; folio: string },
+  side: RcvSide,
+  sets: FoliosExistentes,
+): boolean {
+  const importable = TIPOS_IMPORTABLES[row.tipoDoc];
+  if (importable === "GUIDE") return sets.guias.has(row.folio);
+  return side === "COMPRA" ? sets.compras.has(row.folio) : sets.ventas.has(row.folio);
+}
+
+function registrarFolio(
+  sets: FoliosExistentes,
+  row: { tipoDoc: number; folio: string },
+  side: RcvSide,
+): void {
+  const importable = TIPOS_IMPORTABLES[row.tipoDoc];
+  if (importable === "GUIDE") sets.guias.add(row.folio);
+  else if (side === "COMPRA") sets.compras.add(row.folio);
+  else sets.ventas.add(row.folio);
+}
+
+// Aviso legible cuando el SII no entregó el detalle de uno o más tipos.
+function avisoIncompleto(rejectedTypes: readonly string[]): string | null {
+  if (rejectedTypes.length === 0) return null;
+  const tipos = rejectedTypes.map(Number).filter((n) => Number.isFinite(n)).join(", ");
+  return `El SII no devolvió el detalle de ${rejectedTypes.length} tipo(s) de documento (${tipos}). Esos folios pueden faltar; reintenta la sincronización o revisa el RCV en el portal.`;
 }
 
 // --- Sesión (login desde la web) ------------------------------------------------
@@ -317,9 +391,11 @@ export async function previewRcvSync(_prev: RcvSyncState, formData: FormData): P
   }
 
   let rows: RcvRow[];
+  let advertencia: string | undefined;
   try {
     const result = await fetchRcvRows({ companyId: ctx.company.id, companyRut, periodo, side });
     rows = result.rows;
+    advertencia = result.incomplete ? avisoIncompleto(result.rejectedTypes) ?? undefined : undefined;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -341,29 +417,11 @@ export async function previewRcvSync(_prev: RcvSyncState, formData: FormData): P
     : [];
   const rutsTrabajadores = new Set(trabajadores.map((worker) => normalizeRut(worker.rut!)));
 
-  // Duplicados: un folio ya registrado como Purchase, Sale o DispatchGuide
-  // (las NC se guardan como Purchase/Sale con CREDIT_NOTE; las guías como
-  // DispatchGuide). Buscamos en los tres para no importar dos veces.
+  // Duplicados: cada folio se compara solo contra su propia familia (ventas
+  // contra ventas, compras contra compras por RUT de proveedor, guías contra
+  // guías). Antes se mezclaban los tres y se perdían documentos legítimos.
   const folios = rows.map((row) => row.folio).filter(Boolean);
-  const [existentesCompras, existentesVentas, existentesGuides] = await Promise.all([
-    db.purchase.findMany({
-      where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-      select: { documentNumber: true },
-    }),
-    db.sale.findMany({
-      where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-      select: { documentNumber: true },
-    }),
-    db.dispatchGuide.findMany({
-      where: { companyId: ctx.company.id, guideNumber: { in: folios } },
-      select: { guideNumber: true },
-    }),
-  ]);
-  const foliosExistentes = new Set([
-    ...existentesCompras.map((row) => row.documentNumber),
-    ...existentesVentas.map((row) => row.documentNumber),
-    ...existentesGuides.map((row) => row.guideNumber),
-  ]);
+  const foliosExistentes = await cargarFoliosExistentes(ctx.company.id, folios);
 
   const preview = rows.map((row) => {
     const importable = TIPOS_IMPORTABLES[row.tipoDoc];
@@ -383,7 +441,15 @@ export async function previewRcvSync(_prev: RcvSyncState, formData: FormData): P
         tipoDocLabel: dteTipoLabel(row.tipoDoc),
       };
     }
-    if (foliosExistentes.has(row.folio)) {
+    if (!fechaDteISO(row.fecha)) {
+      return {
+        ...row,
+        estado: "error" as const,
+        mensaje: "El SII devolvió una fecha de emisión inválida; revisa el documento en el portal.",
+        tipoDocLabel: dteTipoLabel(row.tipoDoc),
+      };
+    }
+    if (esFolioExistente(row, side, foliosExistentes)) {
       return {
         ...row,
         estado: "duplicada" as const,
@@ -407,7 +473,7 @@ export async function previewRcvSync(_prev: RcvSyncState, formData: FormData): P
     total: preview.length,
   };
 
-  return { side, periodo, rows: preview, resumen };
+  return { side, periodo, rows: preview, resumen, advertencia };
 }
 
 type PayloadRow = RcvRow & { tipoDoc: number };
@@ -441,9 +507,11 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
 
   // 1. Consultar el RCV
   let rows: RcvRow[];
+  let advertenciaRcv: string | undefined;
   try {
     const result = await fetchRcvRows({ companyId: ctx.company.id, companyRut, periodo, side });
     rows = result.rows;
+    advertenciaRcv = result.incomplete ? avisoIncompleto(result.rejectedTypes) ?? undefined : undefined;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await setFlash("error", "No se pudo leer el RCV del SII", message);
@@ -452,25 +520,7 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
 
   // 2. Clasificar (mismo criterio que la vista previa)
   const folios = rows.map((row) => row.folio).filter(Boolean);
-  const [existentesCompras, existentesVentas, existentesGuides] = await Promise.all([
-    db.purchase.findMany({
-      where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-      select: { documentNumber: true },
-    }),
-    db.sale.findMany({
-      where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-      select: { documentNumber: true },
-    }),
-    db.dispatchGuide.findMany({
-      where: { companyId: ctx.company.id, guideNumber: { in: folios } },
-      select: { guideNumber: true },
-    }),
-  ]);
-  const foliosExistentes = new Set([
-    ...existentesCompras.map((row) => row.documentNumber),
-    ...existentesVentas.map((row) => row.documentNumber),
-    ...existentesGuides.map((row) => row.guideNumber),
-  ]);
+  const foliosExistentes = await cargarFoliosExistentes(ctx.company.id, folios);
 
   const trabajadores = await db.worker.findMany({
     where: { companyId: ctx.company.id, rut: { not: null } },
@@ -478,22 +528,29 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
   });
   const rutsTrabajadores = new Set(trabajadores.map((worker) => normalizeRut(worker.rut!)));
 
+  const fallos: string[] = [];
   const nuevas = rows.filter((row) => {
     if (!TIPOS_IMPORTABLES[row.tipoDoc]) return false;
     if (row.rut && rutsTrabajadores.has(normalizeRut(row.rut))) return false;
-    return !foliosExistentes.has(row.folio);
+    if (!fechaDteISO(row.fecha)) {
+      fallos.push(`Folio ${row.folio}: fecha de emisión inválida (${row.fecha || "vacía"}).`);
+      return false;
+    }
+    return !esFolioExistente(row, side, foliosExistentes);
   });
-  const fallos: string[] = [];
   const omitidas = rows.filter((row) => !TIPOS_IMPORTABLES[row.tipoDoc]).length;
   const duplicadas = rows.filter(
-    (row) => TIPOS_IMPORTABLES[row.tipoDoc] && foliosExistentes.has(row.folio),
+    (row) => TIPOS_IMPORTABLES[row.tipoDoc] && esFolioExistente(row, side, foliosExistentes),
   ).length;
+
+  const diagnosticoBase = `SII devolvió ${rows.length} documentos: ${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con problemas.` +
+    (advertenciaRcv ? ` ${advertenciaRcv}` : "");
 
   if (nuevas.length === 0) {
     await setFlash(
       "success",
       "Todo al día",
-      `El RCV del período ${periodo} no trae ${etiqueta} nuevas (${duplicadas} ya registradas, ${omitidas} omitidas).`,
+      `El RCV del período ${periodo} no trae ${etiqueta} nuevas. ${diagnosticoBase}`,
     );
     redirect(destino);
   }
@@ -516,7 +573,11 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     try {
       const importable = TIPOS_IMPORTABLES[row.tipoDoc];
       if (!importable) continue;
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(row.fecha ?? ""))) continue;
+      const fechaIso = fechaDteISO(row.fecha);
+      if (!fechaIso) {
+        fallos.push(`Folio ${folio}: fecha de emisión inválida (${row.fecha || "vacía"}).`);
+        continue;
+      }
 
       const rut = String(row.rut ?? "").trim();
       const nombre = String(row.nombre ?? "").trim() || "(sin razón social)";
@@ -541,7 +602,7 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
         partnerPorNombre.set(nombre.toLowerCase(), info);
       }
 
-      const fecha = new Date(`${String(row.fecha)}T00:00:00.000Z`);
+      const fecha = new Date(`${fechaIso}T00:00:00.000Z`);
 
       // Las guías de despacho no son facturas ni compras: se guardan como
       // DispatchGuide, sin vendedor (el RCV no indica quién despachó). Después
@@ -593,7 +654,7 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
         }
       }
 
-      foliosExistentes.add(folio);
+      registrarFolio(foliosExistentes, row, side);
       imported += 1;
     } catch {
       // El resto sigue importándose; el conteo final refleja lo logrado.
@@ -601,7 +662,8 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     }
   }
 
-  const diagnostico = `SII devolvió ${rows.length} documentos: ${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con error. Puede omitir boletas (39/41).`;
+  const diagnostico = `SII devolvió ${rows.length} documentos: ${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con problemas.` +
+    (advertenciaRcv ? ` ${advertenciaRcv}` : "");
 
   if (imported > 0) {
     await recordAudit(ctx, {
@@ -641,25 +703,7 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
 
   // Revalidación servidor-side (la acción es alcanzable por POST directo).
   const folios = rows.map((row) => String(row.folio ?? "")).filter(Boolean);
-  const [existentesCompras, existentesVentas, existentesGuides] = await Promise.all([
-    db.purchase.findMany({
-      where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-      select: { documentNumber: true },
-    }),
-    db.sale.findMany({
-      where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-      select: { documentNumber: true },
-    }),
-    db.dispatchGuide.findMany({
-      where: { companyId: ctx.company.id, guideNumber: { in: folios } },
-      select: { guideNumber: true },
-    }),
-  ]);
-  const foliosExistentes = new Set([
-    ...existentesCompras.map((row) => row.documentNumber),
-    ...existentesVentas.map((row) => row.documentNumber),
-    ...existentesGuides.map((row) => row.guideNumber),
-  ]);
+  const foliosExistentes = await cargarFoliosExistentes(ctx.company.id, folios);
 
   const partners = await db.partner.findMany({
     where: { companyId: ctx.company.id },
@@ -678,7 +722,7 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
   for (const row of rows) {
     const folio = String(row.folio ?? "").trim();
     try {
-      if (foliosExistentes.has(folio)) {
+      if (esFolioExistente(row, side, foliosExistentes)) {
         errores.push(`Folio ${folio}: ya estaba registrado.`);
         continue;
       }
@@ -687,8 +731,9 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
         errores.push(`Folio ${folio}: tipo ${dteTipoLabel(Number(row.tipoDoc))} no importable.`);
         continue;
       }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(row.fecha ?? ""))) {
-        errores.push(`Folio ${folio}: fecha de emisión inválida.`);
+      const fechaIso = fechaDteISO(row.fecha);
+      if (!fechaIso) {
+        errores.push(`Folio ${folio}: fecha de emisión inválida (${row.fecha || "vacía"}).`);
         continue;
       }
 
@@ -718,7 +763,7 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
         partnerPorNombre.set(nombre.toLowerCase(), info);
       }
 
-      const fecha = new Date(`${String(row.fecha)}T00:00:00.000Z`);
+      const fecha = new Date(`${fechaIso}T00:00:00.000Z`);
 
       // Las guías de despacho no son facturas ni compras: se guardan como
       // DispatchGuide, sin vendedor (el RCV no indica quién despachó). Después
@@ -770,7 +815,7 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
         }
       }
 
-      foliosExistentes.add(folio);
+      registrarFolio(foliosExistentes, row, side);
       imported += 1;
     } catch {
       errores.push(`Folio ${folio}: no se pudo guardar (¿folio repetido por otro tipo de documento?).`);
