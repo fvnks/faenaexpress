@@ -10,6 +10,7 @@ import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
 import { listCustomers } from "@/lib/partners";
 import { listSales, parseSaleFilters } from "@/lib/sales";
+import { parseSortDir } from "@/lib/sort";
 import { cardClass, controlClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
 import { SalesTable } from "./sales-table";
@@ -31,8 +32,12 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
     tipo: one(searchParams.tipo),
     desde: one(searchParams.desde),
     hasta: one(searchParams.hasta),
+    orden: one(searchParams.orden),
+    dir: one(searchParams.dir),
   };
   const filters = parseSaleFilters(raw);
+  const sortKey = raw.orden ?? "fecha";
+  const sortDir = parseSortDir(raw.dir);
   const [customers, categories, salespeople] = await Promise.all([
     listCustomers(ctx.company.id),
     listCategories(ctx.company.id),
@@ -73,6 +78,8 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
       </div>
 
       <form method="get" className={cardClass + " flex flex-wrap items-end gap-3 p-4"}>
+        {raw.orden ? <input type="hidden" name="orden" value={raw.orden} /> : null}
+        {raw.orden ? <input type="hidden" name="dir" value={sortDir} /> : null}
         <div className={fieldRow + " sm:min-w-[14rem]"}>
           <label htmlFor="q" className={labelClass}>
             Buscar
@@ -221,7 +228,14 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
           ) : null}
         </div>
       ) : (
-        <SalesTable items={items} writable={writable} salespeople={salespeople} />
+        <SalesTable
+          items={items}
+          writable={writable}
+          salespeople={salespeople}
+          params={searchParams}
+          sortKey={sortKey}
+          sortDir={sortDir}
+        />
       )}
       </div>
     </>

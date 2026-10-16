@@ -1,6 +1,7 @@
 import type { DocumentType, PaymentStatus, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { toISODate } from "@/lib/money";
+import { compareFolio, compareText, parseSortDir, type SortDir } from "@/lib/sort";
 import { documentTypeValues } from "@/lib/validation";
 
 export type PurchaseFilters = {
@@ -11,6 +12,14 @@ export type PurchaseFilters = {
   documentType?: DocumentType;
   from?: Date;
   to?: Date;
+  sort?: string;
+  dir?: SortDir;
+};
+
+// Orden de los estados al ordenar la columna "Estado".
+const PURCHASE_STATUS_ORDER: Record<string, number> = {
+  PENDING: 0,
+  PAID: 1,
 };
 
 export function parsePurchaseFilters(searchParams: {
@@ -21,6 +30,8 @@ export function parsePurchaseFilters(searchParams: {
   tipo?: string;
   desde?: string;
   hasta?: string;
+  orden?: string;
+  dir?: string;
 }): PurchaseFilters {
   const status: PurchaseFilters["status"] =
     searchParams.estado === "pendientes"
@@ -39,6 +50,8 @@ export function parsePurchaseFilters(searchParams: {
     documentType,
     from: searchParams.desde ? new Date(`${searchParams.desde}T00:00:00.000Z`) : undefined,
     to: searchParams.hasta ? new Date(`${searchParams.hasta}T23:59:59.999Z`) : undefined,
+    sort: searchParams.orden || undefined,
+    dir: searchParams.orden ? parseSortDir(searchParams.dir) : undefined,
   };
 }
 
@@ -79,7 +92,7 @@ function buildWhere(companyId: string, filters: PurchaseFilters): Prisma.Purchas
 export async function listPurchases(companyId: string, filters: PurchaseFilters) {
   const where = buildWhere(companyId, filters);
 
-  const [items, grouped] = await Promise.all([
+  const [rawItems, grouped] = await Promise.all([
     db.purchase.findMany({
       where,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -91,6 +104,34 @@ export async function listPurchases(companyId: string, filters: PurchaseFilters)
       _sum: { totalAmount: true },
     }),
   ]);
+
+  const sortKey = filters.sort ?? "fecha";
+  const dir: SortDir = filters.dir ?? "desc";
+  const sign = dir === "asc" ? 1 : -1;
+
+  const items = [...rawItems].sort((a, b) => {
+    let result = 0;
+    switch (sortKey) {
+      case "proveedor":
+        result = compareText(a.partner.name, b.partner.name);
+        break;
+      case "folio":
+        result = compareFolio(a.documentNumber, b.documentNumber);
+        break;
+      case "estado":
+        result = (PURCHASE_STATUS_ORDER[a.status] ?? 99) - (PURCHASE_STATUS_ORDER[b.status] ?? 99);
+        break;
+      case "total":
+        result = a.totalAmount - b.totalAmount;
+        break;
+      case "fecha":
+      default:
+        result = a.date.getTime() - b.date.getTime();
+        break;
+    }
+    if (result === 0) result = a.id.localeCompare(b.id);
+    return result * sign;
+  });
 
   const paid = Number(grouped.find((group) => group.status === "PAID")?._sum.totalAmount ?? 0);
   const pending = Number(grouped.find((group) => group.status === "PENDING")?._sum.totalAmount ?? 0);

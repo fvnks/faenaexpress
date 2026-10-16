@@ -8,7 +8,9 @@ import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
+import { SortableHeader } from "@/components/sortable-header";
 import { formatCLP, formatDate } from "@/lib/money";
+import { sortHref, type SortDir } from "@/lib/sort";
 import { cardClass } from "@/lib/ui";
 
 type SaleItem = {
@@ -36,6 +38,9 @@ type Props = {
   items: SaleItem[];
   writable: boolean;
   salespeople: { id: string; name: string }[];
+  params: Record<string, string | string[] | undefined>;
+  sortKey: string;
+  sortDir: SortDir;
 };
 
 function parseShortDate(input: string | null): string | null {
@@ -50,7 +55,7 @@ function parseShortDate(input: string | null): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(wire) ? wire : null;
 }
 
-export function SalesTable({ items, writable, salespeople }: Props) {
+export function SalesTable({ items, writable, salespeople, params, sortKey, sortDir }: Props) {
   const [cancelModalSaleId, setCancelModalSaleId] = useState<string | null>(null);
   const [assignModalSaleId, setAssignModalSaleId] = useState<string | null>(null);
   const [assignSalespersonId, setAssignSalespersonId] = useState<string>("");
@@ -60,6 +65,14 @@ export function SalesTable({ items, writable, salespeople }: Props) {
   const cancelSaleItem = cancelModalSaleId ? items.find((s) => s.id === cancelModalSaleId) : null;
   const assignSaleItem = assignModalSaleId ? items.find((s) => s.id === assignModalSaleId) : null;
   const actionModalSale = actionModal ? items.find((s) => s.id === actionModal.saleId) : null;
+
+  const clienteSort = sortHref("/dashboard/ventas", params, "cliente", sortKey, sortDir);
+  const folioSort = sortHref("/dashboard/ventas", params, "folio", sortKey, sortDir);
+  const fechaSort = sortHref("/dashboard/ventas", params, "fecha", sortKey, sortDir);
+  const ocSort = sortHref("/dashboard/ventas", params, "oc", sortKey, sortDir);
+  const hesSort = sortHref("/dashboard/ventas", params, "hes", sortKey, sortDir);
+  const estadoSort = sortHref("/dashboard/ventas", params, "estado", sortKey, sortDir);
+  const totalSort = sortHref("/dashboard/ventas", params, "total", sortKey, sortDir);
 
   const submitActionModal = async () => {
     if (!actionModal || !actionModalSale) return;
@@ -187,13 +200,13 @@ export function SalesTable({ items, writable, salespeople }: Props) {
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted-foreground">
                 {writable ? <th className="w-8 px-2 py-2" /> : null}
-                <th className="px-3 py-2 font-medium">Cliente</th>
-                <th className="px-3 py-2 font-medium">Folio</th>
-                <th className="px-3 py-2 font-medium">Fecha</th>
-                <th className="px-3 py-2 font-medium">OC</th>
-                <th className="px-3 py-2 font-medium">HES</th>
-                <th className="px-3 py-2 font-medium">Estado</th>
-                <th className="px-3 py-2 text-right font-medium">Total</th>
+                <SortableHeader label="Cliente" href={clienteSort.href} active={clienteSort.active} dir={clienteSort.dir} />
+                <SortableHeader label="Folio" href={folioSort.href} active={folioSort.active} dir={folioSort.dir} />
+                <SortableHeader label="Fecha" href={fechaSort.href} active={fechaSort.active} dir={fechaSort.dir} />
+                <SortableHeader label="OC" href={ocSort.href} active={ocSort.active} dir={ocSort.dir} />
+                <SortableHeader label="HES" href={hesSort.href} active={hesSort.active} dir={hesSort.dir} />
+                <SortableHeader label="Estado" href={estadoSort.href} active={estadoSort.active} dir={estadoSort.dir} />
+                <SortableHeader label="Total" href={totalSort.href} active={totalSort.active} dir={totalSort.dir} align="right" />
                 {writable ? <th className="w-12 px-2 py-2" /> : null}
               </tr>
             </thead>

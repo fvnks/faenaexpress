@@ -16,8 +16,10 @@ import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP, formatDate, currentPeriod } from "@/lib/money";
 import { listSuppliers } from "@/lib/partners";
 import { listPurchases, parsePurchaseFilters } from "@/lib/purchases";
+import { parseSortDir, sortHref } from "@/lib/sort";
 import { cardClass, controlClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
+import { SortableHeader } from "@/components/sortable-header";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
@@ -33,8 +35,17 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
     tipo: one(searchParams.tipo),
     desde: one(searchParams.desde),
     hasta: one(searchParams.hasta),
+    orden: one(searchParams.orden),
+    dir: one(searchParams.dir),
   };
   const filters = parsePurchaseFilters(raw);
+  const sortKey = raw.orden ?? "fecha";
+  const sortDir = parseSortDir(raw.dir);
+  const proveedorSort = sortHref("/dashboard/compras", searchParams, "proveedor", sortKey, sortDir);
+  const folioSort = sortHref("/dashboard/compras", searchParams, "folio", sortKey, sortDir);
+  const fechaSort = sortHref("/dashboard/compras", searchParams, "fecha", sortKey, sortDir);
+  const estadoSort = sortHref("/dashboard/compras", searchParams, "estado", sortKey, sortDir);
+  const totalSort = sortHref("/dashboard/compras", searchParams, "total", sortKey, sortDir);
   const [suppliers, categories] = await Promise.all([
     listSuppliers(ctx.company.id),
     listCategories(ctx.company.id),
@@ -69,6 +80,8 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
       </div>
 
       <form method="get" className={cardClass + " p-4"}>
+        {raw.orden ? <input type="hidden" name="orden" value={raw.orden} /> : null}
+        {raw.orden ? <input type="hidden" name="dir" value={sortDir} /> : null}
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1">
             <label htmlFor="q" className={labelClass}>
@@ -234,11 +247,11 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   {writable ? <th className="w-8 px-2 py-2" /> : null}
-                  <th className="px-3 py-2 font-medium">Proveedor</th>
-                  <th className="px-3 py-2 font-medium">Folio</th>
-                  <th className="px-3 py-2 font-medium">Fecha</th>
-                  <th className="px-3 py-2 font-medium">Estado</th>
-                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                  <SortableHeader label="Proveedor" href={proveedorSort.href} active={proveedorSort.active} dir={proveedorSort.dir} />
+                  <SortableHeader label="Folio" href={folioSort.href} active={folioSort.active} dir={folioSort.dir} />
+                  <SortableHeader label="Fecha" href={fechaSort.href} active={fechaSort.active} dir={fechaSort.dir} />
+                  <SortableHeader label="Estado" href={estadoSort.href} active={estadoSort.active} dir={estadoSort.dir} />
+                  <SortableHeader label="Total" href={totalSort.href} active={totalSort.active} dir={totalSort.dir} align="right" />
                   {writable ? <th className="w-12 px-2 py-2" /> : null}
                 </tr>
               </thead>

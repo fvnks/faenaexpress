@@ -2,6 +2,7 @@ import type { DocumentType, SaleStatus, Prisma } from "@/generated/prisma/client
 import { db } from "@/lib/db";
 import { documentSign } from "@/lib/money";
 import { toISODate } from "@/lib/money";
+import { compareFolio, compareText, parseSortDir, type SortDir } from "@/lib/sort";
 import { documentTypeValues } from "@/lib/validation";
 
 export type SaleFilters = {
@@ -13,6 +14,18 @@ export type SaleFilters = {
   documentType?: DocumentType;
   from?: Date;
   to?: Date;
+  sort?: string;
+  dir?: SortDir;
+};
+
+// Orden de los estados al ordenar la columna "Estado": primero lo que exige
+// acción (por cobrar, parcial, vencida) y al final lo cerrado.
+const SALE_STATUS_ORDER: Record<string, number> = {
+  PENDING: 0,
+  PARTIAL: 1,
+  OVERDUE: 2,
+  PAID: 3,
+  CANCELLED: 4,
 };
 
 export function parseSaleFilters(searchParams: {
@@ -24,6 +37,8 @@ export function parseSaleFilters(searchParams: {
   tipo?: string;
   desde?: string;
   hasta?: string;
+  orden?: string;
+  dir?: string;
 }): SaleFilters {
   const status: SaleFilters["status"] =
     searchParams.estado === "pendientes"
@@ -49,6 +64,8 @@ export function parseSaleFilters(searchParams: {
     documentType,
     from: searchParams.desde ? new Date(`${searchParams.desde}T00:00:00.000Z`) : undefined,
     to: searchParams.hasta ? new Date(`${searchParams.hasta}T23:59:59.999Z`) : undefined,
+    sort: searchParams.orden || undefined,
+    dir: searchParams.orden ? parseSortDir(searchParams.dir) : undefined,
   };
 }
 
@@ -95,7 +112,7 @@ function buildWhere(companyId: string, filters: SaleFilters): Prisma.SaleWhereIn
 export async function listSales(companyId: string, filters: SaleFilters) {
   const where = buildWhere(companyId, filters);
 
-  const [items, grouped] = await Promise.all([
+  const [rawItems, grouped] = await Promise.all([
     db.sale.findMany({
       where,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -107,6 +124,44 @@ export async function listSales(companyId: string, filters: SaleFilters) {
       _sum: { totalAmount: true },
     }),
   ]);
+
+  const sortKey = filters.sort ?? "fecha";
+  const dir: SortDir = filters.dir ?? "desc";
+  const sign = dir === "asc" ? 1 : -1;
+
+  const items = [...rawItems].sort((a, b) => {
+    let result = 0;
+    switch (sortKey) {
+      case "cliente":
+        result = compareText(a.partner.name, b.partner.name);
+        break;
+      case "folio":
+        result = compareFolio(a.documentNumber, b.documentNumber);
+        break;
+      case "oc":
+        result = compareText(a.purchaseOrder, b.purchaseOrder);
+        break;
+      case "hes":
+        result = compareText(a.hesNumber, b.hesNumber);
+        break;
+      case "estado":
+        result = (SALE_STATUS_ORDER[a.status] ?? 99) - (SALE_STATUS_ORDER[b.status] ?? 99);
+        break;
+      case "vendedor":
+        result = compareText(a.salesperson?.name, b.salesperson?.name);
+        break;
+      case "total":
+        result = a.totalAmount - b.totalAmount;
+        break;
+      case "fecha":
+      default:
+        result = a.date.getTime() - b.date.getTime();
+        break;
+    }
+    // Desempate estable para que la lista no cambie entre cargas.
+    if (result === 0) result = a.id.localeCompare(b.id);
+    return result * sign;
+  });
 
   const paid = Number(grouped.find((group) => group.status === "PAID")?._sum.totalAmount ?? 0);
   const pending = Number(grouped.find((group) => group.status === "PENDING")?._sum.totalAmount ?? 0);
