@@ -42,7 +42,7 @@ export async function syncDueNotifications(companyId: string): Promise<void> {
       },
     }),
     db.sale.findMany({
-      where: { companyId, status: "PENDING", dueDate: { not: null } },
+      where: { companyId, confirmingAt: null, status: "PENDING", dueDate: { not: null } },
       select: {
         id: true,
         dueDate: true,

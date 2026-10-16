@@ -169,11 +169,20 @@ export async function listSales(companyId: string, filters: SaleFilters) {
   const overdue = Number(grouped.find((group) => group.status === "OVERDUE")?._sum.totalAmount ?? 0);
   const cancelled = Number(grouped.find((group) => group.status === "CANCELLED")?._sum.totalAmount ?? 0);
 
+  // Confirming: la empresa de confirming adelanta el dinero antes que el
+  // cliente deposite, así que la venta ya se cobró. Se cuenta como cobrada
+  // (no como por cobrar) aunque su estado siga siendo "pendiente".
+  const confirming = items
+    .filter((sale) => sale.confirmingAt !== null && sale.status !== "PAID" && sale.status !== "CANCELLED")
+    .reduce((acc, sale) => acc + sale.totalAmount, 0);
+
   // Por cobrar: solo facturas (INVOICE), no NC. Las NC no representan
   // dinero por cobrar, son abonos. Se calculan separando por tipo de documento.
+  // Se excluyen las que están en confirming: esas ya se cobraron.
   const facturasPendientes = items.filter(
     (sale) =>
       sale.documentType === "INVOICE" &&
+      sale.confirmingAt === null &&
       (sale.status === "PENDING" || sale.status === "PARTIAL" || sale.status === "OVERDUE"),
   );
   const porCobrar = facturasPendientes.reduce((acc, sale) => acc + sale.totalAmount, 0);
@@ -188,7 +197,8 @@ export async function listSales(companyId: string, filters: SaleFilters) {
     totals: {
       count: items.length,
       total: totalFacturas,
-      paid,
+      paid: paid + confirming,
+      confirming,
       pending: porCobrar,
       partial,
       overdue,

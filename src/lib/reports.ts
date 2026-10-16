@@ -183,8 +183,11 @@ export async function paymentsSummary(companyId: string, period: Period) {
 
   const paidPurchases = purchases.filter((purchase) => purchase.status === "PAID");
   const pendingPurchases = purchases.filter((purchase) => purchase.status === "PENDING");
-  const paidSales = sales.filter((sale) => sale.status === "PAID");
-  const pendingSales = sales.filter((sale) => sale.status === "PENDING");
+  // Cobrado incluye las ventas en confirming: en confirming la empresa de
+  // confirming adelanta el pago, así que ya entró el dinero. Por lo mismo,
+  // "por cobrar" excluye las que están en confirming.
+  const collectedSales = sales.filter((sale) => sale.status === "PAID" || sale.confirmingAt !== null);
+  const pendingSales = sales.filter((sale) => sale.status === "PENDING" && sale.confirmingAt === null);
 
   const reimbursedExpenses = expenses.filter((expense) => expense.reimbursed);
   const pendingExpenses = expenses.filter((expense) => !expense.reimbursed);
@@ -208,7 +211,7 @@ export async function paymentsSummary(companyId: string, period: Period) {
   const paidPurchasesTotal = sumAmounts(paidPurchases);
   const pendingPurchasesTotal = sumAmounts(pendingPurchases);
   const salesTotal = sumAmounts(sales);
-  const paidSalesTotal = sumAmounts(paidSales);
+  const collectedSalesTotal = sumAmounts(collectedSales);
   const pendingSalesTotal = sumAmounts(pendingSales);
   const expensesTotal = expenses.reduce((acc, expense) => acc + expense.totalAmount, 0);
   const reimbursedExpensesTotal = reimbursedExpenses.reduce((acc, expense) => acc + expense.totalAmount, 0);
@@ -240,7 +243,7 @@ export async function paymentsSummary(companyId: string, period: Period) {
     },
     sales: {
       total: salesTotal,
-      collected: paidSalesTotal,
+      collected: collectedSalesTotal,
       pending: pendingSalesTotal,
       pendingList: pendingSales.map((sale) => ({
         id: sale.id,
@@ -250,12 +253,13 @@ export async function paymentsSummary(companyId: string, period: Period) {
         dueDate: sale.dueDate,
         total: documentSign(sale.documentType) * sale.totalAmount,
       })),
-      collectedList: paidSales.map((sale) => ({
+      collectedList: collectedSales.map((sale) => ({
         id: sale.id,
         partnerName: sale.partner.name,
         documentNumber: sale.documentNumber,
         date: sale.date,
         paymentDate: sale.paymentDate,
+        confirmingAt: sale.confirmingAt,
         dueDate: sale.dueDate,
         total: documentSign(sale.documentType) * sale.totalAmount,
       })),
@@ -386,7 +390,12 @@ export async function pendingTotals(companyId: string) {
       select: { documentType: true, totalAmount: true },
     }),
     db.sale.findMany({
-      where: { companyId, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] }, documentType: { in: ["INVOICE", "RECEIPT"] } },
+      where: {
+        companyId,
+        confirmingAt: null,
+        status: { in: ["PENDING", "PARTIAL", "OVERDUE"] },
+        documentType: { in: ["INVOICE", "RECEIPT"] },
+      },
       select: { documentType: true, totalAmount: true },
     }),
     db.expense.aggregate({
@@ -403,10 +412,11 @@ export async function pendingTotals(companyId: string) {
 }
 
 // Conteo de ventas por cobrar para el badge del sidebar (solo ventas:
-// las compras no llevan número, por decisión de producto).
+// las compras no llevan número, por decisión de producto). Las ventas en
+// confirming ya se cobraron, así que no cuentan como pendientes.
 export async function pendingCounts(companyId: string) {
   const sales = await db.sale.count({
-    where: { companyId, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] }, documentType: { not: "QUOTATION" } },
+    where: { companyId, confirmingAt: null, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] }, documentType: { not: "QUOTATION" } },
   });
   return { sales };
 }
@@ -552,7 +562,7 @@ export async function cashFlowProjection(companyId: string) {
 
   const [ventas, compras] = await Promise.all([
     db.sale.findMany({
-      where: { companyId, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] }, documentType: { not: "QUOTATION" } },
+      where: { companyId, confirmingAt: null, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] }, documentType: { not: "QUOTATION" } },
       select: { documentType: true, totalAmount: true, dueDate: true, date: true },
     }),
     db.purchase.findMany({

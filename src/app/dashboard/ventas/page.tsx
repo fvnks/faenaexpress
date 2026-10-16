@@ -199,6 +199,11 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
             <p className="text-xs text-muted-foreground">Cobrado</p>
           </div>
           <p className="tabular mt-1 text-2xl font-bold text-success">{formatCLP(totals.paid)}</p>
+          {totals.confirming > 0 ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Incluye {formatCLP(totals.confirming)} en confirming
+            </p>
+          ) : null}
         </div>
         <div className={cardClass + " p-4"}>
           <div className="flex items-center gap-2">

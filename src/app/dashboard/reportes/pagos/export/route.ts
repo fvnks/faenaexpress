@@ -104,7 +104,7 @@ export async function GET(request: Request) {
       item.partnerName,
       item.documentNumber ?? "",
       csvDate(item.date),
-      item.paymentDate ? csvDate(item.paymentDate) : "",
+      item.paymentDate ? csvDate(item.paymentDate) : item.confirmingAt ? csvDate(item.confirmingAt) : "",
       item.total,
     ]),
     totalRow: ["Total", "", "", "", data.sales.collected],

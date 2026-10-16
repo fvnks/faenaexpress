@@ -161,7 +161,11 @@ export default async function PaymentsPage(props: PageProps<"/dashboard/reportes
                 href={`/dashboard/ventas/${item.id}`}
                 primary={item.partnerName}
                 secondary={`${item.documentNumber ? `N° ${item.documentNumber} · ` : ""}${
-                  item.paymentDate ? `cobrada ${formatDate(item.paymentDate)}` : "cobrada"
+                  item.paymentDate
+                    ? `cobrada ${formatDate(item.paymentDate)}`
+                    : item.confirmingAt
+                      ? `en confirming ${formatDate(item.confirmingAt)}`
+                      : "cobrada"
                 }`}
                 amount={item.total}
               />
