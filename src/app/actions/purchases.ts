@@ -7,7 +7,8 @@ import { diffChanges, recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
-import { computeTotal, formatCLP } from "@/lib/money";
+import { safeReturnTo } from "@/lib/return-to";
+import { computeTotal, formatCLP, todayDate } from "@/lib/money";
 import { paymentMethodValues, purchaseSchema, type PurchaseInput } from "@/lib/validation";
 
 export type PurchaseFormState = { error?: string } | undefined;
@@ -50,7 +51,9 @@ function toData(input: PurchaseInput) {
     totalAmount: computeTotal(input.netAmount, input.ivaAmount),
     status: input.status,
     paymentMethod: paid ? (input.paymentMethod ?? "OTHER") : null,
-    paymentDate: paid ? (input.paymentDate ?? new Date()) : null,
+    // Si se marca pagada sin fecha, se usa el día de Chile (medianoche UTC),
+    // no la hora exacta: el dominio guarda días de calendario.
+    paymentDate: paid ? (input.paymentDate ?? todayDate()) : null,
     notes: input.notes ?? null,
   };
 }
@@ -254,17 +257,18 @@ export async function deletePurchase(formData: FormData): Promise<void> {
 // Cambia el estado de pago de varias compras a la vez.
 export async function bulkSetPurchaseStatus(formData: FormData): Promise<void> {
   const ctx = await requireContext();
+  const returnTo = safeReturnTo(formData.get("returnTo"), "/dashboard/compras");
   if (!canWrite(ctx, "compras")) {
-    redirect("/dashboard/compras");
+    redirect(returnTo);
   }
 
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   const status = formData.get("status") === "PAID" ? "PAID" : "PENDING";
-  if (ids.length === 0) redirect("/dashboard/compras");
+  if (ids.length === 0) redirect(returnTo);
 
   const result = await db.purchase.updateMany({
     where: { id: { in: ids }, companyId: ctx.company.id },
-    data: { status, paymentDate: status === "PAID" ? new Date() : null },
+    data: { status, paymentDate: status === "PAID" ? todayDate() : null },
   });
 
   if (result.count > 0) {
@@ -281,5 +285,5 @@ export async function bulkSetPurchaseStatus(formData: FormData): Promise<void> {
     );
   }
   revalidatePath("/dashboard/compras");
-  redirect("/dashboard/compras");
+  redirect(returnTo);
 }

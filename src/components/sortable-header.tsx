@@ -43,9 +43,15 @@ export function SortableHeader({
   align?: "left" | "right";
   className?: string;
 }) {
+  // `dir` es la dirección que aplicará el enlace (el próximo clic). El estado
+  // actual de la columna es la opuesta cuando está activa: `aria-sort`, el
+  // ícono y el texto para lectores de pantalla describen el estado actual.
+  const currentDir: SortDir = dir === "asc" ? "desc" : "asc";
+
   return (
     <th
       scope="col"
+      aria-sort={active ? (currentDir === "asc" ? "ascending" : "descending") : "none"}
       className={
         "px-3 py-2 font-medium " + (align === "right" ? "text-right " : "") + (className ?? "")
       }
@@ -58,10 +64,10 @@ export function SortableHeader({
         }
       >
         <span>{label}</span>
-        <SortIcon active={active} dir={dir} />
+        <SortIcon active={active} dir={currentDir} />
         <span className="sr-only">
           {active
-            ? dir === "asc"
+            ? currentDir === "asc"
               ? "Ordenado ascendente. Presiona para invertir."
               : "Ordenado descendente. Presiona para invertir."
             : "Ordenar por esta columna."}

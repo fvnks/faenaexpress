@@ -7,7 +7,8 @@ import { diffChanges, recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
-import { computeTotal, formatCLP } from "@/lib/money";
+import { computeTotal, formatCLP, todayDate } from "@/lib/money";
+import { safeReturnTo } from "@/lib/return-to";
 import { saleSchema, type SaleInput } from "@/lib/validation";
 
 export type SaleFormState = { error?: string } | undefined;
@@ -358,11 +359,14 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
   const rawStatus = String(formData.get("status") ?? "");
   const validStatuses = ["PENDING", "PAID", "PARTIAL", "OVERDUE", "CANCELLED"] as const;
   const status = validStatuses.find((s) => s === rawStatus) ?? "PENDING";
-  if (ids.length === 0) redirect("/dashboard/ventas");
+  const returnTo = safeReturnTo(formData.get("returnTo"), "/dashboard/ventas");
+  if (ids.length === 0) redirect(returnTo);
 
   const result = await db.sale.updateMany({
     where: { id: { in: ids }, companyId: ctx.company.id },
-    data: { status, paymentDate: status === "PAID" ? new Date() : null },
+    // Fecha de cobro = día de Chile (medianoche UTC), no la hora exacta del
+    // navegador: el dominio guarda días de calendario.
+    data: { status, paymentDate: status === "PAID" ? todayDate() : null },
   });
 
   if (result.count > 0) {
@@ -386,7 +390,7 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
     );
   }
   revalidatePath("/dashboard/ventas");
-  redirect("/dashboard/ventas");
+  redirect(returnTo);
 }
 
 /**
@@ -395,7 +399,8 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
  */
 export async function bulkAssignSalesperson(formData: FormData): Promise<void> {
   const ctx = await requireContext("ventas");
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  const returnTo = safeReturnTo(formData.get("returnTo"), "/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect(returnTo);
 
   const ids = String(formData.get("ids") ?? "")
     .split(",")
@@ -405,11 +410,11 @@ export async function bulkAssignSalesperson(formData: FormData): Promise<void> {
 
   if (ids.length === 0) {
     await setFlash("error", "No hay ventas seleccionadas.", "Selecciona al menos una venta.");
-    redirect("/dashboard/ventas");
+    redirect(returnTo);
   }
   if (!salespersonId) {
     await setFlash("error", "Debes seleccionar un vendedor.");
-    redirect("/dashboard/ventas");
+    redirect(returnTo);
   }
 
   // Validar que el vendedor pertenece a la empresa
@@ -418,7 +423,7 @@ export async function bulkAssignSalesperson(formData: FormData): Promise<void> {
   });
   if (!salesperson) {
     await setFlash("error", "Vendedor no encontrado.");
-    redirect("/dashboard/ventas");
+    redirect(returnTo);
   }
 
   const result = await db.sale.updateMany({
@@ -443,7 +448,7 @@ export async function bulkAssignSalesperson(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/dashboard/ventas");
-  redirect("/dashboard/ventas");
+  redirect(returnTo);
 }
 
 /**

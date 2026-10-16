@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
 import { ActionsDropdown } from "@/components/actions-dropdown";
@@ -11,7 +11,7 @@ import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SortableHeader } from "@/components/sortable-header";
 import { formatCLP, formatDate } from "@/lib/money";
 import { sortHref, type SortDir } from "@/lib/sort";
-import { cardClass } from "@/lib/ui";
+import { cardClass, controlClass } from "@/lib/ui";
 
 type SaleItem = {
   id: string;
@@ -61,10 +61,43 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
   const [assignSalespersonId, setAssignSalespersonId] = useState<string>("");
   const [actionModal, setActionModal] = useState<{ saleId: string; kind: "PAID" | "CONFIRMING"; date: string } | null>(null);
   const [actionSalespersonId, setActionSalespersonId] = useState<string>("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const cancelSaleItem = cancelModalSaleId ? items.find((s) => s.id === cancelModalSaleId) : null;
   const assignSaleItem = assignModalSaleId ? items.find((s) => s.id === assignModalSaleId) : null;
   const actionModalSale = actionModal ? items.find((s) => s.id === actionModal.saleId) : null;
+  const actionDateWire = actionModal ? parseShortDate(actionModal.date) : null;
+
+  // Volver a la misma lista (con filtros y orden) tras una acción masiva.
+  const returnTo = (() => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (Array.isArray(value)) value.forEach((item) => query.append(key, item));
+      else if (value != null) query.append(key, value);
+    }
+    const qs = query.toString();
+    return qs ? `/dashboard/ventas?${qs}` : "/dashboard/ventas";
+  })();
+
+  // Enfocar la fecha al abrir el modal, no mientras se escribe.
+  const modalKey = actionModal ? `${actionModal.saleId}:${actionModal.kind}` : null;
+  useEffect(() => {
+    if (modalKey) dateInputRef.current?.focus();
+  }, [modalKey]);
+
+  // Cerrar los modales propios con Escape.
+  const localModalOpen = Boolean(actionModal || assignModalSaleId);
+  useEffect(() => {
+    if (!localModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setActionModal(null);
+      setAssignModalSaleId(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [localModalOpen]);
 
   const clienteSort = sortHref("/dashboard/ventas", params, "cliente", sortKey, sortDir);
   const folioSort = sortHref("/dashboard/ventas", params, "folio", sortKey, sortDir);
@@ -74,14 +107,20 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
   const estadoSort = sortHref("/dashboard/ventas", params, "estado", sortKey, sortDir);
   const totalSort = sortHref("/dashboard/ventas", params, "total", sortKey, sortDir);
 
-  const submitActionModal = async () => {
+  const submitActionModal = () => {
     if (!actionModal || !actionModalSale) return;
+    const wire = parseShortDate(actionModal.date);
+    if (!wire) {
+      setActionError("Ingresa la fecha en formato DD-MM o DD-MM-AAAA.");
+      return;
+    }
+    setActionError(null);
     const formData = new FormData();
     formData.set("id", actionModal.saleId);
     if (actionModal.kind === "PAID") {
-      formData.set("paymentDate", actionModal.date);
+      formData.set("paymentDate", wire);
     } else {
-      formData.set("confirmingDate", actionModal.date);
+      formData.set("confirmingDate", wire);
     }
     formData.set("salespersonId", actionSalespersonId);
     startTransition(async () => {
@@ -98,55 +137,61 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
   return (
     <>
       <form id="ventas-bulk" action={bulkSetSaleStatus} className={cardClass}>
+        <input type="hidden" name="returnTo" value={returnTo} />
         {writable ? (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <BulkSelectAll formId="ventas-bulk" total={items.length} />
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="submit"
+                data-bulk
+                disabled
                 name="status"
                 value="PAID"
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Marcar cobradas
               </button>
               <button
                 type="submit"
+                data-bulk
+                disabled
                 name="status"
                 value="PENDING"
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Marcar por cobrar
               </button>
               <button
                 type="submit"
+                data-bulk
+                disabled
                 name="status"
                 value="PARTIAL"
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Marcar parciales
               </button>
               <button
                 type="submit"
+                data-bulk
+                disabled
                 name="status"
                 value="OVERDUE"
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Marcar vencidas
               </button>
               <button
                 type="button"
+                data-bulk="single"
+                disabled
                 onClick={() => {
                   const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="ids"]:checked');
-                  if (checkboxes.length === 0) return;
-                  if (checkboxes.length > 1) {
-                    alert("La cancelación debe hacerse una venta a la vez.");
-                    return;
-                  }
-                  const saleId = checkboxes[0].value;
-                  setCancelModalSaleId(saleId);
+                  if (checkboxes.length !== 1) return;
+                  setCancelModalSaleId(checkboxes[0].value);
                 }}
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Marcar anuladas
               </button>
@@ -175,6 +220,8 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
             </div>
             <button
               type="button"
+              data-bulk
+              disabled
               onClick={() => {
                 const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="ids"]:checked');
                 if (checkboxes.length === 0) return;
@@ -185,11 +232,12 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
                 const formData = new FormData();
                 formData.set("ids", ids);
                 formData.set("salespersonId", salespersonId);
+                formData.set("returnTo", returnTo);
                 startTransition(async () => {
                   await bulkAssignSalesperson(formData);
                 });
               }}
-              className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+              className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               Asignar
             </button>
@@ -279,10 +327,8 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
                         deleteId={sale.id}
                         deleteMessage="¿Eliminar esta venta? Esta acción no se puede deshacer."
                         onMarkPaid={() => {
-                          const entered = window.prompt("Fecha cobrada (DD-MM o DD-MM-AAAA):");
-                          const wire = parseShortDate(entered);
-                          if (!wire) return;
-                          setActionModal({ saleId: sale.id, kind: "PAID", date: wire });
+                          setActionError(null);
+                          setActionModal({ saleId: sale.id, kind: "PAID", date: "" });
                           setActionSalespersonId(sale.salespersonId ?? "");
                         }}
                         confirming={Boolean(sale.confirmingAt)}
@@ -295,10 +341,8 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
                             });
                             return;
                           }
-                          const entered = window.prompt("Fecha Confirming (DD-MM o DD-MM-AAAA):");
-                          const wire = parseShortDate(entered);
-                          if (!wire) return;
-                          setActionModal({ saleId: sale.id, kind: "CONFIRMING", date: wire });
+                          setActionError(null);
+                          setActionModal({ saleId: sale.id, kind: "CONFIRMING", date: "" });
                           setActionSalespersonId(sale.salespersonId ?? "");
                         }}
                         onAssignSalesperson={() => {
@@ -331,7 +375,12 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
 
       {assignSaleItem ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 p-4">
-          <div className="w-full max-w-sm rounded-card border border-border bg-surface p-4 shadow-lg">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Asignar vendedor"
+            className="w-full max-w-sm rounded-card border border-border bg-surface p-4 shadow-lg"
+          >
             <h2 className="text-base font-semibold">Asignar vendedor</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {assignSaleItem.partner.name} - {assignSaleItem.documentNumber ?? "sin folio"}
@@ -355,7 +404,7 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
                   name="salespersonId"
                   value={assignSalespersonId}
                   onChange={(e) => setAssignSalespersonId(e.target.value)}
-                  className={cardClass + " px-3 py-2"}
+                  className={controlClass}
                 >
                   <option value="">Sin vendedor</option>
                   {salespeople.map((sp) => (
@@ -384,30 +433,55 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
 
       {actionModal && actionModalSale ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 p-4">
-          <div className="w-full max-w-sm rounded-card border border-border bg-surface p-4 shadow-lg">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={actionModal.kind === "PAID" ? "Cobrar factura" : "Marcar Confirming"}
+            className="w-full max-w-sm rounded-card border border-border bg-surface p-4 shadow-lg"
+          >
             <h2 className="text-base font-semibold">
               {actionModal.kind === "PAID" ? "Cobrar factura" : "Marcar Confirming"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {actionModalSale.partner.name} - {actionModalSale.documentNumber ?? "sin folio"}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Fecha: {formatDate(new Date(`${actionModal.date}T00:00:00.000Z`))}
-            </p>
             <form
               className="mt-4 flex flex-col gap-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                void submitActionModal();
+                submitActionModal();
               }}
             >
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">
+                  {actionModal.kind === "PAID" ? "Fecha de cobro" : "Fecha del confirming"}
+                </span>
+                <input
+                  ref={dateInputRef}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="DD-MM-AAAA"
+                  value={actionModal.date}
+                  onChange={(event) => {
+                    setActionError(null);
+                    setActionModal({ ...actionModal, date: event.target.value });
+                  }}
+                  className={controlClass}
+                />
+              </label>
+              {actionDateWire ? (
+                <p className="text-xs text-muted-foreground">
+                  Se registrará el {formatDate(new Date(`${actionDateWire}T00:00:00.000Z`))}.
+                </p>
+              ) : null}
+              {actionError ? <p className="text-sm text-danger">{actionError}</p> : null}
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-medium">Vendedor</span>
                 <select
                   name="salespersonId"
                   value={actionSalespersonId}
                   onChange={(e) => setActionSalespersonId(e.target.value)}
-                  className={cardClass + " px-3 py-2"}
+                  className={controlClass}
                 >
                   <option value="">Sin vendedor</option>
                   {salespeople.map((sp) => (

@@ -36,7 +36,8 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
   };
   const filters = parsePurchaseFilters(raw);
   const sortKey = raw.orden ?? "fecha";
-  const sortDir = parseSortDir(raw.dir);
+  // Sin parámetro, la lista abre por fecha descendente: lo más reciente arriba.
+  const sortDir = parseSortDir(raw.dir ?? "desc");
   const proveedorSort = sortHref("/dashboard/compras", searchParams, "proveedor", sortKey, sortDir);
   const folioSort = sortHref("/dashboard/compras", searchParams, "folio", sortKey, sortDir);
   const fechaSort = sortHref("/dashboard/compras", searchParams, "fecha", sortKey, sortDir);
@@ -52,8 +53,19 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
   );
   const writable = canWrite(ctx, "compras");
 
+  // Volver a la misma lista (con filtros y orden) tras una acción masiva.
+  const returnTo = (() => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(searchParams)) {
+      if (Array.isArray(value)) value.forEach((item) => query.append(key, item));
+      else if (value != null) query.append(key, value);
+    }
+    const qs = query.toString();
+    return qs ? `/dashboard/compras?${qs}` : "/dashboard/compras";
+  })();
+
   const filterFields: FilterField[] = [
-    { kind: "text", name: "q", label: "Buscar", placeholder: "Razón social, Nº factura u observaciones", grow: true },
+    { kind: "text", name: "q", label: "Buscar", placeholder: "Razón social, RUT, Nº factura u observaciones", grow: true },
     {
       kind: "select",
       name: "proveedor",
@@ -122,7 +134,7 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
               <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
             </svg>
-            <p className="text-xs text-muted-foreground">Total filtrado</p>
+            <p className="text-xs text-muted-foreground">Total comprado</p>
           </div>
           <p className="tabular mt-1 text-2xl font-bold">{formatCLP(totals.total)}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -167,23 +179,28 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
         </div>
       ) : (
         <form id="compras-bulk" action={bulkSetPurchaseStatus} className={cardClass}>
+          <input type="hidden" name="returnTo" value={returnTo} />
           {writable ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
               <BulkSelectAll formId="compras-bulk" total={items.length} />
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="submit"
+                  data-bulk
+                  disabled
                   name="status"
                   value="PAID"
-                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Marcar pagadas
                 </button>
                 <button
                   type="submit"
+                  data-bulk
+                  disabled
                   name="status"
                   value="PENDING"
-                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground"
+                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Marcar pendientes
                 </button>

@@ -121,6 +121,7 @@ function buildWhere(companyId: string, filters: SaleFilters): Prisma.SaleWhereIn
   if (filters.q) {
     where.OR = [
       { partner: { name: { contains: filters.q, mode: "insensitive" } } },
+      { partner: { rut: { contains: filters.q, mode: "insensitive" } } },
       { documentNumber: { contains: filters.q, mode: "insensitive" } },
       { purchaseOrder: { contains: filters.q, mode: "insensitive" } },
       { dispatchGuide: { contains: filters.q, mode: "insensitive" } },

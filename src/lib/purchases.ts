@@ -77,6 +77,7 @@ function buildWhere(companyId: string, filters: PurchaseFilters): Prisma.Purchas
   if (filters.q) {
     where.OR = [
       { partner: { name: { contains: filters.q, mode: "insensitive" } } },
+      { partner: { rut: { contains: filters.q, mode: "insensitive" } } },
       { documentNumber: { contains: filters.q, mode: "insensitive" } },
       { description: { contains: filters.q, mode: "insensitive" } },
     ];

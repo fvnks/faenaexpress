@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DateRange } from "react-day-picker";
 
+import { todayISO } from "@/lib/money";
+
 const iconCls = "h-4 w-4 shrink-0 text-muted-foreground";
 
 function CalendarIcon() {
@@ -87,6 +89,18 @@ export function DateRangeFilter({ from, to }: { from?: string; to?: string }) {
     setOpen(false);
   }
 
+  function applyRange(fromISO: string, toISO: string) {
+    setPendingFrom(undefined);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("desde", fromISO);
+    params.set("hasta", toISO);
+    router.push(`?${params.toString()}`);
+    setOpen(false);
+  }
+
+  // Atajos de contabilidad: resolver el período sin abrir el calendario.
+  const presets = buildPresets();
+
   // El `selected` del calendario SIEMPRE se deriva: URL + pendiente.
   const urlFrom = from ? new Date(from + "T00:00:00") : undefined;
   const urlTo = to ? new Date(to + "T00:00:00") : undefined;
@@ -144,6 +158,18 @@ export function DateRangeFilter({ from, to }: { from?: string; to?: string }) {
 
         {open ? (
           <div className="absolute right-0 top-full z-40 mt-1 min-w-[340px] rounded-card border border-border bg-surface p-4 shadow-lg">
+            <div className="mb-3 flex flex-wrap gap-1.5 border-b border-border pb-3">
+              {presets.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => applyRange(preset.from, preset.to)}
+                  className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
             <RdpCalendar
               mode="range"
               resetOnSelect
@@ -187,4 +213,33 @@ export function DateRangeFilter({ from, to }: { from?: string; to?: string }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Atajos de fecha calculados sobre el día de Chile: "Mes anterior" cubre el mes
+ * calendario completo y "Últimos 30 días" incluye hoy.
+ */
+function buildPresets() {
+  const today = todayISO();
+  const [year, month] = today.split("-").map(Number);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
+
+  const lastDayOfPrev = new Date(Date.UTC(year, month - 1, 0));
+  const prevYear = lastDayOfPrev.getUTCFullYear();
+  const prevMonth = lastDayOfPrev.getUTCMonth() + 1;
+  const start30 = new Date(Date.parse(`${today}T00:00:00.000Z`) - 29 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+
+  return [
+    { label: "Este mes", from: iso(year, month, 1), to: today },
+    {
+      label: "Mes anterior",
+      from: iso(prevYear, prevMonth, 1),
+      to: iso(prevYear, prevMonth, lastDayOfPrev.getUTCDate()),
+    },
+    { label: "Últimos 30 días", from: start30, to: today },
+    { label: "Este año", from: iso(year, 1, 1), to: today },
+  ];
 }
