@@ -1,24 +1,31 @@
 import type { SaleStatus } from "@/generated/prisma/client";
 import { saleStatusLabel } from "@/lib/labels";
 
+// Colores del sistema (DESIGN.md): ámbar = atención (por cobrar, parcial),
+// rojo = vencido, teal = cobrado, neutro = anulado. El color nunca va solo:
+// la etiqueta siempre lleva el texto del estado.
+const statusStyles: Record<SaleStatus, { badge: string; dot: string }> = {
+  PENDING: { badge: "bg-accent-soft text-accent", dot: "bg-accent" },
+  PARTIAL: { badge: "bg-accent-soft text-accent", dot: "bg-accent" },
+  OVERDUE: { badge: "bg-danger-soft text-danger", dot: "bg-danger" },
+  PAID: { badge: "bg-success-soft text-success", dot: "bg-success" },
+  CANCELLED: {
+    badge: "border border-border bg-background text-muted-foreground",
+    dot: "bg-muted-foreground",
+  },
+};
+
 export function SaleStatusBadge({ status }: { status: SaleStatus }) {
-  const colorMap: Record<SaleStatus, { bg: string; dot: string; text: string }> = {
-    PENDING: { bg: "bg-accent-soft", dot: "bg-accent", text: "text-accent" },
-    PAID: { bg: "bg-success-soft", dot: "bg-success", text: "text-success" },
-    PARTIAL: { bg: "bg-warning-soft", dot: "bg-warning", text: "text-warning" },
-    OVERDUE: { bg: "bg-destructive-soft", dot: "bg-destructive", text: "text-destructive" },
-    CANCELLED: { bg: "bg-muted", dot: "bg-muted-foreground", text: "text-muted-foreground" },
-  };
-  const colors = colorMap[status] ?? colorMap.PENDING;
+  const style = statusStyles[status] ?? statusStyles.PENDING;
 
   return (
     <span
       className={
         "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium " +
-        colors.bg + " " + colors.text
+        style.badge
       }
     >
-      <span aria-hidden className={"h-1.5 w-1.5 rounded-full " + colors.dot} />
+      <span aria-hidden className={"h-1.5 w-1.5 rounded-full " + style.dot} />
       {saleStatusLabel(status)}
     </span>
   );

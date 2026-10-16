@@ -50,7 +50,7 @@ export default async function ProductLotsPage(props: PageProps<"/dashboard/inven
           <p className="mt-1 text-sm text-muted-foreground">
             Control manual de lotes y fechas de caducidad. Los lotes se gestionan sin alterar automáticamente el stock actual.
           </p>
-          {error ? <div className="mt-2 rounded-control border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div> : null}
+          {error ? <div className="mt-2 rounded-control border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div> : null}
         </div>
       </div>
 
@@ -65,7 +65,7 @@ export default async function ProductLotsPage(props: PageProps<"/dashboard/inven
         </div>
         <div className={cardClass + " p-4"}>
           <div className="text-xs text-muted-foreground">Vencen en 30 días</div>
-          <div className="mt-1 text-xl font-semibold text-warning">{soonCount}</div>
+          <div className="mt-1 text-xl font-semibold text-accent">{soonCount}</div>
         </div>
       </div>
 
@@ -138,7 +138,7 @@ export default async function ProductLotsPage(props: PageProps<"/dashboard/inven
                 <td className="px-3 py-2.5 text-muted-foreground">{lot.warehouse?.name ?? "Por defecto"}</td>
                 <td className="tabular px-3 py-2.5 text-right">{Number(lot.quantity).toLocaleString("es-CL", { maximumFractionDigits: 3 })}</td>
                 <td className="px-3 py-2.5 text-muted-foreground">{lot.expirationDate ? formatDate(lot.expirationDate) : "Sin fecha"}</td>
-                <td className={"tabular px-3 py-2.5 text-right " + (lot.daysToExpire !== null && lot.daysToExpire < 0 ? "text-danger font-semibold" : lot.daysToExpire !== null && lot.daysToExpire <= 30 ? "text-warning font-semibold" : "text-muted-foreground")}>
+                <td className={"tabular px-3 py-2.5 text-right " + (lot.daysToExpire !== null && lot.daysToExpire < 0 ? "text-danger font-semibold" : lot.daysToExpire !== null && lot.daysToExpire <= 30 ? "text-accent font-semibold" : "text-muted-foreground")}>
                   {lot.daysToExpire === null ? "—" : lot.daysToExpire}
                 </td>
                 {writable ? (

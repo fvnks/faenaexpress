@@ -30,7 +30,7 @@ export default async function PayrollPage(props: PageProps<"/dashboard/rrhh/nomi
             Períodos mensuales y liquidaciones de sueldos. Tasas configuradas en RRHH/Empresa.
           </p>
         </div>
-        {pageError ? <div className="mt-2 rounded-control border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{pageError}</div> : null}
+        {pageError ? <div className="mt-2 rounded-control border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{pageError}</div> : null}
         {writable ? (
           <form action={createPayrollPeriodAction} className="flex items-end gap-2">
             <div className="flex flex-col gap-1.5">

@@ -107,7 +107,7 @@ export function InlineCreateSelect({
               if (e.key === "Escape") setOpen(false);
             }}
           />
-          {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+          {error && <p className="mt-1 text-xs text-danger">{error}</p>}
           <div className="mt-2 flex justify-end gap-2">
             <button
               type="button"

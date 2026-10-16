@@ -97,7 +97,7 @@ export function CancelSaleModal({
 
         {hasExistingNote ? (
           <div className="mt-4 flex flex-col gap-3">
-            <div className="rounded-md border border-border bg-muted p-3 text-sm">
+            <div className="rounded-md border border-border bg-background p-3 text-sm">
               <p className="font-medium">
                 {existingNoteType === "CREDIT_NOTE" ? "Nota de crédito" : "Nota de débito"} asociada
               </p>
@@ -105,13 +105,13 @@ export function CancelSaleModal({
               {existingReason && <p className="mt-1 text-muted-foreground">Razón: {existingReason}</p>}
             </div>
             {existingComment && (
-              <div className="rounded-md border border-border bg-muted p-3 text-sm">
+              <div className="rounded-md border border-border bg-background p-3 text-sm">
                 <p className="font-medium">Comentario</p>
                 <p className="mt-1 text-muted-foreground">{existingComment}</p>
               </div>
             )}
             {existingRefacturada && (
-              <div className="rounded-md border border-border bg-muted p-3 text-sm">
+              <div className="rounded-md border border-border bg-background p-3 text-sm">
                 <p className="font-medium">Factura que reemplazó</p>
                 <p className="mt-1 text-muted-foreground">N° {existingRefacturada}</p>
               </div>
@@ -120,7 +120,7 @@ export function CancelSaleModal({
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="rounded-md border border-border bg-transparent px-4 py-2 text-sm text-foreground hover:bg-muted"
+                className="rounded-md border border-border bg-transparent px-4 py-2 text-sm text-foreground hover:bg-background"
               >
                 Cerrar
               </button>
@@ -137,7 +137,7 @@ export function CancelSaleModal({
                   className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors ${
                     noteType === "CREDIT_NOTE"
                       ? "border-primary bg-primary-soft text-primary"
-                      : "border-border bg-transparent text-foreground hover:bg-muted"
+                      : "border-border bg-transparent text-foreground hover:bg-background"
                   }`}
                 >
                   NC
@@ -148,7 +148,7 @@ export function CancelSaleModal({
                   className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors ${
                     noteType === "DEBIT_NOTE"
                       ? "border-primary bg-primary-soft text-primary"
-                      : "border-border bg-transparent text-foreground hover:bg-muted"
+                      : "border-border bg-transparent text-foreground hover:bg-background"
                   }`}
                 >
                   ND
@@ -159,7 +159,7 @@ export function CancelSaleModal({
                   className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors ${
                     noteType === "REASON"
                       ? "border-primary bg-primary-soft text-primary"
-                      : "border-border bg-transparent text-foreground hover:bg-muted"
+                      : "border-border bg-transparent text-foreground hover:bg-background"
                   }`}
                 >
                   Razón
@@ -170,7 +170,7 @@ export function CancelSaleModal({
             {(noteType === "CREDIT_NOTE" || noteType === "DEBIT_NOTE") && (
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium">
-                  {noteType === "CREDIT_NOTE" ? "Nota de crédito" : "Nota de débito"} <span className="text-destructive">*</span>
+                  {noteType === "CREDIT_NOTE" ? "Nota de crédito" : "Nota de débito"} <span className="text-danger">*</span>
                 </label>
                 {loading ? (
                   <p className="text-sm text-muted-foreground">Cargando notas disponibles…</p>
@@ -208,7 +208,7 @@ export function CancelSaleModal({
             {noteType === "REASON" && (
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium">
-                  Razón de la cancelación <span className="text-destructive">*</span>
+                  Razón de la cancelación <span className="text-danger">*</span>
                 </label>
                 <textarea
                   value={reason}
@@ -247,20 +247,20 @@ export function CancelSaleModal({
               />
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
 
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="rounded-md border border-border bg-transparent px-4 py-2 text-sm text-foreground hover:bg-muted"
+                className="rounded-md border border-border bg-transparent px-4 py-2 text-sm text-foreground hover:bg-background"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isPending || loading}
-                className="rounded-md bg-destructive px-4 py-2 text-sm text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+                className="rounded-md bg-danger px-4 py-2 text-sm text-danger-foreground hover:bg-danger/90 disabled:opacity-50"
               >
                 {isPending ? "Anulando…" : "Anular venta"}
               </button>

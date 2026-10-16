@@ -1,6 +1,6 @@
 const styles: Record<string, string> = {
   OPEN: "border-accent/40 bg-accent/10 text-accent",
-  CLOSED: "border-border bg-muted text-muted-foreground",
+  CLOSED: "border-border bg-background text-muted-foreground",
 };
 
 const labels: Record<string, string> = {
@@ -13,7 +13,7 @@ export function CountStatusBadge({ status }: { status: string }) {
     <span
       className={
         "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold " +
-        (styles[status] ?? "border-border bg-muted text-muted-foreground")
+        (styles[status] ?? "border-border bg-background text-muted-foreground")
       }
     >
       {labels[status] ?? status}

@@ -52,7 +52,7 @@ export default async function PayrollPeriodPage(props: PageProps<"/dashboard/rrh
           <h1 className="mt-2 text-2xl font-bold tracking-tight">
             Nomina {period.year}-{String(period.month).padStart(2, "0")}
           </h1>
-          {pageError ? <div className="mt-2 rounded-control border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{pageError}</div> : null}
+          {pageError ? <div className="mt-2 rounded-control border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{pageError}</div> : null}
           <p className="mt-1 text-sm text-muted-foreground">
             Estado: {payrollStatusLabels[period.status]} · Fuente de tasas: {period.ratesSource ?? "configuración o trabajador"} · Tasas empresa AFP {company?.afpRate ?? 0}% / salud {company?.healthRate ?? 0}% / cesantía {company?.unemploymentRate ?? 0}%.
           </p>

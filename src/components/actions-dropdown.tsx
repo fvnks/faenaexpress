@@ -265,7 +265,7 @@ export function ActionsDropdown({
                     setOpen(false);
                     onCancel();
                   }}
-                  className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-warning transition-colors hover:bg-warning-soft"
+                  className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-danger transition-colors hover:bg-danger-soft"
                 >
                   <XIcon />
                   Anular

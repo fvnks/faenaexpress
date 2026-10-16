@@ -178,8 +178,8 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
         </section>
 
         {sale.status === "CANCELLED" ? (
-          <section className={cardClass + " flex flex-col gap-3 border-destructive/30 p-5"}>
-            <h2 className="font-semibold text-destructive">Cancelación</h2>
+          <section className={cardClass + " flex flex-col gap-3 border-danger/30 p-5"}>
+            <h2 className="font-semibold text-danger">Cancelación</h2>
             <dl className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">Tipo</dt>
