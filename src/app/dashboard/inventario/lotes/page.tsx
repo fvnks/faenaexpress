@@ -145,7 +145,12 @@ export default async function ProductLotsPage(props: PageProps<"/dashboard/inven
                   <td className="px-3 py-2.5">
                     <form action={deleteLotAction}>
                       <input type="hidden" name="lotId" value={lot.id} />
-                      <ConfirmSubmit message={`¿Eliminar el lote ${lot.code}?`} className="text-sm text-danger underline-offset-2 hover:underline">
+                      <ConfirmSubmit
+                        title="Eliminar lote"
+                        description={`Se eliminará el lote ${lot.code}. Esta acción no se puede deshacer.`}
+                        confirmLabel="Eliminar"
+                        className="text-sm text-danger underline-offset-2 hover:underline"
+                      >
                         Eliminar
                       </ConfirmSubmit>
                     </form>

@@ -348,7 +348,9 @@ export default async function RrhhPage(props: PageProps<"/dashboard/rrhh">) {
                         <form action={deleteRemuneration}>
                           <input type="hidden" name="id" value={rem.id} />
                           <ConfirmSubmit
-                            message={`¿Eliminar el pago a ${rem.worker.name} por ${formatCLP(rem.amount)}? También se borrará su gasto asociado.`}
+                            title="Eliminar pago"
+                            description={`Se eliminará el pago a ${rem.worker.name} por ${formatCLP(rem.amount)} y su gasto asociado.`}
+                            confirmLabel="Eliminar"
                             className="text-sm text-danger underline-offset-2 hover:underline"
                           >
                             Eliminar

@@ -14,6 +14,7 @@ import {
   type CommissionActionState,
   type SalespersonCommissionState,
 } from "@/app/actions/commissions";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SubmitButton } from "@/components/submit-button";
 import { formatCLP, formatDate } from "@/lib/money";
 import {
@@ -81,21 +82,23 @@ export function CloseMonthButton({
   );
   useCommissionFeedback(state);
 
+  const description =
+    lineCount === 0
+      ? `Vas a cerrar ${periodLabel} sin ninguna línea de comisión. Después no se puede editar ni reabrir.`
+      : `Vas a cerrar ${periodLabel} y congelar ${lineCount} línea(s) de comisión. Después no se puede editar ni reabrir.`;
+
   return (
-    <form
-      action={formAction}
-      onSubmit={(event) => {
-        const message =
-          lineCount === 0
-            ? `Vas a cerrar ${periodLabel} sin ninguna línea de comisión. ¿Seguro?`
-            : `Vas a cerrar ${periodLabel} y congelar ${lineCount} línea(s) de comisión. Después no se puede editar ni reabrir. ¿Seguro?`;
-        if (!window.confirm(message)) event.preventDefault();
-      }}
-    >
+    <form action={formAction}>
       <input type="hidden" name="period" value={period} />
-      <SubmitButton pendingLabel="Cerrando..." className={primaryButtonClass}>
+      <ConfirmSubmit
+        title="Cerrar mes"
+        description={description}
+        confirmLabel="Cerrar mes"
+        className={primaryButtonClass}
+        confirmClassName={primaryButtonClass}
+      >
         Cerrar mes
-      </SubmitButton>
+      </ConfirmSubmit>
     </form>
   );
 }
@@ -348,23 +351,17 @@ export function UnassignButton({ saleId, dispatchGuideId }: { saleId?: string; d
   if (!id) return null;
 
   return (
-    <form
-      action={formAction}
-      onSubmit={(event) => {
-        if (
-          !window.confirm(
-            "¿Quitar esta asignación? El documento volverá al cómputo automático de su propio mes.",
-          )
-        ) {
-          event.preventDefault();
-        }
-      }}
-    >
+    <form action={formAction}>
       <input type="hidden" name="saleId" value={saleId ?? ""} />
       {dispatchGuideId ? <input type="hidden" name="dispatchGuideId" value={dispatchGuideId} /> : null}
-      <SubmitButton pendingLabel="Quitando..." className={secondaryButtonClass}>
+      <ConfirmSubmit
+        title="Quitar asignación"
+        description="El documento volverá al cómputo automático de su propio mes."
+        confirmLabel="Quitar"
+        className={secondaryButtonClass}
+      >
         Quitar
-      </SubmitButton>
+      </ConfirmSubmit>
     </form>
   );
 }

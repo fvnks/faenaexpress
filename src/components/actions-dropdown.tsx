@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { dangerButtonClass } from "@/lib/ui";
+
 const iconCls = "h-4 w-4 shrink-0";
 
 function EllipsisIcon() {
@@ -100,6 +103,7 @@ export function ActionsDropdown({
   onCancel?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -280,22 +284,41 @@ export function ActionsDropdown({
                 type="button"
                 disabled={pending}
                 onClick={() => {
-                  if (!window.confirm(deleteMessage)) return;
                   setOpen(false);
-                  const data = new FormData();
-                  data.set("id", deleteId);
-                  startTransition(async () => {
-                    await deleteAction(data);
-                  });
+                  setConfirmOpen(true);
                 }}
                 className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-danger transition-colors hover:bg-danger-soft disabled:opacity-60"
               >
                 <TrashIcon />
-                {pending ? "Eliminando…" : "Eliminar"}
+                Eliminar
               </button>
             </li>
           </ul>
         </div>
+      ) : null}
+
+      {confirmOpen ? (
+        <ConfirmDialog
+          title="Eliminar registro"
+          description={deleteMessage}
+          onCancel={() => setConfirmOpen(false)}
+        >
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setConfirmOpen(false);
+              const data = new FormData();
+              data.set("id", deleteId);
+              startTransition(async () => {
+                await deleteAction(data);
+              });
+            }}
+            className={dangerButtonClass}
+          >
+            {pending ? "Eliminando…" : "Eliminar"}
+          </button>
+        </ConfirmDialog>
       ) : null}
     </div>
   );

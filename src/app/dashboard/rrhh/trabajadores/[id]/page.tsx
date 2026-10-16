@@ -129,7 +129,12 @@ export default async function TrabajadorDetailPage(props: PageProps<"/dashboard/
                       <td className="px-4 py-2.5 text-right">
                         <form action={deleteRemuneration}>
                           <input type="hidden" name="id" value={rem.id} />
-                          <ConfirmSubmit message={`¿Eliminar el pago ${rem.id}?`} className="text-sm text-danger underline-offset-2 hover:underline">
+                          <ConfirmSubmit
+                        title="Eliminar pago"
+                        description={`Se eliminará el pago ${rem.id}. Esta acción no se puede deshacer.`}
+                        confirmLabel="Eliminar"
+                        className="text-sm text-danger underline-offset-2 hover:underline"
+                      >
                             Eliminar
                           </ConfirmSubmit>
                         </form>
@@ -180,7 +185,12 @@ export default async function TrabajadorDetailPage(props: PageProps<"/dashboard/
                       {writable ? (
                         <form action={deleteAbsence}>
                           <input type="hidden" name="id" value={absence.id} />
-                          <ConfirmSubmit message="Eliminar ausencia?" className="text-sm text-danger underline-offset-2 hover:underline">
+                          <ConfirmSubmit
+                            title="Eliminar ausencia"
+                            description="Se eliminará esta ausencia del trabajador. Esta acción no se puede deshacer."
+                            confirmLabel="Eliminar"
+                            className="text-sm text-danger underline-offset-2 hover:underline"
+                          >
                             Eliminar
                           </ConfirmSubmit>
                         </form>
@@ -235,7 +245,12 @@ export default async function TrabajadorDetailPage(props: PageProps<"/dashboard/
                         <form action={deleteWorkerDocument}>
                           <input type="hidden" name="id" value={doc.id} />
                           <input type="hidden" name="workerId" value={worker.id} />
-                          <ConfirmSubmit message="Eliminar documento?" className="text-sm text-danger underline-offset-2 hover:underline">
+                          <ConfirmSubmit
+                            title="Eliminar documento"
+                            description="Se eliminará este documento del trabajador. Esta acción no se puede deshacer."
+                            confirmLabel="Eliminar"
+                            className="text-sm text-danger underline-offset-2 hover:underline"
+                          >
                             Eliminar
                           </ConfirmSubmit>
                         </form>

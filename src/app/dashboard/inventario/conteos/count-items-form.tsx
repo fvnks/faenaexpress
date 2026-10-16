@@ -9,6 +9,7 @@ import {
   type CloseCountState,
   type CountItemState,
 } from "@/app/actions/inventory-counts";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SubmitButton } from "@/components/submit-button";
 import {
   cardClass,
@@ -168,19 +169,16 @@ export function CloseCountButton({ countId }: { countId: string }) {
   }, [state]);
 
   return (
-    <form
-      action={formAction}
-      onSubmit={(event) => {
-        if (!window.confirm("¿Cerrar el conteo y aplicar los ajustes al kardex?")) {
-          event.preventDefault();
-        }
-      }}
-      className="flex items-center gap-3"
-    >
+    <form action={formAction} className="flex items-center gap-3">
       <input type="hidden" name="countId" value={countId} />
-      <SubmitButton className={dangerButtonClass} pendingLabel="Cerrando...">
+      <ConfirmSubmit
+        title="Cerrar conteo"
+        description="Se cerrará el conteo y se aplicarán los ajustes al kardex."
+        confirmLabel="Cerrar y aplicar ajustes"
+        className={dangerButtonClass}
+      >
         Cerrar y aplicar ajustes
-      </SubmitButton>
+      </ConfirmSubmit>
       {state?.error ? <span className="text-sm text-danger">{state.error}</span> : null}
     </form>
   );

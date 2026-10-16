@@ -80,7 +80,9 @@ export function MovementsList({
                     <form action={reverseStockMovementAction}>
                       <input type="hidden" name="movementId" value={m.id} />
                       <ConfirmSubmit
-                        message={`¿Revertir el movimiento de ${m.product.name}?`}
+                        title="Revertir movimiento"
+                        description={`Se revertirá el movimiento de ${m.product.name} y el stock volverá a su estado anterior.`}
+                        confirmLabel="Revertir"
                         className="text-sm text-primary underline-offset-2 hover:underline"
                       >
                         Revertir
