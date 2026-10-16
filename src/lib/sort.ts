@@ -29,7 +29,7 @@ export function compareFolio(a: string | null | undefined, b: string | null | un
 /**
  * Enlace para ordenar por `key` conservando los filtros actuales. Si la
  * columna ya está activa, invierte la dirección (arriba ↔ abajo); si no,
- * empieza ascendente.
+ * empieza ascendente. Ordenar de nuevo vuelve a la primera página.
  */
 export function sortHref(
   pathname: string,
@@ -43,7 +43,7 @@ export function sortHref(
 
   const search = new URLSearchParams();
   for (const [rawKey, value] of Object.entries(params)) {
-    if (rawKey === "orden" || rawKey === "dir") continue;
+    if (rawKey === "orden" || rawKey === "dir" || rawKey === "pagina") continue;
     if (Array.isArray(value)) {
       for (const item of value) search.append(rawKey, item);
     } else if (value !== undefined && value !== "") {

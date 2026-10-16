@@ -32,3 +32,32 @@ export function isValidRut(value: string): boolean {
   const expected = remainder === 11 ? "0" : remainder === 10 ? "K" : String(remainder);
   return expected === dv;
 }
+
+/**
+ * Variantes con puntos de un RUT escrito sin ellos. La base guarda el RUT
+ * formateado («77.762.940-9»), así que buscar «77762940» con un `contains`
+ * literal no encuentra nada; estas variantes sí.
+ *
+ * Solo genera coincidencias cuando el texto viene sin puntos ni guion, para no
+ * agregar ruido a una búsqueda que el literal ya resuelve.
+ */
+export function rutSearchPatterns(query: string): string[] {
+  if (/[.\-]/.test(query)) return [];
+
+  const clean = query.replace(/[^0-9kK]/g, "").toUpperCase();
+  if (clean.length < 4 || !/^\d/.test(clean)) return [];
+
+  const patterns = new Set<string>();
+  const withDots = (digits: string) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+  // Todo el texto como cuerpo, sin dígito verificador: «77762940» → «77.762.940».
+  if (/^\d+$/.test(clean)) patterns.add(withDots(clean));
+
+  // El último carácter como dígito verificador: «777629409» → «77.762.940-9».
+  const body = clean.slice(0, -1);
+  if (body.length >= 3 && /^\d+$/.test(body)) {
+    patterns.add(`${withDots(body)}-${clean.slice(-1)}`);
+  }
+
+  return [...patterns];
+}

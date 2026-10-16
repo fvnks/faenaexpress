@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { FilterBar, type FilterField } from "@/components/filter-bar";
+import { Pagination } from "@/components/pagination";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listCategories, listSalespeople } from "@/lib/catalogs";
@@ -30,6 +31,7 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
     hasta: one(searchParams.hasta),
     orden: one(searchParams.orden),
     dir: one(searchParams.dir),
+    pagina: one(searchParams.pagina),
   };
   const filters = parseSaleFilters(raw);
   const sortKey = raw.orden ?? "fecha";
@@ -40,11 +42,22 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
     listCategories(ctx.company.id),
     listSalespeople(ctx.company.id),
   ]);
-  const { items, totals } = await listSales(ctx.company.id, filters);
+  const { items, totals, page, pageCount } = await listSales(ctx.company.id, filters);
   const hasFilters = Boolean(
     raw.estado || raw.q || raw.cliente || raw.categoria || raw.vendedor || raw.tipo || raw.desde || raw.hasta,
   );
   const writable = canWrite(ctx, "ventas");
+
+  // La exportación se lleva toda la lista filtrada, sin la página actual.
+  const exportQuery = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (key === "pagina") continue;
+    if (Array.isArray(value)) value.forEach((item) => exportQuery.append(key, item));
+    else if (value != null && value !== "") exportQuery.set(key, value);
+  }
+  const exportHref = exportQuery.toString()
+    ? `/dashboard/ventas/export?${exportQuery}`
+    : "/dashboard/ventas/export";
 
   const filterFields: FilterField[] = [
     { kind: "text", name: "q", label: "Buscar", placeholder: "Cliente, RUT, N° factura, OC, guía…", grow: true },
@@ -107,21 +120,28 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
               Facturas emitidas a clientes, con su estado de cobro.
             </p>
           </div>
-        {writable ? (
-          <div className="flex flex-wrap gap-2">
-            {canWrite(ctx, "importar") ? (
-              <>
-                <SyncSiiMenu side="VENTA" buttonClass={secondaryButtonClass} />
-                <Link href="/dashboard/importar#xml" className={secondaryButtonClass}>
-                  Cargar XML
-                </Link>
-              </>
-            ) : null}
-            <Link href="/dashboard/ventas/nueva" className={primaryButtonClass}>
-              Nueva venta
+        <div className="flex flex-wrap gap-2">
+          {totals.count > 0 ? (
+            <Link href={exportHref} className={secondaryButtonClass}>
+              Exportar CSV
             </Link>
-          </div>
-        ) : null}
+          ) : null}
+          {writable ? (
+            <>
+              {canWrite(ctx, "importar") ? (
+                <>
+                  <SyncSiiMenu side="VENTA" buttonClass={secondaryButtonClass} />
+                  <Link href="/dashboard/importar#xml" className={secondaryButtonClass}>
+                    Cargar XML
+                  </Link>
+                </>
+              ) : null}
+              <Link href="/dashboard/ventas/nueva" className={primaryButtonClass}>
+                Nueva venta
+              </Link>
+            </>
+          ) : null}
+        </div>
       </div>
 
       <FilterBar fields={filterFields} />
@@ -190,6 +210,13 @@ export default async function SalesPage(props: PageProps<"/dashboard/ventas">) {
           sortDir={sortDir}
         />
       )}
+      <Pagination
+        pathname="/dashboard/ventas"
+        params={searchParams}
+        page={page}
+        pageCount={pageCount}
+        total={totals.count}
+      />
       </div>
     </>
   );

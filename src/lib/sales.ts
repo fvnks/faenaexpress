@@ -1,6 +1,8 @@
 import type { DocumentType, SaleStatus, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { toISODate } from "@/lib/money";
+import { paginate, parsePage } from "@/lib/pagination";
+import { rutSearchPatterns } from "@/lib/rut";
 import { compareFolio, compareText, parseSortDir, type SortDir } from "@/lib/sort";
 import { documentTypeValues } from "@/lib/validation";
 
@@ -18,6 +20,7 @@ export type SaleFilters = {
   to?: Date;
   sort?: string;
   dir?: SortDir;
+  page?: number;
 };
 
 // Orden de los estados al ordenar la columna "Estado": primero lo que exige
@@ -41,6 +44,7 @@ export function parseSaleFilters(searchParams: {
   hasta?: string;
   orden?: string;
   dir?: string;
+  pagina?: string;
 }): SaleFilters {
   let status: SaleFilters["status"] = "ALL";
   let confirming: SaleFilters["confirming"];
@@ -83,6 +87,7 @@ export function parseSaleFilters(searchParams: {
     to: searchParams.hasta ? new Date(`${searchParams.hasta}T23:59:59.999Z`) : undefined,
     sort: searchParams.orden || undefined,
     dir: searchParams.orden ? parseSortDir(searchParams.dir) : undefined,
+    page: parsePage(searchParams.pagina),
   };
 }
 
@@ -119,9 +124,12 @@ function buildWhere(companyId: string, filters: SaleFilters): Prisma.SaleWhereIn
   }
 
   if (filters.q) {
+    // El RUT se guarda con puntos, así que un RUT escrito sin ellos necesita
+    // variantes formateadas para poder encontrarlo.
     where.OR = [
       { partner: { name: { contains: filters.q, mode: "insensitive" } } },
       { partner: { rut: { contains: filters.q, mode: "insensitive" } } },
+      ...rutSearchPatterns(filters.q).map((pattern) => ({ partner: { rut: { contains: pattern } } })),
       { documentNumber: { contains: filters.q, mode: "insensitive" } },
       { purchaseOrder: { contains: filters.q, mode: "insensitive" } },
       { dispatchGuide: { contains: filters.q, mode: "insensitive" } },
@@ -136,7 +144,7 @@ function buildWhere(companyId: string, filters: SaleFilters): Prisma.SaleWhereIn
   return where;
 }
 
-export async function listSales(companyId: string, filters: SaleFilters) {
+async function loadSales(companyId: string, filters: SaleFilters) {
   const where = buildWhere(companyId, filters);
 
   const [rawItems, grouped] = await Promise.all([
@@ -156,7 +164,7 @@ export async function listSales(companyId: string, filters: SaleFilters) {
   const dir: SortDir = filters.dir ?? "desc";
   const sign = dir === "asc" ? 1 : -1;
 
-  const items = [...rawItems].sort((a, b) => {
+  const rows = [...rawItems].sort((a, b) => {
     let result = 0;
     switch (sortKey) {
       case "cliente":
@@ -190,6 +198,14 @@ export async function listSales(companyId: string, filters: SaleFilters) {
     return result * sign;
   });
 
+  return { rows, grouped };
+}
+
+export type SaleListItem = Awaited<ReturnType<typeof loadSales>>["rows"][number];
+
+export async function listSales(companyId: string, filters: SaleFilters) {
+  const { rows, grouped } = await loadSales(companyId, filters);
+
   const paid = Number(grouped.find((group) => group.status === "PAID")?._sum.totalAmount ?? 0);
   const partial = Number(grouped.find((group) => group.status === "PARTIAL")?._sum.totalAmount ?? 0);
   const overdue = Number(grouped.find((group) => group.status === "OVERDUE")?._sum.totalAmount ?? 0);
@@ -198,14 +214,14 @@ export async function listSales(companyId: string, filters: SaleFilters) {
   // Confirming: la empresa de confirming adelanta el dinero antes que el
   // cliente deposite, así que la venta ya se cobró. Se cuenta como cobrada
   // (no como por cobrar) aunque su estado siga siendo "pendiente".
-  const confirming = items
+  const confirming = rows
     .filter((sale) => sale.confirmingAt !== null && sale.status !== "PAID" && sale.status !== "CANCELLED")
     .reduce((acc, sale) => acc + sale.totalAmount, 0);
 
   // Por cobrar: solo facturas (INVOICE), no NC. Las NC no representan
   // dinero por cobrar, son abonos. Se calculan separando por tipo de documento.
   // Se excluyen las que están en confirming: esas ya se cobraron.
-  const facturasPendientes = items.filter(
+  const facturasPendientes = rows.filter(
     (sale) =>
       sale.documentType === "INVOICE" &&
       sale.confirmingAt === null &&
@@ -214,14 +230,20 @@ export async function listSales(companyId: string, filters: SaleFilters) {
   const porCobrar = facturasPendientes.reduce((acc, sale) => acc + sale.totalAmount, 0);
 
   // Total facturado: solo facturas (INVOICE), no NC.
-  const totalFacturas = items
+  const totalFacturas = rows
     .filter((sale) => sale.documentType === "INVOICE")
     .reduce((acc, sale) => acc + sale.totalAmount, 0);
 
+  // La lista se ordena completa y recién ahí se corta en páginas: los
+  // comparadores son propios y no se pueden traducir a un `orderBy`.
+  const { items, page, pageCount } = paginate(rows, filters.page ?? 1);
+
   return {
     items,
+    page,
+    pageCount,
     totals: {
-      count: items.length,
+      count: rows.length,
       total: totalFacturas,
       paid: paid + confirming,
       confirming,
@@ -231,6 +253,12 @@ export async function listSales(companyId: string, filters: SaleFilters) {
       cancelled,
     },
   };
+}
+
+// Sin paginar: la exportación a CSV necesita la lista filtrada completa.
+export async function listAllSales(companyId: string, filters: SaleFilters) {
+  const { rows } = await loadSales(companyId, filters);
+  return rows;
 }
 
 export async function getSale(companyId: string, id: string) {

@@ -53,12 +53,16 @@ export function FilterBar({ fields }: { fields: FilterField[] }) {
     const params = new URLSearchParams(base.current);
     if (value) params.set(key, value);
     else params.delete(key);
+    // Al cambiar un filtro se vuelve a la primera página: la número anterior
+    // puede quedar vacía con el nuevo conjunto de resultados.
+    params.delete("pagina");
     navigate(params, mode);
   };
 
   const clear = () => {
     const params = new URLSearchParams(base.current);
     for (const key of filterKeys) params.delete(key);
+    params.delete("pagina");
     navigate(params, "push");
   };
 

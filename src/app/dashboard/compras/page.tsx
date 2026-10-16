@@ -4,13 +4,14 @@ import { bulkSetPurchaseStatus, deletePurchase } from "@/app/actions/purchases";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { FilterBar, type FilterField } from "@/components/filter-bar";
+import { Pagination } from "@/components/pagination";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
 import { SortableHeader } from "@/components/sortable-header";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listCategories } from "@/lib/catalogs";
 import { documentTypeLabel } from "@/lib/labels";
-import { formatCLP, formatDate } from "@/lib/money";
+import { formatCLP, formatDate, todayDate } from "@/lib/money";
 import { listSuppliers } from "@/lib/partners";
 import { listPurchases, parsePurchaseFilters } from "@/lib/purchases";
 import { parseSortDir, sortHref } from "@/lib/sort";
@@ -18,6 +19,16 @@ import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+
+// Fecha de vencimiento: en rojo si ya pasó y sigue pendiente, en acento si vence
+// dentro de la semana. Lo ya pagado no alarma.
+function dueTone(dueDate: Date, status: string, today: Date): string {
+  if (status !== "PENDING") return "text-muted-foreground";
+  const days = Math.round((dueDate.getTime() - today.getTime()) / 86_400_000);
+  if (days < 0) return "text-danger font-semibold";
+  if (days <= 7) return "text-accent font-semibold";
+  return "text-muted-foreground";
+}
 
 export default async function PurchasesPage(props: PageProps<"/dashboard/compras">) {
   const ctx = await requireContext("compras");
@@ -33,6 +44,7 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
     hasta: one(searchParams.hasta),
     orden: one(searchParams.orden),
     dir: one(searchParams.dir),
+    pagina: one(searchParams.pagina),
   };
   const filters = parsePurchaseFilters(raw);
   const sortKey = raw.orden ?? "fecha";
@@ -47,22 +59,32 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
     listSuppliers(ctx.company.id),
     listCategories(ctx.company.id),
   ]);
-  const { items, totals } = await listPurchases(ctx.company.id, filters);
+  const { items, totals, page, pageCount } = await listPurchases(ctx.company.id, filters);
   const hasFilters = Boolean(
     raw.estado || raw.q || raw.proveedor || raw.categoria || raw.tipo || raw.desde || raw.hasta,
   );
   const writable = canWrite(ctx, "compras");
+  const today = todayDate();
 
   // Volver a la misma lista (con filtros y orden) tras una acción masiva.
-  const returnTo = (() => {
+  const currentQuery = (() => {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(searchParams)) {
       if (Array.isArray(value)) value.forEach((item) => query.append(key, item));
       else if (value != null) query.append(key, value);
     }
-    const qs = query.toString();
-    return qs ? `/dashboard/compras?${qs}` : "/dashboard/compras";
+    return query;
   })();
+  const returnTo = currentQuery.toString()
+    ? `/dashboard/compras?${currentQuery}`
+    : "/dashboard/compras";
+
+  // La exportación se lleva toda la lista filtrada, sin la página actual.
+  const exportQuery = new URLSearchParams(currentQuery);
+  exportQuery.delete("pagina");
+  const exportHref = exportQuery.toString()
+    ? `/dashboard/compras/export?${exportQuery}`
+    : "/dashboard/compras/export";
 
   const filterFields: FilterField[] = [
     { kind: "text", name: "q", label: "Buscar", placeholder: "Razón social, RUT, Nº factura u observaciones", grow: true },
@@ -98,6 +120,7 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
       width: "w-full sm:w-44",
       options: [
         { value: "pendientes", label: "Pendientes de pago" },
+        { value: "vencidas", label: "Vencidas" },
         { value: "pagadas", label: "Pagadas" },
       ],
     },
@@ -113,16 +136,23 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
               Facturas y boletas de proveedores, con su estado de pago.
             </p>
           </div>
-        {writable ? (
-          <div className="flex flex-wrap gap-2">
-            {canWrite(ctx, "importar") ? (
-              <SyncSiiMenu side="COMPRA" buttonClass={secondaryButtonClass} />
-            ) : null}
-            <Link href="/dashboard/compras/nueva" className={primaryButtonClass}>
-              Nueva compra
+        <div className="flex flex-wrap gap-2">
+          {totals.count > 0 ? (
+            <Link href={exportHref} className={secondaryButtonClass}>
+              Exportar CSV
             </Link>
-          </div>
-        ) : null}
+          ) : null}
+          {writable ? (
+            <>
+              {canWrite(ctx, "importar") ? (
+                <SyncSiiMenu side="COMPRA" buttonClass={secondaryButtonClass} />
+              ) : null}
+              <Link href="/dashboard/compras/nueva" className={primaryButtonClass}>
+                Nueva compra
+              </Link>
+            </>
+          ) : null}
+        </div>
       </div>
 
       <FilterBar fields={filterFields} />
@@ -158,6 +188,11 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
             <p className="text-xs text-muted-foreground">Pendiente de pago</p>
           </div>
           <p className="tabular mt-1 text-2xl font-bold text-accent">{formatCLP(totals.pending)}</p>
+          {totals.overdue > 0 ? (
+            <p className="mt-0.5 text-xs text-danger">
+              Incluye {formatCLP(totals.overdue)} vencido
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -215,6 +250,7 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
                   <SortableHeader label="Proveedor" href={proveedorSort.href} active={proveedorSort.active} dir={proveedorSort.dir} />
                   <SortableHeader label="Folio" href={folioSort.href} active={folioSort.active} dir={folioSort.dir} />
                   <SortableHeader label="Fecha" href={fechaSort.href} active={fechaSort.active} dir={fechaSort.dir} />
+                  <th scope="col" className="px-3 py-2 font-medium">Vence</th>
                   <SortableHeader label="Estado" href={estadoSort.href} active={estadoSort.active} dir={estadoSort.dir} />
                   <SortableHeader label="Total" href={totalSort.href} active={totalSort.active} dir={totalSort.dir} align="right" />
                   {writable ? <th className="w-12 px-2 py-2" /> : null}
@@ -229,6 +265,7 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
                           type="checkbox"
                           name="ids"
                           value={purchase.id}
+                          data-amount={purchase.totalAmount}
                           aria-label={`Seleccionar compra ${purchase.documentNumber ?? purchase.partner.name}`}
                           className="h-4 w-4 accent-primary"
                         />
@@ -250,6 +287,20 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
                       {purchase.documentNumber ?? "—"}
                     </td>
                     <td className="tabular whitespace-nowrap px-3 py-2 align-top">{formatDate(purchase.date)}</td>
+                    <td className="tabular whitespace-nowrap px-3 py-2 align-top">
+                      {purchase.dueDate ? (
+                        <>
+                          <span className={dueTone(purchase.dueDate, purchase.status, today)}>
+                            {formatDate(purchase.dueDate)}
+                          </span>
+                          {purchase.status === "PENDING" && purchase.dueDate < today ? (
+                            <span className="mt-0.5 block text-xs font-semibold text-danger">Vencida</span>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 align-top">
                       <PurchaseStatusBadge status={purchase.status} />
                       {purchase.paymentDate ? (
@@ -279,6 +330,13 @@ export default async function PurchasesPage(props: PageProps<"/dashboard/compras
           </div>
         </form>
       )}
+      <Pagination
+        pathname="/dashboard/compras"
+        params={searchParams}
+        page={page}
+        pageCount={pageCount}
+        total={totals.count}
+      />
       </div>
     </>
   );

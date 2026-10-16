@@ -1,11 +1,16 @@
 import type { DocumentType, PaymentStatus, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
-import { toISODate } from "@/lib/money";
+import { toISODate, todayDate } from "@/lib/money";
+import { paginate, parsePage } from "@/lib/pagination";
+import { rutSearchPatterns } from "@/lib/rut";
 import { compareFolio, compareText, parseSortDir, type SortDir } from "@/lib/sort";
 import { documentTypeValues } from "@/lib/validation";
 
 export type PurchaseFilters = {
   status: PaymentStatus | "ALL";
+  // "Vencidas" no es un estado propio: son las pendientes de pago cuya fecha
+  // de vencimiento ya pasó.
+  overdue?: boolean;
   q: string;
   partnerId?: string;
   categoryId?: string;
@@ -14,6 +19,7 @@ export type PurchaseFilters = {
   to?: Date;
   sort?: string;
   dir?: SortDir;
+  page?: number;
 };
 
 // Orden de los estados al ordenar la columna "Estado".
@@ -32,9 +38,12 @@ export function parsePurchaseFilters(searchParams: {
   hasta?: string;
   orden?: string;
   dir?: string;
+  pagina?: string;
 }): PurchaseFilters {
-  const status: PurchaseFilters["status"] =
-    searchParams.estado === "pendientes"
+  const overdue = searchParams.estado === "vencidas";
+  const status: PurchaseFilters["status"] = overdue
+    ? "PENDING"
+    : searchParams.estado === "pendientes"
       ? "PENDING"
       : searchParams.estado === "pagadas"
         ? "PAID"
@@ -44,6 +53,7 @@ export function parsePurchaseFilters(searchParams: {
 
   return {
     status,
+    overdue,
     q: (searchParams.q ?? "").trim(),
     partnerId: searchParams.proveedor || undefined,
     categoryId: searchParams.categoria || undefined,
@@ -52,13 +62,17 @@ export function parsePurchaseFilters(searchParams: {
     to: searchParams.hasta ? new Date(`${searchParams.hasta}T23:59:59.999Z`) : undefined,
     sort: searchParams.orden || undefined,
     dir: searchParams.orden ? parseSortDir(searchParams.dir) : undefined,
+    page: parsePage(searchParams.pagina),
   };
 }
 
 function buildWhere(companyId: string, filters: PurchaseFilters): Prisma.PurchaseWhereInput {
   const where: Prisma.PurchaseWhereInput = { companyId };
 
-  if (filters.status !== "ALL") {
+  if (filters.overdue) {
+    where.status = "PENDING";
+    where.dueDate = { lt: todayDate() };
+  } else if (filters.status !== "ALL") {
     where.status = filters.status;
   }
 
@@ -75,9 +89,12 @@ function buildWhere(companyId: string, filters: PurchaseFilters): Prisma.Purchas
   }
 
   if (filters.q) {
+    // El RUT se guarda con puntos, así que un RUT escrito sin ellos necesita
+    // variantes formateadas para poder encontrarlo.
     where.OR = [
       { partner: { name: { contains: filters.q, mode: "insensitive" } } },
       { partner: { rut: { contains: filters.q, mode: "insensitive" } } },
+      ...rutSearchPatterns(filters.q).map((pattern) => ({ partner: { rut: { contains: pattern } } })),
       { documentNumber: { contains: filters.q, mode: "insensitive" } },
       { description: { contains: filters.q, mode: "insensitive" } },
     ];
@@ -90,7 +107,7 @@ function buildWhere(companyId: string, filters: PurchaseFilters): Prisma.Purchas
   return where;
 }
 
-export async function listPurchases(companyId: string, filters: PurchaseFilters) {
+async function loadPurchases(companyId: string, filters: PurchaseFilters) {
   const where = buildWhere(companyId, filters);
 
   const [rawItems, grouped] = await Promise.all([
@@ -110,7 +127,7 @@ export async function listPurchases(companyId: string, filters: PurchaseFilters)
   const dir: SortDir = filters.dir ?? "desc";
   const sign = dir === "asc" ? 1 : -1;
 
-  const items = [...rawItems].sort((a, b) => {
+  const rows = [...rawItems].sort((a, b) => {
     let result = 0;
     switch (sortKey) {
       case "proveedor":
@@ -134,13 +151,39 @@ export async function listPurchases(companyId: string, filters: PurchaseFilters)
     return result * sign;
   });
 
+  return { rows, grouped };
+}
+
+export type PurchaseListItem = Awaited<ReturnType<typeof loadPurchases>>["rows"][number];
+
+export async function listPurchases(companyId: string, filters: PurchaseFilters) {
+  const { rows, grouped } = await loadPurchases(companyId, filters);
+
   const paid = Number(grouped.find((group) => group.status === "PAID")?._sum.totalAmount ?? 0);
   const pending = Number(grouped.find((group) => group.status === "PENDING")?._sum.totalAmount ?? 0);
 
+  // Vencido: lo pendiente de pago con la fecha de vencimiento ya pasada.
+  const today = todayDate();
+  const overdue = rows
+    .filter((row) => row.status === "PENDING" && row.dueDate !== null && row.dueDate < today)
+    .reduce((acc, row) => acc + row.totalAmount, 0);
+
+  // La lista se ordena completa y recién ahí se corta en páginas: los
+  // comparadores son propios y no se pueden traducir a un `orderBy`.
+  const { items, page, pageCount } = paginate(rows, filters.page ?? 1);
+
   return {
     items,
-    totals: { count: items.length, total: paid + pending, paid, pending },
+    page,
+    pageCount,
+    totals: { count: rows.length, total: paid + pending, paid, pending, overdue },
   };
+}
+
+// Sin paginar: la exportación a CSV necesita la lista filtrada completa.
+export async function listAllPurchases(companyId: string, filters: PurchaseFilters) {
+  const { rows } = await loadPurchases(companyId, filters);
+  return rows;
 }
 
 export async function getPurchase(companyId: string, id: string) {

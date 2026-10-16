@@ -267,6 +267,7 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
                         type="checkbox"
                         name="ids"
                         value={sale.id}
+                        data-amount={sale.totalAmount}
                         aria-label={`Seleccionar venta ${sale.documentNumber ?? sale.partner.name}`}
                         className="h-4 w-4 accent-primary"
                       />
