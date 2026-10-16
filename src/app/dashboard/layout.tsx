@@ -41,9 +41,6 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         userEmail={user.email}
         roleLabel={active ? roleLabel(active.role) : "Sin empresa"}
         companyName={active?.company.name ?? "Sin empresa"}
-        companies={companies}
-        activeCompanyId={active?.company.id ?? null}
-        unread={unread}
         pendingSales={pending.sales}
         logout={logout}
       />
