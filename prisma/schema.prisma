@@ -56,6 +56,8 @@ model User {
   createdCommissionAssignments CommissionAssignment[] @relation("CommissionAssignmentCreatedBy")
   createdDispatchGuides        DispatchGuide[]        @relation("DispatchGuideCreatedBy")
   closedCommissionMonths       CommissionClose[]      @relation("CommissionCloseClosedBy")
+  bankSyncs                    BankSync[]             @relation("BankSyncBy")
+  bankReconciliations          Reconciliation[]       @relation("BankReconciliationBy")
 }
 
 // Pertenencia de un usuario a una empresa, con el rol que cumple en ella.
@@ -156,6 +158,10 @@ model Company {
   absences              Absence[]
   workerDocuments       WorkerDocument[]
   productLots           ProductLot[]
+  bankAccounts          BankAccount[]
+  bankMovements         BankMovement[]
+  bankSyncs             BankSync[]
+  bankReconciliations   Reconciliation[]
 }
 
 // ---------------------------------------------------------------------------
@@ -747,6 +753,7 @@ model Purchase {
   area      Area?          @relation(fields: [areaId], references: [id])
   createdBy User           @relation("PurchaseCreatedBy", fields: [createdById], references: [id])
   items     PurchaseItem[]
+  bankReconciliations Reconciliation[]
 
   @@index([companyId, date])
   @@index([companyId, partnerId])
@@ -810,6 +817,8 @@ model Sale {
   salesperson Salesperson? @relation(fields: [salespersonId], references: [id])
   createdBy   User         @relation("SaleCreatedBy", fields: [createdById], references: [id])
   items       SaleItem[]
+
+  bankReconciliations  Reconciliation[]
 
   // Un documento tiene a lo sumo una asignación de comisión (único por documento).
   commissionAssignment CommissionAssignment?
@@ -1158,5 +1167,91 @@ model ProductLot {
   @@index([companyId, productId])
   @@index([expirationDate])
   @@index([companyId, expirationDate])
+}
+
+// ---------------------------------------------------------------------------
+// Conciliación bancaria (movimientos vía open-banking-chile)
+// ---------------------------------------------------------------------------
+
+// Una cuenta o tarjeta vigilada por la conciliación. `label` distingue
+// cuentas y tarjetas de un mismo banco (lo entrega el scraper).
+model BankAccount {
+  id         String    @id @default(cuid())
+  companyId  String
+  bankId     String // id del scraper: "santander", "bchile", ...
+  label      String
+  kind       String    @default("account") // account | credit_card
+  balance    Int? // último saldo conocido (CLP)
+  lastSyncAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  movements BankMovement[]
+
+  @@unique([companyId, bankId, label])
+  @@index([companyId])
+}
+
+// Un movimiento bancario importado. `fingerprint` (fecha + monto + descripción
+// + origen) evita duplicados entre sincronizaciones.
+model BankMovement {
+  id          String    @id @default(cuid())
+  companyId   String
+  accountId   String
+  date        DateTime  @db.Date
+  description String
+  amount      Int // CLP: positivo = abono (cobro), negativo = cargo (pago)
+  balance     Int?
+  source      String    @default("account") // account | credit_card_unbilled | credit_card_billed
+  fingerprint String
+  ignoredAt   DateTime? // marcado como no conciliable por el usuario
+  createdAt   DateTime  @default(now())
+
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  account         BankAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  reconciliations Reconciliation[]
+
+  @@unique([accountId, fingerprint])
+  @@index([companyId, date])
+}
+
+// Estado de cada sincronización, para diagnóstico y para avisos en la UI.
+model BankSync {
+  id         String    @id @default(cuid())
+  companyId  String
+  bankId     String
+  status     String // running | success | error
+  message    String?
+  imported   Int       @default(0)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  userId     String
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation("BankSyncBy", fields: [userId], references: [id])
+
+  @@index([companyId, startedAt])
+}
+
+// El vínculo entre un movimiento bancario y el documento que paga o cobra.
+model Reconciliation {
+  id          String   @id @default(cuid())
+  companyId   String
+  movementId  String   @unique
+  purchaseId  String?
+  saleId      String?
+  createdAt   DateTime @default(now())
+  createdById String
+
+  company  Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  movement BankMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  purchase Purchase?    @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  sale     Sale?        @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  user     User         @relation("BankReconciliationBy", fields: [createdById], references: [id])
+
+  @@index([companyId])
+  @@index([purchaseId])
+  @@index([saleId])
 }
 

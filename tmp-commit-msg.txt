@@ -1,0 +1,17 @@
+feat(banco): conciliacion bancaria con open-banking-chile
+
+Importa los movimientos de la cuenta desde el portal del banco y los cruza
+con compras por pagar y ventas por cobrar.
+
+- Modelos BankAccount, BankMovement, BankSync y Reconciliation (+ relaciones
+  en Company, User, Purchase y Sale).
+- El scraper corre en un proceso hijo (scripts/bank-sync-worker.mjs): las
+  credenciales van por variables de entorno, no se guardan ni se loguean, y
+  Puppeteer queda fuera del bundle de Next.
+- Sugerencias por monto exacto y ventana de fechas, con folio y nombre del
+  cliente/proveedor en la descripcion como senal fuerte.
+- Conciliar marca la compra como pagada o la venta como cobrada con la fecha
+  del movimiento, deja el vinculo en Reconciliation y registra auditoria.
+- Seccion "banco" (ADMIN/ACCOUNTANT): los movimientos exponen la caja real.
+- El worker resuelve Chrome/Chromium por su cuenta (Windows nativo y el
+  Chromium de Playwright no los ve el paquete) y acepta OB_CHROME_PATH.

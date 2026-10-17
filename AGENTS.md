@@ -54,6 +54,7 @@ Aún no hay tests. Cuando existan, documenta aquí cómo correr uno solo.
 - **APIs async**: en Next 16 `cookies()`, `headers()`, `params` y `searchParams` son promesas. Usa `LayoutProps<"/ruta">` y `PageProps<"/ruta">` (los genera `next typegen`).
 - **`middleware` se renombró a `proxy`** (`src/proxy.ts`, runtime Node). No usar edge.
 - Las Server Actions son alcanzables por POST directo: valida auth y rol dentro de cada acción, no solo en la UI.
+- **Conciliación bancaria (sección Banco)**: el scraper de `open-banking-chile` corre en un proceso hijo (`scripts/bank-sync-worker.mjs`) y necesita un Chrome/Chromium real. El paquete solo busca rutas de Linux/macOS/WSL, así que el worker resuelve la ruta por su cuenta (Chrome instalado → caché de Playwright → Edge) y acepta `OB_CHROME_PATH` para forzarla. Diagnóstico: `node scripts/bank-sync-worker.mjs --find-chrome`.
 
 ## Flujo
 

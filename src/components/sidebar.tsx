@@ -60,6 +60,12 @@ function Icon({ name }: { name: string }) {
           <path d="M17 18h1" /><path d="M12 18h1" /><path d="M7 18h1" />
         </svg>
       );
+    case "banco":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
+          <path d="M3 21h18" /><path d="M3 10l9-6 9 6" /><path d="M5 10v8" /><path d="M9.5 10v8" /><path d="M14.5 10v8" /><path d="M19 10v8" /><path d="M3 18h18" />
+        </svg>
+      );
     case "reportes":
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
@@ -182,6 +188,7 @@ const groups: SidebarGroup[] = [
         ],
       },
       { href: "/dashboard/gastos", label: "Gastos", section: "gastos", icon: "gastos" },
+      { href: "/dashboard/banco", label: "Banco", section: "banco", icon: "banco" },
       { href: "/dashboard/rrhh", label: "RRHH", section: "rrhh", icon: "rrhh" },
     ],
   },

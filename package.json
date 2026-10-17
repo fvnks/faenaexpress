@@ -23,6 +23,7 @@
     "exceljs": "^4.4.0",
     "fast-xml-parser": "^5.11.2",
     "next": "16.4.0",
+    "open-banking-chile": "^2.1.2",
     "pdf417-generator": "^1.1.1",
     "playwright": "^1.64.0",
     "react": "19.3.0",

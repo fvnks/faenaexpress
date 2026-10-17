@@ -16,6 +16,7 @@ export const sections = [
   "inventario",
   "comisiones",
   "configuracion",
+  "banco",
 ] as const;
 
 export type Section = (typeof sections)[number];
@@ -39,6 +40,9 @@ const ACCESS: Record<Section, readonly Role[]> = {
   // cambiarla y cerrar el mes, que es lo de abajo.
   comisiones: ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"],
   configuracion: ["ADMIN", "ACCOUNTANT"],
+  // Los movimientos bancarios exponen la caja real de la empresa: igual que
+  // RRHH, solo administración y contabilidad.
+  banco: ["ADMIN", "ACCOUNTANT"],
 };
 
 // Quién puede crear, editar o eliminar dentro de cada sección.
@@ -60,6 +64,8 @@ const WRITE: Record<Section, readonly Role[]> = {
   // que cobra: mismo criterio que RRHH.
   comisiones: ["ADMIN", "ACCOUNTANT"],
   configuracion: ["ADMIN"],
+  // Conciliar mueve el estado de pago de compras y ventas: ADMIN/ACCOUNTANT.
+  banco: ["ADMIN", "ACCOUNTANT"],
 };
 
 export function canAccess(role: Role, section: Section): boolean {
