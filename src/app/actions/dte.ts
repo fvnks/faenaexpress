@@ -7,7 +7,8 @@ import type { PartnerType } from "@/generated/prisma/client";
 import { canWrite, requireContext } from "@/lib/auth";
 import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { decodeDteXml, parseDteXml, type DteDocumento, type DteEstado } from "@/lib/dte";
+import { parseDteXml, type DteDocumento, type DteEstado } from "@/lib/dte";
+import { readUploadedXml } from "@/lib/dte-upload";
 import {
   createPurchaseItems,
   createSaleItems,
@@ -52,14 +53,19 @@ export type DtePreviewRow = {
   montoExe: number;
   estado: DteEstado;
   mensaje: string | null;
+  // De qué archivo salió el documento: así cada factura guarda SU XML, no el
+  // del lote completo.
+  fileIndex: number;
   existingSaleId?: string | null;
 };
 
 export type DteImportState = {
   error?: string;
   fileName?: string;
-  xmlContent?: string;
-  resumen?: { nuevas: number; duplicadas: number; omitidas: number; conError: number };
+  // Un XML por archivo subido (o por XML dentro del ZIP): cada documento guarda
+  // el suyo, no el del lote.
+  xmlFiles?: string[];
+  resumen?: { nuevas: number; actualizar: number; duplicadas: number; omitidas: number; conError: number };
   rows?: DtePreviewRow[];
 } | undefined;
 
@@ -67,11 +73,11 @@ export type DteConfirmState = {
   error?: string;
   ok?: boolean;
   imported?: number;
+  updated?: number;
   errores?: string[];
 } | undefined;
 
-const MAX_XML_BYTES = 5 * 1024 * 1024;
-const MAX_DOCUMENTOS = 200;
+const MAX_DOCUMENTOS = 500;
 
 function dteDate(value: string): Date {
   // El DTE usa fechas AAAA-MM-DD; misma convención que el importador Excel (UTC).
@@ -87,38 +93,59 @@ export async function previewDteImport(_prev: DteImportState, formData: FormData
     return { error: "No tienes permiso para importar datos." };
   }
 
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Selecciona un archivo XML." };
-  }
-  if (file.size > MAX_XML_BYTES) {
-    return { error: "El archivo supera el máximo de 5 MB." };
-  }
-  if (!/\.xml$/i.test(file.name)) {
-    return { error: "El archivo debe ser .xml (EnvioDTE del SII)." };
+  const files = formData
+    .getAll("file")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+  if (files.length === 0) {
+    return { error: "Selecciona uno o más archivos .xml, o el ZIP del respaldo del SII." };
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const parsed = parseDteXml(buffer);
-  if (parsed.error) return { error: parsed.error, fileName: file.name };
+  const subidos = await readUploadedXml(files);
+  if (subidos.error) return { error: subidos.error };
 
-  const documentos = parsed.documentos.slice(0, MAX_DOCUMENTOS);
+  // Aplana todos los XML en documentos, recordando de qué archivo salió cada uno
+  // para guardar SU XML (no el del lote entero).
+  const documentos: { doc: DteDocumento; fileIndex: number }[] = [];
+  const avisos: string[] = [];
+  for (const [fileIndex, entry] of subidos.xmls.entries()) {
+    const parsed = parseDteXml(entry.xml);
+    if (parsed.error) {
+      avisos.push(`${entry.name}: ${parsed.error}`);
+      continue;
+    }
+    for (const doc of parsed.documentos) {
+      if (documentos.length >= MAX_DOCUMENTOS) break;
+      documentos.push({ doc, fileIndex });
+    }
+  }
+  if (documentos.length === 0) {
+    return {
+      error: avisos[0] ?? "No se encontraron documentos DTE en los archivos.",
+      fileName: subidos.xmls[0]?.name,
+    };
+  }
 
   // Folios ya registrados en la empresa activa (facturas y notas comparten folio).
-  const folios = documentos.map((doc) => doc.folio);
+  const folios = documentos.map(({ doc }) => doc.folio);
   const existentes = await db.sale.findMany({
     where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-    select: { id: true, documentNumber: true, partner: { select: { name: true } }, date: true, status: true },
+    select: {
+      id: true,
+      documentNumber: true,
+      xmlContent: true,
+      date: true,
+      status: true,
+      partner: { select: { name: true, rut: true } },
+    },
   });
   const existentesPorFolio = new Map(existentes.map((row) => [row.documentNumber, row]));
-  const foliosExistentes = new Set(existentes.map((row) => row.documentNumber));
 
   const rutEmpresa = ctx.company.rut ? normalizeRut(ctx.company.rut) : null;
 
   // RUT de trabajadores: si el receptor del DTE es un trabajador, el documento
   // no se importa (los trabajadores no se registran como clientes).
   const rutsReceptores = documentos
-    .map((doc) => doc.rutReceptor)
+    .map(({ doc }) => doc.rutReceptor)
     .filter((rut) => rut && /^\d{6,8}[0-9K]$/i.test(normalizeRut(rut)))
     .map((rut) => normalizeRut(rut));
   const trabajadoresConRut = rutsReceptores.length
@@ -129,49 +156,69 @@ export async function previewDteImport(_prev: DteImportState, formData: FormData
     : [];
   const rutsTrabajadores = new Set(trabajadoresConRut.map((worker) => normalizeRut(worker.rut!)));
 
-  const rows: DtePreviewRow[] = documentos.map((doc) => {
+  const rows: DtePreviewRow[] = documentos.map(({ doc, fileIndex }) => {
     const motivo = dteMotivoOmision(doc.tipoDTE);
     if (motivo) {
-      return { ...rowBase(doc), estado: "omitida", mensaje: motivo };
+      return { ...rowBase(doc, fileIndex), estado: "omitida", mensaje: motivo };
     }
     if (doc.rutReceptor && rutsTrabajadores.has(normalizeRut(doc.rutReceptor))) {
       return {
-        ...rowBase(doc),
+        ...rowBase(doc, fileIndex),
         estado: "error",
         mensaje: `El receptor ${doc.rutReceptor} es un trabajador de RRHH; los trabajadores no se registran como clientes.`,
       };
     }
-    if (foliosExistentes.has(doc.folio)) {
-      const ventaExistente = existentesPorFolio.get(doc.folio);
+    const ventaExistente = existentesPorFolio.get(doc.folio);
+    if (ventaExistente) {
+      const mismoCliente = Boolean(
+        ventaExistente?.partner.rut &&
+          normalizeRut(ventaExistente.partner.rut) === normalizeRut(doc.rutReceptor),
+      );
+      // Ya está en ventas sin XML: el archivo la completa en vez de descartarse.
+      if (ventaExistente && mismoCliente && !ventaExistente.xmlContent) {
+        return {
+          ...rowBase(doc, fileIndex),
+          estado: "actualizar",
+          mensaje: "Ya está registrada: el XML le agrega el detalle y los datos que faltan.",
+          existingSaleId: ventaExistente.id,
+        };
+      }
       const detalle = ventaExistente
         ? ` (${ventaExistente.partner.name}, ${new Date(ventaExistente.date).toLocaleDateString("es-CL")}, ${ventaExistente.status})`
         : "";
-      return { ...rowBase(doc), estado: "duplicada", mensaje: `El folio ya está registrado en ventas.${detalle}`, existingSaleId: ventaExistente?.id };
+      return { ...rowBase(doc, fileIndex), estado: "duplicada", mensaje: `El folio ya está registrado en ventas.${detalle}`, existingSaleId: ventaExistente?.id };
     }
     if (rutEmpresa && normalizeRut(doc.rutEmisor) !== rutEmpresa) {
       return {
-        ...rowBase(doc),
+        ...rowBase(doc, fileIndex),
         estado: "error",
         mensaje: `El emisor ${doc.rutEmisor} no coincide con el RUT de ${ctx.company.name}.`,
       };
     }
     if (doc.total <= 0) {
-      return { ...rowBase(doc), estado: "error", mensaje: "El total del documento es cero." };
+      return { ...rowBase(doc, fileIndex), estado: "error", mensaje: "El total del documento es cero." };
     }
-    return { ...rowBase(doc), estado: "nueva", mensaje: null };
+    return { ...rowBase(doc, fileIndex), estado: "nueva", mensaje: null };
   });
 
   const resumen = {
     nuevas: rows.filter((r) => r.estado === "nueva").length,
+    actualizar: rows.filter((r) => r.estado === "actualizar").length,
     duplicadas: rows.filter((r) => r.estado === "duplicada").length,
     omitidas: rows.filter((r) => r.estado === "omitida").length,
     conError: rows.filter((r) => r.estado === "error").length,
   };
 
-  return { fileName: file.name, xmlContent: decodeDteXml(buffer), rows, resumen };
+  return {
+    fileName: subidos.xmls.length === 1 ? subidos.xmls[0].name : `${subidos.xmls.length} archivos`,
+    xmlFiles: subidos.xmls.map((entry) => entry.xml),
+    rows,
+    resumen,
+    error: avisos.length > 0 ? avisos.slice(0, 3).join(" · ") : undefined,
+  };
 }
 
-function rowBase(doc: DteDocumento) {
+function rowBase(doc: DteDocumento, fileIndex: number) {
   return {
     tipoDTE: doc.tipoDTE,
     folio: doc.folio,
@@ -203,6 +250,7 @@ function rowBase(doc: DteDocumento) {
     fechaRecepcion: doc.fechaRecepcion,
     estadoReceptor: doc.estadoReceptor,
     montoExe: doc.montoExe,
+    fileIndex,
   };
 }
 
@@ -237,6 +285,8 @@ type PayloadDoc = {
   fechaRecepcion: string | null;
   estadoReceptor: string | null;
   montoExe: number;
+  fileIndex: number;
+  estado: "nueva" | "actualizar";
 };
 
 /**
@@ -244,9 +294,9 @@ type PayloadDoc = {
  * `rowBase` proyecta el RECEPTOR, que en una factura de compra es la propia
  * empresa — usarla tal cual daría la empresa como proveedor de sí misma.
  */
-function rowBasePurchase(doc: DteDocumento) {
+function rowBasePurchase(doc: DteDocumento, fileIndex: number) {
   return {
-    ...rowBase(doc),
+    ...rowBase(doc, fileIndex),
     rut: doc.rutEmisor,
     cliente: doc.razonSocialEmisor,
     giro: doc.giroEmisor,
@@ -283,9 +333,25 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
   const folios = documentos.map((doc) => String(doc.folio ?? ""));
   const existentes = await db.sale.findMany({
     where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-    select: { documentNumber: true },
+    select: {
+      id: true,
+      documentNumber: true,
+      xmlContent: true,
+      partner: { select: { rut: true } },
+      _count: { select: { items: true } },
+    },
   });
-  const foliosExistentes = new Set(existentes.map((row) => row.documentNumber));
+  const existentesPorFolio = new Map(existentes.map((row) => [row.documentNumber, row]));
+
+  // XML por archivo subido: cada documento guarda el suyo.
+  let xmlFiles: string[] = [];
+  try {
+    const parsed = JSON.parse(String(formData.get("xmlFiles") ?? "[]"));
+    if (Array.isArray(parsed)) xmlFiles = parsed.filter((value): value is string => typeof value === "string");
+  } catch {
+    xmlFiles = [];
+  }
+  const xmlDe = (index: number): string | null => xmlFiles[index] ?? null;
 
   // RUT de trabajadores: no se crean como clientes (guarda igual que la vista previa).
   const trabajadoresConRut = await db.worker.findMany({
@@ -341,13 +407,71 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
 
   const errores: string[] = [];
   let imported = 0;
+  let updated = 0;
+  const foliosCreados = new Set<string>();
   // Una sola consulta para vincular los ítems de todos los documentos.
   const indiceProductos = await loadProductIndex(ctx.company.id);
 
   for (const doc of documentos) {
     const folio = String(doc.folio ?? "").trim();
     try {
-      if (foliosExistentes.has(folio)) {
+      const existente = existentesPorFolio.get(folio);
+
+      // El documento ya está en ventas (vino por RCV o a mano): el XML lo
+      // completa en vez de descartarse.
+      if (doc.estado === "actualizar") {
+        if (!existente) {
+          errores.push(`Folio ${folio}: ya no está en ventas; vuelve a analizar el XML.`);
+          continue;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(doc.fecha ?? ""))) {
+          errores.push(`Folio ${folio}: fecha inválida.`);
+          continue;
+        }
+
+        const fechaDoc = dteDate(String(doc.fecha));
+        const items = prepareDocItems(indiceProductos, doc.itemsDetalle);
+        await db.sale.update({
+          where: { id: existente.id },
+          data: {
+            xmlContent: xmlDe(doc.fileIndex) ?? existente.xmlContent,
+            date: fechaDoc,
+            dueDate:
+              doc.vencimiento && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.vencimiento))
+                ? dteDate(String(doc.vencimiento))
+                : undefined,
+            purchaseOrder: doc.ordenCompra ? String(doc.ordenCompra).slice(0, 80) : undefined,
+            dispatchGuide: doc.guiaDespacho ? String(doc.guiaDespacho).slice(0, 80) : undefined,
+            hesNumber: doc.hesNumber ? String(doc.hesNumber).slice(0, 80) : undefined,
+            facturaOriginal: doc.facturaOriginal ? String(doc.facturaOriginal).slice(0, 60) : undefined,
+            tipoDocRefOriginal: doc.tipoDocRefOriginal ? String(doc.tipoDocRefOriginal).slice(0, 10) : undefined,
+            fechaRecepcion:
+              doc.fechaRecepcion && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.fechaRecepcion))
+                ? dteDate(String(doc.fechaRecepcion))
+                : undefined,
+            estadoReceptor: doc.estadoReceptor ? String(doc.estadoReceptor).slice(0, 30) : undefined,
+            description: doc.descripcion ? String(doc.descripcion).slice(0, 200) : undefined,
+            formaPago: doc.formaPago ? String(doc.formaPago).slice(0, 60) : undefined,
+          },
+        });
+
+        if (existente._count.items === 0 && items.length > 0) {
+          await createSaleItems(existente.id, ctx.company.id, items);
+          const sync = await syncSaleItemsToInventory({
+            companyId: ctx.company.id,
+            saleId: existente.id,
+            date: fechaDoc,
+            createdById: ctx.user.id,
+          });
+          if (!sync.ok) {
+            errores.push(`Folio ${folio}: XML guardado, pero el stock no se actualizó (${sync.errors.join("; ")}).`);
+          }
+        }
+        updated += 1;
+        continue;
+      }
+
+      if (existente || foliosCreados.has(folio)) {
         errores.push(`Folio ${folio}: ya estaba registrado.`);
         continue;
       }
@@ -441,7 +565,7 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
           fechaRecepcion,
           estadoReceptor: doc.estadoReceptor ? String(doc.estadoReceptor).slice(0, 30) : null,
           description: doc.descripcion ? String(doc.descripcion).slice(0, 200) : null,
-          xmlContent: (formData.get("xmlContent") as string) || null,
+          xmlContent: xmlDe(doc.fileIndex),
           netAmount: Math.max(0, Math.round(Number(doc.neto) || 0)),
           ivaAmount: Math.max(0, Math.round(Number(doc.iva) || 0)),
           exento: Math.max(0, Math.round(Number(doc.exento) || 0)),
@@ -472,25 +596,25 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
         errores.push(`Folio ${folio}: stock no actualizado (${saleSync.errors.join("; ")}).`);
       }
 
-      foliosExistentes.add(folio);
+      foliosCreados.add(folio);
       imported += 1;
     } catch {
       errores.push(`Folio ${folio}: no se pudo guardar (¿folio repetido por otro tipo de documento?).`);
     }
   }
 
-  if (imported > 0) {
+  if (imported > 0 || updated > 0) {
     await recordAudit(ctx, {
       action: "CREATE",
       entityType: "Sale",
       entityId: "import-xml",
-      summary: `Importó ${imported} venta(s) desde XML DTE del SII.`,
+      summary: `Importó ${imported} venta(s) y completó ${updated} desde XML DTE del SII.`,
     });
     revalidatePath("/dashboard/ventas");
     revalidatePath("/dashboard");
   }
 
-  return { ok: true, imported, errores: errores.length > 0 ? errores : undefined };
+  return { ok: true, imported, updated, errores: errores.length > 0 ? errores : undefined };
 }
 
 // ---------------------------------------------------------------------------
@@ -500,8 +624,8 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
 export type PurchaseXmlState = {
   error?: string;
   fileName?: string;
-  xmlContent?: string;
-  resumen?: { nuevas: number; duplicadas: number; omitidas: number; conError: number };
+  xmlFiles?: string[];
+  resumen?: { nuevas: number; actualizar: number; duplicadas: number; omitidas: number; conError: number };
   rows?: DtePreviewRow[];
 } | undefined;
 
@@ -509,6 +633,7 @@ export type PurchaseXmlConfirmState = {
   error?: string;
   ok?: boolean;
   imported?: number;
+  updated?: number;
   errores?: string[];
 } | undefined;
 
@@ -543,6 +668,8 @@ type PurchaseXmlPayload = {
   fechaRecepcion: string | null;
   estadoReceptor: string | null;
   montoExe: number;
+  fileIndex: number;
+  estado: "nueva" | "actualizar";
 };
 
 /** Analiza un XML de proveedor y arma la vista previa para importar compras. */
@@ -555,67 +682,106 @@ export async function previewPurchaseXml(
     return { error: "No tienes permiso para importar datos." };
   }
 
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Selecciona un archivo XML." };
+  const files = formData
+    .getAll("file")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+  if (files.length === 0) {
+    return { error: "Selecciona uno o más archivos .xml, o el ZIP del respaldo del SII." };
   }
-  if (file.size > 5 * 1024 * 1024) {
-    return { error: "El archivo supera el máximo de 5 MB." };
+
+  const subidos = await readUploadedXml(files);
+  if (subidos.error) return { error: subidos.error };
+
+  const documentos: { doc: DteDocumento; fileIndex: number }[] = [];
+  const avisos: string[] = [];
+  for (const [fileIndex, entry] of subidos.xmls.entries()) {
+    const parsed = parseDteXml(entry.xml);
+    if (parsed.error) {
+      avisos.push(`${entry.name}: ${parsed.error}`);
+      continue;
+    }
+    for (const doc of parsed.documentos) {
+      if (documentos.length >= MAX_DOCUMENTOS) break;
+      documentos.push({ doc, fileIndex });
+    }
+  }
+  if (documentos.length === 0) {
+    return {
+      error: avisos[0] ?? "No se encontraron documentos DTE en los archivos.",
+      fileName: subidos.xmls[0]?.name,
+    };
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const parsed = parseDteXml(buffer);
-  if (parsed.error) return { error: parsed.error, fileName: file.name };
-
-  const documentos = parsed.documentos.slice(0, 200);
-
-  // Folios ya registrados en compras.
-  const folios = documentos.map((doc) => doc.folio);
+  // Folios ya registrados en compras, con su proveedor para saber si el XML
+  // corresponde al mismo tercero.
+  const folios = documentos.map(({ doc }) => doc.folio);
   const existentes = await db.purchase.findMany({
     where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-    select: { documentNumber: true },
+    select: {
+      id: true,
+      documentNumber: true,
+      xmlContent: true,
+      partner: { select: { rut: true } },
+      _count: { select: { items: true } },
+    },
   });
-  const foliosExistentes = new Set(existentes.map((row) => row.documentNumber));
+  const existentesPorFolio = new Map(existentes.map((row) => [row.documentNumber, row]));
 
   const rutEmpresa = ctx.company.rut ? normalizeRut(ctx.company.rut) : null;
 
-  const rows: DtePreviewRow[] = documentos.map((doc) => {
+  const rows: DtePreviewRow[] = documentos.map(({ doc, fileIndex }) => {
     const motivo = dteMotivoOmision(doc.tipoDTE);
     if (motivo) {
-      return { ...rowBasePurchase(doc), estado: "omitida" as const, mensaje: motivo };
+      return { ...rowBasePurchase(doc, fileIndex), estado: "omitida" as const, mensaje: motivo };
     }
-    if (foliosExistentes.has(doc.folio)) {
-      return { ...rowBasePurchase(doc), estado: "duplicada" as const, mensaje: "El folio ya está registrado en compras." };
+    const compraExistente = existentesPorFolio.get(doc.folio);
+    if (compraExistente) {
+      const mismoProveedor = Boolean(
+        compraExistente.partner.rut &&
+          normalizeRut(compraExistente.partner.rut) === normalizeRut(doc.rutEmisor),
+      );
+      // Ya está en compras sin XML: el archivo la completa en vez de descartarse.
+      if (mismoProveedor && !compraExistente.xmlContent) {
+        return {
+          ...rowBasePurchase(doc, fileIndex),
+          estado: "actualizar" as const,
+          mensaje: "Ya está registrada: el XML le agrega el detalle y los datos que faltan.",
+          existingSaleId: compraExistente.id,
+        };
+      }
+      return { ...rowBasePurchase(doc, fileIndex), estado: "duplicada" as const, mensaje: "El folio ya está registrado en compras." };
     }
     // En compras, el RECEPTOR debe ser la empresa activa.
     if (rutEmpresa && normalizeRut(doc.rutReceptor) !== rutEmpresa) {
       return {
-        ...rowBasePurchase(doc),
+        ...rowBasePurchase(doc, fileIndex),
         estado: "error" as const,
         mensaje: `El receptor ${doc.rutReceptor} no coincide con el RUT de ${ctx.company.name}.`,
       };
     }
     if (doc.total <= 0) {
-      return { ...rowBasePurchase(doc), estado: "error" as const, mensaje: "El total del documento es cero." };
+      return { ...rowBasePurchase(doc, fileIndex), estado: "error" as const, mensaje: "El total del documento es cero." };
     }
     if (!doc.rutEmisor || !doc.razonSocialEmisor) {
-      return { ...rowBasePurchase(doc), estado: "error" as const, mensaje: "El XML no trae los datos del proveedor (emisor)." };
+      return { ...rowBasePurchase(doc, fileIndex), estado: "error" as const, mensaje: "El XML no trae los datos del proveedor (emisor)." };
     }
-    return { ...rowBasePurchase(doc), estado: "nueva" as const, mensaje: null };
+    return { ...rowBasePurchase(doc, fileIndex), estado: "nueva" as const, mensaje: null };
   });
 
   const resumen = {
     nuevas: rows.filter((r) => r.estado === "nueva").length,
+    actualizar: rows.filter((r) => r.estado === "actualizar").length,
     duplicadas: rows.filter((r) => r.estado === "duplicada").length,
     omitidas: rows.filter((r) => r.estado === "omitida").length,
     conError: rows.filter((r) => r.estado === "error").length,
   };
 
   return {
-    fileName: file.name,
-    xmlContent: decodeDteXml(buffer),
+    fileName: subidos.xmls.length === 1 ? subidos.xmls[0].name : `${subidos.xmls.length} archivos`,
+    xmlFiles: subidos.xmls.map((entry) => entry.xml),
     rows,
     resumen,
+    error: avisos.length > 0 ? avisos.slice(0, 3).join(" · ") : undefined,
   };
 }
 
@@ -639,15 +805,30 @@ export async function confirmPurchaseXml(
     return { error: "No hay documentos nuevos para importar." };
   }
 
-  const xmlContent = (formData.get("xmlContent") as string) || null;
+  // XML por archivo subido: cada documento guarda el suyo.
+  let xmlFiles: string[] = [];
+  try {
+    const parsed = JSON.parse(String(formData.get("xmlFiles") ?? "[]"));
+    if (Array.isArray(parsed)) xmlFiles = parsed.filter((value): value is string => typeof value === "string");
+  } catch {
+    xmlFiles = [];
+  }
+  const xmlDe = (index: number): string | null => xmlFiles[index] ?? null;
 
-  // Revalidar duplicados.
+  // Revalidar duplicados: se necesita el proveedor y los ítems para saber si el
+  // XML completa un documento existente o es un folio repetido.
   const folios = documentos.map((doc) => String(doc.folio ?? "")).filter(Boolean);
   const existentes = await db.purchase.findMany({
     where: { companyId: ctx.company.id, documentNumber: { in: folios } },
-    select: { documentNumber: true },
+    select: {
+      id: true,
+      documentNumber: true,
+      xmlContent: true,
+      partner: { select: { rut: true } },
+      _count: { select: { items: true } },
+    },
   });
-  const foliosExistentes = new Set(existentes.map((row) => row.documentNumber));
+  const existentesPorFolio = new Map(existentes.map((row) => [row.documentNumber, row]));
 
   // Proveedores: buscar o crear por RUT. El tipo y los datos de contacto se
   // completan con lo que traiga el XML.
@@ -695,13 +876,79 @@ export async function confirmPurchaseXml(
 
   const errores: string[] = [];
   let imported = 0;
+  let updated = 0;
+  const foliosCreados = new Set<string>();
   // Una sola consulta para vincular los ítems de todos los documentos.
   const indiceProductos = await loadProductIndex(ctx.company.id);
 
   for (const doc of documentos) {
     const folio = String(doc.folio ?? "").trim();
     try {
-      if (foliosExistentes.has(folio)) {
+      const existente = existentesPorFolio.get(folio);
+
+      // Factura ya registrada (por RCV o a mano): el XML la completa con el
+      // proveedor, los montos finos, los ítems y el XML original.
+      if (doc.estado === "actualizar") {
+        if (!existente) {
+          errores.push(`Folio ${folio}: ya no está en compras; vuelve a analizar el XML.`);
+          continue;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(doc.fecha ?? ""))) {
+          errores.push(`Folio ${folio}: fecha inválida.`);
+          continue;
+        }
+
+        const fechaDoc = dteDate(String(doc.fecha));
+        const vencDoc =
+          doc.vencimiento && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.vencimiento))
+            ? dteDate(String(doc.vencimiento))
+            : undefined;
+        const items = prepareDocItems(indiceProductos, doc.itemsDetalle);
+
+        await db.purchase.update({
+          where: { id: existente.id },
+          data: {
+            xmlContent: xmlDe(doc.fileIndex) ?? existente.xmlContent,
+            date: fechaDoc,
+            dueDate: vencDoc,
+            purchaseOrder: doc.ordenCompra ? String(doc.ordenCompra).slice(0, 80) : undefined,
+            dispatchGuide: doc.guiaDespacho ? String(doc.guiaDespacho).slice(0, 80) : undefined,
+            hesNumber: doc.hesNumber ? String(doc.hesNumber).slice(0, 80) : undefined,
+            facturaOriginal: doc.facturaOriginal ? String(doc.facturaOriginal).slice(0, 60) : undefined,
+            tipoDocRefOriginal: doc.tipoDocRefOriginal ? String(doc.tipoDocRefOriginal).slice(0, 10) : undefined,
+            fechaRecepcion:
+              doc.fechaRecepcion && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.fechaRecepcion))
+                ? dteDate(String(doc.fechaRecepcion))
+                : undefined,
+            estadoReceptor: doc.estadoReceptor ? String(doc.estadoReceptor).slice(0, 30) : undefined,
+            description: doc.descripcion ? String(doc.descripcion).slice(0, 200) : undefined,
+            formaPago: doc.formaPago ? String(doc.formaPago).slice(0, 60) : undefined,
+            netAmount: Math.max(0, Math.round(Number(doc.neto) || 0)),
+            ivaAmount: Math.max(0, Math.round(Number(doc.iva) || 0)),
+            exento: Math.max(0, Math.round(Number(doc.exento) || 0)),
+            ivaRecargo: Math.max(0, Math.round(Number(doc.ivaRecargo) || 0)),
+            totalAmount: Math.max(0, Math.round(Number(doc.total) || 0)),
+            tasaIVA: doc.tasaIVA ? Number(doc.tasaIVA) : undefined,
+          },
+        });
+
+        if (existente._count.items === 0 && items.length > 0) {
+          await createPurchaseItems(existente.id, ctx.company.id, items);
+          const sync = await syncPurchaseItemsToInventory({
+            companyId: ctx.company.id,
+            purchaseId: existente.id,
+            date: fechaDoc,
+            createdById: ctx.user.id,
+          });
+          if (!sync.ok) {
+            errores.push(`Folio ${folio}: XML guardado, pero el stock no se actualizó (${sync.errors.join("; ")}).`);
+          }
+        }
+        updated += 1;
+        continue;
+      }
+
+      if (existente || foliosCreados.has(folio)) {
         errores.push(`Folio ${folio}: ya estaba registrado.`);
         continue;
       }
@@ -773,7 +1020,7 @@ export async function confirmPurchaseXml(
           fechaRecepcion,
           estadoReceptor: doc.estadoReceptor ? String(doc.estadoReceptor).slice(0, 30) : null,
           description: doc.descripcion ? String(doc.descripcion).slice(0, 200) : null,
-          xmlContent,
+          xmlContent: xmlDe(doc.fileIndex),
           netAmount: Math.max(0, Math.round(Number(doc.neto) || 0)),
           ivaAmount: Math.max(0, Math.round(Number(doc.iva) || 0)),
           exento: Math.max(0, Math.round(Number(doc.exento) || 0)),
@@ -806,25 +1053,25 @@ export async function confirmPurchaseXml(
       }
 
 
-      foliosExistentes.add(folio);
+      foliosCreados.add(folio);
       imported += 1;
     } catch {
       errores.push(`Folio ${folio}: no se pudo guardar.`);
     }
   }
 
-  if (imported > 0) {
+  if (imported > 0 || updated > 0) {
     await recordAudit(ctx, {
       action: "CREATE",
       entityType: "Purchase",
       entityId: "import-xml",
-      summary: `Importó ${imported} compra(s) desde XML DTE de proveedor.`,
+      summary: `Importó ${imported} compra(s) y completó ${updated} desde XML DTE de proveedor.`,
     });
     revalidatePath("/dashboard/compras");
     revalidatePath("/dashboard");
   }
 
-  return { ok: true, imported, errores: errores.length > 0 ? errores : undefined };
+  return { ok: true, imported, updated, errores: errores.length > 0 ? errores : undefined };
 }
 
 

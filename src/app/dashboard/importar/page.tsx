@@ -47,8 +47,8 @@ export default async function ImportPage(props: PageProps<"/dashboard/importar">
       <section id="xml" className={cardClass + " p-5"}>
         <h2 className="font-semibold">Factura de venta (XML del facturador)</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Sube el EnvioDTE de tus facturas emitidas. El XML completo se guarda para que el PDF
-          muestre productos, OC, guía y todo el detalle.
+          Sube el EnvioDTE de tus facturas emitidas: uno, varios o el ZIP completo del respaldo del SII. Si la
+          venta ya entró por el RCV, este XML la completa con sus ítems y todos los datos del archivo.
         </p>
         <div className="mt-4">
           <DteImportForm />
@@ -58,8 +58,8 @@ export default async function ImportPage(props: PageProps<"/dashboard/importar">
       <section id="xml-compras" className={cardClass + " p-5"}>
         <h2 className="font-semibold">Factura de compra (XML del proveedor)</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Sube el XML que te envió tu proveedor. El XML se guarda para que el PDF muestre
-          productos, referencias y todo el detalle.
+          Sube los XML que te enviaron tus proveedores: uno, varios o el ZIP del respaldo del SII. Si la compra
+          ya entró por el RCV, este XML la completa con sus ítems, el proveedor y todo el detalle del archivo.
         </p>
         <div className="mt-4">
           <PurchaseXmlImport />

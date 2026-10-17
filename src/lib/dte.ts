@@ -162,7 +162,9 @@ export type DteParseResult = {
   error?: string;
 };
 
-export type DteEstado = "nueva" | "duplicada" | "omitida" | "error";
+// "actualizar" = el documento ya existe (vino por RCV o a mano) y el XML lo
+// completa: guarda el XML, llena los campos que faltaban y crea los ítems.
+export type DteEstado = "nueva" | "actualizar" | "duplicada" | "omitida" | "error";
 
 /**
  * Decodifica un XML DTE respetando su declaración de codificación: el SII

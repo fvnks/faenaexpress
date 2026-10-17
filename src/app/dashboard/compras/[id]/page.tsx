@@ -256,7 +256,8 @@ export default async function PurchaseDetailPage(props: PageProps<"/dashboard/co
       <DteXmlPanel
         xmlContent={purchase.xmlContent}
         folio={purchase.documentNumber}
-        emptyNote="Esta compra no tiene el XML original guardado: entró por el RCV del SII o se cargó a mano, así que solo se guardaron los totales. Importa el XML del proveedor para ver el detalle completo."
+        emptyNote="Esta compra no tiene el XML guardado: entró por el RCV del SII o se cargó a mano, así que solo se guardaron los totales."
+        importHref="/dashboard/importar"
       />
 
     </div>

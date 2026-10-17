@@ -16,10 +16,12 @@ function EstadoBadge({ row }: { row: DtePreviewRow }) {
   switch (row.estado) {
     case "nueva":
       return <span className="inline-flex whitespace-nowrap rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">Nueva</span>;
+    case "actualizar":
+      return <span className="inline-flex whitespace-nowrap rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">Completar</span>;
     case "duplicada":
       return <span className="inline-flex whitespace-nowrap rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">Duplicada</span>;
     case "omitida":
-      return <span className="inline-flex whitespace-nowrap rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">Omitida</span>;
+      return <span className="inline-flex whitespace-nowrap rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-medium text-muted-foreground">Omitida</span>;
     default:
       return <span className="inline-flex whitespace-nowrap rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">Error</span>;
   }
@@ -30,15 +32,22 @@ export function DteImportForm() {
   const [confirm, confirmAction] = useActionState(confirmDteImport, undefined);
 
   useEffect(() => {
-    if (confirm?.ok && confirm.imported) {
-      toast.success(`Se importaron ${confirm.imported} ${confirm.imported === 1 ? "venta" : "ventas"}`);
+    if (confirm?.ok && (confirm.imported || confirm.updated)) {
+      const partes = [
+        confirm.imported ? `${confirm.imported} ${confirm.imported === 1 ? "venta nueva" : "ventas nuevas"}` : null,
+        confirm.updated ? `${confirm.updated} ${confirm.updated === 1 ? "completada" : "completadas"} con su XML` : null,
+      ].filter(Boolean);
+      toast.success(partes.join(" · "));
     }
   }, [confirm]);
 
   const rows = preview?.rows ?? [];
   const nuevas = rows.filter((row) => row.estado === "nueva");
+  const completar = rows.filter((row) => row.estado === "actualizar");
+  const accionables = [...nuevas, ...completar];
   // El servidor revalida todo; los campos extra (estado, mensaje) se ignoran.
-  const payload = JSON.stringify(nuevas);
+  const payload = JSON.stringify(accionables);
+  const xmlFiles = JSON.stringify(preview?.xmlFiles ?? []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -46,16 +55,20 @@ export function DteImportForm() {
       <form action={previewAction} className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-64 flex-1 flex-col gap-1">
           <label htmlFor="dte-file" className="text-sm font-medium">
-            Archivo XML del SII (EnvioDTE)
+            Archivos XML del SII (EnvioDTE) o el ZIP del respaldo
           </label>
           <input
             id="dte-file"
             name="file"
             type="file"
-            accept=".xml,text/xml,application/xml"
+            multiple
+            accept=".xml,.zip,text/xml,application/xml,application/zip"
             required
             className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm file:mr-3 file:rounded-control file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary"
           />
+          <span className="text-xs text-muted-foreground">
+            Puedes elegir varios XML a la vez o un ZIP completo (se descomprime solo).
+          </span>
         </div>
         <SubmitButton
           pendingLabel="Analizando…"
@@ -78,13 +91,18 @@ export function DteImportForm() {
             <span className="rounded-full bg-success-soft px-2.5 py-1 font-medium text-success">
               {nuevas.length} nuevas
             </span>
+            {preview?.resumen?.actualizar ? (
+              <span className="rounded-full bg-accent-soft px-2.5 py-1 font-medium text-accent">
+                {preview.resumen.actualizar} se completan con el XML
+              </span>
+            ) : null}
             {preview?.resumen?.duplicadas ? (
               <span className="rounded-full bg-primary-soft px-2.5 py-1 font-medium text-primary">
                 {preview.resumen.duplicadas} duplicadas
               </span>
             ) : null}
             {preview?.resumen?.omitidas ? (
-              <span className="rounded-full bg-accent-soft px-2.5 py-1 font-medium text-accent">
+              <span className="rounded-full border border-border bg-surface px-2.5 py-1 font-medium text-muted-foreground">
                 {preview.resumen.omitidas} omitidas
               </span>
             ) : null}
@@ -143,18 +161,19 @@ export function DteImportForm() {
             </table>
           </div>
 
-          {nuevas.length > 0 && !confirm?.ok ? (
+          {accionables.length > 0 && !confirm?.ok ? (
             <form action={confirmAction} className="flex flex-wrap items-center gap-3">
               <input type="hidden" name="payload" value={payload} />
-              <input type="hidden" name="xmlContent" value={preview?.xmlContent ?? ""} />
+              <input type="hidden" name="xmlFiles" value={xmlFiles} />
               <SubmitButton
                 pendingLabel="Importando…"
                 className="btn-liquid btn-liquid-primary rounded-control border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary"
               >
                 Importar {nuevas.length} {nuevas.length === 1 ? "factura" : "facturas"}
+                {completar.length > 0 ? ` y completar ${completar.length}` : ""}
               </SubmitButton>
               <span className="text-xs text-muted-foreground">
-                Quedan como por cobrar; el pago se marca en cada venta.
+                Las nuevas quedan por cobrar; a las existentes se les agrega el XML y su detalle.
               </span>
             </form>
           ) : null}
@@ -164,7 +183,8 @@ export function DteImportForm() {
       {confirm?.ok ? (
         <div className="flex flex-col gap-2">
           <p role="status" className="rounded-control border border-success/40 bg-success-soft px-3 py-2 text-sm text-success">
-            Se importaron {confirm.imported} {confirm.imported === 1 ? "venta" : "ventas"} a Ventas.
+            {confirm.imported ? `Se importaron ${confirm.imported} ${confirm.imported === 1 ? "venta" : "ventas"}. ` : ""}
+            {confirm.updated ? `Se completaron ${confirm.updated} ${confirm.updated === 1 ? "venta" : "ventas"} con la información del XML.` : ""}
           </p>
           {confirm.errores?.length ? (
             <ul className="list-disc pl-5 text-xs text-muted-foreground">

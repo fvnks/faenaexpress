@@ -293,7 +293,8 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
       <DteXmlPanel
         xmlContent={sale.xmlContent}
         folio={sale.documentNumber}
-        emptyNote="Esta venta no tiene el XML original guardado: se cargó a mano o entró por el RCV del SII, así que solo se guardaron los totales."
+        emptyNote="Esta venta no tiene el XML guardado: se cargó a mano o entró por el RCV del SII, así que solo se guardaron los totales."
+        importHref="/dashboard/importar"
       />
 
     </div>

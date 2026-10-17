@@ -5,6 +5,13 @@ const nextConfig: NextConfig = {
   // (todas las páginas usan cookies/sesión). Si se activa, cada acceso a
   // cookies()/headers() debe ir dentro de <Suspense> o rompe el build.
   cacheComponents: false,
+  experimental: {
+    // La importación de XML DTE sube varios archivos o el ZIP del respaldo del
+    // SII de una vez; el límite por defecto de 1 MB los rechazaba.
+    serverActions: {
+      bodySizeLimit: "25mb",
+    },
+  },
   turbopack: {
     rules: {
       "*.css": {

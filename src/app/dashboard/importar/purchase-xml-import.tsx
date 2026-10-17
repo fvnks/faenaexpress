@@ -15,10 +15,12 @@ function EstadoBadge({ estado }: { estado: string }) {
   switch (estado) {
     case "nueva":
       return <span className="inline-flex whitespace-nowrap rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">Nueva</span>;
+    case "actualizar":
+      return <span className="inline-flex whitespace-nowrap rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">Completar</span>;
     case "duplicada":
       return <span className="inline-flex whitespace-nowrap rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">Duplicada</span>;
     case "omitida":
-      return <span className="inline-flex whitespace-nowrap rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">Omitida</span>;
+      return <span className="inline-flex whitespace-nowrap rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-medium text-muted-foreground">Omitida</span>;
     default:
       return <span className="inline-flex whitespace-nowrap rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">Error</span>;
   }
@@ -30,11 +32,18 @@ export function PurchaseXmlImport() {
 
   const rows = preview?.rows ?? [];
   const nuevas = rows.filter((row) => row.estado === "nueva");
-  const payload = JSON.stringify(nuevas);
+  const completar = rows.filter((row) => row.estado === "actualizar");
+  const accionables = [...nuevas, ...completar];
+  const payload = JSON.stringify(accionables);
+  const xmlFiles = JSON.stringify(preview?.xmlFiles ?? []);
 
   useEffect(() => {
-    if (confirm?.ok && confirm.imported) {
-      toast.success(`Se importaron ${confirm.imported} compra(s)`);
+    if (confirm?.ok && (confirm.imported || confirm.updated)) {
+      const partes = [
+        confirm.imported ? `${confirm.imported} ${confirm.imported === 1 ? "compra nueva" : "compras nuevas"}` : null,
+        confirm.updated ? `${confirm.updated} ${confirm.updated === 1 ? "completada" : "completadas"} con su XML` : null,
+      ].filter(Boolean);
+      toast.success(partes.join(" · "));
     }
   }, [confirm]);
 
@@ -43,16 +52,21 @@ export function PurchaseXmlImport() {
       <form action={previewAction} className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-64 flex-1 flex-col gap-1">
           <label htmlFor="purchase-xml-file" className="text-sm font-medium">
-            XML del proveedor (EnvioDTE)
+            XML del proveedor (EnvioDTE) o el ZIP del respaldo
           </label>
           <input
             id="purchase-xml-file"
             name="file"
             type="file"
-            accept=".xml,text/xml,application/xml"
+            multiple
+            accept=".xml,.zip,text/xml,application/xml,application/zip"
             required
             className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm file:mr-3 file:rounded-control file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary"
           />
+          <span className="text-xs text-muted-foreground">
+            Puedes elegir varios XML a la vez o un ZIP completo (se descomprime solo). Las facturas que ya están
+            por RCV se completan con su detalle.
+          </span>
         </div>
         <SubmitButton
           pendingLabel="Analizando…"
@@ -77,13 +91,18 @@ export function PurchaseXmlImport() {
             <span className="rounded-full bg-success-soft px-2.5 py-1 font-medium text-success">
               {nuevas.length} nuevas
             </span>
+            {preview?.resumen?.actualizar ? (
+              <span className="rounded-full bg-accent-soft px-2.5 py-1 font-medium text-accent">
+                {preview.resumen.actualizar} se completan con el XML
+              </span>
+            ) : null}
             {preview?.resumen?.duplicadas ? (
               <span className="rounded-full bg-primary-soft px-2.5 py-1 font-medium text-primary">
                 {preview.resumen.duplicadas} duplicadas
               </span>
             ) : null}
             {preview?.resumen?.omitidas ? (
-              <span className="rounded-full bg-accent-soft px-2.5 py-1 font-medium text-accent">
+              <span className="rounded-full border border-border bg-surface px-2.5 py-1 font-medium text-muted-foreground">
                 {preview.resumen.omitidas} omitidas
               </span>
             ) : null}
@@ -117,6 +136,11 @@ export function PurchaseXmlImport() {
                       {row.mensaje ? (
                         <span className="block text-xs text-muted-foreground">{row.mensaje}</span>
                       ) : null}
+                      {row.existingSaleId ? (
+                        <a href={`/dashboard/compras/${row.existingSaleId}`} className="block text-xs font-medium text-primary underline">
+                          Ver compra existente
+                        </a>
+                      ) : null}
                     </td>
                     <td className="tabular whitespace-nowrap px-3 py-2 text-right align-top">{formatCLP(row.neto)}</td>
                     <td className="tabular whitespace-nowrap px-3 py-2 text-right align-top">{formatCLP(row.iva)}</td>
@@ -130,27 +154,29 @@ export function PurchaseXmlImport() {
             </table>
           </div>
 
-          {nuevas.length > 0 && !confirm?.ok ? (
+          {accionables.length > 0 && !confirm?.ok ? (
             <form action={confirmAction} className="flex flex-wrap items-center gap-3">
               <input type="hidden" name="payload" value={payload} />
-              <input type="hidden" name="xmlContent" value={preview?.xmlContent ?? ""} />
+              <input type="hidden" name="xmlFiles" value={xmlFiles} />
               <SubmitButton
                 pendingLabel="Importando…"
                 className="btn-liquid btn-liquid-primary rounded-control border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary"
               >
                 Importar {nuevas.length} {nuevas.length === 1 ? "compra" : "compras"}
+                {completar.length > 0 ? ` y completar ${completar.length}` : ""}
               </SubmitButton>
               <span className="text-xs text-muted-foreground">
-                Se crean como pendientes de pago; guarda el XML para el PDF con detalle.
+                Las nuevas quedan pendientes de pago; a las que ya estaban se les guarda el XML y su detalle.
               </span>
             </form>
           ) : null}
         </div>
       ) : null}
 
-      {confirm?.ok && confirm.imported ? (
+      {confirm?.ok && (confirm.imported || confirm.updated) ? (
         <p role="status" className="rounded-control border border-success/40 bg-success-soft px-3 py-2 text-sm text-success">
-          Se importaron {confirm.imported} compras a Compras.
+          {confirm.imported ? `Se importaron ${confirm.imported} compras a Compras. ` : ""}
+          {confirm.updated ? `Se completaron ${confirm.updated} compras con la información del XML.` : ""}
         </p>
       ) : null}
 

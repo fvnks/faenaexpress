@@ -25,7 +25,7 @@ function formatQuantity(raw: { toString(): string }): string {
 export function DocItemsTable({
   items,
   netAmount,
-  emptyNote = "Este documento no tiene detalle de ítems guardados. El detalle entra al importar un XML: la sincronización con el RCV y la carga manual solo guardan los totales.",
+  emptyNote = "Este documento no tiene detalle de ítems guardados. Solo la importación de un XML trae el detalle: la sincronización con el RCV y la carga manual guardan únicamente los totales.",
 }: {
   items: DocItemForTable[];
   netAmount: number;
@@ -36,6 +36,15 @@ export function DocItemsTable({
       <section className={cardClass + " p-5"}>
         <h2 className="font-semibold">Detalle del documento</h2>
         <p className="mt-2 text-sm text-muted-foreground">{emptyNote}</p>
+        <p className="mt-3 text-sm">
+          <Link href="/dashboard/importar" className="font-medium text-primary underline underline-offset-2">
+            Importar el XML o el ZIP del respaldo del SII
+          </Link>
+          <span className="text-muted-foreground">
+            {" "}
+            — al subirlo, se agrega el detalle de ítems a los documentos que ya existen.
+          </span>
+        </p>
       </section>
     );
   }

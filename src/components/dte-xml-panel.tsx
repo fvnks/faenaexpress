@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { parseDteXml, type DteDocumento } from "@/lib/dte";
 import { dteTipoLabel } from "@/lib/labels";
 import { formatCLP, formatDate, toDateOnly } from "@/lib/money";
@@ -313,16 +315,32 @@ export function DteXmlPanel({
   xmlContent,
   folio,
   emptyNote,
+  importHref,
 }: {
   xmlContent: string | null;
   folio: string | null;
   emptyNote: string;
+  importHref?: string;
 }) {
   if (!xmlContent) {
     return (
       <section className={cardClass + " px-5 py-4"}>
         <h2 className="text-sm font-semibold">Información del XML DTE</h2>
         <p className="mt-2 text-sm text-muted-foreground">{emptyNote}</p>
+        {importHref ? (
+          <p className="mt-3 text-sm">
+            <Link
+              href={importHref}
+              className="font-medium text-primary underline underline-offset-2"
+            >
+              Importar el XML o el ZIP del respaldo del SII
+            </Link>
+            <span className="text-muted-foreground">
+              {" "}
+              — al subirlo, esta factura se completa con su detalle.
+            </span>
+          </p>
+        ) : null}
       </section>
     );
   }
