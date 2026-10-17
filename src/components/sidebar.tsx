@@ -66,6 +66,12 @@ function Icon({ name }: { name: string }) {
           <path d="M3 21h18" /><path d="M3 10l9-6 9 6" /><path d="M5 10v8" /><path d="M9.5 10v8" /><path d="M14.5 10v8" /><path d="M19 10v8" /><path d="M3 18h18" />
         </svg>
       );
+    case "caja":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
+          <path d="M3 8a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v2" /><path d="M3 8v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" /><path d="M21 9h-4a2 2 0 0 0 0 4h4a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1z" />
+        </svg>
+      );
     case "reportes":
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
@@ -246,6 +252,20 @@ const groups: SidebarGroup[] = [
     ],
   },
 ];
+
+/**
+ * Ícono que representa a cada grupo en el sidebar colapsado: ahí no caben los
+ * ítems, así que el rail muestra un ícono por grupo y el resto vive en un panel
+ * flotante con etiquetas.
+ */
+const groupIcons: Record<string, string> = {
+  Movimientos: "caja",
+  Inventario: "productos",
+  Comisiones: "comisiones",
+  Terceros: "clientes",
+  Análisis: "reportes",
+  Administración: "configuracion",
+};
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -592,12 +612,65 @@ export function Sidebar(props: SidebarProps) {
     });
   };
 
+  // Panel flotante del rail colapsado: qué grupo está abierto y dónde anclarlo.
+  const [openGroup, setOpenGroup] = useState<{ label: string; left: number; top: number } | null>(null);
+  const closeTimer = useRef<number | null>(null);
+
+  const cancelCloseFlyout = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  const closeFlyout = () => {
+    cancelCloseFlyout();
+    setOpenGroup(null);
+  };
+
+  // Cierre diferido: al cruzar el espacio entre el ícono y el panel el puntero
+  // sale del wrapper por unos milisegundos; sin esta gracia el panel se cerraría.
+  const scheduleCloseFlyout = () => {
+    cancelCloseFlyout();
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = null;
+      setOpenGroup(null);
+    }, 140);
+  };
+
+  const openFlyout = (label: string, trigger: HTMLElement) => {
+    cancelCloseFlyout();
+    const triggerRect = trigger.getBoundingClientRect();
+    // Anclado al borde derecho del rail (no al del ícono, que queda adentro):
+    // el panel no debe montarse sobre la franja de íconos.
+    const railRight = trigger.closest("aside")?.getBoundingClientRect().right ?? triggerRect.right;
+    // El top se limita para que un grupo largo (Movimientos) no se salga abajo.
+    const maxTop = Math.max(8, window.innerHeight - 380);
+    setOpenGroup({
+      label,
+      left: Math.round(railRight + 4),
+      top: Math.round(Math.min(triggerRect.top, maxTop)),
+    });
+  };
+
+  useEffect(() => () => cancelCloseFlyout(), []);
+
+  useEffect(() => {
+    if (!openGroup) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenGroup(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [openGroup]);
+
   const [prevPath, setPrevPath] = useState(pathname);
   if (prevPath !== pathname) {
     setPrevPath(pathname);
     setOverrides({});
     setQuery("");
     setMobileOpen(false);
+    setOpenGroup(null);
   }
 
   const closeMobile = () => setMobileOpen(false);
@@ -643,86 +716,158 @@ export function Sidebar(props: SidebarProps) {
     setOverrides((prev) => ({ ...prev, [key]: !current }));
   };
 
-  // --- Nav colapsado (solo íconos, sin grupos) --------------------------------
+  // --- Nav colapsado (un ícono por grupo + panel flotante) --------------------
   const collapsedIconClass = (active: boolean) =>
-    "relative flex h-10 w-10 items-center justify-center rounded-control transition-colors " +
+    "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-control transition-colors " +
     (active ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-background hover:text-foreground");
 
   const collapsedNav = (
     <nav aria-label="Secciones" className="flex h-full min-h-0 flex-col">
-      {/* Logo */}
-      <div className="flex items-center justify-center border-b border-border p-3">
+      {/* Marca + expandir: el control vive arriba, lejos de la cuenta de abajo */}
+      <div className="flex flex-col items-center gap-1.5 border-b border-border px-2 py-3">
         <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
             <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
           </svg>
         </span>
-      </div>
-
-      {/* Íconos, agrupados con separadores finos para que se pueda escanear */}
-      <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto p-2">
-        <Link
-          href="/dashboard"
-          title="Panel"
-          aria-current={isActive(pathname, "/dashboard") ? "page" : undefined}
-          className={collapsedIconClass(isActive(pathname, "/dashboard"))}
-        >
-          <Icon name="panel" />
-        </Link>
-        {groups.map((group) => {
-          const items = group.items.filter(canSee);
-          if (items.length === 0) return null;
-          return (
-            <Fragment key={group.label}>
-              <div className="my-1 h-px w-8 shrink-0 bg-border" aria-hidden="true" />
-              {items.map((item) => {
-                const active = isActive(pathname, item.href) ||
-                  item.children?.some((child) => isActive(pathname, child.href));
-                const badge = item.section === "ventas" && props.pendingSales > 0 ? props.pendingSales : null;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    title={item.label}
-                    aria-current={active ? "page" : undefined}
-                    className={collapsedIconClass(!!active)}
-                  >
-                    <Icon name={item.icon} />
-                    {badge ? (
-                      <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] font-semibold leading-4 text-primary-foreground">
-                        {badge}
-                      </span>
-                    ) : null}
-                  </Link>
-                );
-              })}
-            </Fragment>
-          );
-        })}
-      </div>
-
-      {/* Cuenta y toggle expandir */}
-      <div className="flex items-stretch gap-1 border-t border-border p-2">
-        <div className="min-w-0 flex-1">
-          <UserMenu
-            compact
-            userName={props.userName}
-            userEmail={props.userEmail}
-            roleLabel={props.roleLabel}
-            logout={props.logout}
-          />
-        </div>
         <button
           type="button"
           onClick={toggleCollapsed}
           aria-label="Expandir menú"
           title="Expandir menú"
-          className="flex h-9 w-9 shrink-0 self-center items-center justify-center rounded-control border border-border bg-background text-muted-foreground transition-colors hover:bg-primary-soft/50 hover:text-primary"
+          className="flex h-7 w-full items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
+      </div>
+
+      {/* Íconos: Panel directo y un ícono por grupo. Sin comprimir: los ítems
+          llevan shrink-0 y el contenedor hace scroll si la pantalla es baja. */}
+      <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto p-2" onScroll={closeFlyout}>
+        <Fragment>
+          <Link
+            href="/dashboard"
+            title="Panel"
+            aria-current={isActive(pathname, "/dashboard") ? "page" : undefined}
+            className={collapsedIconClass(isActive(pathname, "/dashboard"))}
+          >
+            <Icon name="panel" />
+          </Link>
+          <div className="my-0.5 h-px w-6 shrink-0 bg-border" aria-hidden="true" />
+        </Fragment>
+        {groups.map((group) => {
+          const items = group.items.filter(canSee);
+          if (items.length === 0) return null;
+          const containsActive = groupContainsActive(group);
+          const open = openGroup?.label === group.label;
+          const flyoutId = `sidebar-flyout-${group.label.toLowerCase().replace(/\s+/g, "-")}`;
+          const badge = group.label === "Movimientos" && props.pendingSales > 0 ? props.pendingSales : null;
+          return (
+            <div key={group.label} className="relative shrink-0" onMouseLeave={scheduleCloseFlyout}>
+              <button
+                type="button"
+                onClick={(event) =>
+                  open ? closeFlyout() : openFlyout(group.label, event.currentTarget)
+                }
+                onMouseEnter={(event) => {
+                  // Con un panel ya abierto, pasar el mouse por otro ícono cambia de panel.
+                  if (openGroup) openFlyout(group.label, event.currentTarget);
+                }}
+                aria-expanded={open}
+                aria-haspopup="true"
+                aria-controls={flyoutId}
+                title={group.label}
+                className={collapsedIconClass(containsActive) + (open ? " bg-background" : "")}
+              >
+                <Icon name={groupIcons[group.label] ?? "panel"} />
+                {badge ? (
+                  <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] font-semibold leading-4 text-primary-foreground">
+                    {badge}
+                  </span>
+                ) : null}
+              </button>
+
+              {open ? (
+                <div
+                  id={flyoutId}
+                  role="group"
+                  aria-label={group.label}
+                  onMouseEnter={cancelCloseFlyout}
+                  style={{ left: openGroup.left, top: openGroup.top }}
+                  className="fixed z-40 max-h-[calc(100vh-1rem)] w-60 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-lg"
+                >
+                  <p className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {group.label}
+                  </p>
+                  <ul className="flex flex-col gap-0.5">
+                    {items.map((item) => {
+                      const active =
+                        isActive(pathname, item.href) ||
+                        item.children?.some((child) => isActive(pathname, child.href));
+                      const itemBadge =
+                        item.section === "ventas" && props.pendingSales > 0 ? props.pendingSales : null;
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            onClick={closeFlyout}
+                            aria-current={active ? "page" : undefined}
+                            className={rowClass(!!active)}
+                          >
+                            <Icon name={item.icon} />
+                            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                            {itemBadge ? (
+                              <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-primary-foreground">
+                                {itemBadge}
+                              </span>
+                            ) : null}
+                          </Link>
+                          {item.children?.length ? (
+                            <ul className="ml-5 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-2">
+                              {item.children.map((child) => {
+                                const childActive = pathname === child.href;
+                                return (
+                                  <li key={child.href}>
+                                    <Link
+                                      href={child.href}
+                                      onClick={closeFlyout}
+                                      aria-current={childActive ? "page" : undefined}
+                                      className={
+                                        "block truncate rounded-control px-2 py-1.5 text-sm transition-colors " +
+                                        (childActive
+                                          ? "bg-primary-soft font-medium text-primary"
+                                          : "text-muted-foreground hover:bg-background hover:text-foreground")
+                                      }
+                                    >
+                                      {child.label}
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Cuenta */}
+      <div className="border-t border-border p-2">
+        <UserMenu
+          compact
+          userName={props.userName}
+          userEmail={props.userEmail}
+          roleLabel={props.roleLabel}
+          logout={props.logout}
+        />
       </div>
     </nav>
   );
@@ -750,7 +895,7 @@ export function Sidebar(props: SidebarProps) {
             className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-background hover:text-foreground lg:flex"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
-              <path d="M9 18l6-6-6-6" />
+              <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
           <button
@@ -913,7 +1058,7 @@ export function Sidebar(props: SidebarProps) {
       <aside
         className={
           "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-[180ms] ease-out lg:flex " +
-          (collapsed ? "w-16" : "w-64")
+          (collapsed ? "w-18" : "w-64")
         }
       >
         {collapsed ? collapsedNav : nav}
