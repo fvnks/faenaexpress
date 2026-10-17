@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { PartnerType } from "@/generated/prisma/client";
 import { canWrite, requireContext } from "@/lib/auth";
 import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { parseDteXml, type DteDocumento, type DteEstado } from "@/lib/dte";
+import { decodeDteXml, parseDteXml, type DteDocumento, type DteEstado } from "@/lib/dte";
 import {
   createPurchaseItems,
   createSaleItems,
@@ -16,6 +17,7 @@ import {
 import { syncPurchaseItemsToInventory, syncSaleItemsToInventory } from "@/lib/inventory-sync";
 import { getAvailableStock } from "@/lib/inventory-stock-check";
 import { dteMotivoOmision, dteTipoLabel } from "@/lib/labels";
+import { ensurePartnerRole, fillPartnerContact } from "@/lib/partners";
 import { formatRut, normalizeRut } from "@/lib/rut";
 
 export type DtePreviewRow = {
@@ -166,7 +168,7 @@ export async function previewDteImport(_prev: DteImportState, formData: FormData
     conError: rows.filter((r) => r.estado === "error").length,
   };
 
-  return { fileName: file.name, xmlContent: buffer.toString("utf8"), rows, resumen };
+  return { fileName: file.name, xmlContent: decodeDteXml(buffer), rows, resumen };
 }
 
 function rowBase(doc: DteDocumento) {
@@ -247,9 +249,12 @@ function rowBasePurchase(doc: DteDocumento) {
     ...rowBase(doc),
     rut: doc.rutEmisor,
     cliente: doc.razonSocialEmisor,
-    giro: null,
-    direccion: null,
-    comuna: null,
+    giro: doc.giroEmisor,
+    direccion: doc.direccionEmisor,
+    comuna: doc.comunaEmisor,
+    ciudad: doc.ciudadEmisor,
+    telefono: doc.telefonoEmisor,
+    email: doc.emailEmisor,
   };
 }
 
@@ -291,12 +296,45 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
 
   const partners = await db.partner.findMany({
     where: { companyId: ctx.company.id },
-    select: { id: true, name: true, rut: true, address: true, salespersonId: true },
+    select: {
+      id: true,
+      name: true,
+      rut: true,
+      type: true,
+      address: true,
+      commune: true,
+      city: true,
+      phone: true,
+      email: true,
+      giro: true,
+      salespersonId: true,
+    },
   });
-  const partnerPorRut = new Map<string, { id: string; address: string | null; salespersonId: string | null }>();
-  const partnerPorNombre = new Map<string, { id: string; address: string | null; salespersonId: string | null }>();
+  type PartnerInfo = {
+    id: string;
+    type: PartnerType;
+    address: string | null;
+    commune: string | null;
+    city: string | null;
+    phone: string | null;
+    email: string | null;
+    giro: string | null;
+    salespersonId: string | null;
+  };
+  const partnerPorRut = new Map<string, PartnerInfo>();
+  const partnerPorNombre = new Map<string, PartnerInfo>();
   for (const partner of partners) {
-    const info = { id: partner.id, address: partner.address, salespersonId: partner.salespersonId };
+    const info: PartnerInfo = {
+      id: partner.id,
+      type: partner.type,
+      address: partner.address,
+      commune: partner.commune,
+      city: partner.city,
+      phone: partner.phone,
+      email: partner.email,
+      giro: partner.giro,
+      salespersonId: partner.salespersonId,
+    };
     if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), info);
     partnerPorNombre.set(partner.name.trim().toLowerCase(), info);
   }
@@ -334,12 +372,15 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
       let partner = rutNormalizado ? partnerPorRut.get(rutNormalizado) : undefined;
       if (!partner) partner = partnerPorNombre.get(cliente.toLowerCase());
 
-      // Datos de contacto del XML (datos aparte del registro de la venta):
-      // viven en el cliente, no en la venta.
-      const xmlDireccion = [doc.direccion, doc.comuna]
-        .map((parte) => String(parte ?? "").trim())
-        .filter(Boolean)
-        .join(", ") || null;
+      // Datos de contacto del XML: viven en el cliente, no en la venta.
+      const contacto = {
+        address: doc.direccion ? String(doc.direccion).slice(0, 200) : null,
+        commune: doc.comuna ? String(doc.comuna).slice(0, 120) : null,
+        city: doc.ciudad ? String(doc.ciudad).slice(0, 120) : null,
+        phone: doc.telefono ? String(doc.telefono).slice(0, 60) : null,
+        email: doc.email ? String(doc.email).slice(0, 200) : null,
+        giro: doc.giro ? String(doc.giro).slice(0, 200) : null,
+      };
 
       if (!partner) {
         const creado = await db.partner.create({
@@ -348,16 +389,16 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
             type: "CUSTOMER",
             name: cliente,
             rut: rutNormalizado ? formatRut(rutNormalizado) : null,
-            address: xmlDireccion,
+            ...contacto,
           },
         });
-        partner = { id: creado.id, address: xmlDireccion, salespersonId: null };
+        partner = { id: creado.id, type: "CUSTOMER", salespersonId: null, ...contacto };
         if (rutNormalizado) partnerPorRut.set(rutNormalizado, partner);
         partnerPorNombre.set(cliente.toLowerCase(), partner);
-      } else if (!partner.address && xmlDireccion) {
-        // Cliente existente sin dirección: complétala con la del XML.
-        await db.partner.update({ where: { id: partner.id }, data: { address: xmlDireccion } });
-        partner.address = xmlDireccion;
+      } else {
+        // Un tercero que solo era proveedor pasa a BOTH: esta venta lo usa como cliente.
+        await ensurePartnerRole(partner, "CUSTOMER");
+        await fillPartnerContact(partner, contacto);
       }
       const partnerId = partner.id;
 
@@ -572,7 +613,7 @@ export async function previewPurchaseXml(
 
   return {
     fileName: file.name,
-    xmlContent: buffer.toString("utf8"),
+    xmlContent: decodeDteXml(buffer),
     rows,
     resumen,
   };
@@ -608,16 +649,48 @@ export async function confirmPurchaseXml(
   });
   const foliosExistentes = new Set(existentes.map((row) => row.documentNumber));
 
-  // Proveedores: buscar o crear por RUT.
+  // Proveedores: buscar o crear por RUT. El tipo y los datos de contacto se
+  // completan con lo que traiga el XML.
   const partners = await db.partner.findMany({
     where: { companyId: ctx.company.id },
-    select: { id: true, name: true, rut: true },
+    select: {
+      id: true,
+      name: true,
+      rut: true,
+      type: true,
+      address: true,
+      commune: true,
+      city: true,
+      phone: true,
+      email: true,
+      giro: true,
+    },
   });
-  const partnerPorRut = new Map<string, { id: string }>();
-  const partnerPorNombre = new Map<string, { id: string }>();
+  type SupplierInfo = {
+    id: string;
+    type: PartnerType;
+    address: string | null;
+    commune: string | null;
+    city: string | null;
+    phone: string | null;
+    email: string | null;
+    giro: string | null;
+  };
+  const partnerPorRut = new Map<string, SupplierInfo>();
+  const partnerPorNombre = new Map<string, SupplierInfo>();
   for (const partner of partners) {
-    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), { id: partner.id });
-    partnerPorNombre.set(partner.name.trim().toLowerCase(), { id: partner.id });
+    const info: SupplierInfo = {
+      id: partner.id,
+      type: partner.type,
+      address: partner.address,
+      commune: partner.commune,
+      city: partner.city,
+      phone: partner.phone,
+      email: partner.email,
+      giro: partner.giro,
+    };
+    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), info);
+    partnerPorNombre.set(partner.name.trim().toLowerCase(), info);
   }
 
   const errores: string[] = [];
@@ -645,21 +718,36 @@ export async function confirmPurchaseXml(
       const rut = String(doc.rut ?? "").trim();
       const nombre = String(doc.cliente ?? "").trim() || "(sin razón social)";
       const rutNormalizado = rut ? normalizeRut(rut) : "";
-      let partnerId = rutNormalizado ? partnerPorRut.get(rutNormalizado)?.id : undefined;
-      if (!partnerId) partnerId = partnerPorNombre.get(nombre.toLowerCase())?.id;
-      if (!partnerId) {
+      const contacto = {
+        address: doc.direccion ? String(doc.direccion).slice(0, 200) : null,
+        commune: doc.comuna ? String(doc.comuna).slice(0, 120) : null,
+        city: doc.ciudad ? String(doc.ciudad).slice(0, 120) : null,
+        phone: doc.telefono ? String(doc.telefono).slice(0, 60) : null,
+        email: doc.email ? String(doc.email).slice(0, 200) : null,
+        giro: doc.giro ? String(doc.giro).slice(0, 200) : null,
+      };
+
+      let partner = rutNormalizado ? partnerPorRut.get(rutNormalizado) : undefined;
+      if (!partner) partner = partnerPorNombre.get(nombre.toLowerCase());
+      if (!partner) {
         const creado = await db.partner.create({
           data: {
             companyId: ctx.company.id,
             type: "SUPPLIER",
             name: nombre,
             rut: rutNormalizado ? formatRut(rutNormalizado) : null,
+            ...contacto,
           },
         });
-        partnerId = creado.id;
-        if (rutNormalizado) partnerPorRut.set(rutNormalizado, { id: creado.id });
-        partnerPorNombre.set(nombre.toLowerCase(), { id: creado.id });
+        partner = { id: creado.id, type: "SUPPLIER", ...contacto };
+        if (rutNormalizado) partnerPorRut.set(rutNormalizado, partner);
+        partnerPorNombre.set(nombre.toLowerCase(), partner);
+      } else {
+        // Un tercero que solo era cliente pasa a BOTH: esta compra lo usa como proveedor.
+        await ensurePartnerRole(partner, "SUPPLIER");
+        await fillPartnerContact(partner, contacto);
       }
+      const partnerId = partner.id;
 
       const fecha = new Date(`${String(doc.fecha)}T00:00:00.000Z`);
       const venc = doc.vencimiento && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.vencimiento))
@@ -754,7 +842,7 @@ export async function backfillSaleItemsFromXml(saleId: string): Promise<void> {
   });
   if (!sale || !sale.xmlContent) redirect(`/dashboard/ventas/${saleId}`);
 
-  const parsed = parseDteXml(Buffer.from(sale.xmlContent!, "utf8"));
+  const parsed = parseDteXml(sale.xmlContent);
   const doc = parsed.documentos.find((d) => d.folio === sale.documentNumber);
   if (!doc || !doc.itemsDetalle?.length) redirect(`/dashboard/ventas/${saleId}`);
 

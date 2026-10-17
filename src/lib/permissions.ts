@@ -24,13 +24,15 @@ export type Section = (typeof sections)[number];
 // Quién entra a cada sección.
 const ACCESS: Record<Section, readonly Role[]> = {
   panel: ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"],
-  compras: ["ADMIN", "ACCOUNTANT", "VIEWER"],
+  // El vendedor entra en solo lectura: necesita verificar compras y proveedores
+  // sin poder crearlos ni pagarlos (eso sigue en WRITE).
+  compras: ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"],
   ventas: ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"],
   gastos: ["ADMIN", "ACCOUNTANT", "VIEWER"],
   // Los sueldos son datos sensibles: solo administración y contabilidad.
   rrhh: ["ADMIN", "ACCOUNTANT"],
   clientes: ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"],
-  proveedores: ["ADMIN", "ACCOUNTANT", "VIEWER"],
+  proveedores: ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"],
   catalogos: ["ADMIN", "ACCOUNTANT"],
   reportes: ["ADMIN", "ACCOUNTANT", "VIEWER"],
   auditoria: ["ADMIN", "ACCOUNTANT"],

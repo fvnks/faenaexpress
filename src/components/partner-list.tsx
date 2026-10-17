@@ -15,6 +15,7 @@ export function PartnerList({
   newLabel,
   emptyTitle,
   emptyBody,
+  linkNames,
 }: {
   partners: Partner[];
   basePath: string;
@@ -24,7 +25,11 @@ export function PartnerList({
   newLabel: string;
   emptyTitle: string;
   emptyBody: string;
+  // El detalle del proveedor es de solo lectura: también lo abre quien no edita.
+  linkNames?: boolean;
 }) {
+  const linkable = linkNames ?? writable;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -65,7 +70,7 @@ export function PartnerList({
               {partners.map((partner) => (
                 <tr key={partner.id} className="border-b border-border last:border-0 hover:bg-primary-soft/30 transition-colors">
                   <td className="px-4 py-3 align-top">
-                    {writable ? (
+                    {linkable ? (
                       <Link
                         href={`${basePath}/${partner.id}`}
                         className="font-medium text-foreground underline-offset-2 hover:underline"

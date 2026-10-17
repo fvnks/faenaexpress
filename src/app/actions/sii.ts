@@ -7,11 +7,13 @@ import type { RcvSide } from "@albertomarturelo/sii-core";
 import { consoleLogin } from "@albertomarturelo/sii-core/cli";
 import { logout as siiLogout } from "@albertomarturelo/sii-core";
 
+import type { PartnerType } from "@/generated/prisma/client";
 import { recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { dteTipoLabel } from "@/lib/labels";
+import { ensurePartnerRole } from "@/lib/partners";
 import { formatRut, isValidRut, normalizeRut } from "@/lib/rut";
 import { fetchRcvRows, type RcvRow } from "@/lib/sii/rcv";
 import { createAppRuntime } from "@/lib/sii/runtime";
@@ -558,13 +560,15 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
   // 3. Importar (misma lógica que confirmRcvSync)
   const partners = await db.partner.findMany({
     where: { companyId: ctx.company.id },
-    select: { id: true, name: true, rut: true, salespersonId: true },
+    select: { id: true, name: true, rut: true, type: true, salespersonId: true },
   });
-  const partnerPorRut = new Map<string, { id: string; salespersonId: string | null }>();
-  const partnerPorNombre = new Map<string, { id: string; salespersonId: string | null }>();
+  type PartnerInfo = { id: string; type: PartnerType; salespersonId: string | null };
+  const partnerPorRut = new Map<string, PartnerInfo>();
+  const partnerPorNombre = new Map<string, PartnerInfo>();
   for (const partner of partners) {
-    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), { id: partner.id, salespersonId: partner.salespersonId });
-    partnerPorNombre.set(partner.name.trim().toLowerCase(), { id: partner.id, salespersonId: partner.salespersonId });
+    const info: PartnerInfo = { id: partner.id, type: partner.type, salespersonId: partner.salespersonId };
+    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), info);
+    partnerPorNombre.set(partner.name.trim().toLowerCase(), info);
   }
 
   let imported = 0;
@@ -584,6 +588,7 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
       const rutNormalizado = rut ? normalizeRut(rut) : "";
       if (rutNormalizado && (await workerRutExists(ctx.company.id, rutNormalizado))) continue;
 
+      const rol: "SUPPLIER" | "CUSTOMER" = side === "COMPRA" ? "SUPPLIER" : "CUSTOMER";
       const partnerInfo = rutNormalizado ? partnerPorRut.get(rutNormalizado) : undefined;
       const partner = partnerInfo ?? partnerPorNombre.get(nombre.toLowerCase());
       let partnerId = partner?.id;
@@ -591,15 +596,18 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
         const creado = await db.partner.create({
           data: {
             companyId: ctx.company.id,
-            type: side === "COMPRA" ? "SUPPLIER" : "CUSTOMER",
+            type: rol,
             name: nombre,
             rut: rutNormalizado ? formatRut(rutNormalizado) : null,
           },
         });
         partnerId = creado.id;
-        const info = { id: creado.id, salespersonId: null };
+        const info: PartnerInfo = { id: creado.id, type: rol, salespersonId: null };
         if (rutNormalizado) partnerPorRut.set(rutNormalizado, info);
         partnerPorNombre.set(nombre.toLowerCase(), info);
+      } else {
+        // Un tercero que solo tenía el otro rol pasa a BOTH.
+        if (partner) await ensurePartnerRole(partner, rol);
       }
 
       const fecha = new Date(`${fechaIso}T00:00:00.000Z`);
@@ -707,13 +715,15 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
 
   const partners = await db.partner.findMany({
     where: { companyId: ctx.company.id },
-    select: { id: true, name: true, rut: true, salespersonId: true },
+    select: { id: true, name: true, rut: true, type: true, salespersonId: true },
   });
-  const partnerPorRut = new Map<string, { id: string; salespersonId: string | null }>();
-  const partnerPorNombre = new Map<string, { id: string; salespersonId: string | null }>();
+  type PartnerInfo = { id: string; type: PartnerType; salespersonId: string | null };
+  const partnerPorRut = new Map<string, PartnerInfo>();
+  const partnerPorNombre = new Map<string, PartnerInfo>();
   for (const partner of partners) {
-    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), { id: partner.id, salespersonId: partner.salespersonId });
-    partnerPorNombre.set(partner.name.trim().toLowerCase(), { id: partner.id, salespersonId: partner.salespersonId });
+    const info: PartnerInfo = { id: partner.id, type: partner.type, salespersonId: partner.salespersonId };
+    if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), info);
+    partnerPorNombre.set(partner.name.trim().toLowerCase(), info);
   }
 
   const errores: string[] = [];
@@ -745,6 +755,7 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
         errores.push(`Folio ${folio}: el tercero es un trabajador de RRHH; no se registra como tercero.`);
         continue;
       }
+      const rol: "SUPPLIER" | "CUSTOMER" = side === "COMPRA" ? "SUPPLIER" : "CUSTOMER";
       const partnerInfo = rutNormalizado ? partnerPorRut.get(rutNormalizado) : undefined;
       const partner = partnerInfo ?? partnerPorNombre.get(nombre.toLowerCase());
       let partnerId = partner?.id;
@@ -752,15 +763,18 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
         const creado = await db.partner.create({
           data: {
             companyId: ctx.company.id,
-            type: side === "COMPRA" ? "SUPPLIER" : "CUSTOMER",
+            type: rol,
             name: nombre,
             rut: rutNormalizado ? formatRut(rutNormalizado) : null,
           },
         });
         partnerId = creado.id;
-        const info = { id: creado.id, salespersonId: null };
+        const info: PartnerInfo = { id: creado.id, type: rol, salespersonId: null };
         if (rutNormalizado) partnerPorRut.set(rutNormalizado, info);
         partnerPorNombre.set(nombre.toLowerCase(), info);
+      } else {
+        // Un tercero que solo tenía el otro rol pasa a BOTH.
+        if (partner) await ensurePartnerRole(partner, rol);
       }
 
       const fecha = new Date(`${fechaIso}T00:00:00.000Z`);

@@ -22,7 +22,7 @@ function ChevronRight() {
 export type CrumbItem = {
   label: string;
   href?: string;
-  icon?: "home" | "compras" | "ventas" | "gastos" | "reportes" | "auditoria" | "catalogos" | "configuracion";
+  icon?: "home" | "compras" | "ventas" | "gastos" | "reportes" | "auditoria" | "catalogos" | "configuracion" | "proveedores";
 };
 
 function SectionIcon({ name }: { name: CrumbItem["icon"] }) {
@@ -66,6 +66,13 @@ function SectionIcon({ name }: { name: CrumbItem["icon"] }) {
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
           <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+        </svg>
+      );
+    case "proveedores":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
+          <path d="M1 3h15v13H1z" /><path d="M16 8h4l3 3v5h-7z" />
+          <circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
         </svg>
       );
     case "configuracion":

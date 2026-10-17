@@ -12,6 +12,7 @@ export default async function SuppliersPage() {
       partners={partners}
       basePath="/dashboard/proveedores"
       writable={writable}
+      linkNames
       title="Proveedores"
       subtitle="A quién le compras y con quién registras las compras."
       newLabel="Nuevo proveedor"
