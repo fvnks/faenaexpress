@@ -8,9 +8,11 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { LiveSearchInputs } from "@/components/live-search-inputs";
 import { ToasterFlash } from "@/components/toaster-flash";
 import { getActiveMembership, requireUser } from "@/lib/auth";
+import { countPendingMovements } from "@/lib/banco";
 import { getFlash } from "@/lib/flash";
 import { roleLabel } from "@/lib/labels";
 import { countUnreadNotifications, syncDueNotifications } from "@/lib/notifications";
+import { canAccess } from "@/lib/permissions";
 import { pendingCounts } from "@/lib/reports";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
@@ -26,9 +28,14 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     await syncDueNotifications(active.company.id);
   }
 
-  const [unread, pending, flash] = await Promise.all([
+  const [unread, pending, pendingBank, flash] = await Promise.all([
     active ? countUnreadNotifications(active.company.id) : Promise.resolve(0),
     active ? pendingCounts(active.company.id) : Promise.resolve({ sales: 0 }),
+    // Solo administración y contabilidad ven el banco: para el resto no se
+    // consulta siquiera.
+    active && canAccess(active.role, "banco")
+      ? countPendingMovements(active.company.id)
+      : Promise.resolve(0),
     getFlash(),
   ]);
 
@@ -42,6 +49,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         roleLabel={active ? roleLabel(active.role) : "Sin empresa"}
         companyName={active?.company.name ?? "Sin empresa"}
         pendingSales={pending.sales}
+        pendingBank={pendingBank}
         logout={logout}
       />
       <div className="flex min-w-0 flex-1 flex-col">

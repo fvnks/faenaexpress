@@ -194,6 +194,12 @@ export async function getPurchase(companyId: string, id: string) {
       category: true,
       area: true,
       createdBy: true,
+      // De dónde salió el pago: el movimiento bancario con que se concilió.
+      bankReconciliations: {
+        take: 1,
+        orderBy: { createdAt: "desc" },
+        include: { movement: { include: { account: { select: { label: true, bankId: true } } } } },
+      },
       items: { orderBy: { position: "asc" }, include: { product: { select: { id: true, name: true, sku: true } } } },
     },
   });

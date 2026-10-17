@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { deletePurchase, markPurchasePaid, markPurchasePending } from "@/app/actions/purchases";
 import { ActionsDropdown } from "@/components/actions-dropdown";
+import { BankReconciliationNote } from "@/components/bank-reconciliation-note";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
@@ -9,6 +10,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate } from "@/lib/money";
+import { canAccess } from "@/lib/permissions";
 import { getPurchase } from "@/lib/purchases";
 import {
   cardClass,
@@ -31,6 +33,8 @@ export default async function PurchaseDetailPage(props: PageProps<"/dashboard/co
 
   const writable = canWrite(ctx, "compras");
   const paid = purchase.status === "PAID";
+  const canSeeBank = canAccess(ctx.role, "banco");
+  const bankLink = purchase.bankReconciliations[0] ?? null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -123,6 +127,8 @@ export default async function PurchaseDetailPage(props: PageProps<"/dashboard/co
               Pendiente de pago desde el {formatDate(purchase.date)}.
             </p>
           )}
+
+          {bankLink && canSeeBank ? <BankReconciliationNote movement={bankLink.movement} /> : null}
 
           {writable ? (
             paid ? (

@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { deleteSale, markSalePaid, markSalePending } from "@/app/actions/sales";
 import { backfillSaleItemsFromXml } from "@/app/actions/dte";
 import { ActionsDropdown } from "@/components/actions-dropdown";
+import { BankReconciliationNote } from "@/components/bank-reconciliation-note";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
+import { canAccess } from "@/lib/permissions";
 import { getSale } from "@/lib/sales";
 import {
   cardClass,
@@ -29,6 +31,8 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
 
   const writable = canWrite(ctx, "ventas");
   const collected = sale.status === "PAID";
+  const canSeeBank = canAccess(ctx.role, "banco");
+  const bankLink = sale.bankReconciliations[0] ?? null;
   const total = Number(sale.totalAmount.toString());
   const retention = Number(sale.retentionAmount.toString());
   const toCollect = Math.max(total - retention, 0);
@@ -145,6 +149,8 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
               Por cobrar desde el {formatDate(sale.date)}.
             </p>
           )}
+
+          {bankLink && canSeeBank ? <BankReconciliationNote movement={bankLink.movement} /> : null}
 
           {writable ? (
             collected ? (

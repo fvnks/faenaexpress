@@ -470,6 +470,21 @@ function UserMenu({
   );
 }
 
+/**
+ * Pendientes por ítem: ventas por cobrar y movimientos bancarios sin conciliar
+ * son trabajo que espera a alguien, así que se avisan en el menú.
+ */
+function itemPending(item: SidebarItem, pendingSales: number, pendingBank: number): number {
+  if (item.section === "ventas") return pendingSales;
+  if (item.section === "banco") return pendingBank;
+  return 0;
+}
+
+/** En el rail colapsado el aviso va por grupo: el desglose vive en el panel. */
+function groupPending(group: SidebarGroup, pendingSales: number, pendingBank: number): number {
+  return group.items.reduce((acc, item) => acc + itemPending(item, pendingSales, pendingBank), 0);
+}
+
 function rowClass(active: boolean) {
   return (
     "flex items-center gap-3 rounded-control px-2 py-2 text-sm transition-colors " +
@@ -488,6 +503,7 @@ function SidebarNavItem({
   item,
   pathname,
   pendingSales,
+  pendingBank,
   expanded,
   onToggle,
   onNavigate,
@@ -495,13 +511,15 @@ function SidebarNavItem({
   item: SidebarItem;
   pathname: string;
   pendingSales: number;
+  pendingBank: number;
   expanded: boolean;
   onToggle: () => void;
   onNavigate: () => void;
 }) {
   if (!item.children || item.children.length === 0) {
     const active = isActive(pathname, item.href);
-    const badge = item.section === "ventas" && pendingSales > 0 ? pendingSales : null;
+    const pending = itemPending(item, pendingSales, pendingBank);
+    const badge = pending > 0 ? pending : null;
     return (
       <li>
         <Link
@@ -579,6 +597,8 @@ export type SidebarProps = {
   roleLabel: string;
   companyName: string;
   pendingSales: number;
+  /** Movimientos bancarios sin conciliar: trabajo pendiente de contabilidad. */
+  pendingBank: number;
   logout: () => void;
 };
 
@@ -763,7 +783,8 @@ export function Sidebar(props: SidebarProps) {
           const containsActive = groupContainsActive(group);
           const open = openGroup?.label === group.label;
           const flyoutId = `sidebar-flyout-${group.label.toLowerCase().replace(/\s+/g, "-")}`;
-          const badge = group.label === "Movimientos" && props.pendingSales > 0 ? props.pendingSales : null;
+          const pending = groupPending(group, props.pendingSales, props.pendingBank);
+          const badge = pending > 0 ? pending : null;
           return (
             <div key={group.label} className="relative shrink-0" onMouseLeave={scheduleCloseFlyout}>
               <button
@@ -778,7 +799,8 @@ export function Sidebar(props: SidebarProps) {
                 aria-expanded={open}
                 aria-haspopup="true"
                 aria-controls={flyoutId}
-                title={group.label}
+                aria-label={badge ? `${group.label}, ${badge} pendientes` : group.label}
+                title={badge ? `${group.label} · ${badge} pendientes` : group.label}
                 className={collapsedIconClass(containsActive) + (open ? " bg-background" : "")}
               >
                 <Icon name={groupIcons[group.label] ?? "panel"} />
@@ -806,8 +828,8 @@ export function Sidebar(props: SidebarProps) {
                       const active =
                         isActive(pathname, item.href) ||
                         item.children?.some((child) => isActive(pathname, child.href));
-                      const itemBadge =
-                        item.section === "ventas" && props.pendingSales > 0 ? props.pendingSales : null;
+                      const itemPendingCount = itemPending(item, props.pendingSales, props.pendingBank);
+                      const itemBadge = itemPendingCount > 0 ? itemPendingCount : null;
                       return (
                         <li key={item.href}>
                           <Link
@@ -976,6 +998,7 @@ export function Sidebar(props: SidebarProps) {
                         item={item}
                         pathname={pathname}
                         pendingSales={props.pendingSales}
+                        pendingBank={props.pendingBank}
                         expanded={itemExpanded}
                         onToggle={() => toggle(item.label, itemExpanded)}
                         onNavigate={closeMobile}

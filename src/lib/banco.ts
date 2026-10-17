@@ -4,8 +4,10 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { Prisma } from "@/generated/prisma/client";
 import type { AuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { paginate, parsePage } from "@/lib/pagination";
 
 /**
  * Conciliación bancaria.
@@ -284,6 +286,16 @@ export type Suggestion = {
   score: number;
 };
 
+/** Documento con el que quedó conciliado un movimiento. */
+export type MovementReconciliation = {
+  saleId: string | null;
+  purchaseId: string | null;
+  saleFolio: string | null;
+  purchaseFolio: string | null;
+  partner: string;
+  createdAt: Date;
+};
+
 export type MovementWithMatch = {
   id: string;
   date: Date;
@@ -294,11 +306,87 @@ export type MovementWithMatch = {
   accountLabel: string;
   bankId: string;
   ignoredAt: Date | null;
-  reconciliation: { saleFolio: string | null; purchaseFolio: string | null } | null;
+  reconciliation: MovementReconciliation | null;
   suggestions: Suggestion[];
 };
 
+// Vistas de la bandeja. "pendientes" es la vista de trabajo: sin conciliar y
+// sin ignorar. "conciliados" e "ignorados" son el historial.
+export const BOARD_STATES = ["pendientes", "sugeridos", "sin_sugerencia", "ignorados", "conciliados"] as const;
+export type BoardState = (typeof BOARD_STATES)[number];
+
+export const BOARD_STATE_LABELS: Record<BoardState, string> = {
+  pendientes: "Pendientes",
+  sugeridos: "Con coincidencia",
+  sin_sugerencia: "Sin coincidencia",
+  ignorados: "Ignorados",
+  conciliados: "Conciliados",
+};
+
+export type BoardFilters = {
+  estado: BoardState;
+  q: string;
+  desde: string;
+  hasta: string;
+  montoMin: string;
+  montoMax: string;
+  /** Id de un movimiento a destacar arriba (llega desde compras o ventas). */
+  movimiento: string;
+  pagina: string;
+};
+
+export const EMPTY_BOARD_FILTERS: BoardFilters = {
+  estado: "pendientes",
+  q: "",
+  desde: "",
+  hasta: "",
+  montoMin: "",
+  montoMax: "",
+  movimiento: "",
+  pagina: "",
+};
+
+const isoDay = (raw: string | undefined) => {
+  const value = (raw ?? "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+};
+
+export function parseBoardFilters(raw: {
+  estado?: string;
+  q?: string;
+  desde?: string;
+  hasta?: string;
+  montoMin?: string;
+  montoMax?: string;
+  movimiento?: string;
+  pagina?: string;
+}): BoardFilters {
+  const estado = (BOARD_STATES as readonly string[]).includes(raw.estado ?? "")
+    ? (raw.estado as BoardState)
+    : "pendientes";
+  return {
+    estado,
+    q: (raw.q ?? "").trim(),
+    desde: isoDay(raw.desde),
+    hasta: isoDay(raw.hasta),
+    montoMin: (raw.montoMin ?? "").trim(),
+    montoMax: (raw.montoMax ?? "").trim(),
+    movimiento: (raw.movimiento ?? "").trim(),
+    pagina: (raw.pagina ?? "").trim(),
+  };
+}
+
+/** "379.972", "379972" o "$379.972" → 379972. Vacío o basura → null. */
+function parseAmount(raw: string): number | null {
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const value = Number(digits);
+  return Number.isFinite(value) ? value : null;
+}
+
 const CANDIDATE_WINDOW_DAYS = 370;
+const CANDIDATE_FUTURE_DAYS = 45;
+const DAY_MS = 86_400_000;
 
 function scoreCandidate(
   movement: { amount: number; date: Date; description: string },
@@ -310,23 +398,287 @@ function scoreCandidate(
   if (folio && description.includes(folio)) score += 60;
   const partnerToken = candidate.partnerName.toUpperCase().split(/\s+/)[0];
   if (partnerToken.length >= 4 && description.includes(partnerToken)) score += 30;
-  const days = Math.abs(Math.round((movement.date.getTime() - candidate.date.getTime()) / 86_400_000));
+  const days = Math.abs(Math.round((movement.date.getTime() - candidate.date.getTime()) / DAY_MS));
   score += Math.max(0, 20 - Math.floor(days / 3));
   return score;
 }
 
+type Candidate = {
+  id: string;
+  documentNumber: string | null;
+  totalAmount: number;
+  date: Date;
+  partnerName: string;
+};
+
+type CandidateIndex = {
+  purchases: Map<number, Candidate[]>;
+  sales: Map<number, Candidate[]>;
+};
+
+function indexByAmount(rows: Candidate[]): Map<number, Candidate[]> {
+  const index = new Map<number, Candidate[]>();
+  for (const row of rows) {
+    const bucket = index.get(row.totalAmount);
+    if (bucket) bucket.push(row);
+    else index.set(row.totalAmount, [row]);
+  }
+  return index;
+}
+
 /**
- * Movimientos sin conciliar con sus mejores coincidencias: abonos contra
- * ventas por cobrar y cargos contra compras por pagar, por monto exacto y
- * ventana de fechas. Un movimiento ya conciliado o ignorado no se sugiere.
+ * Documentos por pagar y por cobrar. Se indexan por monto porque la
+ * coincidencia exacta de monto es el filtro duro: así un movimiento se compara
+ * solo contra los documentos de su monto, no contra toda la cartera.
  */
-export async function loadReconciliationBoard(companyId: string): Promise<{
+async function loadCandidates(companyId: string): Promise<CandidateIndex> {
+  const [purchases, sales] = await Promise.all([
+    db.purchase.findMany({
+      where: { companyId, status: "PENDING", totalAmount: { gt: 0 } },
+      select: {
+        id: true,
+        documentNumber: true,
+        totalAmount: true,
+        date: true,
+        partner: { select: { name: true } },
+      },
+    }),
+    db.sale.findMany({
+      where: { companyId, status: "PENDING", totalAmount: { gt: 0 } },
+      select: {
+        id: true,
+        documentNumber: true,
+        totalAmount: true,
+        date: true,
+        partner: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  const toCandidate = (row: {
+    id: string;
+    documentNumber: string | null;
+    totalAmount: number;
+    date: Date;
+    partner: { name: string };
+  }): Candidate => ({
+    id: row.id,
+    documentNumber: row.documentNumber,
+    totalAmount: row.totalAmount,
+    date: row.date,
+    partnerName: row.partner.name,
+  });
+
+  return {
+    purchases: indexByAmount(purchases.map(toCandidate)),
+    sales: indexByAmount(sales.map(toCandidate)),
+  };
+}
+
+type MovementLike = { amount: number; date: Date; description: string };
+
+/**
+ * Mejores coincidencias de un movimiento: abonos contra ventas por cobrar y
+ * cargos contra compras por pagar, por monto exacto y ventana de fechas. La
+ * ventana deja 45 días hacia adelante (el pago puede ser posterior al documento)
+ * y 370 hacia atrás.
+ */
+function suggestionsFor(movement: MovementLike, index: CandidateIndex): Suggestion[] {
+  if (movement.amount === 0) return [];
+  const target = Math.abs(movement.amount);
+  const isInflow = movement.amount > 0;
+  const pool = isInflow ? index.sales : index.purchases;
+  const inWindow = (pool.get(target) ?? []).filter(
+    (candidate) =>
+      candidate.date.getTime() <= movement.date.getTime() + CANDIDATE_FUTURE_DAYS * DAY_MS &&
+      candidate.date.getTime() >= movement.date.getTime() - CANDIDATE_WINDOW_DAYS * DAY_MS,
+  );
+
+  return inWindow
+    .map((candidate) => ({
+      targetType: isInflow ? ("sale" as const) : ("purchase" as const),
+      targetId: candidate.id,
+      folio: candidate.documentNumber ?? "sin folio",
+      partner: candidate.partnerName,
+      amount: candidate.totalAmount,
+      date: candidate.date,
+      daysDiff: Math.round((movement.date.getTime() - candidate.date.getTime()) / DAY_MS),
+      score: scoreCandidate(movement, {
+        documentNumber: candidate.documentNumber,
+        partnerName: candidate.partnerName,
+        date: candidate.date,
+      }),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
+
+const MOVEMENT_INCLUDE = {
+  account: { select: { label: true, bankId: true } },
+  reconciliations: {
+    select: {
+      createdAt: true,
+      purchase: { select: { id: true, documentNumber: true, partner: { select: { name: true } } } },
+      sale: { select: { id: true, documentNumber: true, partner: { select: { name: true } } } },
+    },
+  },
+} satisfies Prisma.BankMovementInclude;
+
+type MovementRow = Prisma.BankMovementGetPayload<{ include: typeof MOVEMENT_INCLUDE }>;
+
+function reconciliationOf(link: MovementRow["reconciliations"][number] | undefined): MovementReconciliation | null {
+  if (!link) return null;
+  const counterpart = link.sale?.partner.name ?? link.purchase?.partner.name ?? "Sin contraparte";
+  return {
+    saleId: link.sale?.id ?? null,
+    purchaseId: link.purchase?.id ?? null,
+    saleFolio: link.sale?.documentNumber ?? null,
+    purchaseFolio: link.purchase?.documentNumber ?? null,
+    partner: counterpart,
+    createdAt: link.createdAt,
+  };
+}
+
+function toMovement(row: MovementRow, index: CandidateIndex | null): MovementWithMatch {
+  return {
+    id: row.id,
+    date: row.date,
+    description: row.description,
+    amount: row.amount,
+    balance: row.balance,
+    source: row.source,
+    accountLabel: row.account.label,
+    bankId: row.account.bankId,
+    ignoredAt: row.ignoredAt,
+    reconciliation: reconciliationOf(row.reconciliations[0]),
+    suggestions: index ? suggestionsFor(row, index) : [],
+  };
+}
+
+/** Filtros que la base resuelve sola: empresa, estado, fechas y glosa. */
+function movementWhere(companyId: string, filters: BoardFilters): Prisma.BankMovementWhereInput {
+  const where: Prisma.BankMovementWhereInput = { companyId };
+
+  if (filters.estado === "conciliados") {
+    where.reconciliations = { some: {} };
+  } else if (filters.estado === "ignorados") {
+    where.ignoredAt = { not: null };
+    where.reconciliations = { none: {} };
+  } else {
+    where.ignoredAt = null;
+    where.reconciliations = { none: {} };
+  }
+
+  if (filters.desde || filters.hasta) {
+    where.date = {
+      ...(filters.desde ? { gte: new Date(`${filters.desde}T00:00:00.000Z`) } : {}),
+      ...(filters.hasta ? { lte: new Date(`${filters.hasta}T23:59:59.999Z`) } : {}),
+    };
+  }
+
+  if (filters.q) {
+    const text: Prisma.StringFilter = { contains: filters.q, mode: "insensitive" };
+    // En el historial también se busca por folio y contraparte del documento.
+    where.OR =
+      filters.estado === "conciliados"
+        ? [
+            { description: text },
+            { reconciliations: { some: { purchase: { documentNumber: text } } } },
+            { reconciliations: { some: { sale: { documentNumber: text } } } },
+            { reconciliations: { some: { purchase: { partner: { name: text } } } } },
+            { reconciliations: { some: { sale: { partner: { name: text } } } } },
+          ]
+        : [{ description: text }];
+  }
+
+  return where;
+}
+
+/** Filtros que quedan en memoria: monto (siempre en valor absoluto) y coincidencia. */
+function matchesAmount(movement: MovementLike, min: number | null, max: number | null): boolean {
+  const amount = Math.abs(movement.amount);
+  return (min === null || amount >= min) && (max === null || amount <= max);
+}
+
+export type BatchMatch = {
+  movementId: string;
+  movementDate: Date;
+  targetType: "purchase" | "sale";
+  targetId: string;
+  amount: number;
+  folio: string;
+  partner: string;
+};
+
+export type BoardBatch = {
+  matches: BatchMatch[];
+  purchases: { count: number; total: number };
+  sales: { count: number; total: number };
+};
+
+/**
+ * Coincidencia única: el monto calza exacto con un solo documento. Con dos o
+ * más candidatos hay ambigüedad y decide la persona, no la app.
+ */
+function uniqueMatchOf(movement: MovementWithMatch): BatchMatch | null {
+  if (movement.suggestions.length !== 1) return null;
+  const [only] = movement.suggestions;
+  return {
+    movementId: movement.id,
+    movementDate: movement.date,
+    targetType: only.targetType,
+    targetId: only.targetId,
+    amount: only.amount,
+    folio: only.folio,
+    partner: only.partner,
+  };
+}
+
+function buildBatch(movements: MovementWithMatch[], min: number | null, max: number | null): BoardBatch {
+  const matches: BatchMatch[] = [];
+  for (const movement of movements) {
+    if (!matchesAmount(movement, min, max)) continue;
+    const match = uniqueMatchOf(movement);
+    if (match) matches.push(match);
+  }
+
+  const sum = (type: "purchase" | "sale") =>
+    matches.filter((match) => match.targetType === type).reduce((acc, match) => acc + match.amount, 0);
+
+  return {
+    matches,
+    purchases: { count: matches.filter((match) => match.targetType === "purchase").length, total: sum("purchase") },
+    sales: { count: matches.filter((match) => match.targetType === "sale").length, total: sum("sale") },
+  };
+}
+
+export type ReconciliationBoard = {
   accounts: Array<{ id: string; bankId: string; label: string; kind: string; balance: number | null; lastSyncAt: Date | null; movements: number }>;
   movements: MovementWithMatch[];
+  /** Movimiento pedido explícitamente desde una compra o venta. */
+  highlight: MovementWithMatch | null;
   lastSyncs: Array<{ id: string; bankId: string; status: string; message: string | null; startedAt: Date; imported: number }>;
-  totals: { unlinked: number; ignored: number; linked: number };
-}> {
-  const [accounts, lastSyncs, movementRows] = await Promise.all([
+  totals: { unlinked: number; ignored: number; linked: number; page: number; pageCount: number; filtered: number };
+  batch: BoardBatch;
+};
+
+/**
+ * Bandeja de conciliación: movimientos con sus mejores coincidencias, ya
+ * filtrados y paginados.
+ *
+ * Los pendientes se cargan siempre (no solo cuando la vista los pide) porque de
+ * ahí sale el contador de coincidencias únicas del botón de conciliación en
+ * lote, que actúa sobre todo lo pendiente que calce con los filtros activos.
+ */
+export async function loadReconciliationBoard(
+  companyId: string,
+  filters: BoardFilters,
+): Promise<ReconciliationBoard> {
+  const pendingScope: BoardFilters = { ...filters, estado: "pendientes", pagina: "" };
+  const min = parseAmount(filters.montoMin);
+  const max = parseAmount(filters.montoMax);
+
+  const [accounts, lastSyncs, pendingRows, index] = await Promise.all([
     db.bankAccount.findMany({
       where: { companyId },
       orderBy: [{ bankId: "asc" }, { label: "asc" }],
@@ -334,74 +686,53 @@ export async function loadReconciliationBoard(companyId: string): Promise<{
     }),
     db.bankSync.findMany({ where: { companyId }, orderBy: { startedAt: "desc" }, take: 5 }),
     db.bankMovement.findMany({
-      where: { companyId, reconciliations: { none: {} } },
-      orderBy: { date: "desc" },
-      take: 120,
-      include: { account: { select: { label: true, bankId: true } } },
+      where: movementWhere(companyId, pendingScope),
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+      include: MOVEMENT_INCLUDE,
     }),
+    loadCandidates(companyId),
   ]);
 
-  const visible = movementRows.filter((movement) => movement.ignoredAt === null);
-  const needsMatch = visible.filter((movement) => movement.amount !== 0);
+  const pendingItems = pendingRows.map((row) => toMovement(row, index));
+  const batch = buildBatch(pendingItems, min, max);
 
-  const [purchases, sales] = await Promise.all([
-    needsMatch.some((movement) => movement.amount < 0)
-      ? db.purchase.findMany({
-          where: { companyId, status: "PENDING", totalAmount: { gt: 0 } },
-          select: { id: true, documentNumber: true, totalAmount: true, date: true, partner: { select: { name: true } } },
-        })
-      : Promise.resolve([]),
-    needsMatch.some((movement) => movement.amount > 0)
-      ? db.sale.findMany({
-          where: { companyId, status: "PENDING", totalAmount: { gt: 0 } },
-          select: { id: true, documentNumber: true, totalAmount: true, date: true, partner: { select: { name: true } } },
-        })
-      : Promise.resolve([]),
-  ]);
+  // Vista pedida: la de trabajo ya está cargada; el historial de conciliados se
+  // consulta aparte (ahí no hay nada que sugerir, ya está vinculado).
+  let items: MovementWithMatch[];
+  if (filters.estado === "conciliados") {
+    const rows = await db.bankMovement.findMany({
+      where: movementWhere(companyId, filters),
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+      include: MOVEMENT_INCLUDE,
+    });
+    items = rows.map((row) => toMovement(row, null));
+  } else if (filters.estado === "ignorados") {
+    const rows = await db.bankMovement.findMany({
+      where: movementWhere(companyId, filters),
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+      include: MOVEMENT_INCLUDE,
+    });
+    // Los ignorados igual muestran coincidencias: sirve para decidir si se
+    // restituyen y se concilian.
+    items = rows.map((row) => toMovement(row, index));
+  } else {
+    items = pendingItems;
+  }
 
-  const movements: MovementWithMatch[] = visible.map((movement) => {
-    const targetAmount = Math.abs(movement.amount);
-    const pool = movement.amount > 0 ? sales : purchases;
-    const inWindow = pool.filter(
-      (candidate) =>
-        candidate.totalAmount === targetAmount &&
-        candidate.date.getTime() <= movement.date.getTime() + 45 * 86_400_000 &&
-        candidate.date.getTime() >= movement.date.getTime() - CANDIDATE_WINDOW_DAYS * 86_400_000,
-    );
-    const suggestions: Suggestion[] = inWindow
-      .map((candidate) => ({
-        targetType: movement.amount > 0 ? ("sale" as const) : ("purchase" as const),
-        targetId: candidate.id,
-        folio: candidate.documentNumber ?? "sin folio",
-        partner: candidate.partner.name,
-        amount: candidate.totalAmount,
-        date: candidate.date,
-        daysDiff: Math.round((movement.date.getTime() - candidate.date.getTime()) / 86_400_000),
-        score: scoreCandidate(movement, {
-          documentNumber: candidate.documentNumber,
-          partnerName: candidate.partner.name,
-          date: candidate.date,
-        }),
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+  if (min !== null || max !== null) {
+    items = items.filter((movement) => matchesAmount(movement, min, max));
+  }
+  if (filters.estado === "sugeridos") items = items.filter((movement) => movement.suggestions.length > 0);
+  if (filters.estado === "sin_sugerencia") items = items.filter((movement) => movement.suggestions.length === 0);
 
-    return {
-      id: movement.id,
-      date: movement.date,
-      description: movement.description,
-      amount: movement.amount,
-      balance: movement.balance,
-      source: movement.source,
-      accountLabel: movement.account.label,
-      bankId: movement.account.bankId,
-      ignoredAt: movement.ignoredAt,
-      reconciliation: null,
-      suggestions,
-    };
-  });
+  const highlight = filters.movimiento
+    ? await loadHighlight(companyId, filters.movimiento, filters.estado)
+    : null;
 
-  const [ignored, linked] = await Promise.all([
+  const { items: pageItems, page, pageCount } = paginate(items, parsePage(filters.pagina));
+
+  const [unlinked, ignored, linked] = await Promise.all([
+    db.bankMovement.count({ where: { companyId, ignoredAt: null, reconciliations: { none: {} } } }),
     db.bankMovement.count({ where: { companyId, ignoredAt: { not: null }, reconciliations: { none: {} } } }),
     db.reconciliation.count({ where: { companyId } }),
   ]);
@@ -416,7 +747,8 @@ export async function loadReconciliationBoard(companyId: string): Promise<{
       lastSyncAt: account.lastSyncAt,
       movements: account._count.movements,
     })),
-    movements,
+    movements: pageItems,
+    highlight,
     lastSyncs: lastSyncs.map((sync) => ({
       id: sync.id,
       bankId: sync.bankId,
@@ -425,6 +757,30 @@ export async function loadReconciliationBoard(companyId: string): Promise<{
       startedAt: sync.startedAt,
       imported: sync.imported,
     })),
-    totals: { unlinked: visible.length, ignored, linked },
+    totals: { unlinked, ignored, linked, page, pageCount, filtered: items.length },
+    batch,
   };
 }
+
+/** Un movimiento puntual, para el enlace que llega desde compras o ventas. */
+async function loadHighlight(
+  companyId: string,
+  movementId: string,
+  estado: BoardState,
+): Promise<MovementWithMatch | null> {
+  const row = await db.bankMovement.findFirst({
+    where: { id: movementId, companyId },
+    include: MOVEMENT_INCLUDE,
+  });
+  if (!row) return null;
+  const needsSuggestions = estado !== "conciliados" && row.reconciliations.length === 0;
+  return toMovement(row, needsSuggestions ? await loadCandidates(companyId) : null);
+}
+
+/** Cuántos movimientos esperan conciliación: aviso del sidebar. */
+export async function countPendingMovements(companyId: string): Promise<number> {
+  return db.bankMovement.count({
+    where: { companyId, ignoredAt: null, reconciliations: { none: {} } },
+  });
+}
+

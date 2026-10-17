@@ -8,7 +8,7 @@ import { SelectDropdown, type SelectOption } from "@/components/select-dropdown"
 import { cardClass, controlClass, labelClass, secondaryButtonClass } from "@/lib/ui";
 
 export type FilterField =
-  | { kind: "text"; name: string; label: string; placeholder?: string; grow?: boolean }
+  | { kind: "text"; name: string; label: string; placeholder?: string; grow?: boolean; width?: string }
   | {
       kind: "select";
       name: string;
@@ -74,7 +74,10 @@ export function FilterBar({ fields }: { fields: FilterField[] }) {
         field.kind === "text" ? (
           <div
             key={field.name}
-            className={"flex min-w-[12rem] flex-col gap-1 " + (field.grow ? "flex-1" : "")}
+            className={
+              "flex flex-col gap-1 " +
+              (field.grow ? "min-w-[12rem] flex-1" : (field.width ?? "min-w-[12rem]"))
+            }
           >
             <label htmlFor={field.name} className={labelClass}>
               {field.label}
