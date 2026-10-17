@@ -194,8 +194,13 @@ const groups: SidebarGroup[] = [
         ],
       },
       { href: "/dashboard/gastos", label: "Gastos", section: "gastos", icon: "gastos" },
-      { href: "/dashboard/banco", label: "Banco", section: "banco", icon: "banco" },
       { href: "/dashboard/rrhh", label: "RRHH", section: "rrhh", icon: "rrhh" },
+    ],
+  },
+  {
+    label: "Banco",
+    items: [
+      { href: "/dashboard/banco", label: "Conciliación bancaria", section: "banco", icon: "banco" },
     ],
   },
   {
@@ -260,6 +265,7 @@ const groups: SidebarGroup[] = [
  */
 const groupIcons: Record<string, string> = {
   Movimientos: "caja",
+  Banco: "banco",
   Inventario: "productos",
   Comisiones: "comisiones",
   Terceros: "clientes",
