@@ -98,6 +98,12 @@ export function SiiCredentialsForm({
           empresa, y permiten iniciar sesión en el SII con un clic desde Importar. Nunca se muestran
           en pantalla ni se registran en la auditoría.
         </p>
+        <p className="text-xs text-muted-foreground sm:col-span-3">
+          Para el Registro de Compras y Ventas sirve la Clave de la empresa. Para el portal de
+          facturación del SII, de donde salen los XML, el SII exige además que la cuenta figure como
+          usuario autorizado de la empresa en ese sistema (es una lista aparte del RCV): con esa
+          cuenta el RCV se consulta igual, a nombre de la empresa.
+        </p>
         {!keyConfigured ? (
           <p role="alert" className="text-xs text-danger sm:col-span-3">
             Falta <code>SII_SECRET_KEY</code> en el entorno: define una llave para poder guardar las

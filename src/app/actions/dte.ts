@@ -7,7 +7,7 @@ import type { PartnerType } from "@/generated/prisma/client";
 import { canWrite, requireContext } from "@/lib/auth";
 import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { parseDteXml, type DteDocumento, type DteEstado } from "@/lib/dte";
+import { dteDate, parseDteXml, type DteDocumento, type DteEstado } from "@/lib/dte";
 import { readUploadedXml } from "@/lib/dte-upload";
 import {
   createPurchaseItems,
@@ -78,13 +78,6 @@ export type DteConfirmState = {
 } | undefined;
 
 const MAX_DOCUMENTOS = 500;
-
-function dteDate(value: string): Date {
-  // El DTE usa fechas AAAA-MM-DD; misma convención que el importador Excel (UTC).
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) throw new Error("Fecha inválida");
-  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-}
 
 /** Analiza el XML y arma la vista previa con el estado de cada documento. */
 export async function previewDteImport(_prev: DteImportState, formData: FormData): Promise<DteImportState> {

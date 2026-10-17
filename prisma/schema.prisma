@@ -124,6 +124,15 @@ model Company {
   siiRut       String?
   siiClaveEnc  String?
 
+  // Defontana (el ERP con el que la empresa emite sus DTE). Permite traer a
+  // pedido el XML de una factura desde el Libro de Compras del ERP.
+  // `defontanaClaveEnc` y `defontanaTokenEnc` van cifrados con la misma llave
+  // que el SII; el token se cachea porque dura un año. Ver src/lib/defontana/.
+  defontanaEmail    String?
+  defontanaClaveEnc String?
+  defontanaTokenEnc String?
+  defontanaTokenExp DateTime?
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

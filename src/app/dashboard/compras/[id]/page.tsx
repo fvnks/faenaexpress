@@ -7,6 +7,7 @@ import { BankReconciliationNote } from "@/components/bank-reconciliation-note";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
 import { DteXmlPanel } from "@/components/dte-xml-panel";
+import { FetchPurchaseXmlButton } from "@/components/fetch-purchase-xml-button";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
@@ -34,6 +35,8 @@ export default async function PurchaseDetailPage(props: PageProps<"/dashboard/co
   }
 
   const writable = canWrite(ctx, "compras");
+  // Traer el XML a pedido necesita credenciales de Defontana guardadas.
+  const defontanaListo = Boolean(ctx.company.defontanaEmail && ctx.company.defontanaClaveEnc);
   const paid = purchase.status === "PAID";
   const canSeeBank = canAccess(ctx.role, "banco");
   const canSeeSuppliers = canAccess(ctx.role, "proveedores");
@@ -258,6 +261,22 @@ export default async function PurchaseDetailPage(props: PageProps<"/dashboard/co
         folio={purchase.documentNumber}
         emptyNote="Esta compra no tiene el XML guardado: entró por el RCV del SII o se cargó a mano, así que solo se guardaron los totales."
         importHref="/dashboard/importar"
+        emptyAction={
+          defontanaListo && writable ? (
+            <FetchPurchaseXmlButton purchaseId={purchase.id} />
+          ) : writable ? (
+            <p className="text-sm text-muted-foreground">
+              Para traerlo del ERP, guarda las{" "}
+              <Link
+                href="/dashboard/configuracion"
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                credenciales de Defontana
+              </Link>
+              .
+            </p>
+          ) : undefined
+        }
       />
 
     </div>

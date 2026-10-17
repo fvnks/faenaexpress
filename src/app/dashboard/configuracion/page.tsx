@@ -3,6 +3,7 @@ import { CompanyForm } from "@/app/dashboard/configuracion/company-form";
 import { AddMemberForm, MemberRow, NewMemberForm } from "@/app/dashboard/configuracion/member-forms";
 import { NewCompanyForm } from "@/app/dashboard/configuracion/new-company-form";
 import { SiiCredentialsForm } from "@/app/dashboard/configuracion/sii-credentials-form";
+import { DefontanaCredentialsForm } from "@/app/dashboard/configuracion/defontana-credentials-form";
 import { getActiveMembership, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { roleLabel } from "@/lib/labels";
@@ -83,6 +84,25 @@ export default async function ConfigurationPage() {
                 defaultRut={active.company.rut ?? ""}
                 storedRut={active.company.siiRut}
                 hasCredentials={Boolean(active.company.siiRut && active.company.siiClaveEnc)}
+                keyConfigured={siiSecretKeyConfigured()}
+              />
+            </section>
+          ) : null}
+
+          {admin ? (
+            <section className={cardClass + " p-5"}>
+              <h2 className="font-semibold">Credenciales de Defontana</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                El correo y la clave de la cuenta del ERP Defontana que tiene acceso a esta empresa.
+                Permiten pedirle el XML de una factura de compra a pedido (sin importar todo el
+                período).
+              </p>
+              <DefontanaCredentialsForm
+                defaultEmail={active.company.email ?? ""}
+                storedEmail={active.company.defontanaEmail}
+                hasCredentials={Boolean(
+                  active.company.defontanaEmail && active.company.defontanaClaveEnc,
+                )}
                 keyConfigured={siiSecretKeyConfigured()}
               />
             </section>

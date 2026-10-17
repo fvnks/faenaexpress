@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { parseDteXml, type DteDocumento } from "@/lib/dte";
 import { dteTipoLabel } from "@/lib/labels";
@@ -316,17 +317,21 @@ export function DteXmlPanel({
   folio,
   emptyNote,
   importHref,
+  emptyAction,
 }: {
   xmlContent: string | null;
   folio: string | null;
   emptyNote: string;
   importHref?: string;
+  // Botón para conseguir el XML sin subirlo a mano (traerlo del ERP).
+  emptyAction?: ReactNode;
 }) {
   if (!xmlContent) {
     return (
       <section className={cardClass + " px-5 py-4"}>
         <h2 className="text-sm font-semibold">Información del XML DTE</h2>
         <p className="mt-2 text-sm text-muted-foreground">{emptyNote}</p>
+        {emptyAction ? <div className="mt-3">{emptyAction}</div> : null}
         {importHref ? (
           <p className="mt-3 text-sm">
             <Link

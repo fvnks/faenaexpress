@@ -178,6 +178,16 @@ export function decodeDteXml(buffer: Buffer): string {
   return buffer.toString("utf8");
 }
 
+/**
+ * Fecha AAAA-MM-DD del DTE a `Date` en UTC (la misma convención que el
+ * importador de Excel y que las fechas de los documentos).
+ */
+export function dteDate(value: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) throw new Error("Fecha inválida");
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+}
+
 function toInt(value: unknown): number {
   const n = Number(String(value ?? "0").replace(/[^\d.-]/g, ""));
   return Number.isFinite(n) ? Math.round(n) : 0;
