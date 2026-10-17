@@ -9,9 +9,10 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   DefontanaError,
-  downloadPurchaseXml,
+  downloadXml,
   getMasterData,
   listPurchaseDocuments,
+  listSaleDocuments,
   loginDefontana,
   type DefontanaDocumento,
 } from "@/lib/defontana/client";
@@ -20,10 +21,10 @@ import {
   saveDefontanaCredentials,
   withDefontanaSession,
 } from "@/lib/defontana/credentials";
-import { createPurchaseItems, loadProductIndex, prepareDocItems } from "@/lib/doc-items";
+import { createPurchaseItems, createSaleItems, loadProductIndex, prepareDocItems } from "@/lib/doc-items";
 import { decodeDteXml, dteDate, parseDteXml } from "@/lib/dte";
 import { setFlash } from "@/lib/flash";
-import { syncPurchaseItemsToInventory } from "@/lib/inventory-sync";
+import { syncPurchaseItemsToInventory, syncSaleItemsToInventory } from "@/lib/inventory-sync";
 import { formatRut, normalizeRut } from "@/lib/rut";
 import { secretsKeyConfigured } from "@/lib/secrets";
 
@@ -197,7 +198,7 @@ export async function fetchPurchaseXmlAction(
       if (!documento) return { estado: "sin-documento" as const };
       if (!documento.platformId) return { estado: "sin-xml" as const, documento };
 
-      const xml = decodeDteXml(await downloadPurchaseXml(session.token, documento.platformId));
+      const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
       return { estado: "ok" as const, documento, xml };
     });
   } catch (error) {
@@ -305,3 +306,160 @@ function elegirDocumento(
   if (tipos.length === 0) return mismoFolio[0];
   return mismoFolio.find((doc) => tipos.includes(Number(doc.tipoSii))) ?? mismoFolio[0];
 }
+
+// ── Traer el XML de una venta, a pedido ───────────────────────────────────────
+// Ventas: Defontana usa otro GraphQL (`getSalesByCompany`, endpoint de ventas),
+// pero el XML se baja del mismo `purchase/getdte` con el `documentId` de la fila.
+
+/**
+ * Busca en el Libro de Ventas de Defontana el documento que corresponde a la
+ * venta, baja su XML y lo guarda completando la ficha, igual que el
+ * `confirmDteImport`: solo se pide ese documento.
+ */
+export async function fetchSaleXmlAction(
+  _prev: FetchSaleXmlState,
+  formData: FormData,
+): Promise<FetchSaleXmlState> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) {
+    return { error: "Solo contabilidad o administración puede traer el XML." };
+  }
+
+  const saleId = String(formData.get("saleId") ?? "");
+  const sale = await db.sale.findFirst({
+    where: { id: saleId, companyId: ctx.company.id },
+    select: {
+      id: true,
+      date: true,
+      documentType: true,
+      documentNumber: true,
+      xmlContent: true,
+      partner: { select: { name: true, rut: true } },
+      _count: { select: { items: true } },
+    },
+  });
+  if (!sale) return { error: "No se encontró la venta." };
+  if (sale.xmlContent) return { ok: true, message: "La venta ya tiene su XML guardado." };
+
+  const folio = sinCeros(sale.documentNumber ?? "");
+  if (!folio) return { error: "La venta no tiene folio: no se puede buscar en Defontana." };
+
+  const rutCliente = sale.partner.rut ? normalizeRut(sale.partner.rut) : "";
+  if (!rutCliente) {
+    return { error: `El cliente ${sale.partner.name} no tiene RUT registrado.` };
+  }
+
+  const tipos = TIPOS_POR_DOCUMENTO[sale.documentType ?? "INVOICE"];
+  const desde = new Date(sale.date.getTime() - 366 * 24 * 60 * 60 * 1000);
+  const hasta = new Date(sale.date.getTime() + 366 * 24 * 60 * 60 * 1000);
+  const rango = { desde: desde.toISOString().slice(0, 10), hasta: hasta.toISOString().slice(0, 10) };
+
+  let resultado;
+  try {
+    resultado = await withDefontanaSession(ctx.company.id, async (session) => {
+      const masterData = await getMasterData(session.token);
+      const buscar = (extra: { folio?: string | null; limite?: number }) =>
+        listSaleDocuments(session.token, masterData, { ...rango, rutCliente, ...extra });
+
+      let documento = elegirDocumento(await buscar({ folio, limite: 25 }), folio, tipos);
+      if (!documento) {
+        documento = elegirDocumento(await buscar({ limite: 200 }), folio, tipos);
+      }
+      if (!documento) return { estado: "sin-documento" as const };
+      if (!documento.platformId) return { estado: "sin-xml" as const, documento };
+
+      const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
+      return { estado: "ok" as const, documento, xml };
+    });
+  } catch (error) {
+    return {
+      error:
+        error instanceof DefontanaError
+          ? error.message
+          : "No se pudo consultar Defontana. Revisa las credenciales en Configuración.",
+    };
+  }
+
+  if (resultado.estado === "sin-documento") {
+    return {
+      error: `Defontana no tiene una venta folio ${folio} de ${sale.partner.name} entre ${rango.desde} y ${rango.hasta}.`,
+    };
+  }
+  if (resultado.estado === "sin-xml") {
+    return {
+      error: `La venta folio ${folio} está en Defontana pero sin XML de plataforma (fue ingresada a mano).`,
+    };
+  }
+
+  const parsed = parseDteXml(resultado.xml);
+  const documento =
+    parsed.documentos.find(
+      (doc) => sinCeros(String(doc.folio)) === folio && (!tipos.length || tipos.includes(doc.tipoDTE)),
+    ) ?? parsed.documentos.find((doc) => sinCeros(String(doc.folio)) === folio);
+
+  if (!documento) {
+    return {
+      error: parsed.error ?? `El XML que entregó Defontana no trae la venta folio ${folio}.`,
+    };
+  }
+  // En ventas: el XML fue emitido por nosotros (rutReceptor = empresa) y
+  // entregado al cliente (rutEmisor = cliente). Se verifica el receptor.
+  const rutEmpresa = ctx.company.rut ? normalizeRut(ctx.company.rut) : "";
+  if (documento.rutReceptor && rutEmpresa && normalizeRut(documento.rutReceptor) !== rutEmpresa) {
+    return {
+      error: `El XML viene dirigido a ${documento.rutReceptor}, no a ${ctx.company.rut}. No se guardó nada.`,
+    };
+  }
+
+  const fechaDoc = /^\d{4}-\d{2}-\d{2}$/.test(documento.fecha) ? dteDate(documento.fecha) : sale.date;
+  const fechaOpcional = (value: string | null) =>
+    value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? dteDate(value) : undefined;
+
+  await db.sale.update({
+    where: { id: sale.id },
+    data: {
+      xmlContent: resultado.xml,
+      date: fechaDoc,
+      dueDate: fechaOpcional(documento.vencimiento),
+      purchaseOrder: documento.ordenCompra?.slice(0, 80),
+      dispatchGuide: documento.guiaDespacho?.slice(0, 80),
+      hesNumber: documento.hesNumber?.slice(0, 80),
+      facturaOriginal: documento.facturaOriginal?.slice(0, 60),
+      tipoDocRefOriginal: documento.tipoDocRefOriginal?.slice(0, 10),
+      fechaRecepcion: fechaOpcional(documento.fechaRecepcion),
+      estadoReceptor: documento.estadoReceptor?.slice(0, 30),
+      description: documento.descripcion?.slice(0, 200),
+      formaPago: documento.formaPago?.slice(0, 60),
+    },
+  });
+
+  let aviso = "";
+  const items = documento.itemsDetalle ?? [];
+  if (sale._count.items === 0 && items.length > 0) {
+    const index = await loadProductIndex(ctx.company.id);
+    await createSaleItems(sale.id, ctx.company.id, prepareDocItems(index, items));
+    const sync = await syncSaleItemsToInventory({
+      companyId: ctx.company.id,
+      saleId: sale.id,
+      date: fechaDoc,
+      createdById: ctx.user.id,
+    });
+    if (!sync.ok) aviso = ` El stock no se actualizó (${sync.errors.join("; ")}).`;
+  }
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Sale",
+    entityId: sale.id,
+    summary: `Trajo de Defontana el XML de la venta ${formatRut(rutCliente)} folio ${documento.folio}.`,
+  });
+  revalidatePath("/dashboard/ventas");
+  revalidatePath(`/dashboard/ventas/${sale.id}`);
+
+  return {
+    ok: true,
+    message: `XML de la venta ${documento.folio} guardado con ${items.length} ítem(s).${aviso}`,
+  };
+}
+
+export type FetchSaleXmlState = { error?: string; ok?: boolean; message?: string } | undefined;

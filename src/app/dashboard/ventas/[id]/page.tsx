@@ -7,6 +7,7 @@ import { BankReconciliationNote } from "@/components/bank-reconciliation-note";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
 import { DteXmlPanel } from "@/components/dte-xml-panel";
+import { FetchSaleXmlButton } from "@/components/fetch-sale-xml-button";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
@@ -31,6 +32,8 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
   }
 
   const writable = canWrite(ctx, "ventas");
+  // Traer el XML a pedido necesita credenciales de Defontana guardadas.
+  const defontanaListo = Boolean(ctx.company.defontanaEmail && ctx.company.defontanaClaveEnc);
   const collected = sale.status === "PAID";
   const canSeeBank = canAccess(ctx.role, "banco");
   const bankLink = sale.bankReconciliations[0] ?? null;
@@ -295,6 +298,22 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
         folio={sale.documentNumber}
         emptyNote="Esta venta no tiene el XML guardado: se cargó a mano o entró por el RCV del SII, así que solo se guardaron los totales."
         importHref="/dashboard/importar"
+        emptyAction={
+          defontanaListo && writable ? (
+            <FetchSaleXmlButton saleId={sale.id} />
+          ) : writable ? (
+            <p className="text-sm text-muted-foreground">
+              Para traerlo del ERP, guarda las{" "}
+              <a
+                href="/dashboard/configuracion"
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                credenciales de Defontana
+              </a>
+              .
+            </p>
+          ) : undefined
+        }
       />
 
     </div>

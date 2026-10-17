@@ -60,9 +60,10 @@ Aún no hay tests. Cuando existan, documenta aquí cómo correr uno solo.
   - `GET https://portal-api.defontana.com/api/Account/EmailLogin?Email=..&password=..` → JWT de portal.
   - `GET …/api/Product/SetProductLogin?Code=5&userID=<userId>&expirationDate=<iso>` (con `Bearer <token>`) → cookie `access_token` de sesión (JWT HS256, **válido ~1 año**, aud fijo).
   - `POST https://2za6uxb6…appsync-api.us-east-1.amazonaws.com/graphql` con `authorization: <access_token>` (sin prefijo `Bearer`) → GraphQL `QueryERPDocuments($input)` que retorna filas del Libro de Compras con `DocumentPlatformId`.
-  - `GET https://compras.defontana.com/ComprasApi/api/purchase/getdte?id=<platformId>` con `authorization: Bearer <access_token>` → XML DTE (`text/plain`, codificado ISO-8859-1, `<EnvioDTE>`).
+  - `GET https://compras.defontana.com/ComprasApi/api/purchase/getdte?id=<platformId>` con `authorization: Bearer <access_token>` → XML DTE (`text/plain`, codificado ISO-8859-1, `<EnvioDTE>`). (El mismo endpoint sirve para ambos tipos; el `platformId` es `DocumentPlatformId` en compras y `documentId` en ventas.)
+  - Para ventas: el listado se obtiene con GraphQL `GetSalesByCompany` (endpoint `nyaybczuqrbvrg6g6xo3x5brqm.appsync-api.us-east-1.amazonaws.com/graphql`). Las filas tienen `documentId`, `eCode` (tipo SII), `clientRut`, `total` (string en formato local) y `emissionDate`. El filtro por cliente usa `clientSearch`.
   - La cuenta del portal entrega la empresa por defecto; al guardar credenciales se invoca `getMasterData` para verificar que la empresa coincide con la del registro; si no coincide, se rechaza el guardado. Si el token es rechazado por el ERP, el cliente lo renueva automáticamente una vez.
-  - Integración en `src/lib/defontana/credentials.ts` + `src/app/actions/defontana.ts`; en la UI, el botón "Traer XML de Defontana" aparece en el detalle de cada compra cuando la empresa tiene credenciales guardadas y el usuario puede escribir compras.
+  - Integración: `src/lib/defontana/client.ts` (compras y ventas), `src/lib/defontana/credentials.ts` (cacheo + login), `src/app/actions/defontana.ts` (acciones CRUD de credenciales + fetch). La UI expone el botón "Traer XML de Defontana" en el detalle de cada compra o venta cuando la empresa tiene credenciales y el usuario puede escribir.
 
 ## Flujo
 

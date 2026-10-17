@@ -2,25 +2,32 @@
  * Cliente HTTP del ERP Defontana.
  *
  * Defontana no publica una API abierta, pero su propio front (el módulo "Nova"
- * de compras) usa estos endpoints, que se replican aquí tal cual: login del
- * portal, un único token de sesión que dura un año y el listado/descarga del
- * Libro de Compras. El detalle del circuito está en AGENTS.md.
+ * de Compras y el de Ventas) usa estos endpoints, que se replican aquí tal
+ * cual: login del portal, un único token de sesión que dura un año y el
+ * listado/descarga de los documentos. El detalle del circuito está en
+ * AGENTS.md.
  *
  * Flujo:
  *   1. `EmailLogin` (correo + clave) → token de portal.
  *   2. `SetProductLogin` → cookie `access_token` (el token de sesión del ERP).
  *   3. `getMasterData` → configuración de la empresa en Defontana.
- *   4. `queryERPDocuments` (GraphQL) → documentos, con su `DocumentPlatformId`.
- *   5. `purchase/getdte?id=<DocumentPlatformId>` → el XML DTE.
+ *   4. Listado:
+ *      - compras: `queryERPDocuments` (GraphQL) → filas con `DocumentPlatformId`.
+ *      - ventas: `getSalesByCompany` (otro GraphQL) → filas con `documentId`.
+ *   5. `purchase/getdte?id=<platformId|documentId>` → el XML DTE.
+ *      (el mismo endpoint de compras sirve también para los ids de ventas).
  *
  * El mismo token sirve para el GraphQL (como `authorization` pelado) y para la
  * API REST (como `bearer <token>`).
  */
 
 const PORTAL_API = "https://portal-api.defontana.com";
-const APPSYNC_API =
+const APPSYNC_COMPRAS =
   "https://2za6uxb6mzedvlaacgqjycm77e.appsync-api.us-east-1.amazonaws.com/graphql";
-const COMPRAS_API = "https://compras.defontana.com/ComprasApi";
+const APPSYNC_VENTAS =
+  "https://nyaybczuqrbvrg6g6xo3x5brqm.appsync-api.us-east-1.amazonaws.com/graphql";
+// El endpoint de descarga de XML es el mismo para compras y ventas.
+const XML_DOWNLOAD_API = "https://compras.defontana.com/ComprasApi";
 
 const MASTER_DATA_QUERY = `query GetMasterData {
   getMasterData {
@@ -36,6 +43,52 @@ const ERP_DOCUMENTS_QUERY = `query QueryERPDocuments($input: QueryERPDocumentsIn
   queryERPDocuments(input: $input) {
     recordsTotal recordsFiltered
     data { DocumentNumber DocumentTypeId ProviderLegalCode ProviderName DocumentEmissionDate DocumentTotal DocumentPlatformId SiiDocumentType }
+  }
+}`;
+
+const SALES_QUERY = `query GetSalesByCompany(
+  $companyId: String!
+  $dateFrom: AWSDate
+  $dateTo: AWSDate
+  $limit: Int
+  $nextToken: String
+  $clientSearch: String
+  $docSearch: String
+  $folioFrom: String
+  $folioTo: String
+  $sortBy: SaleSortField
+  $sortOrder: String
+) {
+  getSalesByCompany(
+    companyId: $companyId
+    dateFrom: $dateFrom
+    dateTo: $dateTo
+    limit: $limit
+    nextToken: $nextToken
+    clientSearch: $clientSearch
+    docSearch: $docSearch
+    folioFrom: $folioFrom
+    folioTo: $folioTo
+    sortBy: $sortBy
+    sortOrder: $sortOrder
+  ) {
+    items {
+      folio
+      firstFolio
+      lastFolio
+      documentId
+      documentType
+      documentName
+      emissionDate
+      dueDate
+      clientRut
+      clientName
+      status
+      eCode
+      total
+      documentOrigin
+    }
+    totalCount
   }
 }`;
 
@@ -69,9 +122,9 @@ export type DefontanaMasterData = {
 export type DefontanaDocumento = {
   folio: string;
   tipoSii: string; // "33", "34", "61"…
-  tipoId: string; // "FCA", "FCA2", "NCE"…
-  rutProveedor: string;
-  nombreProveedor: string;
+  tipoId: string; // "FCA", "FCA2", "FVAELECT"…
+  rutTercero: string; // proveedor (compras) o cliente (ventas)
+  nombreTercero: string;
   fecha: string; // AAAA-MM-DD
   total: number;
   platformId: string;
@@ -183,8 +236,13 @@ export async function loginDefontana(email: string, password: string): Promise<D
   return { token, expiresAt: new Date(jwtExpiration(token) * 1000) };
 }
 
-async function graphql(token: string, query: string, variables: Json): Promise<Json> {
-  const response = await fetch(APPSYNC_API, {
+async function graphql(
+  token: string,
+  endpoint: string,
+  query: string,
+  variables: Json,
+): Promise<Json> {
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: token },
     body: JSON.stringify({ query, variables }),
@@ -204,7 +262,7 @@ async function graphql(token: string, query: string, variables: Json): Promise<J
 
 /** Configuración de la empresa en Defontana (incluye su RUT: `legalCode`). */
 export async function getMasterData(token: string): Promise<DefontanaMasterData> {
-  const respuesta = await graphql(token, MASTER_DATA_QUERY, {});
+  const respuesta = await graphql(token, APPSYNC_COMPRAS, MASTER_DATA_QUERY, {});
   const data = obj(obj(respuesta.data).getMasterData);
   const company = obj(data.companyConfig);
   if (!str(company.companyId)) {
@@ -250,7 +308,7 @@ export async function listPurchaseDocuments(
   },
 ): Promise<DefontanaDocumento[]> {
   const folio = filtro.folio?.trim() ?? "";
-  const respuesta = await graphql(token, ERP_DOCUMENTS_QUERY, {
+  const respuesta = await graphql(token, APPSYNC_COMPRAS, ERP_DOCUMENTS_QUERY, {
     input: {
       start: 0,
       length: filtro.limite ?? 50,
@@ -281,8 +339,8 @@ export async function listPurchaseDocuments(
       folio: str(row.DocumentNumber),
       tipoSii: str(row.SiiDocumentType),
       tipoId: str(row.DocumentTypeId),
-      rutProveedor: str(row.ProviderLegalCode),
-      nombreProveedor: str(row.ProviderName),
+      rutTercero: str(row.ProviderLegalCode),
+      nombreTercero: str(row.ProviderName),
       fecha: str(row.DocumentEmissionDate).slice(0, 10),
       total: num(row.DocumentTotal),
       platformId: str(row.DocumentPlatformId),
@@ -290,10 +348,62 @@ export async function listPurchaseDocuments(
   });
 }
 
-/** XML DTE de un documento de compra. Se devuelve como `Buffer` para respetar su codificación. */
-export async function downloadPurchaseXml(token: string, platformId: string): Promise<Buffer> {
+/**
+ * Documentos del módulo de Ventas. `clientSearch` acepta el RUT del cliente
+ * (con o sin puntos); si el ERP no lo filtra, el llamador lo verifica de nuevo
+ * en el cliente.
+ */
+export async function listSaleDocuments(
+  token: string,
+  masterData: DefontanaMasterData,
+  filtro: {
+    desde: string;
+    hasta: string;
+    rutCliente?: string | null;
+    folio?: string | null;
+    limite?: number;
+  },
+): Promise<DefontanaDocumento[]> {
+  const folio = filtro.folio?.trim() ?? "";
+  const respuesta = await graphql(token, APPSYNC_VENTAS, SALES_QUERY, {
+    companyId: masterData.companyConfig.companyId,
+    dateFrom: filtro.desde,
+    dateTo: filtro.hasta,
+    limit: filtro.limite ?? 50,
+    clientSearch: filtro.rutCliente?.trim() || null,
+    docSearch: null,
+    folioFrom: folio,
+    folioTo: folio,
+    sortBy: "DATE",
+    sortOrder: "DESC",
+  });
+
+  return arr(obj(obj(respuesta.data).getSalesByCompany).items).map((item) => {
+    const row = obj(item);
+    return {
+      folio: str(row.folio),
+      tipoSii: str(row.eCode),
+      tipoId: str(row.documentType),
+      rutTercero: str(row.clientRut),
+      nombreTercero: str(row.clientName),
+      fecha: str(row.emissionDate).slice(0, 10),
+      // El total viene con formato local (ej. "273,700" = 273.700 CLP): se toma
+      // el número entero quitando cualquier separador de miles (comas o puntos).
+      // Para montos en pesos enteros esto es correcto; si hubiera decimales
+      // habría que afinar la lógica, pero los XML DTE traen MntTotal entero.
+      total: parseInt(str(row.total).replace(/[^0-9]/g, ""), 10) || 0,
+      platformId: str(row.documentId),
+    };
+  });
+}
+
+/**
+ * XML DTE de un documento (compra o venta: el mismo endpoint sirve para los
+ * dos tipos de id). Se devuelve como `Buffer` para respetar su codificación.
+ */
+export async function downloadXml(token: string, platformId: string): Promise<Buffer> {
   const response = await fetch(
-    `${COMPRAS_API}/api/purchase/getdte?id=${encodeURIComponent(platformId)}`,
+    `${XML_DOWNLOAD_API}/api/purchase/getdte?id=${encodeURIComponent(platformId)}`,
     { headers: { authorization: `Bearer ${token}` } },
   );
   if (response.status === 401 || response.status === 403) {
