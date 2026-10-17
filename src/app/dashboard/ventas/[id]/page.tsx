@@ -6,6 +6,7 @@ import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BankReconciliationNote } from "@/components/bank-reconciliation-note";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
+import { DteXmlPanel } from "@/components/dte-xml-panel";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
@@ -78,9 +79,23 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
             <dd className="tabular mt-0.5">{formatCLP(sale.netAmount)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">IVA</dt>
+            <dt className="text-xs text-muted-foreground">
+              IVA{sale.tasaIVA ? ` (${sale.tasaIVA}%)` : ""}
+            </dt>
             <dd className="tabular mt-0.5">{formatCLP(sale.ivaAmount)}</dd>
           </div>
+          {sale.exento > 0 ? (
+            <div>
+              <dt className="text-xs text-muted-foreground">Exento</dt>
+              <dd className="tabular mt-0.5">{formatCLP(sale.exento)}</dd>
+            </div>
+          ) : null}
+          {sale.ivaRecargo > 0 ? (
+            <div>
+              <dt className="text-xs text-muted-foreground">IVA recargo</dt>
+              <dd className="tabular mt-0.5">{formatCLP(sale.ivaRecargo)}</dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-xs text-muted-foreground">Retención</dt>
             <dd className="tabular mt-0.5">{retention > 0 ? formatCLP(retention) : "—"}</dd>
@@ -100,6 +115,39 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
               <dt className="text-muted-foreground">Fecha de emisión</dt>
               <dd className="tabular">{formatDate(sale.date)}</dd>
             </div>
+            {sale.dueDate ? (
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Vence</dt>
+                <dd className="tabular">{formatDate(sale.dueDate)}</dd>
+              </div>
+            ) : null}
+            {sale.formaPago ? (
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Forma de pago</dt>
+                <dd>{sale.formaPago}</dd>
+              </div>
+            ) : null}
+            {sale.facturaOriginal ? (
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Factura original</dt>
+                <dd>
+                  {sale.facturaOriginal}
+                  {sale.tipoDocRefOriginal ? ` (tipo ${sale.tipoDocRefOriginal})` : ""}
+                </dd>
+              </div>
+            ) : null}
+            {sale.fechaRecepcion ? (
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Recepción SII</dt>
+                <dd className="tabular">{formatDate(sale.fechaRecepcion)}</dd>
+              </div>
+            ) : null}
+            {sale.estadoReceptor ? (
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Estado receptor SII</dt>
+                <dd>{sale.estadoReceptor}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between gap-3">
               <dt className="text-muted-foreground">Vendedor</dt>
               <dd>{sale.salesperson?.name ?? "Sin vendedor"}</dd>
@@ -241,6 +289,12 @@ export default async function SaleDetailPage(props: PageProps<"/dashboard/ventas
       ) : null}
 
       <DocItemsTable items={sale.items} netAmount={sale.netAmount} />
+
+      <DteXmlPanel
+        xmlContent={sale.xmlContent}
+        folio={sale.documentNumber}
+        emptyNote="Esta venta no tiene el XML original guardado: se cargó a mano o entró por el RCV del SII, así que solo se guardaron los totales."
+      />
 
     </div>
   );

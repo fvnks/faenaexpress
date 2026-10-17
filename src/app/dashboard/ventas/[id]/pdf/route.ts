@@ -26,7 +26,7 @@ export async function GET(
   let parsedDoc: ReturnType<typeof parseDteXml>["documentos"][number] | null = null;
   if (sale.xmlContent) {
     try {
-      const parsed = parseDteXml(Buffer.from(sale.xmlContent, "utf8"));
+      const parsed = parseDteXml(sale.xmlContent);
       parsedDoc =
         parsed.documentos.find((d) => d.folio === sale.documentNumber) ??
         parsed.documentos[0] ??
