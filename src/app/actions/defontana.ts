@@ -195,28 +195,35 @@ export async function fetchPurchaseXmlAction(
         desde: new Date(purchase.date.getTime() - 45 * 864e5).toISOString().slice(0, 10),
         hasta: new Date(purchase.date.getTime() + 45 * 864e5).toISOString().slice(0, 10),
       };
-      const intentos = [await lista(rango, folio), await lista(cerca, null)];
-
-      for (const documentos of intentos) {
-        const documento = elegirDocumento(documentos, folio, tipos, rutProveedor);
-        if (!documento) continue;
-        if (!documento.platformId) return { estado: "sin-xml" as const, documento };
-        const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
-        return { estado: "ok" as const, documento, xml };
-      }
-
-      // El folio aparece en el ERP pero de otro proveedor: se avisa en vez de
-      // guardar un XML que no es de esta compra.
-      const deOtro = intentos
-        .flat()
-        .find(
+      // El folio se repite entre proveedores: se descarta el que declara otro RUT.
+      const deOtroTercero = (docs: DefontanaDocumento[]) =>
+        docs.find(
           (doc) =>
             sinCeros(doc.folio) === folio &&
-            doc.rutTercero &&
+            Boolean(doc.rutTercero) &&
             normalizeRut(doc.rutTercero) !== rutProveedor,
         );
-      if (deOtro) return { estado: "otro-proveedor" as const, documento: deOtro };
-      return { estado: "sin-documento" as const };
+
+      const conFolio = await lista(rango, folio);
+      let documento = elegirDocumento(conFolio, folio, tipos, rutProveedor);
+      let deOtro = deOtroTercero(conFolio);
+      if (!documento) {
+        // Solo si el folio no bastó: se lista una ventana corta sin folio, por si
+        // el ERP lo numera distinto (ceros a la izquierda u otro formato).
+        const sinFolio = await lista(cerca, null);
+        documento = elegirDocumento(sinFolio, folio, tipos, rutProveedor);
+        deOtro = deOtro ?? deOtroTercero(sinFolio);
+      }
+
+      if (!documento) {
+        // El folio aparece en el ERP pero de otro proveedor: se avisa en vez de
+        // guardar un XML que no es de esta compra.
+        if (deOtro) return { estado: "otro-proveedor" as const, documento: deOtro };
+        return { estado: "sin-documento" as const };
+      }
+      if (!documento.platformId) return { estado: "sin-xml" as const, documento };
+      const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
+      return { estado: "ok" as const, documento, xml };
     });
   } catch (error) {
     return {
@@ -401,26 +408,30 @@ export async function fetchSaleXmlAction(
         desde: new Date(sale.date.getTime() - 45 * 864e5).toISOString().slice(0, 10),
         hasta: new Date(sale.date.getTime() + 45 * 864e5).toISOString().slice(0, 10),
       };
-      const intentos = [await lista(rango, folio), await lista(cerca, null)];
-
-      for (const documentos of intentos) {
-        const documento = elegirDocumento(documentos, folio, tipos, rutCliente);
-        if (!documento) continue;
-        if (!documento.platformId) return { estado: "sin-xml" as const, documento };
-        const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
-        return { estado: "ok" as const, documento, xml };
-      }
-
-      const deOtro = intentos
-        .flat()
-        .find(
+      const deOtroTercero = (docs: DefontanaDocumento[]) =>
+        docs.find(
           (doc) =>
             sinCeros(doc.folio) === folio &&
-            doc.rutTercero &&
+            Boolean(doc.rutTercero) &&
             normalizeRut(doc.rutTercero) !== rutCliente,
         );
-      if (deOtro) return { estado: "otro-cliente" as const, documento: deOtro };
-      return { estado: "sin-documento" as const };
+
+      const conFolio = await lista(rango, folio);
+      let documento = elegirDocumento(conFolio, folio, tipos, rutCliente);
+      let deOtro = deOtroTercero(conFolio);
+      if (!documento) {
+        const sinFolio = await lista(cerca, null);
+        documento = elegirDocumento(sinFolio, folio, tipos, rutCliente);
+        deOtro = deOtro ?? deOtroTercero(sinFolio);
+      }
+
+      if (!documento) {
+        if (deOtro) return { estado: "otro-cliente" as const, documento: deOtro };
+        return { estado: "sin-documento" as const };
+      }
+      if (!documento.platformId) return { estado: "sin-xml" as const, documento };
+      const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
+      return { estado: "ok" as const, documento, xml };
     });
   } catch (error) {
     return {
@@ -458,12 +469,13 @@ export async function fetchSaleXmlAction(
       error: parsed.error ?? `El XML que entregó Defontana no trae la venta folio ${folio}.`,
     };
   }
-  // En ventas: el XML fue emitido por nosotros (rutReceptor = empresa) y
-  // entregado al cliente (rutEmisor = cliente). Se verifica el receptor.
+  // En ventas el DTE lo emitimos nosotros: `rutEmisor` es la empresa y
+  // `rutReceptor` el cliente. Se verifica el emisor; el cliente ya quedó
+  // verificado al elegir el documento por su RUT.
   const rutEmpresa = ctx.company.rut ? normalizeRut(ctx.company.rut) : "";
-  if (documento.rutReceptor && rutEmpresa && normalizeRut(documento.rutReceptor) !== rutEmpresa) {
+  if (documento.rutEmisor && rutEmpresa && normalizeRut(documento.rutEmisor) !== rutEmpresa) {
     return {
-      error: `El XML viene dirigido a ${documento.rutReceptor}, no a ${ctx.company.rut}. No se guardó nada.`,
+      error: `El XML fue emitido por ${documento.rutEmisor}, no por ${ctx.company.rut}. No se guardó nada.`,
     };
   }
 
