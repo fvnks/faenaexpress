@@ -9,6 +9,7 @@ import {
   isKnownBank,
   loadReconciliationBoard,
   parseBoardFilters,
+  parseMovementMark,
   runBankSync,
   type BoardFilters,
 } from "@/lib/banco";
@@ -303,6 +304,11 @@ export async function toggleMovimientoIgnorado(formData: FormData): Promise<void
   }
 
   const movementId = String(formData.get("movementId") ?? "");
+  // Un traspaso entre cuentas propias sale de la bandeja por su propio motivo:
+  // no es un cobro ni un pago, y el historial lo muestra distinto de un
+  // descarte cualquiera.
+  const mark = parseMovementMark(formData.get("marca")) ?? "noise";
+
   const movement = await db.bankMovement.findFirst({
     where: { id: movementId, companyId: ctx.company.id },
   });
@@ -311,13 +317,154 @@ export async function toggleMovimientoIgnorado(formData: FormData): Promise<void
     redirect(back);
   }
   if (movement.ignoredAt) {
-    await db.bankMovement.update({ where: { id: movement.id }, data: { ignoredAt: null } });
+    await db.bankMovement.update({
+      where: { id: movement.id },
+      data: { ignoredAt: null, ignoredReason: null },
+    });
     await setFlash("success", "Movimiento restituido", "Vuelve a la lista por conciliar.");
+  } else if (mark === "internal_transfer") {
+    await db.bankMovement.update({
+      where: { id: movement.id },
+      data: { ignoredAt: new Date(), ignoredReason: mark },
+    });
+    await setFlash(
+      "success",
+      "Marcado como traspaso interno",
+      "Es plata que se movió entre cuentas propias: no se sugerirá para conciliar.",
+    );
   } else {
-    await db.bankMovement.update({ where: { id: movement.id }, data: { ignoredAt: new Date() } });
+    await db.bankMovement.update({
+      where: { id: movement.id },
+      data: { ignoredAt: new Date(), ignoredReason: mark },
+    });
     await setFlash("success", "Movimiento ignorado", "No se sugerirá para conciliar.");
   }
   revalidatePath(BANCO_PATH);
+  redirect(back);
+}
+
+/**
+ * Marca en lote los movimientos que parecen traspasos entre cuentas propias.
+ * Se recalculan con los mismos filtros que el usuario tenía a la vista, así que
+ * lo que se marca es lo que la pantalla mostró, y solo si sigue pendiente.
+ */
+export async function marcarTraspasosInternos(formData: FormData): Promise<void> {
+  const ctx = await requireContext();
+  const back = returnTo(formData);
+  if (!canWrite(ctx, "banco")) {
+    redirect(back);
+  }
+
+  const board = await loadReconciliationBoard(ctx.company.id, filtersFromForm(formData));
+  const candidates = board.internalTransfers;
+
+  if (candidates.length === 0) {
+    await setFlash(
+      "error",
+      "No hay traspasos que marcar",
+      "Ningún movimiento pendiente con estos filtros parece un traspaso entre cuentas propias.",
+    );
+    redirect(back);
+  }
+
+  const total = candidates.reduce((acc, movement) => acc + Math.abs(movement.amount), 0);
+  const marked = await db.bankMovement.updateMany({
+    where: {
+      id: { in: candidates.map((movement) => movement.id) },
+      companyId: ctx.company.id,
+      ignoredAt: null,
+    },
+    data: { ignoredAt: new Date(), ignoredReason: "internal_transfer" },
+  });
+
+  await setFlash(
+    "success",
+    `${marked.count} ${marked.count === 1 ? "traspaso interno" : "traspasos internos"} marcados`,
+    `Por ${formatCLP(total)}. Salen de la bandeja: son movimientos entre cuentas propias, no cobros ni pagos.`,
+  );
+  revalidatePath(BANCO_PATH);
+  redirect(back);
+}
+
+/**
+ * Deshace una conciliación: borra el vínculo y devuelve el documento al estado
+ * en que el banco no participaba. La venta cobrada por Confirming se queda como
+ * está: eso lo decide el módulo de confirming, no el banco.
+ */
+export async function deshacerConciliacion(formData: FormData): Promise<void> {
+  const ctx = await requireContext();
+  const back = returnTo(formData);
+  if (!canWrite(ctx, "banco")) {
+    redirect(back);
+  }
+
+  const movementId = String(formData.get("movementId") ?? "");
+  const movement = await db.bankMovement.findFirst({
+    where: { id: movementId, companyId: ctx.company.id },
+  });
+  if (!movement) {
+    await setFlash("error", "El movimiento ya no existe.");
+    redirect(back);
+  }
+
+  const link = await db.reconciliation.findUnique({
+    where: { movementId: movement.id },
+    include: {
+      purchase: { select: { id: true, documentNumber: true, status: true } },
+      sale: { select: { id: true, documentNumber: true, status: true, confirmingAt: true } },
+    },
+  });
+  if (!link) {
+    await setFlash("error", "Ese movimiento no está conciliado.");
+    redirect(back);
+  }
+
+  const revertPurchase = link.purchase !== null && link.purchase.status === "PAID";
+  const revertSale =
+    link.sale !== null && link.sale.status === "PAID" && link.sale.confirmingAt === null;
+
+  await db.$transaction(async (tx) => {
+    await tx.reconciliation.delete({ where: { id: link.id } });
+    if (revertPurchase && link.purchase) {
+      await tx.purchase.update({
+        where: { id: link.purchase.id },
+        data: { status: "PENDING", paymentDate: null, paymentMethod: null },
+      });
+    }
+    if (revertSale && link.sale) {
+      await tx.sale.update({
+        where: { id: link.sale.id },
+        data: { status: "PENDING", paymentDate: null },
+      });
+    }
+  });
+
+  const reverted = revertPurchase || revertSale;
+  const isPurchase = link.purchase !== null;
+  const documentId = link.purchase?.id ?? link.sale?.id ?? null;
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: isPurchase ? "Purchase" : "Sale",
+    entityId: documentId,
+    summary:
+      `Deshizo la conciliación del movimiento del ${formatDate(movement.date)} por ${formatCLP(Math.abs(movement.amount))}` +
+      (reverted ? ": el documento vuelve a estar pendiente." : ": el documento queda como estaba."),
+    changes: reverted ? { status: { before: "PAID", after: "PENDING" } } : undefined,
+  });
+
+  await setFlash(
+    "success",
+    "Conciliación deshecha",
+    reverted
+      ? "El movimiento vuelve a la bandeja y el documento queda pendiente."
+      : "El movimiento vuelve a la bandeja. La venta sigue cobrada por Confirming.",
+  );
+  revalidatePath(BANCO_PATH);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/compras");
+  revalidatePath("/dashboard/compras/[id]", "page");
+  revalidatePath("/dashboard/ventas");
+  revalidatePath("/dashboard/ventas/[id]", "page");
   redirect(back);
 }
 

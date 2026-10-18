@@ -1205,17 +1205,18 @@ model BankAccount {
 // Un movimiento bancario importado. `fingerprint` (fecha + monto + descripción
 // + origen) evita duplicados entre sincronizaciones.
 model BankMovement {
-  id          String    @id @default(cuid())
-  companyId   String
-  accountId   String
-  date        DateTime  @db.Date
-  description String
-  amount      Int // CLP: positivo = abono (cobro), negativo = cargo (pago)
-  balance     Int?
-  source      String    @default("account") // account | credit_card_unbilled | credit_card_billed
-  fingerprint String
-  ignoredAt   DateTime? // marcado como no conciliable por el usuario
-  createdAt   DateTime  @default(now())
+  id            String    @id @default(cuid())
+  companyId     String
+  accountId     String
+  date          DateTime  @db.Date
+  description   String
+  amount        Int // CLP: positivo = abono (cobro), negativo = cargo (pago)
+  balance       Int?
+  source        String    @default("account") // account | credit_card_unbilled | credit_card_billed
+  fingerprint   String
+  ignoredAt     DateTime? // marcado como no conciliable por el usuario
+  ignoredReason String? // internal_transfer | noise: por qué salió de la bandeja
+  createdAt     DateTime  @default(now())
 
   company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   account         BankAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)

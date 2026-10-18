@@ -296,6 +296,21 @@ export type MovementReconciliation = {
   createdAt: Date;
 };
 
+// Por qué un movimiento salió de la bandeja sin conciliarse. Un traspaso
+// interno es plata que se movió entre cuentas propias: no es un cobro ni un
+// pago. `noise` es lo que la persona descarta a mano.
+export const MOVEMENT_MARKS = ["internal_transfer", "noise"] as const;
+export type MovementMark = (typeof MOVEMENT_MARKS)[number];
+
+export const MOVEMENT_MARK_LABELS: Record<MovementMark, string> = {
+  internal_transfer: "Traspaso interno",
+  noise: "Ignorado",
+};
+
+export function parseMovementMark(value: unknown): MovementMark | null {
+  return (MOVEMENT_MARKS as readonly unknown[]).includes(value) ? (value as MovementMark) : null;
+}
+
 export type MovementWithMatch = {
   id: string;
   date: Date;
@@ -306,6 +321,7 @@ export type MovementWithMatch = {
   accountLabel: string;
   bankId: string;
   ignoredAt: Date | null;
+  ignoredReason: MovementMark | null;
   reconciliation: MovementReconciliation | null;
   suggestions: Suggestion[];
 };
@@ -550,6 +566,7 @@ function toMovement(row: MovementRow, index: CandidateIndex | null): MovementWit
     accountLabel: row.account.label,
     bankId: row.account.bankId,
     ignoredAt: row.ignoredAt,
+    ignoredReason: parseMovementMark(row.ignoredReason),
     reconciliation: reconciliationOf(row.reconciliations[0]),
     suggestions: index ? suggestionsFor(row, index) : [],
   };
@@ -598,6 +615,40 @@ function movementWhere(companyId: string, filters: BoardFilters): Prisma.BankMov
 function matchesAmount(movement: MovementLike, min: number | null, max: number | null): boolean {
   const amount = Math.abs(movement.amount);
   return (min === null || amount >= min) && (max === null || amount <= max);
+}
+
+/**
+ * Glosa de un traspaso entre cuentas: "Traspaso A Cuenta:008178288402". El
+ * número de cuenta es lo que separa un traspaso propio de un pago a un
+ * tercero ("Traspaso A:Servipag ltda"): sin él, el movimiento no se toca.
+ */
+const ACCOUNT_TRANSFER_RE =
+  /\b(?:traspaso|transferencia)\s+(?:a|de|desde|hacia)\s+(?:la\s+)?cuenta\s*:?\s*\d{5,}/i;
+
+export function looksLikeAccountTransfer(description: string): boolean {
+  return ACCOUNT_TRANSFER_RE.test(description);
+}
+
+const TRANSFER_COUNTERPART_DAYS = 5;
+
+/**
+ * Movimientos que parecen un traspaso entre cuentas propias: la glosa nombra una
+ * cuenta y el mismo monto aparece con el signo opuesto a pocos días. Es una
+ * pista para marcar en lote, no una certeza: la persona la confirma desde la
+ * bandeja, y siempre se puede restituir.
+ */
+export function internalTransferCandidates(movements: MovementWithMatch[]): MovementWithMatch[] {
+  const window = TRANSFER_COUNTERPART_DAYS * DAY_MS;
+  return movements.filter(
+    (movement) =>
+      looksLikeAccountTransfer(movement.description) &&
+      movements.some(
+        (other) =>
+          other.id !== movement.id &&
+          other.amount === -movement.amount &&
+          Math.abs(other.date.getTime() - movement.date.getTime()) <= window,
+      ),
+  );
 }
 
 export type BatchMatch = {
@@ -660,6 +711,8 @@ export type ReconciliationBoard = {
   lastSyncs: Array<{ id: string; bankId: string; status: string; message: string | null; startedAt: Date; imported: number }>;
   totals: { unlinked: number; ignored: number; linked: number; page: number; pageCount: number; filtered: number };
   batch: BoardBatch;
+  /** Pendientes que parecen traspasos entre cuentas propias (para marcar en lote). */
+  internalTransfers: MovementWithMatch[];
 };
 
 /**
@@ -695,6 +748,9 @@ export async function loadReconciliationBoard(
 
   const pendingItems = pendingRows.map((row) => toMovement(row, index));
   const batch = buildBatch(pendingItems, min, max);
+  const internalTransfers = internalTransferCandidates(pendingItems).filter((movement) =>
+    matchesAmount(movement, min, max),
+  );
 
   // Vista pedida: la de trabajo ya está cargada; el historial de conciliados se
   // consulta aparte (ahí no hay nada que sugerir, ya está vinculado).
@@ -759,6 +815,7 @@ export async function loadReconciliationBoard(
     })),
     totals: { unlinked, ignored, linked, page, pageCount, filtered: items.length },
     batch,
+    internalTransfers,
   };
 }
 

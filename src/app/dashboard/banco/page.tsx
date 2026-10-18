@@ -3,7 +3,9 @@ import Link from "next/link";
 import {
   conciliarMovimiento,
   conciliarSugerencias,
+  deshacerConciliacion,
   eliminarCuenta,
+  marcarTraspasosInternos,
   toggleMovimientoIgnorado,
 } from "@/app/actions/banco";
 import { ConfirmSubmit } from "@/components/confirm-submit";
@@ -15,6 +17,8 @@ import {
   bankName,
   BOARD_STATE_LABELS,
   loadReconciliationBoard,
+  looksLikeAccountTransfer,
+  MOVEMENT_MARK_LABELS,
   parseBoardFilters,
   type BoardBatch,
   type BoardFilters,
@@ -23,7 +27,7 @@ import {
   type MovementWithMatch,
 } from "@/lib/banco";
 import { formatCLP, formatDate } from "@/lib/money";
-import { cardClass, primaryButtonClass } from "@/lib/ui";
+import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 
 import { SyncForm } from "./sync-form";
 
@@ -75,7 +79,11 @@ function SuggestionForms({ movement, returnTo }: { movement: MovementWithMatch; 
   if (movement.suggestions.length === 0) {
     return (
       <span className="text-xs text-muted-foreground">
-        {movement.amount > 0 ? "Sin ventas por cobrar con ese monto" : "Sin compras por pagar con ese monto"}
+        {looksLikeAccountTransfer(movement.description)
+          ? "Parece un traspaso entre cuentas propias"
+          : movement.amount > 0
+            ? "Sin ventas por cobrar con ese monto"
+            : "Sin compras por pagar con ese monto"}
       </span>
     );
   }
@@ -106,19 +114,74 @@ function SuggestionForms({ movement, returnTo }: { movement: MovementWithMatch; 
   );
 }
 
-function IgnoreForm({ movement, returnTo }: { movement: MovementWithMatch; returnTo: string }) {
-  return (
-    <form action={toggleMovimientoIgnorado}>
+/**
+ * Qué hacer con un movimiento que no va a conciliarse: un traspaso entre
+ * cuentas propias (no es cobro ni pago) o un descarte. Si ya está marcado, se
+ * muestra el motivo y se ofrece restituirlo.
+ */
+function MovementActions({
+  movement,
+  returnTo,
+  align = "end",
+}: {
+  movement: MovementWithMatch;
+  returnTo: string;
+  align?: "start" | "end";
+}) {
+  const hidden = (
+    <>
       <input type="hidden" name="movementId" value={movement.id} />
       <input type="hidden" name="returnTo" value={returnTo} />
-      <button type="submit" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
-        {movement.ignoredAt ? "Restituir" : "Ignorar"}
-      </button>
-    </form>
+    </>
+  );
+  const column = `flex flex-col ${align === "end" ? "items-end" : "items-start"} gap-1`;
+
+  if (movement.ignoredAt) {
+    return (
+      <div className={column}>
+        <span className="text-xs text-muted-foreground">
+          {movement.ignoredReason ? MOVEMENT_MARK_LABELS[movement.ignoredReason] : "Ignorado"}
+        </span>
+        <form action={toggleMovimientoIgnorado}>
+          {hidden}
+          <button type="submit" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+            Restituir
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className={column}>
+      <form action={toggleMovimientoIgnorado}>
+        {hidden}
+        <input type="hidden" name="marca" value="internal_transfer" />
+        <button type="submit" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+          Traspaso interno
+        </button>
+      </form>
+      <form action={toggleMovimientoIgnorado}>
+        {hidden}
+        <button type="submit" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+          Ignorar
+        </button>
+      </form>
+    </div>
   );
 }
 
-function ReconciliationBlock({ reconciliation }: { reconciliation: MovementReconciliation }) {
+function ReconciliationBlock({
+  reconciliation,
+  movementId,
+  returnTo,
+  canUndo,
+}: {
+  reconciliation: MovementReconciliation;
+  movementId: string;
+  returnTo: string;
+  canUndo: boolean;
+}) {
   const isPurchase = reconciliation.purchaseId !== null;
   const href = isPurchase
     ? `/dashboard/compras/${reconciliation.purchaseId}`
@@ -134,12 +197,32 @@ function ReconciliationBlock({ reconciliation }: { reconciliation: MovementRecon
       <p className="mt-0.5 text-xs text-muted-foreground">
         {reconciliation.partner} · conciliado el {formatDate(reconciliation.createdAt)}
       </p>
-      <Link
-        href={href}
-        className="mt-1 inline-block text-xs font-medium text-primary underline-offset-2 hover:underline"
-      >
-        Ver documento
-      </Link>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Link
+          href={href}
+          className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+        >
+          Ver documento
+        </Link>
+        {canUndo ? (
+          <form action={deshacerConciliacion}>
+            <input type="hidden" name="movementId" value={movementId} />
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <ConfirmSubmit
+              title="Deshacer conciliación"
+              description={
+                isPurchase
+                  ? "Se borra el vínculo y la compra vuelve a estar pendiente."
+                  : "Se borra el vínculo y la venta vuelve a estar pendiente, salvo que esté cobrada por Confirming."
+              }
+              confirmLabel="Deshacer"
+              className="text-xs text-muted-foreground transition-colors hover:text-danger"
+            >
+              Deshacer
+            </ConfirmSubmit>
+          </form>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -162,6 +245,15 @@ function batchDescription(batch: BoardBatch, scoped: boolean): string {
     `Se marcarán ${parts.join(" y ")} como pagadas o cobradas, con la fecha de cada movimiento.` +
     (scoped ? " Se respetan los filtros activos." : "") +
     " Solo entran movimientos cuyo monto calza exacto con un único documento."
+  );
+}
+
+/** Texto del diálogo de los traspasos: la regla, para que no sorprenda. */
+function internalTransferDescription(count: number, scoped: boolean): string {
+  return (
+    `Se marcarán ${count} ${count === 1 ? "movimiento" : "movimientos"} como traspasos entre cuentas propias: la glosa nombra una cuenta y el mismo monto aparece con el signo opuesto a pocos días.` +
+    (scoped ? " Se respetan los filtros activos." : "") +
+    " Salen de la bandeja y se pueden restituir."
   );
 }
 
@@ -206,6 +298,7 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
   const pendingView = filters.estado !== "conciliados" && filters.estado !== "ignorados";
   const showHistory = filters.estado === "conciliados";
   const showBatch = writable && pendingView && board.batch.matches.length > 0;
+  const showInternalTransfers = writable && pendingView && board.internalTransfers.length > 0;
 
   const filterFields: FilterField[] = [
     { kind: "text", name: "q", label: "Buscar", placeholder: "Glosa del movimiento", grow: true },
@@ -276,7 +369,12 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
             <div className="mt-3 rounded-control bg-success-soft/60 px-3 py-2">
               <p className="text-sm font-medium text-foreground">Ya está conciliado</p>
               <div className="mt-1">
-                <ReconciliationBlock reconciliation={highlight.reconciliation} />
+                <ReconciliationBlock
+                  reconciliation={highlight.reconciliation}
+                  movementId={highlight.id}
+                  returnTo={returnTo}
+                  canUndo={writable}
+                />
               </div>
             </div>
           ) : (
@@ -284,7 +382,7 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
               <SuggestionForms movement={highlight} returnTo={returnTo} />
               {writable ? (
                 <div className="mt-2">
-                  <IgnoreForm movement={highlight} returnTo={returnTo} />
+                  <MovementActions movement={highlight} returnTo={returnTo} align="start" />
                 </div>
               ) : null}
             </div>
@@ -350,21 +448,37 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
               {board.totals.ignored} ignorados
             </p>
           </div>
-          {showBatch ? (
-            <form action={conciliarSugerencias}>
-              <input type="hidden" name="returnTo" value={returnTo} />
-              <FilterInputs filters={filters} />
-              <ConfirmSubmit
-                title="Conciliar coincidencias únicas"
-                description={batchDescription(board.batch, hasFilters)}
-                confirmLabel={`Conciliar ${board.batch.matches.length}`}
-                confirmClassName={primaryButtonClass}
-                className={primaryButtonClass}
-              >
-                Conciliar coincidencias únicas ({board.batch.matches.length})
-              </ConfirmSubmit>
-            </form>
-          ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {showInternalTransfers ? (
+              <form action={marcarTraspasosInternos}>
+                <input type="hidden" name="returnTo" value={returnTo} />
+                <FilterInputs filters={filters} />
+                <ConfirmSubmit
+                  title="Marcar traspasos internos"
+                  description={internalTransferDescription(board.internalTransfers.length, hasFilters)}
+                  confirmLabel={`Marcar ${board.internalTransfers.length}`}
+                  className={secondaryButtonClass}
+                >
+                  Traspasos internos ({board.internalTransfers.length})
+                </ConfirmSubmit>
+              </form>
+            ) : null}
+            {showBatch ? (
+              <form action={conciliarSugerencias}>
+                <input type="hidden" name="returnTo" value={returnTo} />
+                <FilterInputs filters={filters} />
+                <ConfirmSubmit
+                  title="Conciliar coincidencias únicas"
+                  description={batchDescription(board.batch, hasFilters)}
+                  confirmLabel={`Conciliar ${board.batch.matches.length}`}
+                  confirmClassName={primaryButtonClass}
+                  className={primaryButtonClass}
+                >
+                  Conciliar coincidencias únicas ({board.batch.matches.length})
+                </ConfirmSubmit>
+              </form>
+            ) : null}
+          </div>
         </div>
 
         <FilterBar fields={filterFields} />
@@ -430,14 +544,19 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
                       </td>
                       <td className="px-4 py-3">
                         {movement.reconciliation ? (
-                          <ReconciliationBlock reconciliation={movement.reconciliation} />
+                          <ReconciliationBlock
+                            reconciliation={movement.reconciliation}
+                            movementId={movement.id}
+                            returnTo={returnTo}
+                            canUndo={writable}
+                          />
                         ) : (
                           <SuggestionForms movement={movement} returnTo={returnTo} />
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">
                         {writable && !movement.reconciliation ? (
-                          <IgnoreForm movement={movement} returnTo={returnTo} />
+                          <MovementActions movement={movement} returnTo={returnTo} />
                         ) : null}
                       </td>
                     </tr>
