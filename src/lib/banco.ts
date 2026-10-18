@@ -276,7 +276,7 @@ async function ingestResult(companyId: string, bankId: string, result: ScraperRe
 // ---------------------------------------------------------------------------
 
 export type Suggestion = {
-  targetType: "purchase" | "sale";
+  targetType: "purchase" | "sale" | "expense";
   targetId: string;
   folio: string;
   partner: string;
@@ -290,8 +290,11 @@ export type Suggestion = {
 export type MovementReconciliation = {
   saleId: string | null;
   purchaseId: string | null;
+  expenseId: string | null;
   saleFolio: string | null;
   purchaseFolio: string | null;
+  /** Un gasto no tiene folio propio: se muestra su descripción. */
+  expenseDescription: string | null;
   partner: string;
   createdAt: Date;
 };
@@ -420,6 +423,7 @@ function scoreCandidate(
 }
 
 type Candidate = {
+  type: "purchase" | "sale" | "expense";
   id: string;
   documentNumber: string | null;
   totalAmount: number;
@@ -427,9 +431,13 @@ type Candidate = {
   partnerName: string;
 };
 
+// Cobros y pagos viven en bolsas separadas: un abono se compara solo contra las
+// ventas por cobrar y un cargo contra las compras por pagar y los gastos por
+// reembolsar. Cada bolsa se indexa por monto, así que dos documentos del mismo
+// monto compiten entre sí, y esa ya es una ambigüedad que decide la persona.
 type CandidateIndex = {
-  purchases: Map<number, Candidate[]>;
-  sales: Map<number, Candidate[]>;
+  inflows: Map<number, Candidate[]>;
+  outflows: Map<number, Candidate[]>;
 };
 
 function indexByAmount(rows: Candidate[]): Map<number, Candidate[]> {
@@ -443,12 +451,12 @@ function indexByAmount(rows: Candidate[]): Map<number, Candidate[]> {
 }
 
 /**
- * Documentos por pagar y por cobrar. Se indexan por monto porque la
- * coincidencia exacta de monto es el filtro duro: así un movimiento se compara
- * solo contra los documentos de su monto, no contra toda la cartera.
+ * Documentos por pagar, por cobrar y gastos por reembolsar. Se indexan por monto
+ * porque la coincidencia exacta de monto es el filtro duro: así un movimiento se
+ * compara solo contra los documentos de su monto, no contra toda la cartera.
  */
 async function loadCandidates(companyId: string): Promise<CandidateIndex> {
-  const [purchases, sales] = await Promise.all([
+  const [purchases, sales, expenses] = await Promise.all([
     db.purchase.findMany({
       where: { companyId, status: "PENDING", totalAmount: { gt: 0 } },
       select: {
@@ -469,15 +477,25 @@ async function loadCandidates(companyId: string): Promise<CandidateIndex> {
         partner: { select: { name: true } },
       },
     }),
+    // Solo los gastos pendientes de reembolso: los ya reembolsados se cerraron
+    // por otra vía, y conciliar sobre ellos volvería a pagarlos.
+    db.expense.findMany({
+      where: { companyId, reimbursed: false, totalAmount: { gt: 0 } },
+      select: { id: true, documentNumber: true, totalAmount: true, date: true, description: true },
+    }),
   ]);
 
-  const toCandidate = (row: {
-    id: string;
-    documentNumber: string | null;
-    totalAmount: number;
-    date: Date;
-    partner: { name: string };
-  }): Candidate => ({
+  const toCandidate = (
+    type: Candidate["type"],
+    row: {
+      id: string;
+      documentNumber: string | null;
+      totalAmount: number;
+      date: Date;
+      partner: { name: string };
+    },
+  ): Candidate => ({
+    type,
     id: row.id,
     documentNumber: row.documentNumber,
     totalAmount: row.totalAmount,
@@ -486,24 +504,37 @@ async function loadCandidates(companyId: string): Promise<CandidateIndex> {
   });
 
   return {
-    purchases: indexByAmount(purchases.map(toCandidate)),
-    sales: indexByAmount(sales.map(toCandidate)),
+    inflows: indexByAmount(sales.map((row) => toCandidate("sale", row))),
+    outflows: indexByAmount([
+      ...purchases.map((row) => toCandidate("purchase", row)),
+      // En un gasto, la descripción hace de contraparte: es lo que se reconoce
+      // en la glosa del movimiento y lo que se ve en el botón.
+      ...expenses.map(
+        (row): Candidate => ({
+          type: "expense",
+          id: row.id,
+          documentNumber: row.documentNumber,
+          totalAmount: row.totalAmount,
+          date: row.date,
+          partnerName: row.description,
+        }),
+      ),
+    ]),
   };
 }
 
 type MovementLike = { amount: number; date: Date; description: string };
 
 /**
- * Mejores coincidencias de un movimiento: abonos contra ventas por cobrar y
- * cargos contra compras por pagar, por monto exacto y ventana de fechas. La
- * ventana deja 45 días hacia adelante (el pago puede ser posterior al documento)
- * y 370 hacia atrás.
+ * Mejores coincidencias de un movimiento: los abonos contra ventas por cobrar y
+ * los cargos contra compras por pagar y gastos por reembolsar, por monto exacto
+ * y ventana de fechas. La ventana deja 45 días hacia adelante (el pago puede ser
+ * posterior al documento) y 370 hacia atrás.
  */
 function suggestionsFor(movement: MovementLike, index: CandidateIndex): Suggestion[] {
   if (movement.amount === 0) return [];
   const target = Math.abs(movement.amount);
-  const isInflow = movement.amount > 0;
-  const pool = isInflow ? index.sales : index.purchases;
+  const pool = movement.amount > 0 ? index.inflows : index.outflows;
   const inWindow = (pool.get(target) ?? []).filter(
     (candidate) =>
       candidate.date.getTime() <= movement.date.getTime() + CANDIDATE_FUTURE_DAYS * DAY_MS &&
@@ -512,7 +543,7 @@ function suggestionsFor(movement: MovementLike, index: CandidateIndex): Suggesti
 
   return inWindow
     .map((candidate) => ({
-      targetType: isInflow ? ("sale" as const) : ("purchase" as const),
+      targetType: candidate.type,
       targetId: candidate.id,
       folio: candidate.documentNumber ?? "sin folio",
       partner: candidate.partnerName,
@@ -536,6 +567,7 @@ const MOVEMENT_INCLUDE = {
       createdAt: true,
       purchase: { select: { id: true, documentNumber: true, partner: { select: { name: true } } } },
       sale: { select: { id: true, documentNumber: true, partner: { select: { name: true } } } },
+      expense: { select: { id: true, description: true, paidBy: { select: { name: true } } } },
     },
   },
 } satisfies Prisma.BankMovementInclude;
@@ -544,12 +576,15 @@ type MovementRow = Prisma.BankMovementGetPayload<{ include: typeof MOVEMENT_INCL
 
 function reconciliationOf(link: MovementRow["reconciliations"][number] | undefined): MovementReconciliation | null {
   if (!link) return null;
-  const counterpart = link.sale?.partner.name ?? link.purchase?.partner.name ?? "Sin contraparte";
+  const counterpart =
+    link.sale?.partner.name ?? link.purchase?.partner.name ?? link.expense?.paidBy.name ?? "Sin contraparte";
   return {
     saleId: link.sale?.id ?? null,
     purchaseId: link.purchase?.id ?? null,
+    expenseId: link.expense?.id ?? null,
     saleFolio: link.sale?.documentNumber ?? null,
     purchaseFolio: link.purchase?.documentNumber ?? null,
+    expenseDescription: link.expense?.description ?? null,
     partner: counterpart,
     createdAt: link.createdAt,
   };
@@ -670,10 +705,16 @@ export type BoardBatch = {
 /**
  * Coincidencia única: el monto calza exacto con un solo documento. Con dos o
  * más candidatos hay ambigüedad y decide la persona, no la app.
+ *
+ * Los gastos quedan fuera del lote a propósito: conciliar un gasto lo marca
+ * como reembolsado, y eso es una afirmación sobre a quién se le devolvió la
+ * plata. Igual cuentan para la unicidad: si un cargo calza con una compra y con
+ * un gasto, el movimiento no entra al lote.
  */
 function uniqueMatchOf(movement: MovementWithMatch): BatchMatch | null {
   if (movement.suggestions.length !== 1) return null;
   const [only] = movement.suggestions;
+  if (only.targetType === "expense") return null;
   return {
     movementId: movement.id,
     movementDate: movement.date,

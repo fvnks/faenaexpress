@@ -94,7 +94,19 @@ export async function listExpenses(companyId: string, filters: ExpenseFilters) {
 export async function getExpense(companyId: string, id: string) {
   return db.expense.findFirst({
     where: { id, companyId },
-    include: { category: true, area: true, paidBy: true, worker: true, createdBy: true },
+    include: {
+      category: true,
+      area: true,
+      paidBy: true,
+      worker: true,
+      createdBy: true,
+      // De dónde salió el reembolso: el movimiento bancario con que se concilió.
+      bankReconciliations: {
+        take: 1,
+        orderBy: { createdAt: "desc" },
+        include: { movement: { include: { account: { select: { label: true, bankId: true } } } } },
+      },
+    },
   });
 }
 

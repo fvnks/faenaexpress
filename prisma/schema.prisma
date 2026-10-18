@@ -1026,6 +1026,8 @@ model Expense {
   createdBy User      @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
   remunerations   Remuneration[]
   payrollEntries  PayrollEntry[]
+  // El movimiento bancario con que se cerró: es el reembolso a quien pagó.
+  bankReconciliations Reconciliation[]
 
   @@index([companyId, date])
   @@index([companyId, paidById])
@@ -1251,6 +1253,7 @@ model Reconciliation {
   movementId  String   @unique
   purchaseId  String?
   saleId      String?
+  expenseId   String?
   createdAt   DateTime @default(now())
   createdById String
 
@@ -1258,10 +1261,12 @@ model Reconciliation {
   movement BankMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
   purchase Purchase?    @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
   sale     Sale?        @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  expense  Expense?     @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   user     User         @relation("BankReconciliationBy", fields: [createdById], references: [id])
 
   @@index([companyId])
   @@index([purchaseId])
   @@index([saleId])
+  @@index([expenseId])
 }
 

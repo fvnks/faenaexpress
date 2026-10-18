@@ -60,6 +60,16 @@ function parseDate(value: FormDataEntryValue | null): Date {
     : new Date();
 }
 
+/**
+ * A dónde volver después de guardar. Se llega desde la bandeja del banco cuando
+ * el gasto se registra a partir de un movimiento; solo se aceptan rutas del
+ * panel, así que un `volver` armado a mano no puede redirigir a otro sitio.
+ */
+function returnTo(formData: FormData): string {
+  const raw = String(formData.get("volver") ?? "");
+  return raw.startsWith("/dashboard/") ? raw : "/dashboard/gastos";
+}
+
 export async function createExpense(
   _prev: ExpenseFormState,
   formData: FormData,
@@ -83,9 +93,11 @@ export async function createExpense(
   });
 
   await setFlash("success", "Gasto guardado", describe(data));
+  const back = returnTo(formData);
   revalidatePath("/dashboard/gastos");
   revalidatePath("/dashboard");
-  redirect("/dashboard/gastos");
+  if (back.startsWith("/dashboard/banco")) revalidatePath("/dashboard/banco");
+  redirect(back);
 }
 
 export async function updateExpense(

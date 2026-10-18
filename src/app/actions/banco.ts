@@ -57,12 +57,18 @@ function filtersFromForm(formData: FormData): BoardFilters {
 
 type MovementForLink = { id: string; date: Date; amount: number };
 
-type LinkResult = { ok: true; kind: "purchase" | "sale"; label: string } | { ok: false; error: string };
+type LinkResult =
+  | { ok: true; kind: "purchase" | "sale" | "expense"; label: string }
+  | { ok: false; error: string };
 
 /**
  * Marca el documento como pagado/cobrado con la fecha del movimiento y guarda
  * la conciliación. No toca `confirmingAt` de las ventas: eso es del módulo de
  * confirming, no del banco.
+ *
+ * Un gasto se cierra igual, pero lo que se marca es el reembolso: el movimiento
+ * es la plata que salió para devolverle a quien pagó. Por eso solo se ofrecen
+ * gastos pendientes de reembolso.
  */
 async function linkMovement(
   ctx: Awaited<ReturnType<typeof requireContext>>,
@@ -139,6 +145,48 @@ async function linkMovement(
     return { ok: true, kind: "sale", label };
   }
 
+  if (targetType === "expense") {
+    if (movement.amount > 0) {
+      return { ok: false, error: "Un abono no puede ser el reembolso de un gasto." };
+    }
+    const expense = await db.expense.findFirst({ where: { id: targetId, companyId: ctx.company.id } });
+    if (!expense) return { ok: false, error: "El gasto ya no existe." };
+    if (expense.reimbursed) {
+      return { ok: false, error: `El gasto «${expense.description}» ya está reembolsado.` };
+    }
+    if (expense.totalAmount !== movementAmount) {
+      return { ok: false, error: "El monto del movimiento no coincide con el total del gasto." };
+    }
+
+    await db.$transaction([
+      db.expense.update({
+        where: { id: expense.id },
+        data: { reimbursed: true, reimbursedAt: movement.date },
+      }),
+      db.reconciliation.create({
+        data: {
+          companyId: ctx.company.id,
+          movementId: movement.id,
+          expenseId: expense.id,
+          createdById: ctx.user.id,
+        },
+      }),
+    ]);
+
+    const label = `gasto «${expense.description}»`;
+    await recordAudit(ctx, {
+      action: "UPDATE",
+      entityType: "Expense",
+      entityId: expense.id,
+      summary: `Concilió ${movementDescription} con el ${label}: queda reembolsado.`,
+      changes: { reimbursed: { before: expense.reimbursed, after: true } },
+    });
+    revalidatePath("/dashboard/gastos");
+    revalidatePath("/dashboard/gastos/[id]", "page");
+    revalidatePath("/dashboard");
+    return { ok: true, kind: "expense", label };
+  }
+
   return { ok: false, error: "Tipo de conciliación desconocido." };
 }
 
@@ -204,11 +252,16 @@ export async function conciliarMovimiento(formData: FormData): Promise<void> {
     await setFlash("error", "No se pudo conciliar", result.error);
   } else {
     const movementAmount = Math.abs(movement.amount);
-    await setFlash(
-      "success",
-      result.kind === "purchase" ? "Compra conciliada" : "Venta conciliada",
-      `Marcada como ${result.kind === "purchase" ? "pagada" : "cobrada"} con el movimiento del ${formatDate(movement.date)} por ${formatCLP(movementAmount)}.`,
-    );
+    const when = `con el movimiento del ${formatDate(movement.date)} por ${formatCLP(movementAmount)}`;
+    if (result.kind === "expense") {
+      await setFlash("success", "Gasto conciliado", `Queda reembolsado ${when}.`);
+    } else {
+      await setFlash(
+        "success",
+        result.kind === "purchase" ? "Compra conciliada" : "Venta conciliada",
+        `Marcada como ${result.kind === "purchase" ? "pagada" : "cobrada"} ${when}.`,
+      );
+    }
   }
 
   revalidatePath(BANCO_PATH);
@@ -266,7 +319,7 @@ export async function conciliarSugerencias(formData: FormData): Promise<void> {
     }
     linked += 1;
     if (result.kind === "purchase") purchases += 1;
-    else sales += 1;
+    else if (result.kind === "sale") sales += 1;
   }
 
   const parts = [
@@ -412,6 +465,7 @@ export async function deshacerConciliacion(formData: FormData): Promise<void> {
     include: {
       purchase: { select: { id: true, documentNumber: true, status: true } },
       sale: { select: { id: true, documentNumber: true, status: true, confirmingAt: true } },
+      expense: { select: { id: true, description: true, reimbursed: true } },
     },
   });
   if (!link) {
@@ -422,6 +476,9 @@ export async function deshacerConciliacion(formData: FormData): Promise<void> {
   const revertPurchase = link.purchase !== null && link.purchase.status === "PAID";
   const revertSale =
     link.sale !== null && link.sale.status === "PAID" && link.sale.confirmingAt === null;
+  // Un gasto solo entra a la conciliación cuando estaba pendiente de reembolso,
+  // así que deshacerlo lo devuelve a pendiente sin ambigüedad.
+  const revertExpense = link.expense !== null && link.expense.reimbursed;
 
   await db.$transaction(async (tx) => {
     await tx.reconciliation.delete({ where: { id: link.id } });
@@ -437,26 +494,43 @@ export async function deshacerConciliacion(formData: FormData): Promise<void> {
         data: { status: "PENDING", paymentDate: null },
       });
     }
+    if (revertExpense && link.expense) {
+      await tx.expense.update({
+        where: { id: link.expense.id },
+        data: { reimbursed: false, reimbursedAt: null },
+      });
+    }
   });
 
-  const reverted = revertPurchase || revertSale;
-  const isPurchase = link.purchase !== null;
-  const documentId = link.purchase?.id ?? link.sale?.id ?? null;
+  const reverted = revertPurchase || revertSale || revertExpense;
+  const isExpense = link.expense !== null;
+  const entityType = link.purchase ? "Purchase" : link.sale ? "Sale" : "Expense";
+  const documentId = link.purchase?.id ?? link.sale?.id ?? link.expense?.id ?? null;
   await recordAudit(ctx, {
     action: "UPDATE",
-    entityType: isPurchase ? "Purchase" : "Sale",
+    entityType,
     entityId: documentId,
     summary:
       `Deshizo la conciliación del movimiento del ${formatDate(movement.date)} por ${formatCLP(Math.abs(movement.amount))}` +
-      (reverted ? ": el documento vuelve a estar pendiente." : ": el documento queda como estaba."),
-    changes: reverted ? { status: { before: "PAID", after: "PENDING" } } : undefined,
+      (reverted
+        ? isExpense
+          ? ": el gasto vuelve a estar pendiente de reembolso."
+          : ": el documento vuelve a estar pendiente."
+        : ": el documento queda como estaba."),
+    changes: reverted
+      ? isExpense
+        ? { reimbursed: { before: true, after: false } }
+        : { status: { before: "PAID", after: "PENDING" } }
+      : undefined,
   });
 
   await setFlash(
     "success",
     "Conciliación deshecha",
     reverted
-      ? "El movimiento vuelve a la bandeja y el documento queda pendiente."
+      ? isExpense
+        ? "El movimiento vuelve a la bandeja y el gasto queda pendiente de reembolso."
+        : "El movimiento vuelve a la bandeja y el documento queda pendiente."
       : "El movimiento vuelve a la bandeja. La venta sigue cobrada por Confirming.",
   );
   revalidatePath(BANCO_PATH);
@@ -465,6 +539,8 @@ export async function deshacerConciliacion(formData: FormData): Promise<void> {
   revalidatePath("/dashboard/compras/[id]", "page");
   revalidatePath("/dashboard/ventas");
   revalidatePath("/dashboard/ventas/[id]", "page");
+  revalidatePath("/dashboard/gastos");
+  revalidatePath("/dashboard/gastos/[id]", "page");
   redirect(back);
 }
 

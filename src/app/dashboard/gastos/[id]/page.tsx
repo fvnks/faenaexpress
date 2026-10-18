@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { deleteExpense, markExpensePending, markExpenseReimbursed } from "@/app/actions/expenses";
 import { ActionsDropdown } from "@/components/actions-dropdown";
+import { BankReconciliationNote } from "@/components/bank-reconciliation-note";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { ReimbursementBadge } from "@/components/reimbursement-badge";
 import { SubmitButton } from "@/components/submit-button";
@@ -9,6 +10,7 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { getExpense } from "@/lib/expenses";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
+import { canAccess } from "@/lib/permissions";
 import {
   cardClass,
   controlClass,
@@ -27,6 +29,10 @@ export default async function ExpenseDetailPage(props: PageProps<"/dashboard/gas
   }
 
   const writable = canWrite(ctx, "gastos");
+  // El movimiento bancario expone la caja de la empresa: solo lo ve quien puede
+  // entrar a Banco.
+  const canSeeBank = canAccess(ctx.role, "banco");
+  const bankLink = expense.bankReconciliations[0] ?? null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -159,6 +165,8 @@ export default async function ExpenseDetailPage(props: PageProps<"/dashboard/gas
               </form>
             )
           ) : null}
+
+          {bankLink && canSeeBank ? <BankReconciliationNote movement={bankLink.movement} /> : null}
         </section>
       </div>
 

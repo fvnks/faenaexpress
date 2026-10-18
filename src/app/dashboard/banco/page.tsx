@@ -74,6 +74,20 @@ function Amount({ amount }: { amount: number }) {
   );
 }
 
+/** Distancia entre el documento y el movimiento, en palabras. */
+function distanceLabel(daysDiff: number): string {
+  if (daysDiff === 0) return "el mismo día";
+  return daysDiff > 0
+    ? `${daysDiff} días antes del movimiento`
+    : `${Math.abs(daysDiff)} días después del movimiento`;
+}
+
+function suggestionLabel(suggestion: MovementWithMatch["suggestions"][number]): string {
+  if (suggestion.targetType === "expense") return `Pagar gasto · ${suggestion.partner}`;
+  const folio = suggestion.folio !== "sin folio" ? `N° ${suggestion.folio}` : suggestion.folio;
+  return `${suggestion.targetType === "sale" ? "Cobrar" : "Pagar"} ${folio} · ${suggestion.partner}`;
+}
+
 /** Sugerencias de conciliación. La misma pieza sirve en la tabla y en el destacado. */
 function SuggestionForms({ movement, returnTo }: { movement: MovementWithMatch; returnTo: string }) {
   if (movement.suggestions.length === 0) {
@@ -83,7 +97,7 @@ function SuggestionForms({ movement, returnTo }: { movement: MovementWithMatch; 
           ? "Parece un traspaso entre cuentas propias"
           : movement.amount > 0
             ? "Sin ventas por cobrar con ese monto"
-            : "Sin compras por pagar con ese monto"}
+            : "Sin compras ni gastos pendientes con ese monto"}
       </span>
     );
   }
@@ -91,7 +105,11 @@ function SuggestionForms({ movement, returnTo }: { movement: MovementWithMatch; 
   return (
     <div className="flex flex-col gap-1.5">
       {movement.suggestions.map((suggestion) => (
-        <form key={suggestion.targetId} action={conciliarMovimiento} className="flex flex-wrap items-center gap-2">
+        <form
+          key={`${suggestion.targetType}-${suggestion.targetId}`}
+          action={conciliarMovimiento}
+          className="flex flex-wrap items-center gap-2"
+        >
           <input type="hidden" name="movementId" value={movement.id} />
           <input type="hidden" name="targetType" value={suggestion.targetType} />
           <input type="hidden" name="targetId" value={suggestion.targetId} />
@@ -99,14 +117,9 @@ function SuggestionForms({ movement, returnTo }: { movement: MovementWithMatch; 
           <button
             type="submit"
             className="rounded-control border border-primary bg-primary-soft px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-            title={
-              suggestion.daysDiff >= 0
-                ? `Factura del ${formatDate(suggestion.date)} (${suggestion.daysDiff} días después del depósito)`
-                : `Factura del ${formatDate(suggestion.date)} (${Math.abs(suggestion.daysDiff)} días antes del movimiento)`
-            }
+            title={`${suggestion.targetType === "expense" ? "Gasto" : "Factura"} del ${formatDate(suggestion.date)} (${distanceLabel(suggestion.daysDiff)})`}
           >
-            {suggestion.targetType === "sale" ? "Cobrar" : "Pagar"}{" "}
-            {suggestion.folio !== "sin folio" ? `N° ${suggestion.folio}` : suggestion.folio} · {suggestion.partner}
+            {suggestionLabel(suggestion)}
           </button>
         </form>
       ))}
@@ -115,17 +128,45 @@ function SuggestionForms({ movement, returnTo }: { movement: MovementWithMatch; 
 }
 
 /**
+ * Gasto nuevo a partir de un cargo: la glosa, la fecha y el monto viajan al
+ * formulario de gastos, y al guardar se vuelve acá con el movimiento destacado,
+ * donde el gasto recién creado aparece como sugerencia para conciliarlo.
+ */
+function newExpenseHref(movement: MovementWithMatch, returnTo: string): string {
+  const [path, search] = returnTo.split("?");
+  const back = new URLSearchParams(search ?? "");
+  back.set("movimiento", movement.id);
+
+  const query = new URLSearchParams({
+    descripcion: movement.description,
+    fecha: movement.date.toISOString().slice(0, 10),
+    monto: String(Math.abs(movement.amount)),
+    // Los movimientos de tarjeta vienen marcados con su origen: el gasto nace
+    // con el mismo medio de pago.
+    pago: movement.source.startsWith("credit_card") ? "CREDIT_CARD" : "TRANSFER",
+    volver: `${path}?${back.toString()}`,
+  });
+  return `/dashboard/gastos/nueva?${query.toString()}`;
+}
+
+/**
  * Qué hacer con un movimiento que no va a conciliarse: un traspaso entre
  * cuentas propias (no es cobro ni pago) o un descarte. Si ya está marcado, se
  * muestra el motivo y se ofrece restituirlo.
+ *
+ * En un cargo también se ofrece registrar el gasto: la mitad de los cargos de
+ * una cuenta personal son gastos de la empresa que todavía no están en la
+ * aplicación.
  */
 function MovementActions({
   movement,
   returnTo,
+  newExpenseHref,
   align = "end",
 }: {
   movement: MovementWithMatch;
   returnTo: string;
+  newExpenseHref?: string | null;
   align?: "start" | "end";
 }) {
   const hidden = (
@@ -154,6 +195,14 @@ function MovementActions({
 
   return (
     <div className={column}>
+      {newExpenseHref ? (
+        <Link
+          href={newExpenseHref}
+          className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+        >
+          Nuevo gasto
+        </Link>
+      ) : null}
       <form action={toggleMovimientoIgnorado}>
         {hidden}
         <input type="hidden" name="marca" value="internal_transfer" />
@@ -182,20 +231,28 @@ function ReconciliationBlock({
   returnTo: string;
   canUndo: boolean;
 }) {
-  const isPurchase = reconciliation.purchaseId !== null;
-  const href = isPurchase
-    ? `/dashboard/compras/${reconciliation.purchaseId}`
-    : `/dashboard/ventas/${reconciliation.saleId}`;
+  const isExpense = reconciliation.expenseId !== null;
+  const isPurchase = !isExpense && reconciliation.purchaseId !== null;
+  const href = isExpense
+    ? `/dashboard/gastos/${reconciliation.expenseId}`
+    : isPurchase
+      ? `/dashboard/compras/${reconciliation.purchaseId}`
+      : `/dashboard/ventas/${reconciliation.saleId}`;
   const folio = reconciliation.purchaseFolio ?? reconciliation.saleFolio;
 
   return (
     <div className="text-sm">
       <p className="font-medium">
-        {isPurchase ? "Compra" : "Venta"}
-        {folio ? ` N° ${folio}` : " sin folio"}
+        {isExpense ? "Gasto" : isPurchase ? "Compra" : "Venta"}
+        {isExpense
+          ? ` «${reconciliation.expenseDescription}»`
+          : folio
+            ? ` N° ${folio}`
+            : " sin folio"}
       </p>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        {reconciliation.partner} · conciliado el {formatDate(reconciliation.createdAt)}
+        {reconciliation.partner}
+        {isExpense ? " · reembolsado" : ""} · conciliado el {formatDate(reconciliation.createdAt)}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
         <Link
@@ -211,9 +268,11 @@ function ReconciliationBlock({
             <ConfirmSubmit
               title="Deshacer conciliación"
               description={
-                isPurchase
-                  ? "Se borra el vínculo y la compra vuelve a estar pendiente."
-                  : "Se borra el vínculo y la venta vuelve a estar pendiente, salvo que esté cobrada por Confirming."
+                isExpense
+                  ? "Se borra el vínculo y el gasto vuelve a estar pendiente de reembolso."
+                  : isPurchase
+                    ? "Se borra el vínculo y la compra vuelve a estar pendiente."
+                    : "Se borra el vínculo y la venta vuelve a estar pendiente, salvo que esté cobrada por Confirming."
               }
               confirmLabel="Deshacer"
               className="text-xs text-muted-foreground transition-colors hover:text-danger"
@@ -274,6 +333,9 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
 
   const board = await loadReconciliationBoard(ctx.company.id, filters);
   const writable = canWrite(ctx, "banco");
+  // Registrar el gasto es cosa del módulo de gastos: sin permiso ahí, el enlace
+  // solo llevaría a una página que devuelve.
+  const canAddExpense = canWrite(ctx, "gastos");
 
   // Volver a la misma vista (filtros incluidos) tras una acción.
   const currentQuery = (() => {
@@ -285,6 +347,10 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
     return query;
   })();
   const returnTo = currentQuery.toString() ? `/dashboard/banco?${currentQuery}` : "/dashboard/banco";
+
+  /** Enlace para registrar el gasto de un cargo (solo si puede registrar gastos). */
+  const expenseHrefFor = (movement: MovementWithMatch) =>
+    canAddExpense && movement.amount < 0 ? newExpenseHref(movement, returnTo) : null;
 
   const hasFilters = Boolean(
     filters.q ||
@@ -334,7 +400,7 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
         <h1 className="text-2xl font-bold tracking-tight">Conciliación bancaria</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Conciliación: importa los movimientos del banco y márcalos como el pago o cobro
-          de una factura.
+          de una factura, o como el reembolso de un gasto.
         </p>
       </div>
 
@@ -382,7 +448,12 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
               <SuggestionForms movement={highlight} returnTo={returnTo} />
               {writable ? (
                 <div className="mt-2">
-                  <MovementActions movement={highlight} returnTo={returnTo} align="start" />
+                  <MovementActions
+                    movement={highlight}
+                    returnTo={returnTo}
+                    newExpenseHref={expenseHrefFor(highlight)}
+                    align="start"
+                  />
                 </div>
               ) : null}
             </div>
@@ -556,7 +627,11 @@ export default async function BancoPage(props: PageProps<"/dashboard/banco">) {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">
                         {writable && !movement.reconciliation ? (
-                          <MovementActions movement={movement} returnTo={returnTo} />
+                          <MovementActions
+                            movement={movement}
+                            returnTo={returnTo}
+                            newExpenseHref={expenseHrefFor(movement)}
+                          />
                         ) : null}
                       </td>
                     </tr>

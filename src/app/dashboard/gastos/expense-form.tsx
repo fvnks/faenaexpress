@@ -22,6 +22,8 @@ export function ExpenseForm({
   ivaRate,
   today,
   defaults,
+  prefill,
+  volver,
 }: {
   action: (prev: ExpenseFormState, formData: FormData) => Promise<ExpenseFormState>;
   categories: Option[];
@@ -31,12 +33,21 @@ export function ExpenseForm({
   ivaRate: number;
   today: string;
   defaults?: ExpenseForForm;
+  /**
+   * Valores iniciales que no vienen de un gasto guardado, como la glosa de un
+   * movimiento bancario. En edición, `defaults` manda.
+   */
+  prefill?: Partial<ExpenseForForm>;
+  /** A dónde volver al guardar. Solo lo usa el alta. */
+  volver?: string;
 }) {
   const [state, formAction] = useActionState<ExpenseFormState, FormData>(action, undefined);
 
-  const [net, setNet] = useState(defaults ? String(defaults.netAmount) : "");
-  const [iva, setIva] = useState(defaults ? String(defaults.ivaAmount) : "");
-  const [reimbursed, setReimbursed] = useState(defaults?.reimbursed ?? false);
+  const initial: Partial<ExpenseForForm> = { ...prefill, ...defaults };
+
+  const [net, setNet] = useState(initial.netAmount !== undefined ? String(initial.netAmount) : "");
+  const [iva, setIva] = useState(initial.ivaAmount !== undefined ? String(initial.ivaAmount) : "");
+  const [reimbursed, setReimbursed] = useState(initial.reimbursed ?? false);
 
   const netNumber = Number(net) || 0;
   const ivaNumber = Number(iva) || 0;
@@ -44,6 +55,7 @@ export function ExpenseForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
+      {volver ? <input type="hidden" name="volver" value={volver} /> : null}
       <section className={cardClass + " flex flex-col gap-4 p-4"}>
         <h2 className="font-semibold">Datos del gasto</h2>
 
@@ -57,7 +69,7 @@ export function ExpenseForm({
               name="date"
               type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
               required
-              defaultValue={defaults?.date ?? today}
+              defaultValue={initial.date ?? today}
               className={controlClass}
             />
           </div>
@@ -69,7 +81,7 @@ export function ExpenseForm({
             <input
               id="documentNumber"
               name="documentNumber"
-              defaultValue={defaults?.documentNumber ?? ""}
+              defaultValue={initial.documentNumber ?? ""}
               maxLength={50}
               className={controlClass}
             />
@@ -84,7 +96,7 @@ export function ExpenseForm({
               name="description"
               required
               maxLength={300}
-              defaultValue={defaults?.description ?? ""}
+              defaultValue={initial.description ?? ""}
               placeholder="Detalle del gasto"
               className={controlClass}
             />
@@ -97,7 +109,7 @@ export function ExpenseForm({
             <SelectDropdown
               id="categoryId"
               name="categoryId"
-              value={defaults?.categoryId ?? ""}
+              value={initial.categoryId ?? ""}
               emptyLabel="Sin categoría"
               options={categories.map((category) => ({ value: category.id, label: category.name }))}
             />
@@ -110,7 +122,7 @@ export function ExpenseForm({
             <SelectDropdown
               id="areaId"
               name="areaId"
-              value={defaults?.areaId ?? ""}
+              value={initial.areaId ?? ""}
               emptyLabel="Sin área"
               options={areas.map((area) => ({ value: area.id, label: area.name }))}
             />
@@ -123,7 +135,7 @@ export function ExpenseForm({
             <SelectDropdown
               id="workerId"
               name="workerId"
-              value={defaults?.workerId ?? ""}
+              value={initial.workerId ?? ""}
               emptyLabel="Sin trabajador"
               options={workers.map((worker) => ({ value: worker.id, label: worker.name }))}
             />
@@ -136,7 +148,7 @@ export function ExpenseForm({
             <SelectDropdown
               id="paidById"
               name="paidById"
-              value={defaults?.paidById ?? ""}
+              value={initial.paidById ?? ""}
               emptyLabel="— Selecciona quién pagó —"
               options={payers.map((payer) => ({ value: payer.id, label: payer.name }))}
             />
@@ -149,7 +161,7 @@ export function ExpenseForm({
             <SelectDropdown
               id="paymentMethod"
               name="paymentMethod"
-              value={defaults?.paymentMethod ?? "CASH"}
+              value={initial.paymentMethod ?? "CASH"}
               allowEmpty={false}
               options={paymentMethodValues.map((value) => ({ value, label: paymentMethodLabel(value) }))}
             />
@@ -236,7 +248,7 @@ export function ExpenseForm({
                 id="reimbursedAt"
                 name="reimbursedAt"
                 type="text" data-date="1" pattern="^\d{2}-\d{2}-\d{4}$" placeholder="DD-MM-AAAA"
-                defaultValue={defaults?.reimbursedAt ?? today}
+                defaultValue={initial.reimbursedAt ?? today}
                 className={controlClass}
               />
             </div>
@@ -251,7 +263,7 @@ export function ExpenseForm({
             id="notes"
             name="notes"
             rows={3}
-            defaultValue={defaults?.notes ?? ""}
+            defaultValue={initial.notes ?? ""}
             maxLength={1000}
             className={controlClass}
           />
