@@ -186,20 +186,37 @@ export async function fetchPurchaseXmlAction(
   try {
     resultado = await withDefontanaSession(ctx.company.id, async (session) => {
       const masterData = await getMasterData(session.token);
-      const buscar = (extra: { folio?: string | null; limite?: number }) =>
-        listPurchaseDocuments(session.token, masterData, { ...rango, rutProveedor, ...extra });
+      // El folio acota en el servidor; el RUT se verifica acá (el filtro
+      // `proveedor` del ERP no sirve: ver client.ts).
+      const lista = (r: { desde: string; hasta: string }, f: string | null) =>
+        listPurchaseDocuments(session.token, masterData, { ...r, folio: f, limite: 500 });
 
-      // Primero acotado por folio; si el ERP no lo filtra bien, se lista lo del
-      // proveedor en el rango y se elige acá.
-      let documento = elegirDocumento(await buscar({ folio, limite: 25 }), folio, tipos);
-      if (!documento) {
-        documento = elegirDocumento(await buscar({ limite: 200 }), folio, tipos);
+      const cerca = {
+        desde: new Date(purchase.date.getTime() - 45 * 864e5).toISOString().slice(0, 10),
+        hasta: new Date(purchase.date.getTime() + 45 * 864e5).toISOString().slice(0, 10),
+      };
+      const intentos = [await lista(rango, folio), await lista(cerca, null)];
+
+      for (const documentos of intentos) {
+        const documento = elegirDocumento(documentos, folio, tipos, rutProveedor);
+        if (!documento) continue;
+        if (!documento.platformId) return { estado: "sin-xml" as const, documento };
+        const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
+        return { estado: "ok" as const, documento, xml };
       }
-      if (!documento) return { estado: "sin-documento" as const };
-      if (!documento.platformId) return { estado: "sin-xml" as const, documento };
 
-      const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
-      return { estado: "ok" as const, documento, xml };
+      // El folio aparece en el ERP pero de otro proveedor: se avisa en vez de
+      // guardar un XML que no es de esta compra.
+      const deOtro = intentos
+        .flat()
+        .find(
+          (doc) =>
+            sinCeros(doc.folio) === folio &&
+            doc.rutTercero &&
+            normalizeRut(doc.rutTercero) !== rutProveedor,
+        );
+      if (deOtro) return { estado: "otro-proveedor" as const, documento: deOtro };
+      return { estado: "sin-documento" as const };
     });
   } catch (error) {
     return {
@@ -218,6 +235,11 @@ export async function fetchPurchaseXmlAction(
   if (resultado.estado === "sin-xml") {
     return {
       error: `La factura folio ${folio} está en Defontana pero sin XML de plataforma (fue ingresada a mano).`,
+    };
+  }
+  if (resultado.estado === "otro-proveedor") {
+    return {
+      error: `El folio ${folio} está en Defontana, pero del proveedor ${resultado.documento?.rutTercero ?? "(sin RUT)"}, no de ${purchase.partner.name}. No se guardó nada.`,
     };
   }
 
@@ -295,16 +317,28 @@ export async function fetchPurchaseXmlAction(
   };
 }
 
-/** Elige, entre los documentos del proveedor, el del folio pedido (prefiriendo el tipo esperado). */
+/**
+ * Elige, entre los documentos, el del folio y proveedor pedidos (prefiriendo el
+ * tipo del SII esperado). El folio no es único entre proveedores, así que el RUT
+ * normalizado desempata; si ninguna fila declara RUT, se conservan todas para no
+ * descartar el documento por falta de dato.
+ */
 function elegirDocumento(
   documentos: DefontanaDocumento[],
   folio: string,
   tipos: number[],
+  rutTercero: string,
 ): DefontanaDocumento | undefined {
   const mismoFolio = documentos.filter((doc) => sinCeros(doc.folio) === folio);
   if (mismoFolio.length === 0) return undefined;
-  if (tipos.length === 0) return mismoFolio[0];
-  return mismoFolio.find((doc) => tipos.includes(Number(doc.tipoSii))) ?? mismoFolio[0];
+
+  const delTercero = mismoFolio.filter(
+    (doc) => !doc.rutTercero || normalizeRut(doc.rutTercero) === rutTercero,
+  );
+  if (delTercero.length === 0) return undefined;
+
+  if (tipos.length === 0) return delTercero[0];
+  return delTercero.find((doc) => tipos.includes(Number(doc.tipoSii))) ?? delTercero[0];
 }
 
 // ── Traer el XML de una venta, a pedido ───────────────────────────────────────
@@ -358,18 +392,35 @@ export async function fetchSaleXmlAction(
   try {
     resultado = await withDefontanaSession(ctx.company.id, async (session) => {
       const masterData = await getMasterData(session.token);
-      const buscar = (extra: { folio?: string | null; limite?: number }) =>
-        listSaleDocuments(session.token, masterData, { ...rango, rutCliente, ...extra });
+      // El folio acota en el servidor; el RUT se verifica acá (el `clientSearch`
+      // del ERP no cruza el RUT: ver client.ts).
+      const lista = (r: { desde: string; hasta: string }, f: string | null) =>
+        listSaleDocuments(session.token, masterData, { ...r, folio: f, limite: 500 });
 
-      let documento = elegirDocumento(await buscar({ folio, limite: 25 }), folio, tipos);
-      if (!documento) {
-        documento = elegirDocumento(await buscar({ limite: 200 }), folio, tipos);
+      const cerca = {
+        desde: new Date(sale.date.getTime() - 45 * 864e5).toISOString().slice(0, 10),
+        hasta: new Date(sale.date.getTime() + 45 * 864e5).toISOString().slice(0, 10),
+      };
+      const intentos = [await lista(rango, folio), await lista(cerca, null)];
+
+      for (const documentos of intentos) {
+        const documento = elegirDocumento(documentos, folio, tipos, rutCliente);
+        if (!documento) continue;
+        if (!documento.platformId) return { estado: "sin-xml" as const, documento };
+        const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
+        return { estado: "ok" as const, documento, xml };
       }
-      if (!documento) return { estado: "sin-documento" as const };
-      if (!documento.platformId) return { estado: "sin-xml" as const, documento };
 
-      const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
-      return { estado: "ok" as const, documento, xml };
+      const deOtro = intentos
+        .flat()
+        .find(
+          (doc) =>
+            sinCeros(doc.folio) === folio &&
+            doc.rutTercero &&
+            normalizeRut(doc.rutTercero) !== rutCliente,
+        );
+      if (deOtro) return { estado: "otro-cliente" as const, documento: deOtro };
+      return { estado: "sin-documento" as const };
     });
   } catch (error) {
     return {
@@ -388,6 +439,11 @@ export async function fetchSaleXmlAction(
   if (resultado.estado === "sin-xml") {
     return {
       error: `La venta folio ${folio} está en Defontana pero sin XML de plataforma (fue ingresada a mano).`,
+    };
+  }
+  if (resultado.estado === "otro-cliente") {
+    return {
+      error: `El folio ${folio} está en Defontana, pero del cliente ${resultado.documento?.rutTercero ?? "(sin RUT)"}, no de ${sale.partner.name}. No se guardó nada.`,
     };
   }
 

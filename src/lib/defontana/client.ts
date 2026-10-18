@@ -292,9 +292,13 @@ export async function getMasterData(token: string): Promise<DefontanaMasterData>
 }
 
 /**
- * Documentos del Libro de Compras. Todo es opcional salvo el rango de emisión,
- * que el ERP exige siempre; el folio y el proveedor acotan la búsqueda en el
- * servidor (si el folio no filtra bien, el llamador puede reintentar sin él).
+ * Documentos del Libro de Compras. El rango de emisión es obligatorio; el folio
+ * acota la búsqueda en el servidor.
+ *
+ * Ojo con `proveedor`: el ERP lo compara exacto contra el RUT *tal como lo tiene
+ * guardado*, y lo guarda unas veces con puntos («94.668.000-1») y otras sin
+ * ellos («76056614-4»). Mandarlo normalizado deja la búsqueda en cero filas, así
+ * que no se envía nunca: el RUT del proveedor se verifica en el llamador.
  */
 export async function listPurchaseDocuments(
   token: string,
@@ -302,7 +306,6 @@ export async function listPurchaseDocuments(
   filtro: {
     desde: string;
     hasta: string;
-    rutProveedor?: string | null;
     folio?: string | null;
     limite?: number;
   },
@@ -311,9 +314,9 @@ export async function listPurchaseDocuments(
   const respuesta = await graphql(token, APPSYNC_COMPRAS, ERP_DOCUMENTS_QUERY, {
     input: {
       start: 0,
-      length: filtro.limite ?? 50,
+      length: filtro.limite ?? 500,
       filters: {
-        proveedor: filtro.rutProveedor?.trim() || null,
+        proveedor: null,
         numeroDesde: folio,
         numeroHasta: folio,
         fechaEmision: `${filtro.desde}@${filtro.hasta}`,
@@ -349,9 +352,11 @@ export async function listPurchaseDocuments(
 }
 
 /**
- * Documentos del módulo de Ventas. `clientSearch` acepta el RUT del cliente
- * (con o sin puntos); si el ERP no lo filtra, el llamador lo verifica de nuevo
- * en el cliente.
+ * Documentos del módulo de Ventas. El `folio` acota en el servidor.
+ *
+ * Igual que en compras, no se envía `clientSearch` con el RUT: el ERP no lo
+ * cruza contra el RUT guardado (da cero filas). El RUT del cliente se verifica
+ * en el llamador sobre las filas que llegan.
  */
 export async function listSaleDocuments(
   token: string,
@@ -359,7 +364,6 @@ export async function listSaleDocuments(
   filtro: {
     desde: string;
     hasta: string;
-    rutCliente?: string | null;
     folio?: string | null;
     limite?: number;
   },
@@ -369,8 +373,8 @@ export async function listSaleDocuments(
     companyId: masterData.companyConfig.companyId,
     dateFrom: filtro.desde,
     dateTo: filtro.hasta,
-    limit: filtro.limite ?? 50,
-    clientSearch: filtro.rutCliente?.trim() || null,
+    limit: filtro.limite ?? 500,
+    clientSearch: null,
     docSearch: null,
     folioFrom: folio,
     folioTo: folio,
