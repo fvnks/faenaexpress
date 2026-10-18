@@ -235,8 +235,11 @@ export async function fetchPurchaseXmlAction(
   }
 
   if (resultado.estado === "sin-documento") {
+    // Es el caso más común: la factura está en el RCV pero todavía no en el Libro
+    // de Compras del ERP (o entró con otro folio). Desde Defontana no hay nada
+    // que bajar: ese XML solo se puede cargar a mano.
     return {
-      error: `Defontana no tiene una factura folio ${folio} de ${purchase.partner.name} entre ${rango.desde} y ${rango.hasta}.`,
+      error: `La factura ${folio} de ${purchase.partner.name} no está en el Libro de Compras de Defontana: puede que aún no se haya ingresado al ERP, o que esté con otro folio. Ese XML hay que cargarlo a mano.`,
     };
   }
   if (resultado.estado === "sin-xml") {
@@ -444,7 +447,7 @@ export async function fetchSaleXmlAction(
 
   if (resultado.estado === "sin-documento") {
     return {
-      error: `Defontana no tiene una venta folio ${folio} de ${sale.partner.name} entre ${rango.desde} y ${rango.hasta}.`,
+      error: `La venta ${folio} de ${sale.partner.name} no está en el Libro de Ventas de Defontana (puede que esté con otro folio).`,
     };
   }
   if (resultado.estado === "sin-xml") {

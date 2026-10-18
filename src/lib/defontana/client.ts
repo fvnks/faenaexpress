@@ -102,6 +102,36 @@ export class DefontanaError extends Error {
   }
 }
 
+// Tope de espera de las llamadas al ERP: antes, si Defontana no contestaba, el
+// botón quedaba girando hasta que el servidor cortaba por su cuenta. El XML va
+// aparte porque puede tardar más que una consulta.
+const TIMEOUT_MS = 20_000;
+const TIMEOUT_XML_MS = 30_000;
+
+/**
+ * `fetch` contra Defontana con tope de tiempo y errores traducidos a
+ * `DefontanaError`: sin esto, un timeout o un corte de red llegaban al usuario
+ * como un genérico «revisa las credenciales», que no era el problema.
+ */
+async function fetchDefontana(
+  url: string,
+  init: RequestInit,
+  context: string,
+  timeoutMs: number = TIMEOUT_MS,
+): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name === "TimeoutError" || name === "AbortError") {
+      throw new DefontanaError(
+        `Defontana tardó más de ${Math.round(timeoutMs / 1000)} s en responder al ${context}. Vuelve a intentarlo.`,
+      );
+    }
+    throw new DefontanaError(`No se pudo conectar con Defontana al ${context}.`);
+  }
+}
+
 export type DefontanaSession = { token: string; expiresAt: Date };
 
 export type DefontanaMasterData = {
@@ -187,8 +217,10 @@ function accessTokenFromCookies(headers: Headers): string | null {
 /** Login del portal + sesión del ERP. Devuelve el token con su vencimiento (un año). */
 export async function loginDefontana(email: string, password: string): Promise<DefontanaSession> {
   const login = await readJson(
-    await fetch(
+    await fetchDefontana(
       `${PORTAL_API}/api/Account/EmailLogin?Email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
+      {},
+      "iniciar sesión",
     ),
     "iniciar sesión",
   );
@@ -205,25 +237,29 @@ export async function loginDefontana(email: string, password: string): Promise<D
   const expirationDate = new Date(jwtExpiration(portalToken) * 1000).toISOString();
 
   await readJson(
-    await fetch(
+    await fetchDefontana(
       `${PORTAL_API}/api/Product/GetProductsByCompanyAndUser?expirationDate=${encodeURIComponent(expirationDate)}`,
       { headers: bearer },
+      "abrir el producto",
     ),
     "abrir el producto",
   );
 
   const cuenta = await readJson(
-    await fetch(`${PORTAL_API}/api/Account/GetUsersFromAccount?itemsPerPage=5&pageNumber=0`, {
-      headers: bearer,
-    }),
+    await fetchDefontana(
+      `${PORTAL_API}/api/Account/GetUsersFromAccount?itemsPerPage=5&pageNumber=0`,
+      { headers: bearer },
+      "leer los usuarios de la cuenta",
+    ),
     "leer los usuarios de la cuenta",
   );
   const usuario = obj(arr(cuenta.users)[0]);
   const userId = str(usuario.user) || "001";
 
-  const sesion = await fetch(
+  const sesion = await fetchDefontana(
     `${PORTAL_API}/api/Product/SetProductLogin?Code=5&userID=${encodeURIComponent(userId)}&expirationDate=${encodeURIComponent(expirationDate)}`,
     { headers: bearer },
+    "abrir el ERP",
   );
   if (!sesion.ok) {
     throw new DefontanaError(`Defontana respondió ${sesion.status} al abrir el ERP.`);
@@ -242,11 +278,15 @@ async function graphql(
   query: string,
   variables: Json,
 ): Promise<Json> {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: token },
-    body: JSON.stringify({ query, variables }),
-  });
+  const response = await fetchDefontana(
+    endpoint,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: token },
+      body: JSON.stringify({ query, variables }),
+    },
+    "consultar documentos",
+  );
   const json = await readJson(response, "consultar documentos");
   const errores = arr(json.errors);
   if (errores.length > 0) {
@@ -406,9 +446,11 @@ export async function listSaleDocuments(
  * dos tipos de id). Se devuelve como `Buffer` para respetar su codificación.
  */
 export async function downloadXml(token: string, platformId: string): Promise<Buffer> {
-  const response = await fetch(
+  const response = await fetchDefontana(
     `${XML_DOWNLOAD_API}/api/purchase/getdte?id=${encodeURIComponent(platformId)}`,
     { headers: { authorization: `Bearer ${token}` } },
+    "pedir el XML",
+    TIMEOUT_XML_MS,
   );
   if (response.status === 401 || response.status === 403) {
     throw new DefontanaError("Defontana rechazó la sesión.", { authFailed: true });
