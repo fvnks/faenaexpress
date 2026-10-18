@@ -26,7 +26,7 @@ function CheckIcon() {
 function BuildingIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
-      <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 o 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
     </svg>
   );
 }
@@ -50,14 +50,19 @@ function SettingsIcon() {
 
 /**
  * Dropdown de empresas con patrón workspace switcher.
- * Muestra la empresa activa en el botón y un menú para cambiar entre ellas.
+ * Solo se muestra cuando el usuario puede ver más de una empresa (es decir, tiene
+ * el permiso `canSwitchCompanies` de su organización). El botón muestra la empresa
+ * activa y el menú permite cambiar entre ellas.
  */
 export function CompanySwitcher({
   companies,
   activeId,
+  orgName,
 }: {
   companies: { id: string; name: string }[];
   activeId: string | null;
+  /** Nombre de la organización (cabecera del dropdown). */
+  orgName?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -95,6 +100,7 @@ export function CompanySwitcher({
     };
   }, [open]);
 
+  // Sin empresas visibles no hay switcher.
   if (companies.length === 0) return null;
 
   return (
@@ -118,6 +124,11 @@ export function CompanySwitcher({
       {/* Dropdown */}
       {open ? (
         <div className="absolute left-0 top-full z-40 mt-2 w-56 rounded-card border border-border bg-surface p-1 shadow-lg">
+          {orgName ? (
+            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+              {orgName}
+            </div>
+          ) : null}
           <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
             Empresas
           </div>

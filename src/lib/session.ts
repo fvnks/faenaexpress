@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 
 import { db } from "@/lib/db";
+import type { SessionUser } from "@/lib/types";
 
 const COOKIE_NAME = "facturas_session";
 const DAY_MS = 1000 * 60 * 60 * 24;
@@ -49,7 +50,7 @@ export async function deleteSession(): Promise<void> {
 }
 
 // Devuelve el usuario con sus membresías activas (empresa + rol).
-export async function getSessionUser() {
+export async function getSessionUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
@@ -63,6 +64,12 @@ export async function getSessionUser() {
             where: { active: true },
             include: { company: true },
             orderBy: { createdAt: "asc" },
+          },
+          orgMembers: {
+            where: { active: true },
+            include: {
+              organization: { select: { id: true, name: true } },
+            },
           },
         },
       },
@@ -84,5 +91,10 @@ export async function getSessionUser() {
     });
   }
 
-  return session.user;
+  return session?.user
+    ? {
+        ...session.user,
+        orgMembership: session.user.orgMembers?.[0] ?? null,
+      }
+    : null;
 }

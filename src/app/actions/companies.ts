@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { COMPANY_COOKIE, getCurrentUser, getActiveMembership, isAdmin, requireContext, requireUser } from "@/lib/auth";
+import { COMPANY_COOKIE, getCurrentUser, getActiveMembership, isAdmin, requireContext, requireUser, visibleCompanies } from "@/lib/auth";
 import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
@@ -25,7 +25,7 @@ async function setActiveCompany(companyId: string) {
   });
 }
 
-// Cambia la empresa activa (solo entre las empresas del usuario).
+// Cambia la empresa activa (solo entre las empresas visibles del usuario).
 export async function switchCompany(formData: FormData): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -34,8 +34,13 @@ export async function switchCompany(formData: FormData): Promise<void> {
   const rawRedirect = String(formData.get("redirectTo") ?? "");
   const redirectTo = rawRedirect === "configuracion" ? "/dashboard/configuracion" : "/dashboard";
 
+  // La cookie se valida contra las companies visibles (no todas las memberships),
+  // así un cookie manipulada no permite saltar a una empresa a la que el usuario
+  // no tiene permiso de organización.
+  const visible = await visibleCompanies(user);
   const membership = user.memberships.find((item) => item.companyId === companyId);
-  if (!membership) redirect("/dashboard");
+  const isVisible = visible.some((c) => c.id === companyId);
+  if (!membership || !isVisible) redirect("/dashboard");
 
   await setActiveCompany(companyId);
   revalidatePath("/", "layout");
@@ -95,7 +100,14 @@ export async function createCompany(
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos de la empresa." };
   }
 
-  const company = await db.company.create({ data: companyData(parsed.data) });
+  const company = await db.company.create({
+    data: {
+      ...companyData(parsed.data),
+      // Heredar la organización de la empresa activa: una nueva empresa nace
+      // dentro del mismo grupo y el creador queda como ADMIN en ella.
+      organizationId: active?.company.organizationId ?? null,
+    },
+  });
   await db.membership.create({
     data: { userId: user.id, companyId: company.id, role: "ADMIN" },
   });
@@ -405,4 +417,58 @@ export async function deleteCompany(formData: FormData): Promise<void> {
   await setFlash("success", "Empresa eliminada", company.name);
   revalidatePath("/", "layout");
   redirect("/dashboard/configuracion");
+}
+
+// Alterna el permiso `canSwitchCompanies` del usuario objetivo en la organización
+// de la empresa activa. Solo el ADMIN de la empresa puede ejecutarlo.
+//
+// Usarlo con cuidado: al habilitarlo, el usuario pasa a ver TODAS las empresas de
+// la organización (no solo las memberships activas). Deshabilitarlo lo vuelve a
+// atar a sus memberships personales.
+export async function _toggleCanSwitchCompaniesRaw(
+  _prev: MemberFormState,
+  formData: FormData,
+): Promise<MemberFormState> {
+  const ctx = await requireContext();
+  if (!isAdmin(ctx)) return { error: "Solo un administrador puede gestionar permisos de organización." };
+
+  const userId = String(formData.get("userId") ?? "");
+  if (!userId) return { error: "Falta el userId del usuario." };
+
+  const orgId = ctx.company.organizationId;
+  if (!orgId) {
+    return { error: "La empresa activa no pertenece a una organización. No se puede aplicar este permiso." };
+  }
+
+  const target = await db.user.findUnique({ where: { id: userId } });
+  if (!target) return { error: "El usuario no existe." };
+
+  const member = await db.orgMember.findFirst({
+    where: { userId, organizationId: orgId },
+  });
+  if (!member) {
+    return { error: `El usuario ${target.email} no pertenece a esta organización.` };
+  }
+
+  const nextValue = !member.canSwitchCompanies;
+  await db.orgMember.update({
+    where: { id: member.id },
+    data: { canSwitchCompanies: nextValue },
+  });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "OrgMember",
+    entityId: member.id,
+    summary: `${nextValue ? "Habilitó" : "Deshabilitó"} el permiso de revisión multiempresa a ${target.name} (${target.email}).`,
+    changes: { canSwitchCompanies: { before: member.canSwitchCompanies, after: nextValue } },
+  });
+
+  revalidatePath("/dashboard/configuracion");
+  return { ok: true };
+}
+
+// Wrapper de firma simple para usar en `<form action={...}>`.
+export async function toggleCanSwitchCompanies(formData: FormData): Promise<void> {
+  await _toggleCanSwitchCompaniesRaw(undefined, formData);
 }

@@ -1,4 +1,4 @@
-import { deleteCompany, switchCompany, updateAlertSettings } from "@/app/actions/companies";
+import { deleteCompany, switchCompany, toggleCanSwitchCompanies, updateAlertSettings } from "@/app/actions/companies";
 import { CompanyForm } from "@/app/dashboard/configuracion/company-form";
 import { AddMemberForm, MemberRow, NewMemberForm } from "@/app/dashboard/configuracion/member-forms";
 import { NewCompanyForm } from "@/app/dashboard/configuracion/new-company-form";
@@ -8,7 +8,7 @@ import { getActiveMembership, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { roleLabel } from "@/lib/labels";
 import { siiSecretKeyConfigured } from "@/lib/sii-credentials";
-import { cardClass, dangerButtonClass, secondaryButtonClass } from "@/lib/ui";
+import { cardClass, dangerButtonClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 
 export default async function ConfigurationPage() {
   const user = await requireUser();
@@ -29,6 +29,18 @@ export default async function ConfigurationPage() {
           where: { companyId: active.company.id },
           include: { user: { select: { id: true, name: true, email: true } } },
           orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+        })
+      : [];
+
+  // Miembros de la organización (permiso multiempresa). Solo se muestra cuando la
+  // empresa pertenece a una organización con más de una empresa y el usuario actual
+  // es ADMIN de la empresa activa.
+  const orgMembers =
+    admin && active?.company.organizationId
+      ? await db.orgMember.findMany({
+          where: { organizationId: active.company.organizationId },
+          include: { user: { select: { id: true, name: true, email: true } } },
+          orderBy: [{ canSwitchCompanies: "desc" }, { createdAt: "asc" }],
         })
       : [];
 
@@ -221,6 +233,53 @@ export default async function ConfigurationPage() {
           contabilidad puede ver los datos de la empresa y sus usuarios.
         </p>
       )}
+
+      {orgMembers.length > 0 ? (
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Organización</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {user.orgMembership?.organization.name ?? "Organización"} · Los miembros pueden revisar
+            varias empresas dentro de esta organización si se les habilita el permiso.
+          </p>
+          <ul className="mt-4 divide-y divide-border">
+            {orgMembers.map((orgMember) => {
+              const isSelf = orgMember.userId === user.id;
+              return (
+                <li key={orgMember.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div>
+                    <div className="font-medium">{orgMember.user.name}</div>
+                    <div className="text-xs text-muted-foreground">{orgMember.user.email}</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">
+                      {orgMember.canSwitchCompanies ? "Puede revisar empresas" : "Solo esta empresa"}
+                    </span>
+                    {isSelf ? null : (
+                      <form action={toggleCanSwitchCompanies}>
+                        <input type="hidden" name="userId" value={orgMember.userId} />
+                        <button
+                          type="submit"
+                          className={
+                            orgMember.canSwitchCompanies
+                              ? secondaryButtonClass + " py-1.5 text-sm"
+                              : primaryButtonClass + " py-1.5 text-sm"
+                          }
+                        >
+                          {orgMember.canSwitchCompanies ? "Quitar permiso" : "Dar permiso"}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-3 text-xs text-muted-foreground">
+            El permiso es de la organización: habilitarlo permite ver todas las empresas del grupo,
+            no solo las memberships activas.
+          </p>
+        </section>
+      ) : null}
 
       <section className={cardClass + " p-5"}>
         <h2 className="font-semibold">Mis empresas</h2>

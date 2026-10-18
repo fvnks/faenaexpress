@@ -14,6 +14,7 @@
     "db:drift": "node scripts/prisma-run.mjs migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
     "db:baseline": "tsx scripts/baseline-db.ts",
     "db:studio": "node scripts/prisma-run.mjs studio",
+    "check:tenant": "node scripts/check-tenant-scope.mjs",
     "db:bridge": "node scripts/pg-tls-bridge.mjs"
   },
   "dependencies": {

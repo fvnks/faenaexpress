@@ -14,6 +14,51 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
+// Organizaciones: la cuenta que agrupa empresas y usuarios.
+//
+// `Company` sigue siendo el inquilino de datos; la organización es quien paga,
+// quien agrupa y quien decide quién puede revisar varias empresas.
+// ---------------------------------------------------------------------------
+
+enum OrgRole {
+  OWNER // dueño de la organización: otorga permisos y crea empresas
+  ADMIN // administra la organización y sus miembros
+  BILLING // solo facturación (reservado para los planes)
+  MEMBER // miembro sin gestión
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   OrgMember[]
+  companies Company[]
+}
+
+// Pertenencia de un usuario a una organización.
+// `canSwitchCompanies` es el permiso de "revisar las empresas" del perfil: apagado por
+// defecto, sin él el usuario solo ve su propia empresa y no aparece el selector.
+model OrgMember {
+  id                 String  @id @default(cuid())
+  userId             String
+  organizationId     String
+  orgRole            OrgRole @default(MEMBER)
+  canSwitchCompanies Boolean @default(false)
+  active             Boolean @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
 // Usuarios, roles y sesiones
 // ---------------------------------------------------------------------------
 
@@ -58,6 +103,7 @@ model User {
   closedCommissionMonths       CommissionClose[]      @relation("CommissionCloseClosedBy")
   bankSyncs                    BankSync[]             @relation("BankSyncBy")
   bankReconciliations          Reconciliation[]       @relation("BankReconciliationBy")
+  orgMembers                   OrgMember[]
 }
 
 // Pertenencia de un usuario a una empresa, con el rol que cumple en ella.
@@ -97,8 +143,9 @@ model Session {
 // ---------------------------------------------------------------------------
 
 model Company {
-  id        String   @id @default(cuid())
-  name      String
+  id               String   @id @default(cuid())
+  organizationId   String?  // pertenece a una organización; null en instalaciones standalone.
+  name             String
   rut       String?
   address   String?
   city      String?
@@ -170,7 +217,9 @@ model Company {
   bankAccounts          BankAccount[]
   bankMovements         BankMovement[]
   bankSyncs             BankSync[]
-  bankReconciliations   Reconciliation[]
+  bankReconciliations  Reconciliation[]
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
 
 // ---------------------------------------------------------------------------

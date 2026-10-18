@@ -7,7 +7,7 @@ import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LiveSearchInputs } from "@/components/live-search-inputs";
 import { ToasterFlash } from "@/components/toaster-flash";
-import { getActiveMembership, requireUser } from "@/lib/auth";
+import { getActiveMembership, requireUser, visibleCompanies } from "@/lib/auth";
 import { countPendingMovements } from "@/lib/banco";
 import { getFlash } from "@/lib/flash";
 import { roleLabel } from "@/lib/labels";
@@ -18,10 +18,11 @@ import { pendingCounts } from "@/lib/reports";
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const user = await requireUser();
   const active = await getActiveMembership();
-  const companies = user.memberships.map((membership) => ({
-    id: membership.company.id,
-    name: membership.company.name,
-  }));
+  // Companies visibles: usa `visibleCompanies` para respetar el permiso
+  // `canSwitchCompanies` de la organización. Sin él, solo se ven las memberships
+  // activas del usuario (comportamiento actual).
+  const companies = await visibleCompanies(user);
+  const orgName = user.orgMembership?.organization.name ?? null;
 
   // Las alertas de vencimiento se recalculan en cada entrada al panel.
   if (active) {
@@ -56,7 +57,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         {/* Barra superior: período + empresa + tema + campana, en el flujo del layout */}
         <div className="flex items-center justify-end gap-2 px-4 pt-4 lg:px-8 lg:pt-6">
           <PeriodNav className="hidden md:flex" />
-          <CompanySwitcher companies={companies} activeId={active?.company.id ?? null} />
+          <CompanySwitcher companies={companies} activeId={active?.company.id ?? null} orgName={orgName} />
           <ThemeToggle />
           <Link
             href="/dashboard/notificaciones"
