@@ -31,7 +31,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 | `pnpm db:migrate` | Crea y aplica migración de desarrollo (pasa por el puente TLS local) |
 | `pnpm db:generate` | Regenera Prisma Client |
 | `pnpm prisma db seed` | Crea admin y empresa (usa `ADMIN_*` del `.env`) |
-| `pnpm db:deploy` | Aplica migraciones en producción |
+| `pnpm db:deploy` | Aplica migraciones en producción (lo corre el entrypoint de Docker) |
+| `pnpm db:drift` | Compara la base con el schema; exit 0 = alineados (`--exit-code`) |
+| `pnpm db:baseline` | Basea una base antigua al baseline `0_init` (ver gotchas) |
 | `pnpm db:studio` | Abre Prisma Studio (pasa por el puente TLS local) |
 | `pnpm db:bridge` | Levanta solo el puente TLS local (para depurar) |
 
@@ -40,19 +42,22 @@ Aún no hay tests. Cuando existan, documenta aquí cómo correr uno solo.
 ## Datos
 
 - Schema en `prisma/schema.prisma`. Config del CLI en `prisma7.config.ts` (ese es el nombre que carga Prisma 7).
+- **El historial de migraciones arranca en el baseline `0_init`** (`prisma/migrations/0_init/migration.sql`): reproduce las 40 tablas del schema y se generó con `migrate diff --from-empty`. El historial anterior (14 migraciones que cubrían solo 15 tablas; el resto lo aplicó `db push`) se eliminó del repo, pero sigue en git si alguien necesita mirarlo. No hay que resucitarlo: las bases antiguas se pasan una vez por `pnpm db:baseline`.
 - Prisma Client se genera en `src/generated/prisma` (ignorado por git). Importar desde `@/generated/prisma/client`. No editar archivos generados.
 - `DATABASE_URL` (conexión real, cifrada con la CA) y `ADMIN_*` van en `.env` (ignorado). `.env.example` es la referencia.
 - `PRISMA_DATABASE_URL` apunta al puente TLS local (`127.0.0.1:15433`, `sslmode=disable`) y solo la usan los comandos de la CLI de Prisma. La CA del servidor va en `certs/` (ignorado por git).
-- Tras cambiar el schema: `pnpm db:migrate` y `pnpm db:generate`.
+- Tras cambiar el schema: `pnpm db:migrate` y `pnpm db:generate`, y luego `pnpm db:drift` para confirmar que la base quedó igual al schema.
 
 ## Gotchas que un agente suele pasar por alto
 
 - **Prisma 7 exige driver adapter.** `new PrismaClient()` sin adapter no conecta. El singleton en `src/lib/db.ts` usa `PrismaPg`.
-- **CLI de Prisma en Windows + TLS**: el motor de la CLI usa schannel, que solo llega a TLS 1.2 y falla contra el certificado ECDSA de Coolify (`P1011 ... os error -2146893018`). Por eso `db:migrate`/`db:deploy`/`db:studio` corren a través de `scripts/prisma-with-bridge.mjs`, un puente TLS local (`scripts/pg-tls-bridge.mjs`) que sí verifica la CA. La app en runtime no lo necesita: usa `pg` (OpenSSL) directo. En Linux (Coolify) la CLI funciona sin puente.
+- **Migraciones: el entrypoint corre `pnpm db:deploy`, nunca `db push`.** Cualquier comando de la CLI sale por `scripts/prisma-run.mjs`, que en Windows usa el puente TLS y en Linux llama a la CLI directo (mismo comando, dos entornos). Una base creada antes del baseline tiene que pasarse **una vez** por `pnpm db:baseline --si` (borra el historial viejo de `_prisma_migrations` y marca `0_init` como aplicada; no ejecuta SQL de schema ni toca datos). Si no, `migrate deploy` falla a propósito: es preferible a que resetee la base. `pnpm db:drift` debe salir 0 después de cualquier cambio.
+- **CLI de Prisma en Windows + TLS**: el motor de la CLI usa schannel, que solo llega a TLS 1.2 y falla contra el certificado ECDSA de Coolify (`P1011 ... os error -2146893018`). Por eso la CLI pasa por `scripts/prisma-with-bridge.mjs`, un puente TLS local (`scripts/pg-tls-bridge.mjs`) que sí verifica la CA. La app en runtime no lo necesita: usa `pg` (OpenSSL) directo. En Linux (Coolify) la CLI funciona sin puente.
 - **pnpm 12**: los build scripts se permiten en `pnpm-workspace.yaml` (`allowBuilds`); el campo `pnpm` de `package.json` ya no se lee.
 - **Cache Components está desactivado a propósito** (`next.config.ts`). Si se activa, todo `cookies()`/`headers()` debe ir dentro de `<Suspense>` o el build falla; `partialPrefetching` lo exige.
 - **APIs async**: en Next 16 `cookies()`, `headers()`, `params` y `searchParams` son promesas. Usa `LayoutProps<"/ruta">` y `PageProps<"/ruta">` (los genera `next typegen`).
-- **`middleware` se renombró a `proxy`** (`src/proxy.ts`, runtime Node). No usar edge.
+- **No hay `middleware` ni `proxy` todavía** (Next 16 renombró `middleware` a `proxy`, pero este repo no tiene ninguno: no busques `src/proxy.ts`). La sesión y el rol se validan en cada página con `requireContext(section)` y dentro de cada Server Action. Si algún día se agrega, va en `src/proxy.ts`, runtime Node.
+- **Aislamiento entre empresas**: cada consulta filtra por `companyId` y el rol se valida dentro de la acción (las Server Actions son alcanzables por POST directo). Crear una empresa es solo para **ADMIN de la empresa activa** (`createCompany`), y en Configuración el formulario se oculta a quien no lo sea.
 - Las Server Actions son alcanzables por POST directo: valida auth y rol dentro de cada acción, no solo en la UI.
 - **Conciliación bancaria (sección Banco)**: el scraper de `open-banking-chile` corre en un proceso hijo (`scripts/bank-sync-worker.mjs`) y necesita un Chrome/Chromium real. El paquete solo busca rutas de Linux/macOS/WSL, así que el worker resuelve la ruta por su cuenta (Chrome instalado → caché de Playwright → Edge) y acepta `OB_CHROME_PATH` para forzarla. Diagnóstico: `node scripts/bank-sync-worker.mjs --find-chrome`.
   Un movimiento sale de la bandeja sin conciliar con `ignoredAt` + `ignoredReason`, que distingue `internal_transfer` (traspaso entre cuentas propias: la glosa nombra una cuenta —«Traspaso A Cuenta:008178288402»— y el mismo monto aparece con el signo opuesto a pocos días) de `noise` (descarte a mano). «Deshacer» una conciliación borra el vínculo y devuelve el documento a pendiente, salvo la venta cobrada por Confirming.

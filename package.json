@@ -9,9 +9,11 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:migrate": "node scripts/prisma-with-bridge.mjs migrate dev",
-    "db:deploy": "node scripts/prisma-with-bridge.mjs migrate deploy",
-    "db:studio": "node scripts/prisma-with-bridge.mjs studio",
+    "db:migrate": "node scripts/prisma-run.mjs migrate dev",
+    "db:deploy": "node scripts/prisma-run.mjs migrate deploy",
+    "db:drift": "node scripts/prisma-run.mjs migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
+    "db:baseline": "tsx scripts/baseline-db.ts",
+    "db:studio": "node scripts/prisma-run.mjs studio",
     "db:bridge": "node scripts/pg-tls-bridge.mjs"
   },
   "dependencies": {

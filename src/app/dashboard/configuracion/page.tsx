@@ -43,7 +43,8 @@ export default async function ConfigurationPage() {
 
       {!active ? (
         <p className={cardClass + " px-4 py-6 text-sm text-muted-foreground"}>
-          No perteneces a ninguna empresa todavía. Crea una para comenzar.
+          No perteneces a ninguna empresa todavía. Pídele a un administrador que te agregue a la
+          suya: las empresas solo las crea quien ya administra una.
         </p>
       ) : canView ? (
         <>
@@ -224,7 +225,7 @@ export default async function ConfigurationPage() {
       <section className={cardClass + " p-5"}>
         <h2 className="font-semibold">Mis empresas</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Cambia la empresa activa o crea una nueva.
+          {admin ? "Cambia la empresa activa o crea una nueva." : "Cambia la empresa activa."}
         </p>
 
         <ul className="mt-4 divide-y divide-border">
@@ -301,15 +302,18 @@ export default async function ConfigurationPage() {
           })}
         </ul>
 
-        <div className="mt-5 border-t border-border pt-5">
-          <h3 className="text-sm font-semibold">Nueva empresa</h3>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Quedarás como administrador de la empresa nueva. Sus datos quedan separados de las demás.
-          </p>
-          <div className="mt-3">
-            <NewCompanyForm />
+        {admin ? (
+          <div className="mt-5 border-t border-border pt-5">
+            <h3 className="text-sm font-semibold">Nueva empresa</h3>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Quedarás como administrador de la empresa nueva. Sus datos quedan separados de las
+              demás.
+            </p>
+            <div className="mt-3">
+              <NewCompanyForm />
+            </div>
           </div>
-        </div>
+        ) : null}
       </section>
     </div>
   );

@@ -1,44 +1,20 @@
 #!/bin/sh
-# Entrypoint inteligente para el contenedor de Coolify.
+# Entrypoint del contenedor (Coolify).
 #
-# Problema: `prisma db push --force-reset` borra toda la BD en cada arranque,
-# lo que pierde los datos en cada redeploy.
+# Aplica las migraciones con `prisma migrate deploy` y siembra el admin/empresa.
+# Historia: antes esto hacía `prisma db push` (y un `--force-reset` como último recurso), lo que
+# podía borrar toda la base en un redeploy. Desde el baseline `0_init` las migraciones cubren el
+# schema completo, así que `migrate deploy` es seguro e idempotente: solo aplica lo pendiente.
 #
-# Solución: este script verifica el estado de la BD y solo hace force-reset
-# cuando es necesario (primer deploy o schema incompatible).
-
+# Ojo: si la base viene de la época de `db push`, primero hay que basearla una vez
+# (`pnpm db:baseline --si`); si no, `migrate deploy` falla porque el historial registrado no
+# coincide con `prisma/migrations`. Falla ruidosamente a propósito: nunca resetea datos.
 set -e
 
-echo "🔄 Verificando estado de la base de datos..."
+echo "🔄 Aplicando migraciones..."
+node scripts/prisma-run.mjs migrate deploy
 
-# Contar tablas en el schema public (excluyendo tablas de Prisma y sistema)
-TABLE_COUNT=$(psql "$DATABASE_URL" -t -c "
-  SELECT COUNT(*) FROM information_schema.tables
-  WHERE table_schema = 'public'
-  AND table_name NOT LIKE '_prisma%'
-  AND table_name NOT LIKE 'pg_%'
-  AND table_name NOT LIKE 'sql_%';
-" | tr -d ' ')
-
-echo "   Tablas encontradas: $TABLE_COUNT"
-
-if [ "$TABLE_COUNT" -eq 0 ]; then
-  echo "   BD vacía → creando schema con force-reset..."
-  pnpm exec prisma db push --force-reset
-else
-  echo "   BD con datos → sincronizando schema sin borrar..."
-  # Intentar sync normal primero; si falla por tablas con políticas dependientes,
-  # se hace force-reset como último recurso (solo si el schema es incompatible).
-  if ! pnpm exec prisma db push --accept-data-loss 2>/dev/null; then
-    echo "   ⚠️  Schema incompatible → se requiere force-reset (se perderán datos)."
-    echo "   Esto solo debería pasar el primer deploy o tras cambios de schema mayores."
-    pnpm exec prisma db push --force-reset
-  fi
-fi
-
-echo "✅ Schema sincronizado."
-
-# Crear empresa y admin si no existen (seed idempotente)
+# Crear empresa y admin si no existen (seed idempotente).
 echo "🌱 Ejecutando seed (empresa + admin)..."
 pnpm exec tsx prisma/seed.ts
 

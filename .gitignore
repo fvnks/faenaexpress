@@ -34,7 +34,8 @@
 /.windsurf
 /skills-lock.json
 
-# scripts locales con datos del entorno (contraseña del admin): NUNCA subir
+# script local con la contraseña del admin incrustada: nunca subir. La versión compartida,
+# que lee la clave del entorno, vive en scripts/reset-password.ts
 /reset-password.mjs
 
 # archivos temporales del agente

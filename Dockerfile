@@ -18,11 +18,11 @@
 #   ADMIN_PASSWORD    contraseña del admin (default: cambiar-esto-123)
 #   COMPANY_NAME      nombre de la empresa inicial (default: "Mi Empresa")
 #
-# Nota sobre la BD: las migraciones de Prisma están desalineadas con el
-# esquema real (histórico de db push; ver CONTEXTO.md §12.3). Por eso el
-# entrypoint usa `prisma db push` (sincronización idempotente del esquema)
-# en lugar de `prisma migrate deploy`. Cuando se arregle el historial de
-# migraciones, cambia el entrypoint a `pnpm db:deploy`.
+# Nota sobre la BD: el esquema se aplica con `prisma migrate deploy` desde el
+# baseline `0_init` (ver AGENTS.md). Las bases creadas antes del baseline hay
+# que pasarlas UNA vez por `pnpm db:baseline --si` antes del primer deploy con
+# migraciones; si no, el contenedor falla al arrancar (a propósito: nunca
+# resetea datos).
 
 FROM node:22-bookworm-slim
 
@@ -52,9 +52,8 @@ RUN mkdir -p /app/.sii
 
 EXPOSE 3000
 
-# Entrypoint inteligente: sincroniza el schema sin borrar datos en redeploys.
-# El script verifica el estado de la BD y solo hace force-reset cuando es
-# necesario (primer deploy o schema incompatible).
+# Entrypoint: aplica las migraciones pendientes y siembra el admin/empresa.
+# Idempotente y sin resets: `migrate deploy` solo aplica lo que falta.
 COPY scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 CMD ["sh", "/app/docker-entrypoint.sh"]

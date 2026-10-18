@@ -67,7 +67,9 @@ Funcionalidades principales:
 | `pnpm typecheck` | `next typegen` + `tsc --noEmit` |
 | `pnpm db:migrate` | Crea y aplica migración de desarrollo (pasa por el puente TLS local) |
 | `pnpm db:generate` | Regenera Prisma Client (`src/generated/prisma`, ignorado por git) |
-| `pnpm db:deploy` | Aplica migraciones en producción |
+| `pnpm db:deploy` | Aplica migraciones en producción (lo corre el entrypoint de Docker) |
+| `pnpm db:drift` | Compara la base con el schema; exit 0 = alineados |
+| `pnpm db:baseline` | Basea una base antigua al baseline `0_init` (ver §12.3) |
 | `pnpm db:studio` | Prisma Studio (vía puente TLS) |
 | `pnpm db:bridge` | Levanta solo el puente TLS local (para depurar) |
 | `npx tsx --env-file=.env scripts/xxx.ts` | Scripts sueltos contra la BD (seed incluido) |
@@ -117,9 +119,10 @@ src/
   lib/                    # Acceso a datos, reglas de negocio y utilidades
   generated/prisma/       # Prisma Client generado (ignorado por git; importar como
                           # @/generated/prisma/client)
-  proxy.ts                # (renombrado de middleware) runtime Node, no edge
 prisma/schema.prisma      # Modelo completo (ver §4)
-scripts/                  # pg-tls-bridge.mjs, prisma-with-bridge.mjs, reset-password.mjs
+prisma/migrations/         # Baseline 0_init + migraciones posteriores (ver §12.3)
+scripts/                  # pg-tls-bridge, prisma-with-bridge, prisma-run, baseline-db,
+                          # reset-password, bank-sync-worker, docker-entrypoint
 DESIGN.md                 # Dirección visual (léela antes de tocar UI)
 AGENTS.md                 # Reglas para agentes de código
 CONTEXTO.md               # Este documento
@@ -242,6 +245,10 @@ crédito **descuentan** en vez de sumarse como positivas.
   otras no se pisan roles existentes.
 - Protecciones de roles: no se puede quitar el último ADMIN de una empresa ni quitarse a sí mismo
   de la lista.
+- **Crear empresa exige ser ADMIN de la empresa activa** (`createCompany` valida la membresía
+  activa, no solo la sesión; el formulario se oculta a quien no lo sea). Antes bastaba con estar
+  autenticado, así que cualquier rol podía crearse una empresa, quedar ADMIN en ella y ver datos
+  fuera de su ámbito. Quien no pertenece a ninguna empresa ya no se crea una: pide que lo agreguen.
 
 ---
 
@@ -337,8 +344,9 @@ Importa tipos 33/34 (facturas) y 56 (nota de débito) con los **montos oficiales
 terceros creados al vuelo (proveedor/cliente) con la guarda de RUT de trabajadores.
 
 **Dockerfile (Coolify)**: `node:22-bookworm-slim` + pnpm + `playwright install --with-deps
-chromium` (~500 MB). El CMD sincroniza el esquema con `prisma db push` (migraciones
-desalineadas, §12.3) y levanta `next start`. Montar volumen en `/app/.sii`.
+chromium` (~500 MB). El entrypoint aplica `prisma migrate deploy` y el seed, y levanta `next start`
+(las bases anteriores al baseline se basan una vez con `pnpm db:baseline`; ver §12.3). Montar volumen
+en `/app/.sii`.
 
 ### Flujo de UI
 
@@ -419,7 +427,9 @@ dropdown nuevo debe seguirlo.
 - **Server Components por defecto**; `"use client"` solo para interacción.
 - **Rutas tipadas**: `PageProps<"/ruta">` y `LayoutProps<"/ruta">` generados por `next typegen`;
   `params`/`searchParams` son promesas en Next 16.
-- **`middleware` se renombró a `proxy`** (`src/proxy.ts`, runtime Node, no edge).
+- **No hay `middleware` ni `proxy`**: Next 16 renombró `middleware` a `proxy`, pero este repo no
+  tiene ninguno. La sesión y el rol se validan en cada página (`requireContext(section)`) y dentro
+  de cada Server Action. Si se agrega, va en `src/proxy.ts`, runtime Node (nunca edge).
 - ESLint directo (`pnpm lint`); warning conocido y aceptado en `period-picker.tsx`
   (`window.location.href`, decisión deliberada para evitar hooks de navegación y Suspense).
 - Antes de construir UI nueva: resolver dirección en `DESIGN.md` (R-37 de antislop).
@@ -432,16 +442,20 @@ dropdown nuevo debe seguirlo.
    `lib/db.ts` usa `PrismaPg`. Regenerar el client tras cambiar el schema: `pnpm db:migrate` +
    `pnpm db:generate`.
 2. **CLI de Prisma en Windows + TLS**: el motor CLI usa schannel (TLS ≤ 1.2) y falla contra el
-   certificado ECDSA de Coolify (`P1011 … os error -2146893018`). Por eso `db:migrate`,
-   `db:deploy` y `db:studio` corren a través de `scripts/prisma-with-bridge.mjs`, un **puente TLS
-   local** (`127.0.0.1:15433`, `sslmode=disable`) que sí verifica la CA (`certs/`, ignorado por
-   git). **La app en runtime no lo necesita** (usa `pg`/OpenSSL directo). En Linux funciona sin
-   puente.
-3. **⚠️ Migraciones desalineadas**: `pnpm db:migrate` llegó a pedir **resetear la base** (drift
-   entre el historial de migraciones y el esquema real, probablemente por cambios previos aplicados
-   con `db push`). **NUNCA aceptar el reset en desarrollo con datos reales**. Cambios de esquema
-   recientes se han implementado evitando migraciones. Pendiente revisar el historial antes del
-   deploy (posible `migrate diff`/baseline).
+   certificado ECDSA de Coolify (`P1011 … os error -2146893018`). Por eso la CLI sale por
+   `scripts/prisma-run.mjs`, que en Windows levanta el **puente TLS local** (`127.0.0.1:15433`,
+   `sslmode=disable`; verifica la CA de `certs/`, ignorado por git) y en Linux llama a la CLI
+   directo. **La app en runtime no lo necesita** (usa `pg`/OpenSSL directo).
+3. **Migraciones: baseline `0_init`** (resuelto en oct-2026; antes esto era el gotcha nº1). El
+   historial viejo solo creaba 15 de las 40 tablas —el resto lo aplicó `db push`—, así que una base
+   nueva no se podía reconstruir y `migrate deploy` era imposible: el contenedor sincronizaba con
+   `prisma db push` y, como último recurso, `--force-reset` (podía borrar la base en un redeploy).
+   Ahora `prisma/migrations/0_init/migration.sql` reproduce el schema completo (verificado con
+   `migrate diff --from-empty` + `pnpm db:drift`), y las bases que ya existían se pasan **una vez**
+   por `pnpm db:baseline --si`, que borra las filas viejas de `_prisma_migrations` y marca `0_init`
+   como aplicada sin ejecutar SQL de schema. El entrypoint corre `pnpm db:deploy`: si el historial
+   no cuadra, **falla a propósito** en vez de resetear. Tras cualquier cambio de schema, `pnpm
+   db:drift` debe salir 0.
 4. **Turbopack cachea**: tras regenerar Prisma Client o crear archivos nuevos, el dev server puede
    quedar con bundles viejos (síntomas: "X is not defined"). Solución: parar dev, **borrar
    `.next`** y reiniciar.
@@ -480,7 +494,9 @@ dropdown nuevo debe seguirlo.
 ### Pendientes / ideas
 
 - **Deploy**: VPS Ubuntu + Coolify (build `pnpm build`, release `pnpm db:deploy`, variables
-  `DATABASE_URL` + `ADMIN_*`). Antes: arreglar el desalineo de migraciones (§12.3).
+  `DATABASE_URL` + `ADMIN_*`). Pendiente: decidir cuál de las dos bases del VPS es la de producción
+  (la del `.env`, 5433, ya quedó baseada en `0_init`; la 5432 hay que basearla antes del próximo
+  deploy o el contenedor no arranca, a propósito).
 - **Pagos parciales (abonos)**: hoy el estado es binario PENDING/PAID; registrar abonos con saldo
   pendiente es la mejora más pedida por el uso real.
 - **XML de compras**: reutilizar el parser para DTEs recibidos de proveedores (emisor = proveedor).

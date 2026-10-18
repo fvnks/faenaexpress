@@ -60,11 +60,22 @@ function companyData(input: ReturnType<typeof companySchema.parse>) {
 }
 
 // Crea una empresa nueva; quien la crea queda como ADMIN en ella.
+// No es autoservicio: además de la sesión hace falta ser ADMIN de la empresa activa. Antes
+// bastaba con estar autenticado, así que cualquier rol podía crearse una empresa, quedar ADMIN
+// en ella y ver datos fuera de su ámbito.
 export async function createCompany(
   _prev: CompanyFormState,
   formData: FormData,
 ): Promise<CompanyFormState> {
   const user = await requireUser();
+  const active = await getActiveMembership();
+  if (!active || !isAdmin(active)) {
+    return {
+      error:
+        "Solo un administrador de la empresa activa puede crear empresas. " +
+        "Pídele a un administrador que te agregue a la suya.",
+    };
+  }
 
   const parsed = companySchema.safeParse({
     name: formData.get("name"),
