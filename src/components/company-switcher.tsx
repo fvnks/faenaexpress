@@ -58,11 +58,14 @@ export function CompanySwitcher({
   companies,
   activeId,
   orgName,
+  canManageOrganization = false,
 }: {
   companies: { id: string; name: string }[];
   activeId: string | null;
   /** Nombre de la organización (cabecera del dropdown). */
   orgName?: string | null;
+  /** Muestra los accesos a crear y gestionar empresas (OWNER/ADMIN de la organización). */
+  canManageOrganization?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -153,28 +156,30 @@ export function CompanySwitcher({
             })}
           </ul>
           <div className="mx-1 my-1 border-t border-border" />
-          <ul className="flex flex-col">
-            <li>
-              <Link
-                href="/facturas/configuracion"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-control px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-              >
-                <PlusIcon />
-                Nueva empresa
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/facturas/configuracion"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-control px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-              >
-                <SettingsIcon />
-                Gestionar empresas
-              </Link>
-            </li>
-          </ul>
+          {canManageOrganization ? (
+            <ul className="flex flex-col">
+              <li>
+                <Link
+                  href="/facturas/organizacion"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 rounded-control px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                >
+                  <PlusIcon />
+                  Nueva empresa
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/facturas/organizacion"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 rounded-control px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                >
+                  <SettingsIcon />
+                  Gestionar empresas
+                </Link>
+              </li>
+            </ul>
+          ) : null}
         </div>
       ) : null}
     </div>

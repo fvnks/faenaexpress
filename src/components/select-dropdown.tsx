@@ -37,6 +37,7 @@ export function SelectDropdown({
   allowEmpty = true,
   onValueChange,
   className = "",
+  disabled = false,
 }: {
   name: string;
   id?: string;
@@ -46,6 +47,7 @@ export function SelectDropdown({
   allowEmpty?: boolean;
   onValueChange?: (value: string) => void;
   className?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(value);
@@ -85,10 +87,11 @@ export function SelectDropdown({
       <button
         type="button"
         id={id}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-control border border-border bg-surface px-3 py-2 text-sm text-foreground transition-colors hover:bg-background"
+        className="flex w-full items-center gap-2 rounded-control border border-border bg-surface px-3 py-2 text-sm text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className={"min-w-0 flex-1 truncate text-left " + (selected === "" ? "text-muted-foreground" : "")}>
           {selectedLabel}

@@ -2,12 +2,53 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import type { Company, InventoryAccess, Role } from "@/generated/prisma/client";
+import type { Company, InventoryAccess, OrgRole, Role } from "@/generated/prisma/client";
 import { canAccess, canWrite as roleCanWrite, effectiveInventoryAccess, type Section } from "@/lib/permissions";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import type { AuthContext, SessionUser } from "@/lib/types";
 export type { AuthContext, SessionUser };
+
+// Rol de organización: OWNER y ADMIN administran la cuenta; BILLING y MEMBER no.
+// Es independiente del rol por empresa (Membership).
+const ORG_MANAGERS: readonly OrgRole[] = ["OWNER", "ADMIN"];
+
+/** El usuario administra su organización (crea empresas, invita, asigna roles). */
+export function isOrgManager(user: SessionUser): boolean {
+  const orgRole = user.orgMembership?.orgRole;
+  return orgRole != null && ORG_MANAGERS.includes(orgRole);
+}
+
+/** El usuario es dueño de su organización: el único que otorga permisos de organización. */
+export function isOrgOwner(user: SessionUser): boolean {
+  return user.orgMembership?.orgRole === "OWNER";
+}
+
+/**
+ * Contexto de organización: exige sesión y pertenencia a una organización, con
+ * rol de gestión (OWNER/ADMIN). Se usa en las acciones del Nivel 1 (empresas del
+ * grupo, miembros, invitaciones) para no depender de la empresa activa.
+ */
+export type OrgContext = {
+  user: SessionUser;
+  organization: { id: string; name: string };
+  orgRole: OrgRole;
+  canSwitchCompanies: boolean;
+};
+
+export async function requireOrgManager(): Promise<OrgContext> {
+  const user = await requireUser();
+  const membership = user.orgMembership;
+  if (!membership || !isOrgManager(user)) {
+    redirect("/facturas");
+  }
+  return {
+    user,
+    organization: membership.organization,
+    orgRole: membership.orgRole,
+    canSwitchCompanies: membership.canSwitchCompanies,
+  };
+}
 
 // Cookie con la empresa activa elegida por el usuario.
 export const COMPANY_COOKIE = "facturas_company";

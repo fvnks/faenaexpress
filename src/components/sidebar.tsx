@@ -176,6 +176,14 @@ function Icon({ name }: { name: string }) {
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
       );
+    case "organizacion":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
+          <path d="M3 21h18" /><path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16" />
+          <path d="M15 21V9h2a2 2 0 0 1 2 2v10" />
+          <path d="M8 7h3" /><path d="M8 11h3" /><path d="M8 15h3" />
+        </svg>
+      );
   }
 }
 
@@ -282,6 +290,7 @@ const groups: SidebarGroup[] = [
     items: [
       { href: "/facturas/catalogos", label: "Catálogos", section: "catalogos", icon: "catalogos" },
       { href: "/facturas/importar", label: "Importar", section: "importar", icon: "importar" },
+      { href: "/facturas/organizacion", label: "Organización", section: "organizacion", icon: "organizacion" },
       { href: "/facturas/configuracion", label: "Configuración", section: "configuracion", icon: "configuracion" },
     ],
   },
@@ -634,6 +643,9 @@ export type SidebarProps = {
   pendingSales: number;
   /** Movimientos bancarios sin conciliar: trabajo pendiente de contabilidad. */
   pendingBank: number;
+  /** El usuario administra su organización: ve la sección Organización aunque no
+   *  tenga una empresa activa (la cuenta no depende de la empresa). */
+  isOrgManager: boolean;
   logout: () => void;
 };
 
@@ -740,6 +752,9 @@ export function Sidebar(props: SidebarProps) {
   const canSee = (item: SidebarItem) => {
     if (item.section === "panel") return true;
     if (item.section === "configuracion") return props.role ? canAccess(props.role, "configuracion") : true;
+    // Organización no depende del rol en la empresa activa: la administra quien
+    // es OWNER/ADMIN de la organización, tenga o no una empresa activa.
+    if (item.section === "organizacion") return props.isOrgManager;
     if (item.section === "inventario") {
       return props.role ? effectiveInventoryAccess(props.role, props.inventoryAccess) !== "NONE" : false;
     }

@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
-import { requireContext } from "@/lib/auth";
+import { isOrgOwner, requireOrgManager } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { RateLimiter } from "@/lib/rate-limit";
 import { roleValues } from "@/lib/validation";
@@ -27,18 +27,11 @@ export async function generateInvitation(
   _prev: GenerateInvitationState,
   formData: FormData,
 ): Promise<GenerateInvitationState> {
-  const ctx = await requireContext();
-  if (ctx.role !== "ADMIN") {
-    return { error: "Solo un administrador puede generar invitaciones." };
-  }
-  // La invitación pertenece a la organización del usuario (el OWNER), no a la
-  // empresa activa. Sin organización no se puede invitar a nadie.
-  const orgId = ctx.user.orgMembership?.organizationId;
-  if (!orgId || !ctx.user.orgMembership?.canSwitchCompanies) {
-    return { error: "Necesitas el permiso de revisión multiempresa para generar invitaciones." };
-  }
+  // Invitar es una capacidad de la ORGANIZACIÓN (OWNER/ADMIN), no de la empresa
+  // activa: la invitación pertenece al grupo, aunque apunte a una sola empresa.
+  const org = await requireOrgManager();
 
-  const userKey = ctx.user.id;
+  const userKey = org.user.id;
   if (!limiter.allow(`invite:${userKey}`)) {
     return { error: "Demasiadas invitaciones. Espera un momento." };
   }
@@ -48,12 +41,30 @@ export async function generateInvitation(
   const companyIdRaw = String(formData.get("companyId") ?? "").trim();
   const companyId = companyIdRaw || null;
 
+  // Invitar sin empresa destino da acceso a TODAS las empresas de la
+  // organización: es una decisión del dueño, no de un administrador.
+  if (!companyId && !isOrgOwner(org.user)) {
+    return { error: "Solo el dueño puede invitar a toda la organización. Elige una empresa." };
+  }
+
+  // Si la invitación apunta a una empresa, tiene que ser de la organización del
+  // usuario: nunca se invita a una empresa ajena.
+  if (companyId) {
+    const belongs = await db.company.findFirst({
+      where: { id: companyId, organizationId: org.organization.id },
+      select: { id: true },
+    });
+    if (!belongs) {
+      return { error: "Esa empresa no pertenece a tu organización." };
+    }
+  }
+
   const alreadyActive = await db.invitation.count({
     where: {
       email,
       expiresAt: { gt: new Date() },
       acceptedAt: null,
-      organizationId: orgId,
+      organizationId: org.organization.id,
       companyId: companyId ? { equals: companyId } : undefined,
     },
   });
@@ -70,7 +81,7 @@ export async function generateInvitation(
 
   await db.invitation.create({
     data: {
-      organizationId: orgId,
+      organizationId: org.organization.id,
       companyId,
       email,
       role,
@@ -85,33 +96,46 @@ export async function generateInvitation(
 
   const url = `${baseUrl}/invitacion/${token}`;
 
-  await db.auditLog.create({
-    data: {
-      companyId: ctx.company.id,
-      userId: ctx.user.id,
-      userName: ctx.user.name,
-      action: "CREATE",
-      entityType: "Invitation",
-      summary: `Invitación generada para ${email} (${role}).`,
-    },
-  });
+  // La auditoría es por empresa (AuditLog.companyId es obligatorio). La invitación
+  // pertenece a la organización, así que se registra en su primera empresa; si la
+  // organización aún no tiene empresas, se omite el registro en vez de romper.
+  const auditCompanyId =
+    companyId ??
+    (await db.company.findFirst({
+      where: { organizationId: org.organization.id },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    }))?.id ??
+    null;
 
-  revalidatePath("/facturas/configuracion");
+  if (auditCompanyId) {
+    await db.auditLog.create({
+      data: {
+        companyId: auditCompanyId,
+        userId: org.user.id,
+        userName: org.user.name,
+        action: "CREATE",
+        entityType: "Invitation",
+        summary: `Invitación generada para ${email} (${role}).`,
+      },
+    });
+  }
+
+  revalidatePath("/facturas/organizacion");
   return { ok: true, url };
 }
 
 export async function listInvitations(): Promise<
   { id: string; email: string; role: string; companyId: string | null; companyName: string | null; expiresAt: string; createdAt: string }[]
 > {
-  const ctx = await requireContext();
-  if (!ctx.user.orgMembership?.canSwitchCompanies) return [];
-  if (ctx.role !== "ADMIN") return [];
-
-  const orgId = ctx.user.orgMembership?.organizationId;
-  if (!orgId) return [];
+  const org = await requireOrgManager();
 
   const invites = await db.invitation.findMany({
-    where: { organizationId: orgId, acceptedAt: null, expiresAt: { gt: new Date() } },
+    where: {
+      organizationId: org.organization.id,
+      acceptedAt: null,
+      expiresAt: { gt: new Date() },
+    },
     orderBy: { createdAt: "desc" },
     include: { company: { select: { name: true } } },
     take: 50,

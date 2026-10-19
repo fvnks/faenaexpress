@@ -16,6 +16,7 @@ export const sections = [
   "inventario",
   "comisiones",
   "configuracion",
+  "organizacion",
   "banco",
 ] as const;
 
@@ -42,6 +43,10 @@ const ACCESS: Record<Section, readonly Role[]> = {
   // cambiarla y cerrar el mes, que es lo de abajo.
   comisiones: ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"],
   configuracion: ["ADMIN", "ACCOUNTANT"],
+  // La organización es la cuenta (empresas del grupo, miembros, invitaciones).
+  // El rol de empresa decide si el ítem se ve; el rol de organización (OWNER/ADMIN)
+  // decide si se entra: la página exige `requireOrgManager`.
+  organizacion: ["ADMIN", "ACCOUNTANT"],
   // Los movimientos bancarios exponen la caja real de la empresa: igual que
   // RRHH, solo administración y contabilidad.
   banco: ["ADMIN", "ACCOUNTANT"],
@@ -66,6 +71,9 @@ const WRITE: Record<Section, readonly Role[]> = {
   // que cobra: mismo criterio que RRHH.
   comisiones: ["ADMIN", "ACCOUNTANT"],
   configuracion: ["ADMIN"],
+  // Las empresas y los miembros de la organización los administra el OWNER/ADMIN
+  // de la organización; aquí solo se declara que la sección existe.
+  organizacion: ["ADMIN"],
   // Conciliar mueve el estado de pago de compras y ventas: ADMIN/ACCOUNTANT.
   banco: ["ADMIN", "ACCOUNTANT"],
 };

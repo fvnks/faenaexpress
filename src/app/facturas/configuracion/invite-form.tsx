@@ -10,7 +10,14 @@ import { controlClass, fieldClass, labelClass } from "@/lib/ui";
 import { roleValues } from "@/lib/validation";
 import { roleLabel } from "@/lib/labels";
 
-export function InviteForm({ companies }: { companies: { id: string; name: string }[] }) {
+export function InviteForm({
+  companies,
+  canInviteAll = true,
+}: {
+  companies: { id: string; name: string }[];
+  /** Solo el OWNER puede invitar a toda la organización (sin empresa destino). */
+  canInviteAll?: boolean;
+}) {
   const [state, action, pending] = useActionState<GenerateInvitationState, FormData>(
     generateInvitation,
     { error: undefined, ok: undefined, url: undefined },
@@ -60,11 +67,17 @@ export function InviteForm({ companies }: { companies: { id: string; name: strin
           <SelectDropdown
             id="invite-company"
             name="companyId"
-            value=""
-            allowEmpty={true}
+            value={canInviteAll ? "" : (companies[0]?.id ?? "")}
+            allowEmpty={canInviteAll}
             emptyLabel="Todas las empresas"
             options={companies.map((c) => ({ value: c.id, label: c.name }))}
           />
+          {!canInviteAll ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              El invitado queda con acceso solo a la empresa elegida. Invitar a toda la
+              organización lo hace el dueño.
+            </p>
+          ) : null}
         </div>
       ) : null}
 

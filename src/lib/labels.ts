@@ -15,6 +15,18 @@ const roleLabels: Record<Role, string> = {
   VIEWER: "Solo lectura",
 };
 
+// Rol dentro de la organización (Nivel 1), independiente del rol por empresa.
+const orgRoleLabels: Record<string, string> = {
+  OWNER: "Dueño",
+  ADMIN: "Administrador",
+  MEMBER: "Miembro",
+  BILLING: "Facturación",
+};
+
+export function orgRoleLabel(role: string): string {
+  return orgRoleLabels[role] ?? role;
+}
+
 // Tipos de documento tributario electrónico del SII (campo IdDoc/TipoDTE).
 export function dteTipoLabel(tipo: number): string {
   switch (tipo) {

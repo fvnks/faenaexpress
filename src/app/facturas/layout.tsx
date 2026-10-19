@@ -9,7 +9,7 @@ import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LiveSearchInputs } from "@/components/live-search-inputs";
 import { ToasterFlash } from "@/components/toaster-flash";
-import { getCurrentUser, getActiveMembership, requireUser, visibleCompanies } from "@/lib/auth";
+import { getActiveMembership, isOrgManager, requireUser, visibleCompanies } from "@/lib/auth";
 import { countPendingMovements } from "@/lib/banco";
 import { getFlash } from "@/lib/flash";
 import { roleLabel } from "@/lib/labels";
@@ -59,6 +59,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
         companyName={active?.company.name ?? "Sin empresa"}
         pendingSales={pending.sales}
         pendingBank={pendingBank}
+        isOrgManager={isOrgManager(user)}
         logout={logout}
       />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -66,7 +67,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
         <div className="flex items-center justify-end gap-2 px-4 pt-4 lg:px-8 lg:pt-6">
           <PeriodNav className="hidden md:flex" />
           <ModuleSwitcher modules={modules.map((m) => ({ code: m.code, name: m.name }))} activeCode="facturas" />
-          <CompanySwitcher companies={companies} activeId={active?.company.id ?? null} orgName={orgName} />
+          <CompanySwitcher companies={companies} activeId={active?.company.id ?? null} orgName={orgName} canManageOrganization={isOrgManager(user)} />
           <ThemeToggle />
           <Link
             href="/facturas/notificaciones"

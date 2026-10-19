@@ -5,11 +5,11 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { COMPANY_COOKIE, getCurrentUser, getActiveMembership, isAdmin, requireContext, requireUser, visibleCompanies } from "@/lib/auth";
+import { COMPANY_COOKIE, getCurrentUser, getActiveMembership, isAdmin, isOrgManager, isOrgOwner, requireContext, requireOrgManager, requireUser, visibleCompanies } from "@/lib/auth";
 import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
-import { companySchema, memberSchema, newUserSchema, roleValues } from "@/lib/validation";
+import { companySchema, memberSchema, newUserSchema, orgRoleValues, roleValues } from "@/lib/validation";
 
 export type CompanyFormState = { error?: string; ok?: boolean } | undefined;
 export type MemberFormState = { error?: string; ok?: boolean } | undefined;
@@ -65,22 +65,16 @@ function companyData(input: ReturnType<typeof companySchema.parse>) {
 }
 
 // Crea una empresa nueva; quien la crea queda como ADMIN en ella.
-// No es autoservicio: además de la sesión hace falta ser ADMIN de la empresa activa. Antes
-// bastaba con estar autenticado, así que cualquier rol podía crearse una empresa, quedar ADMIN
-// en ella y ver datos fuera de su ámbito.
+// Es una capacidad de la ORGANIZACIÓN (OWNER/ADMIN), no del rol de la empresa
+// activa: una empresa nueva no pertenece a ninguna todavía. El OWNER la crea y
+// decide a quién le da acceso después.
 export async function createCompany(
   _prev: CompanyFormState,
   formData: FormData,
 ): Promise<CompanyFormState> {
-  const user = await requireUser();
-  const active = await getActiveMembership();
-  if (!active || !isAdmin(active)) {
-    return {
-      error:
-        "Solo un administrador de la empresa activa puede crear empresas. " +
-        "Pídele a un administrador que te agregue a la suya.",
-    };
-  }
+  // Empresa nueva = capacidad de la organización (OWNER/ADMIN): no pertenece a
+  // ninguna empresa todavía, así que no se decide con el rol de la empresa activa.
+  const org = await requireOrgManager();
 
   const parsed = companySchema.safeParse({
     name: formData.get("name"),
@@ -103,23 +97,25 @@ export async function createCompany(
   const company = await db.company.create({
     data: {
       ...companyData(parsed.data),
-      // Heredar la organización de la empresa activa: una nueva empresa nace
-      // dentro del mismo grupo y el creador queda como ADMIN en ella.
-      organizationId: active?.company.organizationId ?? null,
+      // La empresa nace dentro de la organización del usuario, y el creador queda
+      // como ADMIN en ella.
+      organizationId: org.organization.id,
     },
   });
   await db.membership.create({
-    data: { userId: user.id, companyId: company.id, role: "ADMIN" },
+    data: { userId: org.user.id, companyId: company.id, role: "ADMIN" },
   });
 
   await recordAudit(
-    { company, user },
+    { company, user: org.user },
     { action: "CREATE", entityType: "Company", entityId: company.id, summary: `Creó la empresa «${company.name}».` },
   );
 
   await setActiveCompany(company.id);
   await setFlash("success", "Empresa creada", company.name);
   revalidatePath("/", "layout");
+  // Queda dentro de la organización y pasa a ser la empresa activa: se entra
+  // directo a configurarla.
   redirect("/facturas/configuracion");
 }
 
@@ -162,9 +158,11 @@ export async function updateCompany(
   return { ok: true };
 }
 
-// Agrega a una empresa un usuario que ya existe en el sistema.
-// Con scope "todas" lo hace miembro de todas las empresas donde el
-// administrador actual tiene rol ADMIN.
+// Agrega a la empresa ACTIVA un usuario que ya existe en el sistema.
+// Es explícito por empresa: para dar acceso a otra empresa hay que cambiarse a
+// ella y volver a agregarlo. El alcance «todas mis empresas» se quitó a propósito
+// (Fase A): repartía accesos en bloque sin que el administrador viera en qué
+// empresas quedaba el usuario.
 export async function addMember(
   _prev: MemberFormState,
   formData: FormData,
@@ -177,39 +175,25 @@ export async function addMember(
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
-  const scope = String(formData.get("scope") ?? "esta") === "todas" ? "todas" : "esta";
-
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
   if (!user) {
     return { error: "No existe un usuario con ese correo. Créalo en «Usuario nuevo»." };
   }
 
-  const empresas =
-    scope === "todas"
-      ? ctx.user.memberships.filter((membership) => membership.role === "ADMIN")
-      : ctx.user.memberships.filter((membership) => membership.companyId === ctx.company.id);
-
   const inventoryAccessRaw = String(formData.get("inventoryAccess") ?? "NONE");
   const inventoryAccess = inventoryAccessRaw === "EDIT" ? "EDIT" : inventoryAccessRaw === "VIEW" ? "VIEW" : "NONE";
 
-  let creadas = 0;
-  for (const membership of empresas) {
-    const esActiva = membership.companyId === ctx.company.id;
-    await db.membership.upsert({
-      where: { userId_companyId: { userId: user.id, companyId: membership.companyId } },
-      // En la empresa activa el rol elegido manda; en las otras solo se
-      // garantiza el acceso sin pisar roles que ya tuviera.
-      create: { userId: user.id, companyId: membership.companyId, role: parsed.data.role, inventoryAccess, active: true },
-      update: esActiva ? { role: parsed.data.role, inventoryAccess, active: true } : { active: true },
-    });
-    creadas += 1;
-  }
+  await db.membership.upsert({
+    where: { userId_companyId: { userId: user.id, companyId: ctx.company.id } },
+    create: { userId: user.id, companyId: ctx.company.id, role: parsed.data.role, inventoryAccess, active: true },
+    update: { role: parsed.data.role, inventoryAccess, active: true },
+  });
 
   await recordAudit(ctx, {
     action: "UPDATE",
     entityType: "Membership",
     entityId: user.id,
-    summary: `Agregó a ${user.name} (${user.email}) como ${parsed.data.role} en ${creadas} ${creadas === 1 ? "empresa" : "empresas"}.`,
+    summary: `Agregó a ${user.name} (${user.email}) como ${parsed.data.role} en ${ctx.company.name}.`,
   });
 
   revalidatePath("/facturas/configuracion");
@@ -239,38 +223,34 @@ export async function createMember(
     return { error: "Ya existe un usuario con ese correo. Agrégalo como miembro existente." };
   }
 
-  const scope = String(formData.get("scope") ?? "esta") === "todas" ? "todas" : "esta";
+  const inventoryAccessRaw = String(formData.get("inventoryAccess") ?? "NONE");
+  const inventoryAccess = inventoryAccessRaw === "EDIT" ? "EDIT" : inventoryAccessRaw === "VIEW" ? "VIEW" : "NONE";
 
   const created = await db.user.create({
     data: {
       name: parsed.data.name,
       email: parsed.data.email,
       passwordHash: await hash(parsed.data.password, 12),
+      // El usuario nuevo nace como miembro de la organización de la empresa
+      // activa (si existe), con rol MEMBER: no administra la cuenta por defecto.
+      ...(ctx.company.organizationId
+        ? {
+            orgMembers: {
+              create: { organizationId: ctx.company.organizationId, orgRole: "MEMBER" },
+            },
+          }
+        : {}),
       memberships: {
-        create: { companyId: ctx.company.id, role: parsed.data.role },
+        create: { companyId: ctx.company.id, role: parsed.data.role, inventoryAccess },
       },
     },
   });
 
-  const inventoryAccessRaw = String(formData.get("inventoryAccess") ?? "NONE");
-  const inventoryAccess = inventoryAccessRaw === "EDIT" ? "EDIT" : inventoryAccessRaw === "VIEW" ? "VIEW" : "NONE";
-
-  if (scope === "todas") {
-    const otras = ctx.user.memberships.filter(
-      (membership) => membership.role === "ADMIN" && membership.companyId !== ctx.company.id,
-    );
-    for (const membership of otras) {
-      await db.membership.create({
-        data: { userId: created.id, companyId: membership.companyId, role: parsed.data.role, inventoryAccess },
-      });
-    }
-  }
-
-  const alcance = scope === "todas" ? " en todas sus empresas" : "";
   await recordAudit(ctx, {
     action: "CREATE",
     entityType: "User",
-    summary: `Creó al usuario ${parsed.data.name} (${parsed.data.email}) como ${parsed.data.role}${alcance}.`,
+    entityId: created.id,
+    summary: `Creó al usuario ${parsed.data.name} (${parsed.data.email}) como ${parsed.data.role} en ${ctx.company.name}.`,
   });
 
   revalidatePath("/facturas/configuracion");
@@ -348,60 +328,34 @@ export async function updateMemberRole(
   return { ok: true };
 }
 
-export async function removeMember(formData: FormData): Promise<void> {
-  const ctx = await requireContext();
-  if (!isAdmin(ctx)) redirect("/facturas/configuracion");
-
-  const membershipId = String(formData.get("membershipId") ?? "");
-  const membership = await db.membership.findFirst({
-    where: { id: membershipId, companyId: ctx.company.id },
-    include: { user: { select: { name: true, email: true } } },
-  });
-  if (!membership || membership.userId === ctx.user.id) {
-    redirect("/facturas/configuracion");
-  }
-
-  if (membership.role === "ADMIN") {
-    const admins = await db.membership.count({
-      where: { companyId: ctx.company.id, role: "ADMIN", active: true },
-    });
-    if (admins <= 1) redirect("/facturas/configuracion");
-  }
-
-  await db.membership.delete({ where: { id: membershipId } });
-
-  await recordAudit(ctx, {
-    action: "DELETE",
-    entityType: "Membership",
-    entityId: membershipId,
-    summary: `Quitó a ${membership.user.name} (${membership.user.email}) de la empresa.`,
-  });
-
-  revalidatePath("/facturas/configuracion");
-  redirect("/facturas/configuracion");
-}
-
 // Elimina una empresa y todos sus datos (borrado en cascada).
-// Solo un ADMIN de esa empresa puede hacerlo, y nunca la empresa activa.
+// Exige ser ADMIN de esa empresa Y administrar la organización: borrar una
+// empresa entera es una decisión de la cuenta, no de un administrador suelto.
+// Nunca la empresa activa.
 export async function deleteCompany(formData: FormData): Promise<void> {
   const user = await requireUser();
 
   const companyId = String(formData.get("companyId") ?? "");
   const confirmName = String(formData.get("confirmName") ?? "").trim();
 
-  // Verifica que el usuario sea ADMIN de la empresa que quiere borrar.
+  // Debe administrar la organización y ser ADMIN de la empresa que quiere borrar.
+  if (!isOrgManager(user)) {
+    await setFlash("error", "No se pudo eliminar la empresa", "Solo el dueño o un administrador de la organización puede hacerlo.");
+    redirect("/facturas/organizacion");
+  }
+
   const membership = user.memberships.find(
     (item) => item.companyId === companyId && item.role === "ADMIN",
   );
   if (!membership) {
     await setFlash("error", "No se pudo eliminar la empresa", "Solo un administrador de esa empresa puede hacerlo.");
-    redirect("/facturas/configuracion");
+    redirect("/facturas/organizacion");
   }
 
   // No se puede borrar la empresa activa.
   if (membership.companyId === (await getActiveMembership())?.company.id) {
     await setFlash("error", "No se pudo eliminar la empresa", "Cambia a otra empresa antes de eliminarla.");
-    redirect("/facturas/configuracion");
+    redirect("/facturas/organizacion");
   }
 
   const company = membership.company;
@@ -409,66 +363,224 @@ export async function deleteCompany(formData: FormData): Promise<void> {
   // El nombre escrito debe coincidir exactamente con el de la empresa.
   if (confirmName !== company.name) {
     await setFlash("error", "No se pudo eliminar la empresa", "El nombre escrito no coincide con la empresa.");
-    redirect("/facturas/configuracion");
+    redirect("/facturas/organizacion");
   }
 
   await db.company.delete({ where: { id: companyId } });
 
   await setFlash("success", "Empresa eliminada", company.name);
   revalidatePath("/", "layout");
-  redirect("/facturas/configuracion");
+  redirect("/facturas/organizacion");
 }
 
-// Alterna el permiso `canSwitchCompanies` del usuario objetivo en la organización
-// de la empresa activa. Solo el ADMIN de la empresa puede ejecutarlo.
-//
-// Usarlo con cuidado: al habilitarlo, el usuario pasa a ver TODAS las empresas de
-// la organización (no solo las memberships activas). Deshabilitarlo lo vuelve a
-// atar a sus memberships personales.
+// Cambia el rol de un miembro dentro de la ORGANIZACIÓN (Nivel 1).
+// Solo el OWNER reparte roles de organización; la invariante es que siempre quede
+// al menos un OWNER activo. Se audita en la empresa activa.
+export async function setOrgRole(
+  _prev: MemberFormState,
+  formData: FormData,
+): Promise<MemberFormState> {
+  const org = await requireOrgManager();
+  if (!isOrgOwner(org.user)) {
+    return { error: "Solo el dueño de la organización puede cambiar los roles de organización." };
+  }
+
+  const userId = String(formData.get("userId") ?? "");
+  const orgRole = orgRoleValues.find((value) => value === formData.get("orgRole"));
+  if (!userId || !orgRole) return { error: "Revisa los datos." };
+
+  const member = await db.orgMember.findFirst({
+    where: { userId, organizationId: org.organization.id },
+    include: { user: { select: { name: true, email: true } } },
+  });
+  if (!member) return { error: "El usuario no pertenece a esta organización." };
+
+  // No quedarse sin dueño: si este OWNER baja de rol, debe quedar otro activo.
+  if (member.orgRole === "OWNER" && orgRole !== "OWNER") {
+    const owners = await db.orgMember.count({
+      where: { organizationId: org.organization.id, orgRole: "OWNER", active: true },
+    });
+    if (owners <= 1) {
+      return { error: "Debe quedar al menos un dueño activo en la organización." };
+    }
+  }
+
+  await db.orgMember.update({ where: { id: member.id }, data: { orgRole } });
+
+  const ctx = await requireContext().catch(() => null);
+  if (ctx) {
+    await recordAudit(ctx, {
+      action: "UPDATE",
+      entityType: "OrgMember",
+      entityId: member.id,
+      summary: `Cambió el rol de organización de ${member.user.name} (${member.user.email}) de ${member.orgRole} a ${orgRole}.`,
+      changes: { orgRole: { before: member.orgRole, after: orgRole } },
+    });
+  }
+
+  revalidatePath("/facturas/organizacion");
+  return { ok: true };
+}
+
+// Alterna el permiso `canSwitchCompanies` de un miembro de la organización.
+// Solo el OWNER lo otorga: ver todas las empresas del grupo es un permiso de
+// dueño, no del administrador de una empresa suelta.
 export async function _toggleCanSwitchCompaniesRaw(
   _prev: MemberFormState,
   formData: FormData,
 ): Promise<MemberFormState> {
-  const ctx = await requireContext();
-  if (!isAdmin(ctx)) return { error: "Solo un administrador puede gestionar permisos de organización." };
+  const org = await requireOrgManager();
+  if (!isOrgOwner(org.user)) {
+    return { error: "Solo el dueño de la organización puede otorgar el permiso de revisión multiempresa." };
+  }
 
   const userId = String(formData.get("userId") ?? "");
   if (!userId) return { error: "Falta el userId del usuario." };
-
-  const orgId = ctx.company.organizationId;
-  if (!orgId) {
-    return { error: "La empresa activa no pertenece a una organización. No se puede aplicar este permiso." };
-  }
 
   const target = await db.user.findUnique({ where: { id: userId } });
   if (!target) return { error: "El usuario no existe." };
 
   const member = await db.orgMember.findFirst({
-    where: { userId, organizationId: orgId },
+    where: { userId, organizationId: org.organization.id },
   });
   if (!member) {
     return { error: `El usuario ${target.email} no pertenece a esta organización.` };
   }
 
   const nextValue = !member.canSwitchCompanies;
+
+  // El último dueño activo no puede perder su propio permiso de revisión: sin él
+  // no podría volver a administrar las empresas de la organización.
+  if (!nextValue && member.orgRole === "OWNER") {
+    const owners = await db.orgMember.count({
+      where: { organizationId: org.organization.id, orgRole: "OWNER", active: true, canSwitchCompanies: true },
+    });
+    if (owners <= 1 && member.canSwitchCompanies) {
+      return { error: "El último dueño activo debe conservar el permiso de revisar las empresas." };
+    }
+  }
+
   await db.orgMember.update({
     where: { id: member.id },
     data: { canSwitchCompanies: nextValue },
   });
 
-  await recordAudit(ctx, {
-    action: "UPDATE",
-    entityType: "OrgMember",
-    entityId: member.id,
-    summary: `${nextValue ? "Habilitó" : "Deshabilitó"} el permiso de revisión multiempresa a ${target.name} (${target.email}).`,
-    changes: { canSwitchCompanies: { before: member.canSwitchCompanies, after: nextValue } },
-  });
+  const ctx = await requireContext().catch(() => null);
+  if (ctx) {
+    await recordAudit(ctx, {
+      action: "UPDATE",
+      entityType: "OrgMember",
+      entityId: member.id,
+      summary: `${nextValue ? "Habilitó" : "Deshabilitó"} el permiso de revisión multiempresa a ${target.name} (${target.email}).`,
+      changes: { canSwitchCompanies: { before: member.canSwitchCompanies, after: nextValue } },
+    });
+  }
 
-  revalidatePath("/facturas/configuracion");
+  revalidatePath("/facturas/organizacion");
   return { ok: true };
 }
 
 // Wrapper de firma simple para usar en `<form action={...}>`.
 export async function toggleCanSwitchCompanies(formData: FormData): Promise<void> {
   await _toggleCanSwitchCompaniesRaw(undefined, formData);
+}
+
+// Desactiva (o reactiva) la pertenencia de un usuario a la ORGANIZACIÓN, sin borrar
+// la cuenta. Desactivar corta su acceso a las empresas del grupo sin perder la
+// trazabilidad de auditoría. Solo el OWNER lo hace, y no puede dejarse la
+// organización sin dueño activo.
+export async function setOrgMemberActive(formData: FormData): Promise<void> {
+  const org = await requireOrgManager();
+  if (!isOrgOwner(org.user)) redirect("/facturas/organizacion");
+
+  const userId = String(formData.get("userId") ?? "");
+  const nextActive = String(formData.get("active") ?? "") === "true";
+
+  const member = await db.orgMember.findFirst({
+    where: { userId, organizationId: org.organization.id },
+    include: { user: { select: { name: true, email: true } } },
+  });
+  if (!member) redirect("/facturas/organizacion");
+
+  if (!nextActive && member.orgRole === "OWNER") {
+    const owners = await db.orgMember.count({
+      where: { organizationId: org.organization.id, orgRole: "OWNER", active: true },
+    });
+    if (owners <= 1) {
+      await setFlash("error", "No se pudo desactivar", "Debe quedar al menos un dueño activo en la organización.");
+      redirect("/facturas/organizacion");
+    }
+  }
+
+  await db.orgMember.update({ where: { id: member.id }, data: { active: nextActive } });
+
+  // Al desactivar (o reactivar) la pertenencia a la organización se ajustan las
+  // membresías de sus empresas: sin esto, el usuario seguiría viendo las empresas
+  // del grupo (las memberships son de la empresa, no de la organización) y la
+  // desactivación no cortaría nada.
+  const orgCompanies = await db.company.findMany({
+    where: { organizationId: org.organization.id },
+    select: { id: true },
+  });
+  if (orgCompanies.length > 0) {
+    await db.membership.updateMany({
+      where: { userId: member.userId, companyId: { in: orgCompanies.map((c) => c.id) } },
+      data: { active: nextActive },
+    });
+  }
+
+  const ctx = await requireContext().catch(() => null);
+  if (ctx) {
+    await recordAudit(ctx, {
+      action: "UPDATE",
+      entityType: "OrgMember",
+      entityId: member.id,
+      summary: `${nextActive ? "Reactivó" : "Desactivó"} a ${member.user.name} (${member.user.email}) en la organización.`,
+      changes: { active: { before: member.active, after: nextActive } },
+    });
+  }
+
+  revalidatePath("/facturas/organizacion");
+  redirect("/facturas/organizacion");
+}
+
+// Desactiva (o reactiva) el acceso de un usuario a UNA empresa, sin borrar la
+// cuenta: el usuario conserva su historial y su auditoría. Se prefiere esto a
+// borrar, que rompe la trazabilidad.
+export async function setMembershipActive(formData: FormData): Promise<void> {
+  const ctx = await requireContext();
+  if (!isAdmin(ctx)) redirect("/facturas/configuracion");
+
+  const membershipId = String(formData.get("membershipId") ?? "");
+  const nextActive = String(formData.get("active") ?? "") === "true";
+
+  const membership = await db.membership.findFirst({
+    where: { id: membershipId, companyId: ctx.company.id },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+  if (!membership) redirect("/facturas/configuracion");
+
+  // No desactivar al último administrador activo de la empresa.
+  if (!nextActive && membership.role === "ADMIN") {
+    const admins = await db.membership.count({
+      where: { companyId: ctx.company.id, role: "ADMIN", active: true },
+    });
+    if (admins <= 1) {
+      await setFlash("error", "No se pudo desactivar", "Debe quedar al menos un administrador activo en la empresa.");
+      redirect("/facturas/configuracion");
+    }
+  }
+
+  await db.membership.update({ where: { id: membership.id }, data: { active: nextActive } });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Membership",
+    entityId: membership.id,
+    summary: `${nextActive ? "Reactivó" : "Desactivó"} el acceso de ${membership.user.name} (${membership.user.email}) a ${ctx.company.name}.`,
+    changes: { active: { before: membership.active, after: nextActive } },
+  });
+
+  revalidatePath("/facturas/configuracion");
+  redirect("/facturas/configuracion");
 }

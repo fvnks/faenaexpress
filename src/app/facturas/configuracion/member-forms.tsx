@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   addMember,
   createMember,
-  removeMember,
+  setMembershipActive,
   updateMemberRole,
   type MemberFormState,
 } from "@/app/actions/companies";
@@ -14,7 +14,7 @@ import { SelectDropdown } from "@/components/select-dropdown";
 import { SubmitButton } from "@/components/submit-button";
 import type { Role } from "@/generated/prisma/client";
 import { roleLabel } from "@/lib/labels";
-import { cardClass, controlClass, dangerButtonClass, fieldClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
+import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { roleValues } from "@/lib/validation";
 
 export type MemberForRow = {
@@ -24,6 +24,9 @@ export type MemberForRow = {
   userId: string;
   userName: string;
   userEmail: string;
+  active: boolean;
+  /** Es el único ADMIN activo de la empresa: no se le puede bajar de rol ni desactivar. */
+  isLastAdmin: boolean;
 };
 
 function RoleOptions() {
@@ -48,7 +51,14 @@ export function MemberRow({
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 py-3">
       <div className="min-w-[12rem]">
-        <div className="font-medium">{membership.userName}</div>
+        <div className="flex items-center gap-2 font-medium">
+          {membership.userName}
+          {!membership.active ? (
+            <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted-foreground">
+              Inactivo
+            </span>
+          ) : null}
+        </div>
         <div className="text-xs text-muted-foreground">{membership.userEmail}</div>
       </div>
 
@@ -85,12 +95,24 @@ export function MemberRow({
           </form>
 
           {isSelf ? null : (
-            <form action={removeMember}>
-              <input type="hidden" name="membershipId" value={membership.id} />
-              <button type="submit" className={dangerButtonClass + " py-1.5 text-sm"}>
-                Quitar
-              </button>
-            </form>
+            <>
+              <form action={setMembershipActive}>
+                <input type="hidden" name="membershipId" value={membership.id} />
+                <input type="hidden" name="active" value={membership.active ? "false" : "true"} />
+                <button
+                  type="submit"
+                  disabled={membership.isLastAdmin && membership.active}
+                  className={secondaryButtonClass + " py-1.5 text-sm"}
+                  title={
+                    membership.active
+                      ? "Quitar el acceso de esta persona a la empresa"
+                      : "Devolver el acceso a la empresa"
+                  }
+                >
+                  {membership.active ? "Desactivar" : "Reactivar"}
+                </button>
+              </form>
+            </>
           )}
         </div>
       ) : (
@@ -102,11 +124,7 @@ export function MemberRow({
   );
 }
 
-export function AddMemberForm({
-  companies = [],
-}: {
-  companies?: { id: string; name: string }[];
-}) {
+export function AddMemberForm() {
   const [state, action] = useActionState<MemberFormState, FormData>(addMember, undefined);
 
   useEffect(() => {
@@ -143,23 +161,6 @@ export function AddMemberForm({
           ]}
         />
       </div>
-      {companies.length > 1 ? (
-        <div className={fieldClass}>
-          <label htmlFor="member-scope" className={labelClass}>
-            Empresas visibles
-          </label>
-          <SelectDropdown
-            id="member-scope"
-            name="scope"
-            value="esta"
-            allowEmpty={false}
-            options={[
-              { value: "esta", label: "Solo esta empresa" },
-              { value: "todas", label: `Todas mis empresas (${companies.length})` },
-            ]}
-          />
-        </div>
-      ) : null}
       <div className="flex items-center gap-3">
         <SubmitButton className={secondaryButtonClass} pendingLabel="Agregando...">
           Agregar
@@ -170,11 +171,7 @@ export function AddMemberForm({
   );
 }
 
-export function NewMemberForm({
-  companies = [],
-}: {
-  companies?: { id: string; name: string }[];
-}) {
+export function NewMemberForm() {
   const [state, action] = useActionState<MemberFormState, FormData>(createMember, undefined);
 
   useEffect(() => {
@@ -230,23 +227,6 @@ export function NewMemberForm({
           ]}
         />
       </div>
-      {companies.length > 1 ? (
-        <div className={fieldClass}>
-          <label htmlFor="new-user-scope" className={labelClass}>
-            Empresas visibles
-          </label>
-          <SelectDropdown
-            id="new-user-scope"
-            name="scope"
-            value="esta"
-            allowEmpty={false}
-            options={[
-              { value: "esta", label: "Solo esta empresa" },
-              { value: "todas", label: `Todas mis empresas (${companies.length})` },
-            ]}
-          />
-        </div>
-      ) : null}
       <div className="flex items-center gap-3">
         <SubmitButton className={primaryButtonClass} pendingLabel="Creando...">
           Crear usuario

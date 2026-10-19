@@ -223,6 +223,9 @@ export const categorySchema = z.object({
 
 export const roleValues = ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"] as const;
 
+// Rol dentro de la organización (Nivel 1). Solo OWNER y ADMIN administran la cuenta.
+export const orgRoleValues = ["OWNER", "ADMIN", "MEMBER"] as const;
+
 export const stockMovementTypeValues = [
   "IN",
   "OUT",
