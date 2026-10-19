@@ -71,6 +71,20 @@ export default async function ConfigurationPage() {
             <p className="mt-0.5 text-sm text-muted-foreground">
               El IVA y los datos de la empresa se usan al registrar movimientos.
             </p>
+            {admin ? (
+              <div className="mt-3">
+                <a
+                  href="/dashboard/configuracion/export"
+                  className={secondaryButtonClass + " inline-flex py-1.5 text-sm"}
+                >
+                  Exportar mis datos (ZIP con CSV)
+                </a>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Un archivo con todas las tablas de esta empresa: compras, ventas, gastos,
+                  terceros, inventario, banco y auditoría. Para respaldo o portabilidad.
+                </p>
+              </div>
+            ) : null}
             <div className="mt-4">
               <CompanyForm
                 readOnly={!admin}
