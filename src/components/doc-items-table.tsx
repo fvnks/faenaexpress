@@ -37,7 +37,7 @@ export function DocItemsTable({
         <h2 className="font-semibold">Detalle del documento</h2>
         <p className="mt-2 text-sm text-muted-foreground">{emptyNote}</p>
         <p className="mt-3 text-sm">
-          <Link href="/dashboard/importar" className="font-medium text-primary underline underline-offset-2">
+          <Link href="/facturas/importar" className="font-medium text-primary underline underline-offset-2">
             Importar el XML o el ZIP del respaldo del SII
           </Link>
           <span className="text-muted-foreground">
@@ -82,7 +82,7 @@ export function DocItemsTable({
                   <span className="block font-medium">{item.name}</span>
                   {item.product ? (
                     <Link
-                      href={`/dashboard/inventario/productos/${item.product.id}`}
+                      href={`/facturas/inventario/productos/${item.product.id}`}
                       className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-primary underline-offset-2 hover:underline"
                     >
                       <span className="tabular rounded-full bg-primary-soft px-1.5 py-0.5 font-medium">

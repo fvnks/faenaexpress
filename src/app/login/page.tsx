@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getCurrentUser } from "@/lib/auth";
+import { postLoginDestination } from "@/lib/modules";
 
 import { LoginForm } from "./login-form";
 import { LoginVisual } from "./visual";
@@ -10,7 +11,8 @@ import { LoginVisual } from "./visual";
 export default async function LoginPage() {
   const user = await getCurrentUser();
   if (user) {
-    redirect("/dashboard");
+    // Ya autenticado: un módulo directo, varios al selector.
+    redirect(await postLoginDestination(user.id));
   }
 
   return (

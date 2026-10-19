@@ -36,7 +36,7 @@ export async function createArea(
     entityType: "Area",
     summary: `Creó el área «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -63,7 +63,7 @@ export async function updateArea(
     entityId: id,
     summary: `Editó el área «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -94,7 +94,7 @@ export async function createCategory(
     entityType: "Category",
     summary: `Creó la categoría «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -125,7 +125,7 @@ export async function updateCategory(
     entityId: id,
     summary: `Editó la categoría «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -152,7 +152,7 @@ export async function createSalesperson(
     entityType: "Salesperson",
     summary: `Creó el vendedor «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -182,7 +182,7 @@ export async function updateSalesperson(
     entityId: id,
     summary: `Editó el vendedor «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -209,7 +209,7 @@ export async function createPayer(
     entityType: "Payer",
     summary: `Creó el pagador «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -239,7 +239,7 @@ export async function updatePayer(
     entityId: id,
     summary: `Editó el pagador «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -269,7 +269,7 @@ export async function createPaymentMethod(
     entityType: "PaymentMethodCatalog",
     summary: `Creó el medio de pago «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -299,7 +299,7 @@ export async function updatePaymentMethod(
     entityId: id,
     summary: `Editó el medio de pago «${parsed.data.name}».`,
   });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -315,7 +315,7 @@ export async function createUnit(
   if (clash) return { error: "Ya existe una unidad con ese nombre." };
   await db.unit.create({ data: { ...parsed.data, companyId: ctx.company.id } });
   await recordAudit(ctx, { action: "CREATE", entityType: "Unit", summary: `Creó la unidad «${parsed.data.name}».` });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -332,7 +332,7 @@ export async function updateUnit(
   if (clash && clash.id !== id) return { error: "Ya existe una unidad con ese nombre." };
   await db.unit.update({ where: { id, companyId: ctx.company.id }, data: parsed.data });
   await recordAudit(ctx, { action: "UPDATE", entityType: "Unit", entityId: id, summary: `Editó la unidad «${parsed.data.name}».` });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -348,7 +348,7 @@ export async function createProductCategory(
   if (clash) return { error: "Ya existe una categoría de producto con ese nombre." };
   await db.productCategory.create({ data: { ...parsed.data, companyId: ctx.company.id } });
   await recordAudit(ctx, { action: "CREATE", entityType: "ProductCategory", summary: `Creó la categoría de producto «${parsed.data.name}».` });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -365,7 +365,7 @@ export async function updateProductCategory(
   if (clash && clash.id !== id) return { error: "Ya existe una categoría de producto con ese nombre." };
   await db.productCategory.update({ where: { id, companyId: ctx.company.id }, data: parsed.data });
   await recordAudit(ctx, { action: "UPDATE", entityType: "ProductCategory", entityId: id, summary: `Editó la categoría de producto «${parsed.data.name}».` });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -385,7 +385,7 @@ export async function createWarehouse(
   if (clash) return { error: "Ya existe una bodega con ese nombre." };
   await db.warehouse.create({ data: { ...parsed.data, companyId: ctx.company.id } });
   await recordAudit(ctx, { action: "CREATE", entityType: "Warehouse", summary: `Creó la bodega «${parsed.data.name}».` });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -409,6 +409,6 @@ export async function updateWarehouse(
   if (clash && clash.id !== id) return { error: "Ya existe una bodega con ese nombre." };
   await db.warehouse.update({ where: { id, companyId: ctx.company.id }, data: parsed.data });
   await recordAudit(ctx, { action: "UPDATE", entityType: "Warehouse", entityId: id, summary: `Editó la bodega «${parsed.data.name}».` });
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }

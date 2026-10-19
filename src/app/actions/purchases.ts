@@ -98,9 +98,9 @@ export async function createPurchase(
   });
 
   await setFlash("success", "Compra guardada", describe(data));
-  revalidatePath("/dashboard/compras");
-  revalidatePath("/dashboard");
-  redirect("/dashboard/compras");
+  revalidatePath("/facturas/compras");
+  revalidatePath("/facturas");
+  redirect("/facturas/compras");
 }
 
 export async function updatePurchase(
@@ -143,9 +143,9 @@ export async function updatePurchase(
   });
 
   await setFlash("success", "Compra actualizada", describe(data));
-  revalidatePath("/dashboard/compras");
-  revalidatePath(`/dashboard/compras/${id}`);
-  redirect(`/dashboard/compras/${id}`);
+  revalidatePath("/facturas/compras");
+  revalidatePath(`/facturas/compras/${id}`);
+  redirect(`/facturas/compras/${id}`);
 }
 
 function normalizePaymentDate(value: unknown): string | null {
@@ -164,7 +164,7 @@ function normalizePaymentDate(value: unknown): string | null {
 export async function markPurchasePaid(formData: FormData): Promise<void> {
   const ctx = await requireContext();
   if (!canWrite(ctx, "compras")) {
-    redirect("/dashboard/compras");
+    redirect("/facturas/compras");
   }
 
   const id = String(formData.get("id") ?? "");
@@ -175,12 +175,12 @@ export async function markPurchasePaid(formData: FormData): Promise<void> {
   const wired = normalizePaymentDate(rawDate);
   if (!wired) {
     await setFlash("error", "Ingresa la fecha de pago en formato DD-MM o DD-MM-AAAA.");
-    redirect(`/dashboard/compras/${id}`);
+    redirect(`/facturas/compras/${id}`);
   }
   const paymentDate = new Date(`${wired}T00:00:00.000Z`);
 
   const purchase = await db.purchase.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!purchase) redirect("/dashboard/compras");
+  if (!purchase) redirect("/facturas/compras");
 
   await db.purchase.update({
     where: { id, companyId: ctx.company.id },
@@ -196,20 +196,20 @@ export async function markPurchasePaid(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Compra marcada como pagada");
-  revalidatePath("/dashboard/compras");
-  revalidatePath(`/dashboard/compras/${id}`);
-  redirect(`/dashboard/compras/${id}`);
+  revalidatePath("/facturas/compras");
+  revalidatePath(`/facturas/compras/${id}`);
+  redirect(`/facturas/compras/${id}`);
 }
 
 export async function markPurchasePending(formData: FormData): Promise<void> {
   const ctx = await requireContext();
   if (!canWrite(ctx, "compras")) {
-    redirect("/dashboard/compras");
+    redirect("/facturas/compras");
   }
 
   const id = String(formData.get("id") ?? "");
   const purchase = await db.purchase.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!purchase) redirect("/dashboard/compras");
+  if (!purchase) redirect("/facturas/compras");
 
   await db.purchase.update({
     where: { id, companyId: ctx.company.id },
@@ -225,15 +225,15 @@ export async function markPurchasePending(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Compra marcada como pendiente");
-  revalidatePath("/dashboard/compras");
-  revalidatePath(`/dashboard/compras/${id}`);
-  redirect(`/dashboard/compras/${id}`);
+  revalidatePath("/facturas/compras");
+  revalidatePath(`/facturas/compras/${id}`);
+  redirect(`/facturas/compras/${id}`);
 }
 
 export async function deletePurchase(formData: FormData): Promise<void> {
   const ctx = await requireContext();
   if (!canWrite(ctx, "compras")) {
-    redirect("/dashboard/compras");
+    redirect("/facturas/compras");
   }
 
   const id = String(formData.get("id") ?? "");
@@ -250,14 +250,14 @@ export async function deletePurchase(formData: FormData): Promise<void> {
       await setFlash("success", "Compra eliminada", purchase.documentNumber ? `N° ${purchase.documentNumber}` : undefined);
     }
   }
-  revalidatePath("/dashboard/compras");
-  redirect("/dashboard/compras");
+  revalidatePath("/facturas/compras");
+  redirect("/facturas/compras");
 }
 
 // Cambia el estado de pago de varias compras a la vez.
 export async function bulkSetPurchaseStatus(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  const returnTo = safeReturnTo(formData.get("returnTo"), "/dashboard/compras");
+  const returnTo = safeReturnTo(formData.get("returnTo"), "/facturas/compras");
   if (!canWrite(ctx, "compras")) {
     redirect(returnTo);
   }
@@ -284,6 +284,6 @@ export async function bulkSetPurchaseStatus(formData: FormData): Promise<void> {
       status === "PAID" ? "Marcadas como pagadas." : "Marcadas como pendientes.",
     );
   }
-  revalidatePath("/dashboard/compras");
+  revalidatePath("/facturas/compras");
   redirect(returnTo);
 }

@@ -34,7 +34,7 @@ export function BankReconciliationNote({
         {movement.description}
       </p>
       <Link
-        href={`/dashboard/banco?movimiento=${movement.id}`}
+        href={`/facturas/banco?movimiento=${movement.id}`}
         className="mt-1 inline-block text-xs font-medium text-primary underline-offset-2 hover:underline"
       >
         Ver el movimiento en Banco

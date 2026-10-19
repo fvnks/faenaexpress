@@ -21,7 +21,7 @@ export async function exploreSiiPortalAction(): Promise<void> {
   const ctx = await requireContext("importar");
   if (!canWrite(ctx, "importar")) {
     await setFlash("error", "No tienes permiso para gestionar el SII.");
-    revalidatePath("/dashboard/compras");
+    revalidatePath("/facturas/compras");
     return;
   }
 
@@ -43,7 +43,7 @@ export async function exploreSiiPortalAction(): Promise<void> {
       `Se probaron ${result.findings.length} URLs. Revisa la consola del servidor para el mapa del portal.`,
     );
   }
-  revalidatePath("/dashboard/compras");
+  revalidatePath("/facturas/compras");
 }
 
 /**
@@ -54,25 +54,25 @@ export async function downloadSiiXmlForPurchases(formData: FormData): Promise<vo
   const ctx = await requireContext("importar");
   if (!canWrite(ctx, "importar")) {
     await setFlash("error", "No tienes permiso para gestionar el SII.");
-    redirect("/dashboard/compras");
+    redirect("/facturas/compras");
   }
 
   const periodo = String(formData.get("periodo") ?? "").trim();
   if (!/^\d{4}-\d{2}$/.test(periodo)) {
     await setFlash("error", "Período inválido", "Usa el formato AAAA-MM.");
-    redirect("/dashboard/compras");
+    redirect("/facturas/compras");
   }
 
   const result = await downloadReceivedDtes(ctx.company.id, periodo);
 
   if (result.error) {
     await setFlash("error", "Descarga de XMLs del SII", result.error);
-    redirect("/dashboard/compras");
+    redirect("/facturas/compras");
   }
 
   if (result.dtes.length === 0) {
     await setFlash("success", "Sin XMLs nuevos", `No se encontraron XMLs para ${periodo}.`);
-    redirect("/dashboard/compras");
+    redirect("/facturas/compras");
   }
 
   // Matching por folio contra compras existentes sin XML.
@@ -171,8 +171,8 @@ export async function downloadSiiXmlForPurchases(formData: FormData): Promise<vo
       entityId: "sii-xml-download",
       summary: `Descargó ${updated + created} XML del SII (${updated} actualizados, ${created} creados) para ${periodo}.`,
     });
-    revalidatePath("/dashboard/compras");
-    revalidatePath("/dashboard");
+    revalidatePath("/facturas/compras");
+    revalidatePath("/facturas");
   }
 
   await setFlash(
@@ -180,5 +180,5 @@ export async function downloadSiiXmlForPurchases(formData: FormData): Promise<vo
     `${updated} compras actualizadas · ${created} creadas`,
     errores.length > 0 ? `Errores: ${errores.slice(0, 3).join("; ")}` : `Período ${periodo}`,
   );
-  redirect("/dashboard/compras");
+  redirect("/facturas/compras");
 }

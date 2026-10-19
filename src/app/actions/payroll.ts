@@ -9,12 +9,12 @@ import { closePayrollPeriod, generatePayrollEntries, getOrCreatePayrollPeriod, r
 
 export async function createPayrollPeriodAction(formData: FormData): Promise<void> {
   const ctx = await requireContext("rrhh");
-  if (!canWrite(ctx, "rrhh")) redirect("/dashboard/rrhh/nomina");
+  if (!canWrite(ctx, "rrhh")) redirect("/facturas/rrhh/nomina");
 
   const year = Number(formData.get("year") ?? new Date().getFullYear());
   const month = Number(formData.get("month") ?? new Date().getMonth() + 1);
   if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
-    redirect("/dashboard/rrhh/nomina?error=" + encodeURIComponent("Año o mes inválido."));
+    redirect("/facturas/rrhh/nomina?error=" + encodeURIComponent("Año o mes inválido."));
   }
 
   let error: string | null = null;
@@ -26,20 +26,20 @@ export async function createPayrollPeriodAction(formData: FormData): Promise<voi
       entityId: period.id,
       summary: `Creó el período de nómina ${period.year}-${String(period.month).padStart(2, "0")}.`,
     });
-    revalidatePath("/dashboard/rrhh/nomina");
-    redirect(`/dashboard/rrhh/nomina/${period.id}`);
+    revalidatePath("/facturas/rrhh/nomina");
+    redirect(`/facturas/rrhh/nomina/${period.id}`);
   } catch (thrown) {
     if (thrown && typeof thrown === "object" && "digest" in thrown) throw thrown;
     error = thrown instanceof Error ? thrown.message : "No se pudo crear el período.";
   }
 
-  revalidatePath("/dashboard/rrhh/nomina");
-  redirect("/dashboard/rrhh/nomina?error=" + encodeURIComponent(error ?? "No se pudo crear el período."));
+  revalidatePath("/facturas/rrhh/nomina");
+  redirect("/facturas/rrhh/nomina?error=" + encodeURIComponent(error ?? "No se pudo crear el período."));
 }
 
 export async function generatePayrollEntriesAction(formData: FormData): Promise<void> {
   const ctx = await requireContext("rrhh");
-  if (!canWrite(ctx, "rrhh")) redirect("/dashboard/rrhh/nomina");
+  if (!canWrite(ctx, "rrhh")) redirect("/facturas/rrhh/nomina");
   const periodId = String(formData.get("periodId") ?? "");
 
   let error: string | null = null;
@@ -56,16 +56,16 @@ export async function generatePayrollEntriesAction(formData: FormData): Promise<
     error = thrown instanceof Error ? thrown.message : "No se pudieron generar las liquidaciones.";
   }
 
-  revalidatePath(`/dashboard/rrhh/nomina/${periodId}`);
+  revalidatePath(`/facturas/rrhh/nomina/${periodId}`);
   if (error) {
-    redirect(`/dashboard/rrhh/nomina/${periodId}?error=` + encodeURIComponent(error));
+    redirect(`/facturas/rrhh/nomina/${periodId}?error=` + encodeURIComponent(error));
   }
-  redirect(`/dashboard/rrhh/nomina/${periodId}`);
+  redirect(`/facturas/rrhh/nomina/${periodId}`);
 }
 
 export async function updatePayrollEntryAction(formData: FormData): Promise<void> {
   const ctx = await requireContext("rrhh");
-  if (!canWrite(ctx, "rrhh")) redirect("/dashboard/rrhh/nomina");
+  if (!canWrite(ctx, "rrhh")) redirect("/facturas/rrhh/nomina");
   const periodId = String(formData.get("periodId") ?? "");
   const entryId = String(formData.get("entryId") ?? "");
   const baseAmount = Number(formData.get("baseAmount") ?? "0");
@@ -88,16 +88,16 @@ export async function updatePayrollEntryAction(formData: FormData): Promise<void
     error = thrown instanceof Error ? thrown.message : "No se pudo actualizar la liquidación.";
   }
 
-  revalidatePath(`/dashboard/rrhh/nomina/${periodId}`);
+  revalidatePath(`/facturas/rrhh/nomina/${periodId}`);
   if (error) {
-    redirect(`/dashboard/rrhh/nomina/${periodId}?error=` + encodeURIComponent(error));
+    redirect(`/facturas/rrhh/nomina/${periodId}?error=` + encodeURIComponent(error));
   }
-  redirect(`/dashboard/rrhh/nomina/${periodId}`);
+  redirect(`/facturas/rrhh/nomina/${periodId}`);
 }
 
 export async function closePayrollPeriodAction(formData: FormData): Promise<void> {
   const ctx = await requireContext("rrhh");
-  if (!canWrite(ctx, "rrhh")) redirect("/dashboard/rrhh/nomina");
+  if (!canWrite(ctx, "rrhh")) redirect("/facturas/rrhh/nomina");
   const periodId = String(formData.get("periodId") ?? "");
   const createExpenses = formData.get("createExpenses") === "on";
 
@@ -115,16 +115,16 @@ export async function closePayrollPeriodAction(formData: FormData): Promise<void
     error = thrown instanceof Error ? thrown.message : "No se pudo cerrar el período.";
   }
 
-  revalidatePath(`/dashboard/rrhh/nomina/${periodId}`);
+  revalidatePath(`/facturas/rrhh/nomina/${periodId}`);
   if (error) {
-    redirect(`/dashboard/rrhh/nomina/${periodId}?error=` + encodeURIComponent(error));
+    redirect(`/facturas/rrhh/nomina/${periodId}?error=` + encodeURIComponent(error));
   }
-  redirect(`/dashboard/rrhh/nomina/${periodId}`);
+  redirect(`/facturas/rrhh/nomina/${periodId}`);
 }
 
 export async function reopenPayrollPeriodAction(formData: FormData): Promise<void> {
   const ctx = await requireContext("rrhh");
-  if (!canWrite(ctx, "rrhh")) redirect("/dashboard/rrhh/nomina");
+  if (!canWrite(ctx, "rrhh")) redirect("/facturas/rrhh/nomina");
   const periodId = String(formData.get("periodId") ?? "");
 
   let error: string | null = null;
@@ -135,9 +135,9 @@ export async function reopenPayrollPeriodAction(formData: FormData): Promise<voi
     error = thrown instanceof Error ? thrown.message : "No se pudo reabrir el período.";
   }
 
-  revalidatePath(`/dashboard/rrhh/nomina/${periodId}`);
+  revalidatePath(`/facturas/rrhh/nomina/${periodId}`);
   if (error) {
-    redirect(`/dashboard/rrhh/nomina/${periodId}?error=` + encodeURIComponent(error));
+    redirect(`/facturas/rrhh/nomina/${periodId}?error=` + encodeURIComponent(error));
   }
-  redirect(`/dashboard/rrhh/nomina/${periodId}`);
+  redirect(`/facturas/rrhh/nomina/${periodId}`);
 }

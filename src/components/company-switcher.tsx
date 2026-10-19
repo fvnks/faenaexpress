@@ -156,7 +156,7 @@ export function CompanySwitcher({
           <ul className="flex flex-col">
             <li>
               <Link
-                href="/dashboard/configuracion"
+                href="/facturas/configuracion"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 rounded-control px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
               >
@@ -166,7 +166,7 @@ export function CompanySwitcher({
             </li>
             <li>
               <Link
-                href="/dashboard/configuracion"
+                href="/facturas/configuracion"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 rounded-control px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
               >

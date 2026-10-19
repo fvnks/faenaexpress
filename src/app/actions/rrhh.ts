@@ -75,7 +75,7 @@ export async function createRrhhWorker(_prev: RrhhFormState, formData: FormData)
     summary: `Creó al trabajador «${worker.name}»${worker.rut ? ` (${worker.rut})` : ""}.`,
   });
 
-  revalidatePath("/dashboard/rrhh");
+  revalidatePath("/facturas/rrhh");
   return { ok: true };
 }
 
@@ -139,7 +139,7 @@ export async function updateRrhhWorker(
     summary: `Editó al trabajador «${parsed.data.name}».`,
   });
 
-  revalidatePath("/dashboard/rrhh");
+  revalidatePath("/facturas/rrhh");
   return { ok: true };
 }
 
@@ -240,9 +240,9 @@ export async function createRemuneration(
     summary: `Registró ${description.toLowerCase()} por ${formatCLP(parsed.data.amount)} (genera gasto automático).`,
   });
 
-  revalidatePath("/dashboard/rrhh");
-  revalidatePath("/dashboard/gastos");
-  revalidatePath("/dashboard");
+  revalidatePath("/facturas/rrhh");
+  revalidatePath("/facturas/gastos");
+  revalidatePath("/facturas");
   return { ok: true };
 }
 
@@ -251,7 +251,7 @@ export async function deleteRemuneration(formData: FormData): Promise<void> {
   const ctx = await requireContext("rrhh");
   if (!canWrite(ctx, "rrhh")) {
     await setFlash("error", "No se pudo eliminar el pago", "No tienes permiso para gestionar RRHH.");
-    redirect("/dashboard/rrhh");
+    redirect("/facturas/rrhh");
   }
 
   const id = String(formData.get("id") ?? "");
@@ -259,7 +259,7 @@ export async function deleteRemuneration(formData: FormData): Promise<void> {
     where: { id, companyId: ctx.company.id },
     include: { worker: { select: { name: true } } },
   });
-  if (!remuneration) redirect("/dashboard/rrhh");
+  if (!remuneration) redirect("/facturas/rrhh");
 
   // Borra primero la remuneración (referencia al gasto) y luego el gasto.
   await db.remuneration.delete({ where: { id, companyId: ctx.company.id } });
@@ -275,9 +275,9 @@ export async function deleteRemuneration(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Pago eliminado", remuneration.worker.name);
-  revalidatePath("/dashboard/rrhh");
-  revalidatePath("/dashboard/gastos");
-  redirect("/dashboard/rrhh");
+  revalidatePath("/facturas/rrhh");
+  revalidatePath("/facturas/gastos");
+  redirect("/facturas/rrhh");
 }
 
 // --- Pagos por lote ----------------------------------------------------------
@@ -390,9 +390,9 @@ export async function createBulkRemuneration(
     summary: `Registró pago por lote: ${entries.length} trabajador(es), total ${formatCLP(total)}.`,
   });
 
-  revalidatePath("/dashboard/rrhh");
-  revalidatePath("/dashboard/gastos");
-  revalidatePath("/dashboard");
+  revalidatePath("/facturas/rrhh");
+  revalidatePath("/facturas/gastos");
+  revalidatePath("/facturas");
   return { ok: true };
 }
 
@@ -441,8 +441,8 @@ export async function createAbsence(
     entityId: absence.id,
     summary: `Registró ${parsed.data.type} para ${worker.name}.`,
   });
-  revalidatePath("/dashboard/rrhh");
-  revalidatePath(`/dashboard/rrhh/trabajadores/${worker.id}`);
+  revalidatePath("/facturas/rrhh");
+  revalidatePath(`/facturas/rrhh/trabajadores/${worker.id}`);
   return { ok: true };
 }
 
@@ -450,11 +450,11 @@ export async function deleteAbsence(formData: FormData): Promise<void> {
   const ctx = await requireContext("rrhh");
   if (!canWrite(ctx, "rrhh")) {
     await setFlash("error", "No se pudo eliminar la ausencia", "Sin permiso.");
-    redirect("/dashboard/rrhh");
+    redirect("/facturas/rrhh");
   }
   const id = String(formData.get("id") ?? "");
   const absence = await db.absence.findFirst({ where: { id, companyId: ctx.company.id }, include: { worker: { select: { name: true } } } });
-  if (!absence) redirect("/dashboard/rrhh");
+  if (!absence) redirect("/facturas/rrhh");
   await db.absence.delete({ where: { id, companyId: ctx.company.id } });
   await recordAudit(ctx, {
     action: "DELETE",
@@ -462,8 +462,8 @@ export async function deleteAbsence(formData: FormData): Promise<void> {
     entityId: id,
     summary: `Eliminó una ausencia de ${absence.worker.name}.`,
   });
-  revalidatePath(`/dashboard/rrhh/trabajadores/${absence.workerId}`);
-  redirect(`/dashboard/rrhh/trabajadores/${absence.workerId}`);
+  revalidatePath(`/facturas/rrhh/trabajadores/${absence.workerId}`);
+  redirect(`/facturas/rrhh/trabajadores/${absence.workerId}`);
 }
 
 // --- Documentos adjuntos ------------------------------------------------------
@@ -512,7 +512,7 @@ export async function uploadWorkerDocument(
     entityId: doc.id,
     summary: `Adjuntó «${title}» a ${worker.name}.`,
   });
-  revalidatePath(`/dashboard/rrhh/trabajadores/${workerId}`);
+  revalidatePath(`/facturas/rrhh/trabajadores/${workerId}`);
   return { ok: true };
 }
 
@@ -520,12 +520,12 @@ export async function deleteWorkerDocument(formData: FormData): Promise<void> {
   const ctx = await requireContext("rrhh");
   if (!canWrite(ctx, "rrhh")) {
     await setFlash("error", "No se pudo eliminar el documento", "Sin permiso.");
-    redirect("/dashboard/rrhh");
+    redirect("/facturas/rrhh");
   }
   const id = String(formData.get("id") ?? "");
   const workerId = String(formData.get("workerId") ?? "");
   const doc = await db.workerDocument.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!doc) redirect("/dashboard/rrhh");
+  if (!doc) redirect("/facturas/rrhh");
   await db.workerDocument.delete({ where: { id, companyId: ctx.company.id } });
   await recordAudit(ctx, {
     action: "DELETE",
@@ -533,8 +533,8 @@ export async function deleteWorkerDocument(formData: FormData): Promise<void> {
     entityId: id,
     summary: `Eliminó un documento adjunto.`,
   });
-  revalidatePath(`/dashboard/rrhh/trabajadores/${workerId}`);
-  redirect(`/dashboard/rrhh/trabajadores/${workerId}`);
+  revalidatePath(`/facturas/rrhh/trabajadores/${workerId}`);
+  redirect(`/facturas/rrhh/trabajadores/${workerId}`);
 }
 
 // --- Descarga de documentos --------------------------------------------------

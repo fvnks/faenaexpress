@@ -205,7 +205,7 @@ export async function siiLoginAction(_prev: SiiLoginState, formData: FormData): 
   try {
     const resultado = await consoleLogin(createAppRuntime(ctx.company.id), { rut: normalizeRut(rut), clave });
     // La Clave ya no existe en ningún scope: vivió solo en el argumento arriba.
-    revalidatePath("/dashboard/importar");
+    revalidatePath("/facturas/importar");
     if (resultado.authenticated) {
       await recordAudit(ctx, {
         action: "UPDATE",
@@ -277,8 +277,8 @@ export async function saveSiiCredentials(
     summary: `Guardó las credenciales del SII (${formatRut(normalizado)}) para el login automático.`,
   });
 
-  revalidatePath("/dashboard/configuracion");
-  revalidatePath("/dashboard/importar");
+  revalidatePath("/facturas/configuracion");
+  revalidatePath("/facturas/importar");
   return { ok: true };
 }
 
@@ -286,7 +286,7 @@ export async function clearSiiCredentials(): Promise<void> {
   const ctx = await requireContext("configuracion");
   if (!canWrite(ctx, "configuracion")) {
     setFlash("error", "Solo un administrador puede borrar las credenciales del SII.");
-    redirect("/dashboard/configuracion");
+    redirect("/facturas/configuracion");
     return;
   }
 
@@ -302,8 +302,8 @@ export async function clearSiiCredentials(): Promise<void> {
     summary: "Borró las credenciales guardadas del SII.",
   });
 
-  revalidatePath("/dashboard/configuracion");
-  revalidatePath("/dashboard/importar");
+  revalidatePath("/facturas/configuracion");
+  revalidatePath("/facturas/importar");
 }
 
 /** Un clic: abre la sesión del SII con las credenciales guardadas de la empresa. */
@@ -336,7 +336,7 @@ export async function siiAutoLoginAction(): Promise<SiiLoginState> {
       rut: normalizeRut(stored.rut),
       clave: stored.clave,
     });
-    revalidatePath("/dashboard/importar");
+    revalidatePath("/facturas/importar");
     if (resultado.authenticated) {
       await recordAudit(ctx, {
         action: "UPDATE",
@@ -369,7 +369,7 @@ export async function siiLogoutAction(): Promise<void> {
     entityType: "SiiSession",
     summary: "Cerró la sesión del SII.",
   });
-  revalidatePath("/dashboard/importar");
+  revalidatePath("/facturas/importar");
 }
 
 function redirect403(): void {
@@ -489,13 +489,13 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
   const ctx = await requireContext("importar");
   if (!canWrite(ctx, "importar")) {
     await setFlash("error", "No tienes permiso para importar datos.");
-    redirect("/dashboard");
+    redirect("/facturas");
   }
 
   const side = parseSide(formData.get("side"));
   const periodo = parsePeriodo(formData.get("periodo"));
   const companyRut = ctx.company.rut;
-  const destino = side === "VENTA" ? "/dashboard/ventas" : "/dashboard/compras";
+  const destino = side === "VENTA" ? "/facturas/ventas" : "/facturas/compras";
   const etiqueta = side === "VENTA" ? "ventas" : "compras";
 
   if (!side || !periodo) {
@@ -681,11 +681,11 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
       summary: `Sincronizó ${imported} ${etiqueta} del RCV del SII (período ${periodo}).`,
     });
     revalidatePath(destino);
-    revalidatePath("/dashboard");
+    revalidatePath("/facturas");
     await setFlash(
       "success",
       `${imported} ${imported === 1 ? (side === "COMPRA" ? "compra importada" : "venta importada") : `${etiqueta} importadas`}`,
-      `${destino === "/dashboard/ventas" ? "Ventas" : "Compras"} · ${periodo} · ${diagnostico}`,
+      `${destino === "/facturas/ventas" ? "Ventas" : "Compras"} · ${periodo} · ${diagnostico}`,
     );
   } else {
     await setFlash("error", "No se importó ningún documento nuevo del RCV.", diagnostico);
@@ -849,8 +849,8 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
       `${imported} ${imported === 1 ? (side === "COMPRA" ? "compra importada" : "venta importada") : `${etiqueta} importadas`}`,
       `RCV del SII — período ${periodo}`,
     );
-    revalidatePath(side === "COMPRA" ? "/dashboard/compras" : "/dashboard/ventas");
-    revalidatePath("/dashboard");
+    revalidatePath(side === "COMPRA" ? "/facturas/compras" : "/facturas/ventas");
+    revalidatePath("/facturas");
   }
 
   return { ok: true, imported, errores: errores.length > 0 ? errores : undefined };

@@ -19,7 +19,7 @@ export default async function Home() {
   // La instalación privada no cambia: sin sesión, al login.
   if (!isSaas()) {
     const user = await getCurrentUser();
-    redirect(user ? "/dashboard" : "/login");
+    redirect(user ? "/facturas" : "/login");
   }
   return <Landing />;
 }

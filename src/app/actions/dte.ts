@@ -603,8 +603,8 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
       entityId: "import-xml",
       summary: `Importó ${imported} venta(s) y completó ${updated} desde XML DTE del SII.`,
     });
-    revalidatePath("/dashboard/ventas");
-    revalidatePath("/dashboard");
+    revalidatePath("/facturas/ventas");
+    revalidatePath("/facturas");
   }
 
   return { ok: true, imported, updated, errores: errores.length > 0 ? errores : undefined };
@@ -1060,8 +1060,8 @@ export async function confirmPurchaseXml(
       entityId: "import-xml",
       summary: `Importó ${imported} compra(s) y completó ${updated} desde XML DTE de proveedor.`,
     });
-    revalidatePath("/dashboard/compras");
-    revalidatePath("/dashboard");
+    revalidatePath("/facturas/compras");
+    revalidatePath("/facturas");
   }
 
   return { ok: true, imported, updated, errores: errores.length > 0 ? errores : undefined };
@@ -1074,17 +1074,17 @@ export async function confirmPurchaseXml(
  */
 export async function backfillSaleItemsFromXml(saleId: string): Promise<void> {
   const ctx = await requireContext("ventas");
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const sale = await db.sale.findFirst({
     where: { id: saleId, companyId: ctx.company.id },
     select: { id: true, documentType: true, documentNumber: true, date: true, xmlContent: true },
   });
-  if (!sale || !sale.xmlContent) redirect(`/dashboard/ventas/${saleId}`);
+  if (!sale || !sale.xmlContent) redirect(`/facturas/ventas/${saleId}`);
 
   const parsed = parseDteXml(sale.xmlContent);
   const doc = parsed.documentos.find((d) => d.folio === sale.documentNumber);
-  if (!doc || !doc.itemsDetalle?.length) redirect(`/dashboard/ventas/${saleId}`);
+  if (!doc || !doc.itemsDetalle?.length) redirect(`/facturas/ventas/${saleId}`);
 
   const index = await loadProductIndex(ctx.company.id);
   await createSaleItems(sale.id, ctx.company.id, prepareDocItems(index, doc.itemsDetalle));
@@ -1095,6 +1095,6 @@ export async function backfillSaleItemsFromXml(saleId: string): Promise<void> {
     createdById: ctx.user.id,
   });
 
-  revalidatePath(`/dashboard/ventas/${saleId}`);
-  redirect(`/dashboard/ventas/${saleId}`);
+  revalidatePath(`/facturas/ventas/${saleId}`);
+  redirect(`/facturas/ventas/${saleId}`);
 }

@@ -67,7 +67,7 @@ function parseDate(value: FormDataEntryValue | null): Date {
  */
 function returnTo(formData: FormData): string {
   const raw = String(formData.get("volver") ?? "");
-  return raw.startsWith("/dashboard/") ? raw : "/dashboard/gastos";
+  return raw.startsWith("/facturas/") ? raw : "/facturas/gastos";
 }
 
 export async function createExpense(
@@ -94,9 +94,9 @@ export async function createExpense(
 
   await setFlash("success", "Gasto guardado", describe(data));
   const back = returnTo(formData);
-  revalidatePath("/dashboard/gastos");
-  revalidatePath("/dashboard");
-  if (back.startsWith("/dashboard/banco")) revalidatePath("/dashboard/banco");
+  revalidatePath("/facturas/gastos");
+  revalidatePath("/facturas");
+  if (back.startsWith("/facturas/banco")) revalidatePath("/facturas/banco");
   redirect(back);
 }
 
@@ -126,18 +126,18 @@ export async function updateExpense(
   });
 
   await setFlash("success", "Gasto actualizado", describe(data));
-  revalidatePath("/dashboard/gastos");
-  revalidatePath(`/dashboard/gastos/${id}`);
-  redirect(`/dashboard/gastos/${id}`);
+  revalidatePath("/facturas/gastos");
+  revalidatePath(`/facturas/gastos/${id}`);
+  redirect(`/facturas/gastos/${id}`);
 }
 
 export async function markExpenseReimbursed(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "gastos")) redirect("/dashboard/gastos");
+  if (!canWrite(ctx, "gastos")) redirect("/facturas/gastos");
 
   const id = String(formData.get("id") ?? "");
   const expense = await db.expense.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!expense) redirect("/dashboard/gastos");
+  if (!expense) redirect("/facturas/gastos");
 
   await db.expense.update({
     where: { id, companyId: ctx.company.id },
@@ -153,18 +153,18 @@ export async function markExpenseReimbursed(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Gasto marcado como reembolsado");
-  revalidatePath("/dashboard/gastos");
-  revalidatePath(`/dashboard/gastos/${id}`);
-  redirect(`/dashboard/gastos/${id}`);
+  revalidatePath("/facturas/gastos");
+  revalidatePath(`/facturas/gastos/${id}`);
+  redirect(`/facturas/gastos/${id}`);
 }
 
 export async function markExpensePending(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "gastos")) redirect("/dashboard/gastos");
+  if (!canWrite(ctx, "gastos")) redirect("/facturas/gastos");
 
   const id = String(formData.get("id") ?? "");
   const expense = await db.expense.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!expense) redirect("/dashboard/gastos");
+  if (!expense) redirect("/facturas/gastos");
 
   await db.expense.update({
     where: { id, companyId: ctx.company.id },
@@ -180,14 +180,14 @@ export async function markExpensePending(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Gasto marcado como pendiente de reembolso");
-  revalidatePath("/dashboard/gastos");
-  revalidatePath(`/dashboard/gastos/${id}`);
-  redirect(`/dashboard/gastos/${id}`);
+  revalidatePath("/facturas/gastos");
+  revalidatePath(`/facturas/gastos/${id}`);
+  redirect(`/facturas/gastos/${id}`);
 }
 
 export async function deleteExpense(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "gastos")) redirect("/dashboard/gastos");
+  if (!canWrite(ctx, "gastos")) redirect("/facturas/gastos");
 
   const id = String(formData.get("id") ?? "");
   if (id) {
@@ -203,6 +203,6 @@ export async function deleteExpense(formData: FormData): Promise<void> {
       await setFlash("success", "Gasto eliminado", expense.description);
     }
   }
-  revalidatePath("/dashboard/gastos");
-  redirect("/dashboard/gastos");
+  revalidatePath("/facturas/gastos");
+  redirect("/facturas/gastos");
 }

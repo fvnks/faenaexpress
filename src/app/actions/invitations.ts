@@ -96,7 +96,7 @@ export async function generateInvitation(
     },
   });
 
-  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
   return { ok: true, url };
 }
 

@@ -151,7 +151,7 @@ function Icon({ name }: { name: string }) {
 }
 
 function isActive(pathname: string, href: string) {
-  return href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+  return href === "/facturas" ? pathname === "/facturas" : pathname.startsWith(href);
 }
 
 type SidebarChild = { href: string; label: string };
@@ -171,89 +171,89 @@ const groups: SidebarGroup[] = [
     label: "Movimientos",
     items: [
       {
-        href: "/dashboard/compras",
+        href: "/facturas/compras",
         label: "Compras",
         section: "compras",
         icon: "compras",
         children: [
-          { href: "/dashboard/compras/orden-compra", label: "Orden de Compra" },
-          { href: "/dashboard/compras", label: "Facturas de Compra" },
+          { href: "/facturas/compras/orden-compra", label: "Orden de Compra" },
+          { href: "/facturas/compras", label: "Facturas de Compra" },
         ],
       },
       {
-        href: "/dashboard/ventas",
+        href: "/facturas/ventas",
         label: "Ventas",
         section: "ventas",
         icon: "ventas",
         children: [
-          { href: "/dashboard/ventas/cotizaciones", label: "Cotizaciones" },
-          { href: "/dashboard/ventas/guias", label: "Guías de Despacho" },
-          { href: "/dashboard/ventas/nota-credito", label: "Nota de Crédito" },
-          { href: "/dashboard/ventas/nota-debito", label: "Nota de Débito" },
-          { href: "/dashboard/ventas", label: "Facturas de Venta" },
+          { href: "/facturas/ventas/cotizaciones", label: "Cotizaciones" },
+          { href: "/facturas/ventas/guias", label: "Guías de Despacho" },
+          { href: "/facturas/ventas/nota-credito", label: "Nota de Crédito" },
+          { href: "/facturas/ventas/nota-debito", label: "Nota de Débito" },
+          { href: "/facturas/ventas", label: "Facturas de Venta" },
         ],
       },
-      { href: "/dashboard/gastos", label: "Gastos", section: "gastos", icon: "gastos" },
-      { href: "/dashboard/rrhh", label: "RRHH", section: "rrhh", icon: "rrhh" },
+      { href: "/facturas/gastos", label: "Gastos", section: "gastos", icon: "gastos" },
+      { href: "/facturas/rrhh", label: "RRHH", section: "rrhh", icon: "rrhh" },
     ],
   },
   {
     label: "Banco",
     items: [
-      { href: "/dashboard/banco", label: "Conciliación bancaria", section: "banco", icon: "banco" },
+      { href: "/facturas/banco", label: "Conciliación bancaria", section: "banco", icon: "banco" },
     ],
   },
   {
     label: "Inventario",
     items: [
-      { href: "/dashboard/inventario", label: "Productos", section: "inventario", icon: "productos" },
-      { href: "/dashboard/inventario/movimientos", label: "Movimientos", section: "inventario", icon: "movimientos" },
-      { href: "/dashboard/inventario/conteos", label: "Conteos", section: "inventario", icon: "conteos" },
+      { href: "/facturas/inventario", label: "Productos", section: "inventario", icon: "productos" },
+      { href: "/facturas/inventario/movimientos", label: "Movimientos", section: "inventario", icon: "movimientos" },
+      { href: "/facturas/inventario/conteos", label: "Conteos", section: "inventario", icon: "conteos" },
     ],
   },
   {
     label: "Comisiones",
     items: [
-      { href: "/dashboard/comisiones", label: "Resumen", section: "comisiones", icon: "comisiones" },
-      { href: "/dashboard/comisiones/asignaciones", label: "Asignaciones", section: "comisiones", icon: "asignaciones" },
-      { href: "/dashboard/comisiones/vendedores", label: "Vendedores", section: "comisiones", icon: "vendedores" },
-      { href: "/dashboard/comisiones/cierres", label: "Cierres", section: "comisiones", icon: "cierres" },
+      { href: "/facturas/comisiones", label: "Resumen", section: "comisiones", icon: "comisiones" },
+      { href: "/facturas/comisiones/asignaciones", label: "Asignaciones", section: "comisiones", icon: "asignaciones" },
+      { href: "/facturas/comisiones/vendedores", label: "Vendedores", section: "comisiones", icon: "vendedores" },
+      { href: "/facturas/comisiones/cierres", label: "Cierres", section: "comisiones", icon: "cierres" },
     ],
   },
   {
     label: "Terceros",
     items: [
-      { href: "/dashboard/clientes", label: "Clientes", section: "clientes", icon: "clientes" },
-      { href: "/dashboard/proveedores", label: "Proveedores", section: "proveedores", icon: "proveedores" },
+      { href: "/facturas/clientes", label: "Clientes", section: "clientes", icon: "clientes" },
+      { href: "/facturas/proveedores", label: "Proveedores", section: "proveedores", icon: "proveedores" },
     ],
   },
   {
     label: "Análisis",
     items: [
       {
-        href: "/dashboard/reportes",
+        href: "/facturas/reportes",
         label: "Reportes",
         section: "reportes",
         icon: "reportes",
         children: [
-          { href: "/dashboard/reportes", label: "Resumen" },
-          { href: "/dashboard/reportes/caja", label: "Flujo de caja" },
-          { href: "/dashboard/reportes/iva", label: "IVA mensual" },
-          { href: "/dashboard/reportes/libro-compras", label: "Libro de compras" },
-          { href: "/dashboard/reportes/libro-ventas", label: "Libro de ventas" },
-          { href: "/dashboard/reportes/pagos", label: "Pagos y deudas" },
-          { href: "/dashboard/reportes/gastos", label: "Gastos por área" },
+          { href: "/facturas/reportes", label: "Resumen" },
+          { href: "/facturas/reportes/caja", label: "Flujo de caja" },
+          { href: "/facturas/reportes/iva", label: "IVA mensual" },
+          { href: "/facturas/reportes/libro-compras", label: "Libro de compras" },
+          { href: "/facturas/reportes/libro-ventas", label: "Libro de ventas" },
+          { href: "/facturas/reportes/pagos", label: "Pagos y deudas" },
+          { href: "/facturas/reportes/gastos", label: "Gastos por área" },
         ],
       },
-      { href: "/dashboard/auditoria", label: "Auditoría", section: "auditoria", icon: "auditoria" },
+      { href: "/facturas/auditoria", label: "Auditoría", section: "auditoria", icon: "auditoria" },
     ],
   },
   {
     label: "Administración",
     items: [
-      { href: "/dashboard/catalogos", label: "Catálogos", section: "catalogos", icon: "catalogos" },
-      { href: "/dashboard/importar", label: "Importar", section: "importar", icon: "importar" },
-      { href: "/dashboard/configuracion", label: "Configuración", section: "configuracion", icon: "configuracion" },
+      { href: "/facturas/catalogos", label: "Catálogos", section: "catalogos", icon: "catalogos" },
+      { href: "/facturas/importar", label: "Importar", section: "importar", icon: "importar" },
+      { href: "/facturas/configuracion", label: "Configuración", section: "configuracion", icon: "configuracion" },
     ],
   },
 ];
@@ -774,10 +774,10 @@ export function Sidebar(props: SidebarProps) {
       <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto p-2" onScroll={closeFlyout}>
         <Fragment>
           <Link
-            href="/dashboard"
+            href="/facturas"
             title="Panel"
-            aria-current={isActive(pathname, "/dashboard") ? "page" : undefined}
-            className={collapsedIconClass(isActive(pathname, "/dashboard"))}
+            aria-current={isActive(pathname, "/facturas") ? "page" : undefined}
+            className={collapsedIconClass(isActive(pathname, "/facturas"))}
           >
             <Icon name="panel" />
           </Link>
@@ -963,10 +963,10 @@ export function Sidebar(props: SidebarProps) {
           <ul className="mb-1">
             <li>
               <Link
-                href="/dashboard"
-                aria-current={isActive(pathname, "/dashboard") ? "page" : undefined}
+                href="/facturas"
+                aria-current={isActive(pathname, "/facturas") ? "page" : undefined}
                 onClick={closeMobile}
-                className={rowClass(isActive(pathname, "/dashboard"))}
+                className={rowClass(isActive(pathname, "/facturas"))}
               >
                 <Icon name="panel" />
                 <span className="min-w-0 flex-1 truncate">Panel</span>

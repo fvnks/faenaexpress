@@ -95,7 +95,7 @@ export async function saveDefontanaCredentialsAction(
     summary: `Guardó las credenciales de Defontana (${email}) para traer XML a pedido.`,
   });
 
-  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
   return { ok: true };
 }
 
@@ -103,7 +103,7 @@ export async function clearDefontanaCredentialsAction(): Promise<void> {
   const ctx = await requireContext("configuracion");
   if (!canWrite(ctx, "configuracion")) {
     setFlash("error", "Solo un administrador puede borrar las credenciales de Defontana.");
-    redirect("/dashboard/configuracion");
+    redirect("/facturas/configuracion");
     return;
   }
 
@@ -116,8 +116,8 @@ export async function clearDefontanaCredentialsAction(): Promise<void> {
   });
 
   setFlash("success", "Credenciales de Defontana borradas.");
-  revalidatePath("/dashboard/configuracion");
-  redirect("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
+  redirect("/facturas/configuracion");
 }
 
 // ── Traer el XML de una factura de compra, a pedido ─────────────────────────
@@ -318,8 +318,8 @@ export async function fetchPurchaseXmlAction(
     entityId: purchase.id,
     summary: `Trajo de Defontana el XML de la factura ${formatRut(rutProveedor)} folio ${documento.folio}.`,
   });
-  revalidatePath("/dashboard/compras");
-  revalidatePath(`/dashboard/compras/${purchase.id}`);
+  revalidatePath("/facturas/compras");
+  revalidatePath(`/facturas/compras/${purchase.id}`);
 
   return {
     ok: true,
@@ -524,8 +524,8 @@ export async function fetchSaleXmlAction(
     entityId: sale.id,
     summary: `Trajo de Defontana el XML de la venta ${formatRut(rutCliente)} folio ${documento.folio}.`,
   });
-  revalidatePath("/dashboard/ventas");
-  revalidatePath(`/dashboard/ventas/${sale.id}`);
+  revalidatePath("/facturas/ventas");
+  revalidatePath(`/facturas/ventas/${sale.id}`);
 
   return {
     ok: true,

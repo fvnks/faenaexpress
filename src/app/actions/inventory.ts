@@ -17,7 +17,7 @@ export async function createProduct(
   formData: FormData,
 ): Promise<ProductFormState> {
   const ctx = await requireContext("inventario");
-  if (!canInventoryEdit(ctx)) redirect("/dashboard/inventario");
+  if (!canInventoryEdit(ctx)) redirect("/facturas/inventario");
   const sku = String(formData.get("sku") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   if (!sku || !name) return { error: "SKU y nombre son obligatorios." };
@@ -61,8 +61,8 @@ export async function createProduct(
       avgCost: new Prisma.Decimal("0"),
     },
   });
-  revalidatePath("/dashboard/inventario");
-  redirect(`/dashboard/inventario/productos/${product.id}`);
+  revalidatePath("/facturas/inventario");
+  redirect(`/facturas/inventario/productos/${product.id}`);
 }
 
 // Lee los campos comunes de los formularios de producto.
@@ -92,7 +92,7 @@ export async function updateProduct(
   formData: FormData,
 ): Promise<ProductFormState> {
   const ctx = await requireContext("inventario");
-  if (!canInventoryEdit(ctx)) redirect("/dashboard/inventario");
+  if (!canInventoryEdit(ctx)) redirect("/facturas/inventario");
 
   const fields = readProductFields(formData);
   if (!fields.sku || !fields.name) return { error: "SKU y nombre son obligatorios." };
@@ -117,9 +117,9 @@ export async function updateProduct(
     },
   });
 
-  revalidatePath("/dashboard/inventario");
-  revalidatePath(`/dashboard/inventario/productos/${id}`);
-  redirect(`/dashboard/inventario/productos/${id}`);
+  revalidatePath("/facturas/inventario");
+  revalidatePath(`/facturas/inventario/productos/${id}`);
+  redirect(`/facturas/inventario/productos/${id}`);
 }
 
 export type MovementFormState = { error?: string; ok?: boolean } | undefined;
@@ -186,22 +186,22 @@ export async function createStockMovement(
     summary: `Registró ${stockMovementTypeLabel(type)} de ${quantity.toFixed(3)} «${product?.name ?? "producto"}».`,
   });
 
-  revalidatePath("/dashboard/inventario");
-  revalidatePath("/dashboard/inventario/movimientos");
-  revalidatePath(`/dashboard/inventario/productos/${productId}`);
+  revalidatePath("/facturas/inventario");
+  revalidatePath("/facturas/inventario/movimientos");
+  revalidatePath(`/facturas/inventario/productos/${productId}`);
   return { ok: true };
 }
 
 export async function reverseStockMovementAction(formData: FormData): Promise<void> {
   const ctx = await requireContext("inventario");
-  if (!canInventoryEdit(ctx)) redirect("/dashboard/inventario/movimientos");
+  if (!canInventoryEdit(ctx)) redirect("/facturas/inventario/movimientos");
 
   const movementId = String(formData.get("movementId") ?? "");
-  if (!movementId) redirect("/dashboard/inventario/movimientos");
+  if (!movementId) redirect("/facturas/inventario/movimientos");
 
   const result = await reverseStockMovement(ctx.company.id, movementId, ctx.user.id);
   if (!result.ok) {
-    redirect(`/dashboard/inventario/movimientos?error=${encodeURIComponent(result.error)}`);
+    redirect(`/facturas/inventario/movimientos?error=${encodeURIComponent(result.error)}`);
   }
 
   await recordAudit(ctx, {
@@ -211,7 +211,7 @@ export async function reverseStockMovementAction(formData: FormData): Promise<vo
     summary: `Revirtio el movimiento ${movementId}.`,
   });
 
-  revalidatePath("/dashboard/inventario");
-  revalidatePath("/dashboard/inventario/movimientos");
-  redirect("/dashboard/inventario/movimientos");
+  revalidatePath("/facturas/inventario");
+  revalidatePath("/facturas/inventario/movimientos");
+  redirect("/facturas/inventario/movimientos");
 }

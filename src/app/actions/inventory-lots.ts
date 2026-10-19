@@ -10,7 +10,7 @@ import { Prisma } from "@/generated/prisma/client";
 
 export async function createProductLot(formData: FormData): Promise<void> {
   const ctx = await requireContext("inventario");
-  if (!canInventoryEdit(ctx)) redirect("/dashboard/inventario/lotes");
+  if (!canInventoryEdit(ctx)) redirect("/facturas/inventario/lotes");
 
   const productId = String(formData.get("productId") ?? "");
   const code = String(formData.get("code") ?? "").trim();
@@ -20,21 +20,21 @@ export async function createProductLot(formData: FormData): Promise<void> {
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   if (!productId || !code) {
-    redirect("/dashboard/inventario/lotes?error=" + encodeURIComponent("Producto y código de lote son obligatorios."));
+    redirect("/facturas/inventario/lotes?error=" + encodeURIComponent("Producto y código de lote son obligatorios."));
   }
   const quantity = Number(quantityRaw);
   if (!Number.isFinite(quantity) || quantity <= 0) {
-    redirect("/dashboard/inventario/lotes?error=" + encodeURIComponent("Cantidad inválida."));
+    redirect("/facturas/inventario/lotes?error=" + encodeURIComponent("Cantidad inválida."));
   }
 
   const product = await db.product.findFirst({ where: { id: productId, companyId: ctx.company.id } });
   if (!product) {
-    redirect("/dashboard/inventario/lotes?error=" + encodeURIComponent("Producto no encontrado."));
+    redirect("/facturas/inventario/lotes?error=" + encodeURIComponent("Producto no encontrado."));
   }
   if (warehouseId) {
     const warehouse = await db.warehouse.findFirst({ where: { id: warehouseId, companyId: ctx.company.id } });
     if (!warehouse) {
-      redirect("/dashboard/inventario/lotes?error=" + encodeURIComponent("Bodega no encontrada."));
+      redirect("/facturas/inventario/lotes?error=" + encodeURIComponent("Bodega no encontrada."));
     }
   }
 
@@ -42,7 +42,7 @@ export async function createProductLot(formData: FormData): Promise<void> {
     where: { companyId: ctx.company.id, productId, code },
   });
   if (exists) {
-    redirect("/dashboard/inventario/lotes?error=" + encodeURIComponent("Ya existe un lote con ese código para este producto."));
+    redirect("/facturas/inventario/lotes?error=" + encodeURIComponent("Ya existe un lote con ese código para este producto."));
   }
 
   const lot = await db.productLot.create({
@@ -65,23 +65,23 @@ export async function createProductLot(formData: FormData): Promise<void> {
     summary: `Registró el lote ${code} del producto ${product.name}.`,
   });
 
-  revalidatePath("/dashboard/inventario/lotes");
-  revalidatePath("/dashboard/inventario");
-  redirect("/dashboard/inventario/lotes");
+  revalidatePath("/facturas/inventario/lotes");
+  revalidatePath("/facturas/inventario");
+  redirect("/facturas/inventario/lotes");
 }
 
 export async function deleteLotAction(formData: FormData): Promise<void> {
   const ctx = await requireContext("inventario");
-  if (!canInventoryEdit(ctx)) redirect("/dashboard/inventario/lotes");
+  if (!canInventoryEdit(ctx)) redirect("/facturas/inventario/lotes");
 
   const lotId = String(formData.get("lotId") ?? "");
-  if (!lotId) redirect("/dashboard/inventario/lotes");
+  if (!lotId) redirect("/facturas/inventario/lotes");
 
   const lot = await db.productLot.findFirst({
     where: { id: lotId, companyId: ctx.company.id },
     include: { product: { select: { name: true } } },
   });
-  if (!lot) redirect("/dashboard/inventario/lotes");
+  if (!lot) redirect("/facturas/inventario/lotes");
 
   await db.productLot.delete({ where: { id: lotId, companyId: ctx.company.id } });
   await recordAudit(ctx, {
@@ -91,6 +91,6 @@ export async function deleteLotAction(formData: FormData): Promise<void> {
     summary: `Eliminó el lote ${lot.code} (${lot.product.name}).`,
   });
 
-  revalidatePath("/dashboard/inventario/lotes");
-  revalidatePath("/dashboard/inventario");
+  revalidatePath("/facturas/inventario/lotes");
+  revalidatePath("/facturas/inventario");
 }

@@ -78,7 +78,7 @@ export async function syncDueNotifications(companyId: string): Promise<void> {
       message: overdue
         ? `La ${label} ${doc} venció el ${due} y sigue ${pending} (${Math.abs(days)} días de atraso).`
         : `La ${label} ${doc} vence el ${due} (en ${days} días) y sigue ${pending}.`,
-      href: kind === "PURCHASE" ? `/dashboard/compras/${row.id}` : `/dashboard/ventas/${row.id}`,
+      href: kind === "PURCHASE" ? `/facturas/compras/${row.id}` : `/facturas/ventas/${row.id}`,
     });
   };
 
@@ -111,7 +111,7 @@ export async function syncDueNotifications(companyId: string): Promise<void> {
       dedupeKey: "LIMIT:POR_COBRAR",
       title: "Por cobrar alto",
       message: `El monto por cobrar (${pending.porCobrar}) supera el límite configurado (${company.alertPorCobrarLimit}).`,
-      href: "/dashboard/reportes",
+      href: "/facturas/reportes",
     });
   }
   if (company?.alertPorPagarLimit && pending.porPagar > company.alertPorPagarLimit) {
@@ -120,7 +120,7 @@ export async function syncDueNotifications(companyId: string): Promise<void> {
       dedupeKey: "LIMIT:POR_PAGAR",
       title: "Por pagar alto",
       message: `El monto por pagar (${pending.porPagar}) supera el límite configurado (${company.alertPorPagarLimit}).`,
-      href: "/dashboard/reportes",
+      href: "/facturas/reportes",
     });
   }
   if (company?.alertReembolsosLimit && pending.reembolsosPendientes > company.alertReembolsosLimit) {
@@ -129,7 +129,7 @@ export async function syncDueNotifications(companyId: string): Promise<void> {
       dedupeKey: "LIMIT:REEMBOLSOS",
       title: "Reembolsos pendientes altos",
       message: `Los reembolsos pendientes (${pending.reembolsosPendientes}) superan el límite configurado (${company.alertReembolsosLimit}).`,
-      href: "/dashboard/reportes/pagos",
+      href: "/facturas/reportes/pagos",
     });
   }
 

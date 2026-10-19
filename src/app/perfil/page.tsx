@@ -3,6 +3,7 @@ import Link from "next/link";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { requireUser } from "@/lib/auth";
+import { postLoginDestination } from "@/lib/modules";
 
 import { ChangePasswordForm } from "./change-password-form";
 import { LoginVisual } from "../login/visual";
@@ -48,12 +49,18 @@ export default async function PerfilPage() {
           <ChangePasswordForm obligatorio={user.mustChangePassword} />
 
           <div className="mt-8 flex items-center justify-between border-t border-border pt-5">
-            <Link
-              href="/dashboard"
-              className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-            >
-              Ir al panel
-            </Link>
+            {user.mustChangePassword ? (
+              <p className="text-sm text-muted-foreground">
+                Cambia tu contraseña para entrar al panel.
+              </p>
+            ) : (
+              <Link
+                href={await postLoginDestination(user.id)}
+                className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+              >
+                Ir al panel
+              </Link>
+            )}
             <form action={logout}>
               <button
                 type="submit"

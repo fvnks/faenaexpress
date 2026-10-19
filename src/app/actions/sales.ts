@@ -103,9 +103,9 @@ export async function createSale(_prev: SaleFormState, formData: FormData): Prom
   });
 
   await setFlash("success", "Venta guardada", describe(data));
-  revalidatePath("/dashboard/ventas");
-  revalidatePath("/dashboard");
-  redirect("/dashboard/ventas");
+  revalidatePath("/facturas/ventas");
+  revalidatePath("/facturas");
+  redirect("/facturas/ventas");
 }
 
 export async function updateSale(
@@ -142,9 +142,9 @@ export async function updateSale(
   });
 
   await setFlash("success", "Venta actualizada", describe(data));
-  revalidatePath("/dashboard/ventas", "page");
-  revalidatePath(`/dashboard/ventas/${id}`);
-  redirect(`/dashboard/ventas/${id}`);
+  revalidatePath("/facturas/ventas", "page");
+  revalidatePath(`/facturas/ventas/${id}`);
+  redirect(`/facturas/ventas/${id}`);
 }
 
 function normalizeDateInput(value: unknown): string | null {
@@ -163,7 +163,7 @@ function normalizeDateInput(value: unknown): string | null {
 
 export async function markSalePaid(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const id = String(formData.get("id") ?? "");
   const rawDate = formData.get("paymentDate");
@@ -177,11 +177,11 @@ export async function markSalePaid(formData: FormData): Promise<void> {
     const salesperson = await db.salesperson.findFirst({
       where: { id: salespersonId, companyId: ctx.company.id },
     });
-    if (!salesperson) redirect("/dashboard/ventas");
+    if (!salesperson) redirect("/facturas/ventas");
   }
 
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!sale) redirect("/dashboard/ventas");
+  if (!sale) redirect("/facturas/ventas");
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
@@ -201,13 +201,13 @@ export async function markSalePaid(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Venta marcada como cobrada");
-  revalidatePath("/dashboard/ventas", "page");
-  revalidatePath(`/dashboard/ventas/${id}`);
+  revalidatePath("/facturas/ventas", "page");
+  revalidatePath(`/facturas/ventas/${id}`);
 }
 
 export async function markSaleConfirming(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const id = String(formData.get("id") ?? "");
   const rawDate = formData.get("confirmingDate") ?? formData.get("confirmingAt");
@@ -221,11 +221,11 @@ export async function markSaleConfirming(formData: FormData): Promise<void> {
     const salesperson = await db.salesperson.findFirst({
       where: { id: salespersonId, companyId: ctx.company.id },
     });
-    if (!salesperson) redirect("/dashboard/ventas");
+    if (!salesperson) redirect("/facturas/ventas");
   }
 
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!sale) redirect("/dashboard/ventas");
+  if (!sale) redirect("/facturas/ventas");
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
@@ -244,17 +244,17 @@ export async function markSaleConfirming(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Venta marcada como Confirming");
-  revalidatePath("/dashboard/ventas", "page");
-  revalidatePath(`/dashboard/ventas/${id}`);
+  revalidatePath("/facturas/ventas", "page");
+  revalidatePath(`/facturas/ventas/${id}`);
 }
 
 export async function clearSaleConfirming(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const id = String(formData.get("id") ?? "");
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!sale) redirect("/dashboard/ventas");
+  if (!sale) redirect("/facturas/ventas");
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
@@ -270,17 +270,17 @@ export async function clearSaleConfirming(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Confirming quitado");
-  revalidatePath("/dashboard/ventas", "page");
-  revalidatePath(`/dashboard/ventas/${id}`);
+  revalidatePath("/facturas/ventas", "page");
+  revalidatePath(`/facturas/ventas/${id}`);
 }
 
 export async function markSalePending(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const id = String(formData.get("id") ?? "");
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!sale) redirect("/dashboard/ventas");
+  if (!sale) redirect("/facturas/ventas");
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
@@ -296,18 +296,18 @@ export async function markSalePending(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Venta marcada como por cobrar");
-  revalidatePath("/dashboard/ventas", "page");
-  revalidatePath(`/dashboard/ventas/${id}`);
+  revalidatePath("/facturas/ventas", "page");
+  revalidatePath(`/facturas/ventas/${id}`);
 }
 
 export async function convertQuoteToInvoice(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const id = String(formData.get("id") ?? "");
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!sale) redirect("/dashboard/ventas/cotizaciones");
-  if (sale.documentType !== "QUOTATION") redirect(`/dashboard/ventas/${id}`);
+  if (!sale) redirect("/facturas/ventas/cotizaciones");
+  if (sale.documentType !== "QUOTATION") redirect(`/facturas/ventas/${id}`);
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
@@ -323,14 +323,14 @@ export async function convertQuoteToInvoice(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Cotización convertida a factura");
-  revalidatePath("/dashboard/ventas");
-  revalidatePath("/dashboard/ventas/cotizaciones");
-  revalidatePath(`/dashboard/ventas/${id}`);
-  redirect(`/dashboard/ventas/${id}/editar`);
+  revalidatePath("/facturas/ventas");
+  revalidatePath("/facturas/ventas/cotizaciones");
+  revalidatePath(`/facturas/ventas/${id}`);
+  redirect(`/facturas/ventas/${id}/editar`);
 }
 export async function deleteSale(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const id = String(formData.get("id") ?? "");
   if (id) {
@@ -346,20 +346,20 @@ export async function deleteSale(formData: FormData): Promise<void> {
       await setFlash("success", "Venta eliminada", sale.documentNumber ? `N° ${sale.documentNumber}` : undefined);
     }
   }
-  revalidatePath("/dashboard/ventas");
-  redirect("/dashboard/ventas");
+  revalidatePath("/facturas/ventas");
+  redirect("/facturas/ventas");
 }
 
 // Cambia el estado de cobro de varias ventas a la vez.
 export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   const rawStatus = String(formData.get("status") ?? "");
   const validStatuses = ["PENDING", "PAID", "PARTIAL", "OVERDUE", "CANCELLED"] as const;
   const status = validStatuses.find((s) => s === rawStatus) ?? "PENDING";
-  const returnTo = safeReturnTo(formData.get("returnTo"), "/dashboard/ventas");
+  const returnTo = safeReturnTo(formData.get("returnTo"), "/facturas/ventas");
   if (ids.length === 0) redirect(returnTo);
 
   const result = await db.sale.updateMany({
@@ -389,7 +389,7 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
       `Marcadas como ${statusLabels[status]}.`,
     );
   }
-  revalidatePath("/dashboard/ventas");
+  revalidatePath("/facturas/ventas");
   redirect(returnTo);
 }
 
@@ -399,7 +399,7 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
  */
 export async function bulkAssignSalesperson(formData: FormData): Promise<void> {
   const ctx = await requireContext("ventas");
-  const returnTo = safeReturnTo(formData.get("returnTo"), "/dashboard/ventas");
+  const returnTo = safeReturnTo(formData.get("returnTo"), "/facturas/ventas");
   if (!canWrite(ctx, "ventas")) redirect(returnTo);
 
   const ids = String(formData.get("ids") ?? "")
@@ -447,7 +447,7 @@ export async function bulkAssignSalesperson(formData: FormData): Promise<void> {
     await setFlash("error", "Ninguna venta fue actualizada.", "Las ventas ya tenían ese vendedor o no existen.");
   }
 
-  revalidatePath("/dashboard/ventas");
+  revalidatePath("/facturas/ventas");
   redirect(returnTo);
 }
 
@@ -457,7 +457,7 @@ export async function bulkAssignSalesperson(formData: FormData): Promise<void> {
  */
 export async function cancelSale(formData: FormData): Promise<void> {
   const ctx = await requireContext("ventas");
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const saleId = String(formData.get("saleId") ?? "");
   const cancellationType = String(formData.get("cancellationType") ?? "");
@@ -466,33 +466,33 @@ export async function cancelSale(formData: FormData): Promise<void> {
   const cancellationComment = String(formData.get("cancellationComment") ?? "").trim();
   const refacturadaNumber = String(formData.get("refacturadaNumber") ?? "").trim();
 
-  if (!saleId) redirect("/dashboard/ventas");
+  if (!saleId) redirect("/facturas/ventas");
 
   const sale = await db.sale.findFirst({
     where: { id: saleId, companyId: ctx.company.id },
   });
-  if (!sale) redirect("/dashboard/ventas");
+  if (!sale) redirect("/facturas/ventas");
 
   // Si ya tiene una nota asociada, no se puede cambiar
   if (sale.cancellationNoteNumber) {
     await setFlash("error", "Esta venta ya tiene una nota asociada y no se puede modificar.");
-    redirect("/dashboard/ventas");
+    redirect("/facturas/ventas");
   }
 
   // Validaciones según el tipo
   if (cancellationType === "CREDIT_NOTE" || cancellationType === "DEBIT_NOTE") {
     if (!cancellationNoteNumber) {
       await setFlash("error", "Debes indicar el número de la nota de crédito o débito.");
-      redirect("/dashboard/ventas");
+      redirect("/facturas/ventas");
     }
   } else if (cancellationType === "REASON") {
     if (!cancellationReason) {
       await setFlash("error", "Debes indicar la razón de la cancelación.");
-      redirect("/dashboard/ventas");
+      redirect("/facturas/ventas");
     }
   } else {
     await setFlash("error", "Tipo de cancelación inválido.");
-    redirect("/dashboard/ventas");
+    redirect("/facturas/ventas");
   }
 
   await db.sale.update({
@@ -515,26 +515,26 @@ export async function cancelSale(formData: FormData): Promise<void> {
   });
 
   await setFlash("success", "Venta anulada", `Se registró la anulación correctamente.`);
-  revalidatePath("/dashboard/ventas");
-  redirect("/dashboard/ventas");
+  revalidatePath("/facturas/ventas");
+  redirect("/facturas/ventas");
 }
 
 export async function assignSaleSalesperson(formData: FormData): Promise<void> {
   const ctx = await requireContext("ventas");
-  if (!canWrite(ctx, "ventas")) redirect("/dashboard/ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
 
   const id = String(formData.get("id") ?? "").trim();
   const salespersonIdRaw = String(formData.get("salespersonId") ?? "").trim();
-  if (!id) redirect("/dashboard/ventas");
+  if (!id) redirect("/facturas/ventas");
 
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
-  if (!sale) redirect("/dashboard/ventas");
+  if (!sale) redirect("/facturas/ventas");
 
   if (salespersonIdRaw) {
     const salesperson = await db.salesperson.findFirst({
       where: { id: salespersonIdRaw, companyId: ctx.company.id },
     });
-    if (!salesperson) redirect("/dashboard/ventas");
+    if (!salesperson) redirect("/facturas/ventas");
     await db.sale.update({ where: { id, companyId: ctx.company.id }, data: { salespersonId: salespersonIdRaw } });
     await recordAudit(ctx, {
       action: "UPDATE",
@@ -553,7 +553,7 @@ export async function assignSaleSalesperson(formData: FormData): Promise<void> {
   }
 
   await setFlash("success", "Vendedor actualizado.");
-  revalidatePath("/dashboard/ventas", "page");
-  revalidatePath(`/dashboard/ventas/${id}`);
+  revalidatePath("/facturas/ventas", "page");
+  revalidatePath(`/facturas/ventas/${id}`);
 }
 

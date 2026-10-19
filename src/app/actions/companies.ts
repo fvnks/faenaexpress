@@ -32,7 +32,7 @@ export async function switchCompany(formData: FormData): Promise<void> {
 
   const companyId = String(formData.get("companyId") ?? "");
   const rawRedirect = String(formData.get("redirectTo") ?? "");
-  const redirectTo = rawRedirect === "configuracion" ? "/dashboard/configuracion" : "/dashboard";
+  const redirectTo = rawRedirect === "configuracion" ? "/facturas/configuracion" : "/facturas";
 
   // La cookie se valida contra las companies visibles (no todas las memberships),
   // así un cookie manipulada no permite saltar a una empresa a la que el usuario
@@ -40,7 +40,7 @@ export async function switchCompany(formData: FormData): Promise<void> {
   const visible = await visibleCompanies(user);
   const membership = user.memberships.find((item) => item.companyId === companyId);
   const isVisible = visible.some((c) => c.id === companyId);
-  if (!membership || !isVisible) redirect("/dashboard");
+  if (!membership || !isVisible) redirect("/facturas");
 
   await setActiveCompany(companyId);
   revalidatePath("/", "layout");
@@ -120,7 +120,7 @@ export async function createCompany(
   await setActiveCompany(company.id);
   await setFlash("success", "Empresa creada", company.name);
   revalidatePath("/", "layout");
-  redirect("/dashboard/configuracion");
+  redirect("/facturas/configuracion");
 }
 
 export async function updateCompany(
@@ -157,7 +157,7 @@ export async function updateCompany(
     summary: `Actualizó los datos de la empresa «${parsed.data.name}».`,
   });
 
-  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
   revalidatePath("/", "layout");
   return { ok: true };
 }
@@ -212,7 +212,7 @@ export async function addMember(
     summary: `Agregó a ${user.name} (${user.email}) como ${parsed.data.role} en ${creadas} ${creadas === 1 ? "empresa" : "empresas"}.`,
   });
 
-  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
   return { ok: true };
 }
 
@@ -273,14 +273,14 @@ export async function createMember(
     summary: `Creó al usuario ${parsed.data.name} (${parsed.data.email}) como ${parsed.data.role}${alcance}.`,
   });
 
-  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
   return { ok: true };
 }
 
 // Actualiza los umbrales de las alertas automáticas de la empresa activa.
 export async function updateAlertSettings(formData: FormData): Promise<void> {
   const ctx = await requireContext("configuracion");
-  if (!isAdmin(ctx)) redirect("/dashboard/configuracion");
+  if (!isAdmin(ctx)) redirect("/facturas/configuracion");
 
   const dueSoonDays = Number(formData.get("alertDueSoonDays") ?? "5");
   const porCobrarRaw = String(formData.get("alertPorCobrarLimit") ?? "").trim();
@@ -304,8 +304,8 @@ export async function updateAlertSettings(formData: FormData): Promise<void> {
     summary: "Actualizó los umbrales de alertas automáticas.",
   });
 
-  revalidatePath("/dashboard/configuracion");
-  redirect("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
+  redirect("/facturas/configuracion");
 }
 export async function updateMemberRole(
   _prev: MemberFormState,
@@ -344,13 +344,13 @@ export async function updateMemberRole(
     changes: { role: { before: membership.role, after: role } },
   });
 
-  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
   return { ok: true };
 }
 
 export async function removeMember(formData: FormData): Promise<void> {
   const ctx = await requireContext();
-  if (!isAdmin(ctx)) redirect("/dashboard/configuracion");
+  if (!isAdmin(ctx)) redirect("/facturas/configuracion");
 
   const membershipId = String(formData.get("membershipId") ?? "");
   const membership = await db.membership.findFirst({
@@ -358,14 +358,14 @@ export async function removeMember(formData: FormData): Promise<void> {
     include: { user: { select: { name: true, email: true } } },
   });
   if (!membership || membership.userId === ctx.user.id) {
-    redirect("/dashboard/configuracion");
+    redirect("/facturas/configuracion");
   }
 
   if (membership.role === "ADMIN") {
     const admins = await db.membership.count({
       where: { companyId: ctx.company.id, role: "ADMIN", active: true },
     });
-    if (admins <= 1) redirect("/dashboard/configuracion");
+    if (admins <= 1) redirect("/facturas/configuracion");
   }
 
   await db.membership.delete({ where: { id: membershipId } });
@@ -377,8 +377,8 @@ export async function removeMember(formData: FormData): Promise<void> {
     summary: `Quitó a ${membership.user.name} (${membership.user.email}) de la empresa.`,
   });
 
-  revalidatePath("/dashboard/configuracion");
-  redirect("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
+  redirect("/facturas/configuracion");
 }
 
 // Elimina una empresa y todos sus datos (borrado en cascada).
@@ -395,13 +395,13 @@ export async function deleteCompany(formData: FormData): Promise<void> {
   );
   if (!membership) {
     await setFlash("error", "No se pudo eliminar la empresa", "Solo un administrador de esa empresa puede hacerlo.");
-    redirect("/dashboard/configuracion");
+    redirect("/facturas/configuracion");
   }
 
   // No se puede borrar la empresa activa.
   if (membership.companyId === (await getActiveMembership())?.company.id) {
     await setFlash("error", "No se pudo eliminar la empresa", "Cambia a otra empresa antes de eliminarla.");
-    redirect("/dashboard/configuracion");
+    redirect("/facturas/configuracion");
   }
 
   const company = membership.company;
@@ -409,14 +409,14 @@ export async function deleteCompany(formData: FormData): Promise<void> {
   // El nombre escrito debe coincidir exactamente con el de la empresa.
   if (confirmName !== company.name) {
     await setFlash("error", "No se pudo eliminar la empresa", "El nombre escrito no coincide con la empresa.");
-    redirect("/dashboard/configuracion");
+    redirect("/facturas/configuracion");
   }
 
   await db.company.delete({ where: { id: companyId } });
 
   await setFlash("success", "Empresa eliminada", company.name);
   revalidatePath("/", "layout");
-  redirect("/dashboard/configuracion");
+  redirect("/facturas/configuracion");
 }
 
 // Alterna el permiso `canSwitchCompanies` del usuario objetivo en la organización
@@ -464,7 +464,7 @@ export async function _toggleCanSwitchCompaniesRaw(
     changes: { canSwitchCompanies: { before: member.canSwitchCompanies, after: nextValue } },
   });
 
-  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/facturas/configuracion");
   return { ok: true };
 }
 

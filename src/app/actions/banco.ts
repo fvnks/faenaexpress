@@ -27,7 +27,7 @@ import { formatCLP, formatDate } from "@/lib/money";
  * mismo (monto, estado del documento, que no esté ya conciliado).
  */
 
-const BANCO_PATH = "/dashboard/banco";
+const BANCO_PATH = "/facturas/banco";
 
 /**
  * A dónde volver tras una acción. Solo se acepta la propia bandeja: un
@@ -107,8 +107,8 @@ async function linkMovement(
       summary: `Concilió ${movementDescription} con la ${label}.`,
       changes: { status: { before: purchase.status, after: "PAID" } },
     });
-    revalidatePath("/dashboard/compras");
-    revalidatePath("/dashboard/compras/[id]", "page");
+    revalidatePath("/facturas/compras");
+    revalidatePath("/facturas/compras/[id]", "page");
     return { ok: true, kind: "purchase", label };
   }
 
@@ -140,8 +140,8 @@ async function linkMovement(
       summary: `Concilió ${movementDescription} con la ${label}.`,
       changes: { status: { before: sale.status, after: "PAID" } },
     });
-    revalidatePath("/dashboard/ventas");
-    revalidatePath("/dashboard/ventas/[id]", "page");
+    revalidatePath("/facturas/ventas");
+    revalidatePath("/facturas/ventas/[id]", "page");
     return { ok: true, kind: "sale", label };
   }
 
@@ -181,9 +181,9 @@ async function linkMovement(
       summary: `Concilió ${movementDescription} con el ${label}: queda reembolsado.`,
       changes: { reimbursed: { before: expense.reimbursed, after: true } },
     });
-    revalidatePath("/dashboard/gastos");
-    revalidatePath("/dashboard/gastos/[id]", "page");
-    revalidatePath("/dashboard");
+    revalidatePath("/facturas/gastos");
+    revalidatePath("/facturas/gastos/[id]", "page");
+    revalidatePath("/facturas");
     return { ok: true, kind: "expense", label };
   }
 
@@ -219,7 +219,7 @@ export async function syncBank(formData: FormData): Promise<void> {
     await setFlash("error", "La sincronización falló", outcome.message);
   }
   revalidatePath(BANCO_PATH);
-  revalidatePath("/dashboard");
+  revalidatePath("/facturas");
   redirect(BANCO_PATH);
 }
 
@@ -265,7 +265,7 @@ export async function conciliarMovimiento(formData: FormData): Promise<void> {
   }
 
   revalidatePath(BANCO_PATH);
-  revalidatePath("/dashboard");
+  revalidatePath("/facturas");
   redirect(back);
 }
 
@@ -343,9 +343,9 @@ export async function conciliarSugerencias(formData: FormData): Promise<void> {
   }
 
   revalidatePath(BANCO_PATH);
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/compras");
-  revalidatePath("/dashboard/ventas");
+  revalidatePath("/facturas");
+  revalidatePath("/facturas/compras");
+  revalidatePath("/facturas/ventas");
   redirect(back);
 }
 
@@ -534,13 +534,13 @@ export async function deshacerConciliacion(formData: FormData): Promise<void> {
       : "El movimiento vuelve a la bandeja. La venta sigue cobrada por Confirming.",
   );
   revalidatePath(BANCO_PATH);
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/compras");
-  revalidatePath("/dashboard/compras/[id]", "page");
-  revalidatePath("/dashboard/ventas");
-  revalidatePath("/dashboard/ventas/[id]", "page");
-  revalidatePath("/dashboard/gastos");
-  revalidatePath("/dashboard/gastos/[id]", "page");
+  revalidatePath("/facturas");
+  revalidatePath("/facturas/compras");
+  revalidatePath("/facturas/compras/[id]", "page");
+  revalidatePath("/facturas/ventas");
+  revalidatePath("/facturas/ventas/[id]", "page");
+  revalidatePath("/facturas/gastos");
+  revalidatePath("/facturas/gastos/[id]", "page");
   redirect(back);
 }
 

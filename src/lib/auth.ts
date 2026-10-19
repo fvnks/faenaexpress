@@ -85,7 +85,7 @@ export async function requireContext(section?: Section): Promise<AuthContext> {
   const user = await requireUser();
   const active = await resolveActiveMembership(user);
   if (!active) {
-    redirect("/dashboard/configuracion");
+    redirect("/facturas/configuracion");
   }
   if (section) {
     // Inventario usa el nivel efectivo (override o rol base) para entrar.
@@ -93,7 +93,7 @@ export async function requireContext(section?: Section): Promise<AuthContext> {
       section === "inventario"
         ? canInventoryRead(active)
         : canAccess(active.role, section);
-    if (!allowed) redirect("/dashboard");
+    if (!allowed) redirect("/facturas");
   }
   return { user, company: active.company, role: active.role, inventoryAccess: active.inventoryAccess };
 }

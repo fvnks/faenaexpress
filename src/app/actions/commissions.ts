@@ -118,9 +118,9 @@ export async function assignCommissionDocuments(
     summary: `Asignó ${assigned} documento(s) de comisión a ${person.name} en ${formatPeriod(period)}.`,
   });
 
-  revalidatePath("/dashboard/comisiones");
-  revalidatePath("/dashboard/comisiones/asignaciones");
-  revalidatePath("/dashboard/comisiones/cierres");
+  revalidatePath("/facturas/comisiones");
+  revalidatePath("/facturas/comisiones/asignaciones");
+  revalidatePath("/facturas/comisiones/cierres");
   return {
     ok: true,
     assigned,
@@ -174,9 +174,9 @@ export async function unassignCommissionDocument(
     summary: `Quitó la comisión del documento ${assignment.sale?.documentNumber ?? assignment.dispatchGuide?.guideNumber ?? assignment.saleId}.`,
   });
 
-  revalidatePath("/dashboard/comisiones");
-  revalidatePath("/dashboard/comisiones/asignaciones");
-  revalidatePath("/dashboard/comisiones/cierres");
+  revalidatePath("/facturas/comisiones");
+  revalidatePath("/facturas/comisiones/asignaciones");
+  revalidatePath("/facturas/comisiones/cierres");
   return { ok: true, message: "Asignación eliminada." };
 }
 
@@ -207,9 +207,9 @@ export async function closeCommissionMonthAction(
     summary: `Cerró las comisiones de ${formatPeriod(period)} con ${cerrado.entries} línea(s).`,
   });
 
-  revalidatePath("/dashboard/comisiones");
-  revalidatePath("/dashboard/comisiones/asignaciones");
-  revalidatePath("/dashboard/comisiones/cierres");
+  revalidatePath("/facturas/comisiones");
+  revalidatePath("/facturas/comisiones/asignaciones");
+  revalidatePath("/facturas/comisiones/cierres");
   return {
     ok: true,
     message: `Mes cerrado: ${cerrado.entries} línea(s) congelada(s) en ${formatPeriod(period)}.`,
@@ -254,10 +254,10 @@ export async function saveSalespersonCommission(
     summary: `Ajustó la comisión de «${person.name}» a ${formatRateBps(rateBps)} (${rule === "GUIDE" ? "por guía" : "por factura"}).`,
   });
 
-  revalidatePath("/dashboard/comisiones");
-  revalidatePath("/dashboard/comisiones/asignaciones");
-  revalidatePath("/dashboard/comisiones/vendedores");
-  revalidatePath("/dashboard/catalogos");
+  revalidatePath("/facturas/comisiones");
+  revalidatePath("/facturas/comisiones/asignaciones");
+  revalidatePath("/facturas/comisiones/vendedores");
+  revalidatePath("/facturas/catalogos");
   return { ok: true };
 }
 
@@ -349,8 +349,8 @@ export async function registerDispatchGuide(
     summary: `Registró la guía N° ${guideNumber} de ${partner.name}${vendedorNombre ? ` por ${vendedorNombre}` : ""}.`,
   });
 
-  revalidatePath("/dashboard/comisiones");
-  revalidatePath("/dashboard/comisiones/asignaciones");
+  revalidatePath("/facturas/comisiones");
+  revalidatePath("/facturas/comisiones/asignaciones");
   return { ok: true, guideId: guide.id, message: `Guía N° ${guideNumber} registrada.` };
 }
 
@@ -410,8 +410,8 @@ export async function registerGuideFromVentas(
   });
 
   await setFlash("success", "Guía registrada", `N° ${guideNumber}`);
-  revalidatePath("/dashboard/ventas/guias");
-  redirect("/dashboard/ventas/guias");
+  revalidatePath("/facturas/ventas/guias");
+  redirect("/facturas/ventas/guias");
   return { ok: true, guideId: guide.id, message: `Guía N° ${guideNumber} registrada.` };
 }
 
@@ -477,8 +477,8 @@ export async function assignDispatchGuide(
     summary: `Asignó la guía N° ${guide.guideNumber} a ${formatPeriod(period)} para ${person.name}.`,
   });
 
-  revalidatePath("/dashboard/comisiones");
-  revalidatePath("/dashboard/comisiones/asignaciones");
+  revalidatePath("/facturas/comisiones");
+  revalidatePath("/facturas/comisiones/asignaciones");
   return { ok: true, assigned: 1, message: `Guía N° ${guide.guideNumber} asignada a ${formatPeriod(period)}.` };
 }
 
@@ -521,8 +521,8 @@ export async function unassignDispatchGuide(
     summary: `Quitó la asignación de la guía N° ${assignment.dispatchGuide?.guideNumber}.`,
   });
 
-  revalidatePath("/dashboard/comisiones");
-  revalidatePath("/dashboard/comisiones/asignaciones");
+  revalidatePath("/facturas/comisiones");
+  revalidatePath("/facturas/comisiones/asignaciones");
   return { ok: true, message: "Asignación eliminada." };
 }
 

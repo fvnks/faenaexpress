@@ -82,6 +82,13 @@ Aún no hay tests. Cuando existan, documenta aquí cómo correr uno solo.
 3. UI como Server Components; `"use client"` solo para interacción.
 4. Antes de escribir UI, resolver dirección visual (`DESIGN.md`, R-37 de antislop). Sin dirección, el resultado es un borrador.
 
+## Rutas y módulos
+
+- El módulo Facturas vive en `/facturas/*` (antes `/dashboard`; un catch-all en `src/app/dashboard/[[...slug]]` hace redirect permanente 308 a las rutas nuevas).
+- El login decide el destino en el servidor con `postLoginDestination` (`src/lib/modules.ts`): 1 módulo → directo; 2+ → `/modulos` (selector con tarjetas de pendientes reales). El `ModuleSwitcher` del header solo aparece con 2+ módulos; con uno, nada.
+- Los módulos se declaran en `src/lib/modules.ts`: agregar un módulo = agregar una entrada (`code`, nombre, `href`, `pendings`) + sus rutas.
+- `DEPLOYMENT_PROFILE=saas` muestra la landing de Yellow ERP en `/`; el default (`standalone`) mantiene el redirect a sesión/login.
+
 ## UI y tema
 
 - Dirección visual en `DESIGN.md`: léelo antes de tocar UI. Tokens en `src/app/globals.css` (`@theme inline`). En los componentes usa utilidades semánticas (`bg-surface`, `text-muted-foreground`, `border-border`, `bg-primary`), no colores crudos.

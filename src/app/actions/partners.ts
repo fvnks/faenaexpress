@@ -20,24 +20,24 @@ function partnerNoun(type: string): string {
 
 // El formulario de terceros se usa en Clientes y en Proveedores; vuelve a la
 // sección desde la que se envió (con un destino por defecto seguro).
-const allowedRedirects = new Set(["/dashboard/clientes", "/dashboard/proveedores"]);
+const allowedRedirects = new Set(["/facturas/clientes", "/facturas/proveedores"]);
 
 function destination(formData: FormData): string {
   const value = formData.get("redirectTo");
-  return typeof value === "string" && allowedRedirects.has(value) ? value : "/dashboard/proveedores";
+  return typeof value === "string" && allowedRedirects.has(value) ? value : "/facturas/proveedores";
 }
 
 // El destino permitido decide la sección y, con ella, qué roles pueden escribir.
 function sectionFor(formData: FormData): Section {
-  return destination(formData) === "/dashboard/clientes" ? "clientes" : "proveedores";
+  return destination(formData) === "/facturas/clientes" ? "clientes" : "proveedores";
 }
 
 function revalidatePartners(id?: string) {
-  revalidatePath("/dashboard/clientes");
-  revalidatePath("/dashboard/proveedores");
+  revalidatePath("/facturas/clientes");
+  revalidatePath("/facturas/proveedores");
   if (id) {
-    revalidatePath(`/dashboard/clientes/${id}`);
-    revalidatePath(`/dashboard/proveedores/${id}`);
+    revalidatePath(`/facturas/clientes/${id}`);
+    revalidatePath(`/facturas/proveedores/${id}`);
   }
 }
 

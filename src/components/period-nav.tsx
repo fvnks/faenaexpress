@@ -6,7 +6,7 @@ import { currentPeriod, formatPeriod, shiftPeriod } from "@/lib/money";
 
 /**
  * Navegación de período del panel (← mes →, + Hoy), ubicada en la barra fija
- * superior junto al selector de empresa. Solo se muestra en /dashboard: lee y
+ * superior junto al selector de empresa. Solo se muestra en /facturas: lee y
  * escribe el parámetro `period` de la URL.
  */
 export function PeriodNav({ className = "" }: { className?: string }) {
@@ -14,14 +14,14 @@ export function PeriodNav({ className = "" }: { className?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  if (pathname !== "/dashboard") return null;
+  if (pathname !== "/facturas") return null;
 
   const raw = searchParams.get("period") ?? "";
   const period = /^\d{4}-\d{2}$/.test(raw) ? raw : currentPeriod();
   const isCurrent = period === currentPeriod();
 
   const go = (deltaMonths: number) => {
-    router.push(`/dashboard?period=${shiftPeriod(period, deltaMonths)}`);
+    router.push(`/facturas?period=${shiftPeriod(period, deltaMonths)}`);
   };
 
   const arrowClass =
@@ -48,7 +48,7 @@ export function PeriodNav({ className = "" }: { className?: string }) {
       {!isCurrent ? (
         <button
           type="button"
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push("/facturas")}
           className="ml-1 rounded-control border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-primary-soft/50 hover:text-foreground"
         >
           Hoy

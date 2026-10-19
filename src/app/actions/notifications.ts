@@ -11,13 +11,13 @@ export async function readNotification(formData: FormData): Promise<void> {
   if (id) {
     await markNotificationRead(ctx.company.id, id);
   }
-  revalidatePath("/dashboard/notificaciones");
-  revalidatePath("/dashboard");
+  revalidatePath("/facturas/notificaciones");
+  revalidatePath("/facturas");
 }
 
 export async function readAllNotifications(): Promise<void> {
   const ctx = await requireContext();
   await markAllNotificationsRead(ctx.company.id);
-  revalidatePath("/dashboard/notificaciones");
-  revalidatePath("/dashboard");
+  revalidatePath("/facturas/notificaciones");
+  revalidatePath("/facturas");
 }

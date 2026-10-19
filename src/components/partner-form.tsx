@@ -38,7 +38,7 @@ export function PartnerForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
-      <input type="hidden" name="redirectTo" value={redirectTo ?? "/dashboard/proveedores"} />
+      <input type="hidden" name="redirectTo" value={redirectTo ?? "/facturas/proveedores"} />
       <section className={cardClass + " flex flex-col gap-4 p-4"}>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className={fieldClass}>

@@ -79,9 +79,9 @@ export async function importFile(
     }`,
   });
 
-  revalidatePath(`/dashboard/${kind === "purchases" ? "compras" : kind}`);
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/auditoria");
+  revalidatePath(`/facturas/${kind === "purchases" ? "compras" : kind}`);
+  revalidatePath("/facturas");
+  revalidatePath("/facturas/auditoria");
 
   return { status: "done", imported: result.imported, errors: result.errors };
 }

@@ -116,7 +116,7 @@ export async function acceptInvitation(
     await createSession(existing.id, false);
   }
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect("/facturas");
 }
 
 /** Memberships a crear según el alcance de la invitación. */

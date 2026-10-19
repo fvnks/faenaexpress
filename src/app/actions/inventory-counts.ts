@@ -47,7 +47,7 @@ export async function openStockCount(
     summary: "Abrió un conteo físico de inventario.",
   });
 
-  revalidatePath("/dashboard/inventario/conteos");
+  revalidatePath("/facturas/inventario/conteos");
   return { ok: true };
 }
 
@@ -82,7 +82,7 @@ export async function saveStockCount(
     saved += 1;
   }
 
-  revalidatePath(`/dashboard/inventario/conteos/${countId}`);
+  revalidatePath(`/facturas/inventario/conteos/${countId}`);
   return { ok: true, saved };
 }
 
@@ -110,10 +110,10 @@ export async function closeStockCountAction(
     summary: `Cerró un conteo físico: ${adjustments} ajustes (${increases} al alza, ${decreases} a la baja).`,
   });
 
-  revalidatePath("/dashboard/inventario/conteos");
-  revalidatePath(`/dashboard/inventario/conteos/${countId}`);
-  revalidatePath("/dashboard/inventario");
-  revalidatePath("/dashboard/inventario/movimientos");
+  revalidatePath("/facturas/inventario/conteos");
+  revalidatePath(`/facturas/inventario/conteos/${countId}`);
+  revalidatePath("/facturas/inventario");
+  revalidatePath("/facturas/inventario/movimientos");
 
   const parts = [
     `${adjustments} ajuste${adjustments === 1 ? "" : "s"}`,

@@ -20,7 +20,7 @@ Funcionalidades principales:
 - **Ventas**: facturas emitidas a clientes, con estado de cobro, vendedor, orden de compra, guía
   de despacho, N° HES y retención de honorarios.
 - **Gastos**: gastos operacionales con **quién pagó** (pagador) y si ya fue **reembolsado**.
-- **RRHH** (`/dashboard/rrhh`): trabajadores (nombre + RUT) y sus pagos — sueldos, aguinaldos,
+- **RRHH** (`/facturas/rrhh`): trabajadores (nombre + RUT) y sus pagos — sueldos, aguinaldos,
   bonos, adelantos — con registros libres (tipo + período opcional + **monto líquido**). Cada
   pago genera **automáticamente el gasto** (sin IVA, con trabajador y pagador asociados) que
   fluye a Gastos, al reporte IVA y al desglose "Por trabajador". Solo ADMIN y ACCOUNTANT.
@@ -96,10 +96,13 @@ No hay tests todavía. El seed del admin/empresa usa `pnpm prisma db seed` con c
 src/
   app/
     layout.tsx            # IBM Plex Sans + script de tema antes de pintar
-    page.tsx              # Redirect a /dashboard o /login
+    page.tsx              # standalone: redirect a sesión/login · saas: landing pública
     login/                # Split-screen: page.tsx + login-form.tsx + visual.tsx (mockup)
-    dashboard/
-      layout.tsx          # Sidebar + campana + toggle + selector de empresa (top-right)
+    modulos/              # Selector de módulos (con 2+): tarjetas con pendientes reales
+    perfil/               # Cambio de contraseña (obligatorio al llegar por invitación)
+    invitacion/[token]/   # Aceptación de invitación por enlace copiable
+    facturas/             # El módulo Facturas (antes /dashboard; ver redirect abajo)
+      layout.tsx          # Sidebar + campana + toggle + switchers de módulo y empresa
       page.tsx            # Panel: KPIs, gráficos 12 meses, top clientes, alertas, módulos
       compras/            # Lista + [id] + [id]/editar + nueva (+ purchase-form.tsx)
       ventas/             # Lista + [id] + [id]/editar + nueva (+ sale-form.tsx)
@@ -113,8 +116,10 @@ src/
       notificaciones/     # Centro de notificaciones con estado leído/no leído
       configuracion/      # Empresa, usuarios y roles, mis empresas, crear empresa
       auditoria/          # Historial de cambios con filtros
+    dashboard/[[...slug]]/page.tsx  # Redirect permanente 308 → /facturas/* (compatibilidad)
   actions/                # Server Actions (auth, companies, purchases, sales, expenses,
-                          # partners, catalogs, import, dte, notifications)
+                          # partners, catalogs, import, dte, notifications, invitations,
+                          # accept-invitation, profile, modules)
   components/             # Componentes compartidos (ver §10)
   lib/                    # Acceso a datos, reglas de negocio y utilidades
   generated/prisma/       # Prisma Client generado (ignorado por git; importar como
@@ -136,6 +141,7 @@ CONTEXTO.md               # Este documento
 | `session.ts` | Crear/borrar/leer sesiones opacas; "Recuérdame" y renovación automática |
 | `auth.ts` | `getCurrentUser` (cacheado por request), `requireUser`, `requireContext(section)`, `getActiveMembership`, `canWrite`, `isAdmin`, `visibleCompanies` (permiso multiempresa), cookie `facturas_company` |
 | `deployment.ts` | Perfil de despliegue: `standalone` (instalación privada, default) vs `saas` (Yellow ERP con landing en `/`). Se define con `DEPLOYMENT_PROFILE` |
+| `modules.ts` | Registry de módulos: `enabledModules(userId)`, `postLoginDestination(userId)` (1 módulo → directo; 2+ → `/modulos`) y `MODULE_COOKIE` (último usado). Cada módulo declara href y pendientes reales |
 | `types.ts` | `SessionUser` y `AuthContext` compartidos entre auth/session |
 | `rate-limit.ts` | `RateLimiter` en memoria (invitaciones y aceptación) |
 | `permissions.ts` | Matriz `ACCESS`/`WRITE` por sección y rol |
@@ -280,13 +286,13 @@ específico de la empresa activa.
 
 ## 7. Importación de planillas (Excel/CSV)
 
-- Sección "Desde planilla" en `/dashboard/importar`; elige compras/ventas/gastos, sube `.xlsx` o
+- Sección "Desde planilla" en `/facturas/importar`; elige compras/ventas/gastos, sube `.xlsx` o
   `.csv` (detección de separador `,` vs `;`, BOM tolerado).
 - Columnas por encabezado difuso (`findColumn`): terceros por **nombre o RUT** (si no existe,
   la fila falla con mensaje; no se crean), fechas `AAAA-MM-DD` o `DD/MM/AAAA`, montos con
   separadores de miles tolerados, **el total se recalcula en el servidor** como neto + IVA.
 - Filas con error se informan con su número; el resto se importa igual.
-- Plantillas CSV descargables en `/dashboard/importar/plantilla?tipo=…`.
+- Plantillas CSV descargables en `/facturas/importar/plantilla?tipo=…`.
 
 ---
 
@@ -364,7 +370,7 @@ en `/app/.sii`.
 
 | Reporte | Ruta | Contenido |
 | --- | --- | --- |
-| Resumen | `/dashboard/reportes` | IVA débito/crédito/resultado, retenciones, estado de pagos |
+| Resumen | `/facturas/reportes` | IVA débito/crédito/resultado, retenciones, estado de pagos |
 | **Flujo de caja** | `reportes/caja` | Pendientes agrupados por vencimiento: Vencido / mes actual / +1 / +2 / más adelante; entradas (ventas por cobrar), salidas (compras por pagar), neto; fila vencida destacada |
 | IVA mensual | `reportes/iva` | Preparación F29 del período con selector de mes (export CSV) |
 | Libro de compras/ventas | `reportes/libro-*` | Detalle por documento con totales (export CSV) |
