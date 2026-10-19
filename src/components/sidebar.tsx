@@ -2,12 +2,41 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type { InventoryAccess, Role } from "@/generated/prisma/client";
 import { canAccess, effectiveInventoryAccess, type Section } from "@/lib/permissions";
 
 const iconCls = "h-5 w-5 shrink-0";
+
+// El colapso del sidebar vive en localStorage. Leerlo durante el render (como
+// se hacía antes) daba un HTML de cliente distinto al del servidor y React
+// regeneraba toda la página al hidratar. Se lee como fuente externa, con
+// instantánea de servidor «expandido», igual que el tema en `theme-toggle.tsx`.
+const COLLAPSE_KEY = "facturas_sidebar_collapsed";
+const collapseListeners = new Set<() => void>();
+
+function subscribeCollapse(onChange: () => void) {
+  collapseListeners.add(onChange);
+  // Otra pestaña puede cambiar la preferencia: localStorage avisa con `storage`.
+  window.addEventListener("storage", onChange);
+  return () => {
+    collapseListeners.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function getCollapsed() {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function getCollapsedOnServer() {
+  return false;
+}
 
 function Icon({ name }: { name: string }) {
   switch (name) {
@@ -612,30 +641,18 @@ export function Sidebar(props: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   // Colapso del sidebar (solo escritorio), persistido en localStorage.
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = useSyncExternalStore(subscribeCollapse, getCollapsed, getCollapsedOnServer);
   // Overrides de apertura por grupo/ítem; al navegar se limpian para que la
   // rama activa vuelva a abrirse sola (ajuste en render, sin effect).
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState("");
 
-  // Restaurar preferencia de colapso en el primer render (ajuste en render).
-  const [collapsedReady, setCollapsedReady] = useState(false);
-  if (!collapsedReady) {
-    setCollapsedReady(true);
-    try {
-      const saved = localStorage.getItem("facturas_sidebar_collapsed");
-      if (saved === "true") setCollapsed(true);
-    } catch { /* sin localStorage */ }
-  }
-
   const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("facturas_sidebar_collapsed", String(next));
-      } catch { /* sin localStorage */ }
-      return next;
-    });
+    const next = !collapsed;
+    try {
+      localStorage.setItem(COLLAPSE_KEY, String(next));
+    } catch { /* sin localStorage */ }
+    for (const listener of collapseListeners) listener();
   };
 
   // Panel flotante del rail colapsado: qué grupo está abierto y dónde anclarlo.
