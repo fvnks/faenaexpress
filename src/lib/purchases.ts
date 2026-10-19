@@ -25,7 +25,8 @@ export type PurchaseFilters = {
 // Orden de los estados al ordenar la columna "Estado".
 const PURCHASE_STATUS_ORDER: Record<string, number> = {
   PENDING: 0,
-  PAID: 1,
+  PARTIAL: 1,
+  PAID: 2,
 };
 
 export function parsePurchaseFilters(searchParams: {
@@ -45,9 +46,11 @@ export function parsePurchaseFilters(searchParams: {
     ? "PENDING"
     : searchParams.estado === "pendientes"
       ? "PENDING"
-      : searchParams.estado === "pagadas"
-        ? "PAID"
-        : "ALL";
+      : searchParams.estado === "parciales"
+        ? "PARTIAL"
+        : searchParams.estado === "pagadas"
+          ? "PAID"
+          : "ALL";
 
   const documentType = documentTypeValues.find((value) => value === searchParams.tipo);
 
@@ -70,7 +73,7 @@ function buildWhere(companyId: string, filters: PurchaseFilters): Prisma.Purchas
   const where: Prisma.PurchaseWhereInput = { companyId };
 
   if (filters.overdue) {
-    where.status = "PENDING";
+    where.status = { in: ["PENDING", "PARTIAL"] };
     where.dueDate = { lt: todayDate() };
   } else if (filters.status !== "ALL") {
     where.status = filters.status;

@@ -33,7 +33,7 @@ export async function syncDueNotifications(companyId: string): Promise<void> {
 
   const [purchases, sales] = await Promise.all([
     db.purchase.findMany({
-      where: { companyId, status: "PENDING", dueDate: { not: null } },
+      where: { companyId, status: { in: ["PENDING", "PARTIAL"] }, dueDate: { not: null } },
       select: {
         id: true,
         dueDate: true,
@@ -42,7 +42,7 @@ export async function syncDueNotifications(companyId: string): Promise<void> {
       },
     }),
     db.sale.findMany({
-      where: { companyId, confirmingAt: null, status: "PENDING", dueDate: { not: null } },
+      where: { companyId, confirmingAt: null, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] }, dueDate: { not: null } },
       select: {
         id: true,
         dueDate: true,

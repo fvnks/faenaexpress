@@ -8,10 +8,12 @@ import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
 import { DteXmlPanel } from "@/components/dte-xml-panel";
 import { FetchSaleXmlButton } from "@/components/fetch-sale-xml-button";
+import { PaymentsPanel } from "@/components/payments-panel";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
+import { listPayments, saleSettleTotal, sumPayments } from "@/lib/payments";
 import { canAccess } from "@/lib/permissions";
 import { getSale } from "@/lib/sales";
 import {
@@ -40,6 +42,15 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
   const total = Number(sale.totalAmount.toString());
   const retention = Number(sale.retentionAmount.toString());
   const toCollect = Math.max(total - retention, 0);
+  const payments = await listPayments(ctx.company.id, "sale", sale.id);
+  // Saldo: los abonos mandan cuando existen; si no hay, manda el estado (una
+  // venta cobrada a la antigua no tiene abonos pero está saldada).
+  const saldo =
+    payments.length > 0
+      ? Math.max(toCollect - sumPayments(payments), 0)
+      : sale.status === "PAID"
+        ? 0
+        : toCollect;
 
   return (
     <div className="flex flex-col gap-6">
@@ -201,9 +212,15 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
             </p>
           )}
 
+          {saldo > 0 && sale.status !== "CANCELLED" ? (
+            <p className="text-sm">
+              Saldo pendiente: <span className="tabular font-semibold">{formatCLP(saldo)}</span>
+            </p>
+          ) : null}
+
           {bankLink && canSeeBank ? <BankReconciliationNote movement={bankLink.movement} /> : null}
 
-          {writable ? (
+          {writable && payments.length === 0 && sale.status !== "CANCELLED" ? (
             collected ? (
               <form action={markSalePending} className="border-t border-border pt-3">
                 <input type="hidden" name="id" value={sale.id} />
@@ -276,6 +293,16 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
           </section>
         ) : null}
       </div>
+
+      {payments.length > 0 || (sale.status !== "PAID" && sale.status !== "CANCELLED") ? (
+        <PaymentsPanel
+          kind="sale"
+          documentId={sale.id}
+          payments={payments}
+          settleTotal={saleSettleTotal(total, retention)}
+          writable={writable && sale.status !== "CANCELLED"}
+        />
+      ) : null}
 
       {sale.items.length === 0 && sale.xmlContent ? (
         <form

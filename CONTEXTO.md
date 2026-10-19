@@ -152,6 +152,7 @@ CONTEXTO.md               # Este documento
 | `validation.ts` | Schemas zod-like propios (`saleSchema`, `purchaseSchema`, `expenseSchema`, `companySchema`, `memberSchema`, `newUserSchema`, `loginSchema`, `partnerSchema`) y listas de valores (`documentTypeValues`, `paymentMethodValues`, `partnerTypeValues`, `roleValues`, `categoryKindValues`) |
 | `reports.ts` | `ivaSummary`, `libroCompras/Ventas`, `paymentsSummary`, `expensesBreakdown` (categoría/área/trabajador), `pendingTotals`, `pendingCounts`, `monthlyTotals`, `topClients`, `cashFlowProjection` |
 | `flash.ts` | Mensaje "flash" en cookie para toasts tras Server Actions que redirigen (`setFlash`/`getFlash`) |
+| `payments.ts` | Abonos: `listPayments`, `sumPayments`, `saleSettleTotal` y `recomputeStatus` (deriva `PENDING`/`PARTIAL`/`PAID` del documento desde sus abonos) |
 | `audit.ts` | `recordAudit(ctx, { action, entityType, entityId, summary, changes? })` |
 | `notifications.ts` | `syncDueNotifications` (recalcula alertas al entrar al panel), `listNotifications`, contadores |
 | `catalogs.ts` / `partners.ts` / `purchases.ts` / `sales.ts` / `expenses.ts` | Consultas + serializadores para formularios (`serializeSale`, etc.) |
@@ -173,7 +174,8 @@ CONTEXTO.md               # Este documento
 - `PartnerType`: `CUSTOMER`, `SUPPLIER`, `BOTH`.
 - `CategoryKind`: `EXPENSE`, `BOTH` (categoría usable en gastos y/o compras).
 - `DocumentType`: `INVOICE` (factura), `RECEIPT` (boleta), `CREDIT_NOTE`, `DEBIT_NOTE`, `OTHER`.
-- `PaymentStatus`: `PENDING`, `PAID` (en compras = pagada; en ventas = cobrada).
+- `PaymentStatus`: `PENDING`, `PARTIAL`, `PAID` (en compras = pagada; en ventas = cobrada).
+  `PARTIAL` solo lo escribe el sistema, derivado de los abonos (ver §Pagos parciales).
 - `PaymentMethod`: `CASH`, `TRANSFER`, `CREDIT_CARD`, `DEBIT_CARD` (enum fijo) — además existe
   `PaymentMethodCatalog` (catálogo editable por empresa, usado en compras).
 - `NotificationType`: `PURCHASE_DUE`, `PURCHASE_OVERDUE`, `SALE_DUE`, `SALE_OVERDUE`.
@@ -206,12 +208,36 @@ CONTEXTO.md               # Este documento
   vencimiento; las "de prueba" desaparecen).
 - **AuditLog**: companyId, userId, action, entityType, entityId, summary, changes (JSON con
   before/after en UPDATE), createdAt.
+- **Payment** (abono): companyId, date, amount, method? (enum), notes?, **`purchaseId` XOR
+  `saleId`** (exactamente uno), createdById. Es un pago real aplicado a un documento.
 
 ### Regla de signo de documentos
 
 `documentSign(documentType)`: `CREDIT_NOTE` ⇒ **−1**, todo lo demás ⇒ **+1**. Todos los totales
 del sistema (IVA, libros, panel, gráficos) multiplican por este signo, de modo que las notas de
 crédito **descuentan** en vez de sumarse como positivas.
+
+### Pagos parciales (abonos)
+
+Un documento puede pagarse/cobrarse en partes. Cada parte es un **abono** (`Payment`) y el estado
+se **deriva** de ellos, nunca se escribe a mano cuando existen abonos:
+
+- sin abonos → `PENDING`;
+- con abonos que no cubren el total → `PARTIAL`;
+- al cubrir el total → `PAID` (y `paymentDate`/`paymentMethod` se toman del último abono).
+
+El monto a cubrir es el `totalAmount` de la compra o, en una venta, el total **menos la
+retención** (`saleSettleTotal`): lo retenido no se le cobra al cliente. Un abono no puede superar
+el saldo, ni registrarse sobre un documento anulado o ya saldado, y solo se borra mientras el
+documento no esté saldado (borrarlo recalcula el estado). Un documento con abonos administra el
+pago desde su panel; los atajos "marcar pagada/cobrada" y "marcar pendiente" se ocultan (y el
+`update` vuelve a recalcular el estado). El lote de estados de la lista tampoco toca documentos con
+abonos. Los documentos pagados a la antigua (contador `PAID` sin abonos) siguen funcionando: su
+saldo es 0.
+
+`lib/payments.ts` concentra `listPayments`, `sumPayments`, `saleSettleTotal` y `recomputeStatus`;
+`actions/payments.ts` expone `registerPayment`/`deletePayment`; la UI vive en
+`components/payments-panel.tsx` (con `delete-payment-button.tsx`).
 
 ---
 
@@ -274,6 +300,7 @@ crédito **descuentan** en vez de sumarse como positivas.
 | `catalogs.ts` | CRUD de categorías/áreas/vendedores/pagadores/medios de pago |
 | `import.ts` | `importFile` (Excel/CSV de compras, ventas o gastos) |
 | `dte.ts` | `previewDteImport` + `confirmDteImport` (XML SII) |
+| `payments.ts` | `registerPayment` / `deletePayment` (abonos de compras y ventas, con recálculo del estado) |
 | `notifications.ts` | Marcar leída / todas leídas |
 
 **Reglas de seguridad (críticas)**: toda acción valida `requireContext` + `canWrite`/`isAdmin`
@@ -400,7 +427,7 @@ Leer **`DESIGN.md`** antes de tocar UI. Puntos clave:
   CSS en globals) — relleno desde abajo al hover en todos los botones de la app.
 - **Números tabulares**: clase `.tabular` en montos, folios y fechas de tablas.
 - **Estado con texto+color** (badges): `PurchaseStatusBadge`, `SaleStatusBadge`
-  (Pendiente de pago/Pagada, Por cobrar/Cobrada), `ReimbursementBadge` (gastos).
+  (Pendiente de pago/Pago parcial/Pagada, Por cobrar/Parcial/Cobrada), `ReimbursementBadge` (gastos).
 - Superficies planas; sombras solo en overlays/dropdowns.
 
 ### Componentes reutilizables (`src/components/`)
@@ -417,6 +444,7 @@ Leer **`DESIGN.md`** antes de tocar UI. Puntos clave:
 | `charts.tsx` | `MonthlyBarsChart` (SVG) y `RankBars` |
 | `toaster-flash.tsx` | Toasts (sonner) + consumo del mensaje flash de las acciones |
 | `alert.tsx` | Alertas info/warning/destructive/success |
+| `payments-panel.tsx` | Abonos de una compra o venta: historial, saldo y formulario de registro |
 | `breadcrumb.tsx`, `submit-button.tsx`, `confirm-submit.tsx`, `partner-form/list.tsx`, badges | Soporte general |
 
 **Patrón de dropdowns (unificado)**: trigger de contorno + chevron doble; menú `w-56 rounded-card
@@ -483,6 +511,9 @@ dropdown nuevo debe seguirlo.
     manuales/de prueba de vencimiento pueden ser recreadas o eliminadas.
 12. **pnpm 12**: los build scripts se permiten en `pnpm-workspace.yaml` (`allowBuilds`); el campo
     `pnpm` de `package.json` ya no se lee.
+13. **El estado de un documento con abonos es derivado**: no escribirlo a mano (lo pisa el próximo
+    `recomputeStatus`). Los atajos de pagado/pendiente y el lote de la lista están bloqueados para
+    documentos con abonos; el camino es siempre `lib/payments.ts`.
 
 ---
 
@@ -492,6 +523,8 @@ dropdown nuevo debe seguirlo.
 
 - CRUD completo de compras/ventas/gastos/clientes/proveedores/catálogos con filtros (búsqueda,
   selects patrón dropdown, rango de fechas con calendario), badges, KPIs y acciones masivas.
+- **Abonos**: pagos/cobros parciales en compras y ventas con saldo pendiente y estado derivado
+  (`Pendiente` / `Pago parcial` / `Pagada`), verificados en vivo (registrar, saldar, eliminar).
 - Multiempresa completa (crear/cambiar/editar/borrar empresa con confirmación, usuarios con
   alcance de empresas y roles).
 - Importador Excel/CSV y **importador XML DTE del SII** probado con un EnvioDTE real
@@ -506,8 +539,9 @@ dropdown nuevo debe seguirlo.
   `DATABASE_URL` + `ADMIN_*`). Pendiente: decidir cuál de las dos bases del VPS es la de producción
   (la del `.env`, 5433, ya quedó baseada en `0_init`; la 5432 hay que basearla antes del próximo
   deploy o el contenedor no arranca, a propósito).
-- **Pagos parciales (abonos)**: hoy el estado es binario PENDING/PAID; registrar abonos con saldo
-  pendiente es la mejora más pedida por el uso real.
+- **Pagos parciales (abonos)**: implementados. El saldo de un documento es su total (en ventas,
+  menos la retención) menos la suma de sus abonos; de ahí se deriva `PENDING`/`PARTIAL`/`PAID`.
+  Los abonos viven en la tabla `Payment` y se administran en el detalle de compras y ventas.
 - **XML de compras**: reutilizar el parser para DTEs recibidos de proveedores (emisor = proveedor).
 - Adjuntar XML/PDF a cada documento (requiere almacenamiento de archivos).
 - OAuth (Google/Microsoft) y recuperación de contraseña (requiere servicio de email) — hoy el
@@ -517,4 +551,4 @@ dropdown nuevo debe seguirlo.
 
 ---
 
-*Última actualización: 2026-10-11.*
+*Última actualización: 2026-10-19.*

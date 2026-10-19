@@ -38,6 +38,7 @@ export async function GET() {
     { nombre: "compras", datos: () => db.purchase.findMany({ where: { companyId }, orderBy: { date: "asc" } }) },
     { nombre: "ventas", datos: () => db.sale.findMany({ where: { companyId }, orderBy: { date: "asc" } }) },
     { nombre: "gastos", datos: () => db.expense.findMany({ where: { companyId }, orderBy: { date: "asc" } }) },
+    { nombre: "abonos", datos: () => db.payment.findMany({ where: { companyId }, orderBy: { date: "asc" } }) },
     { nombre: "terceros", datos: () => db.partner.findMany({ where: { companyId }, orderBy: { name: "asc" } }) },
     { nombre: "categorias", datos: () => db.category.findMany({ where: { companyId }, orderBy: { name: "asc" } }) },
     { nombre: "areas", datos: () => db.area.findMany({ where: { companyId }, orderBy: { name: "asc" } }) },

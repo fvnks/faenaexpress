@@ -87,6 +87,7 @@ const categoryKindLabels: Record<CategoryKind, string> = {
 // El mismo estado se lee distinto según si es compra o venta.
 const purchaseStatusLabels: Record<PaymentStatus, string> = {
   PENDING: "Pendiente de pago",
+  PARTIAL: "Pago parcial",
   PAID: "Pagada",
 };
 
@@ -108,6 +109,7 @@ export const auditActionLabels: Record<string, string> = {
 export const entityTypeLabels: Record<string, string> = {
   Purchase: "Compra",
   Sale: "Venta",
+  Payment: "Abono",
   Expense: "Gasto",
   DispatchGuide: "Guía de despacho",
   Partner: "Tercero",

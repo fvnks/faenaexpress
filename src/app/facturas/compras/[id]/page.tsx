@@ -8,11 +8,13 @@ import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
 import { DteXmlPanel } from "@/components/dte-xml-panel";
 import { FetchPurchaseXmlButton } from "@/components/fetch-purchase-xml-button";
+import { PaymentsPanel } from "@/components/payments-panel";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate } from "@/lib/money";
+import { listPayments, sumPayments } from "@/lib/payments";
 import { canAccess } from "@/lib/permissions";
 import { getPurchase } from "@/lib/purchases";
 import {
@@ -41,6 +43,15 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
   const canSeeBank = canAccess(ctx.role, "banco");
   const canSeeSuppliers = canAccess(ctx.role, "proveedores");
   const bankLink = purchase.bankReconciliations[0] ?? null;
+  const payments = await listPayments(ctx.company.id, "purchase", purchase.id);
+  // Saldo: los abonos mandan cuando existen; si no hay, manda el estado (una
+  // compra marcada pagada a la antigua no tiene abonos pero está saldada).
+  const saldo =
+    payments.length > 0
+      ? Math.max(purchase.totalAmount - sumPayments(payments), 0)
+      : purchase.status === "PAID"
+        ? 0
+        : purchase.totalAmount;
 
   return (
     <div className="flex flex-col gap-6">
@@ -208,9 +219,15 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
             </p>
           )}
 
+          {saldo > 0 ? (
+            <p className="text-sm">
+              Saldo pendiente: <span className="tabular font-semibold">{formatCLP(saldo)}</span>
+            </p>
+          ) : null}
+
           {bankLink && canSeeBank ? <BankReconciliationNote movement={bankLink.movement} /> : null}
 
-          {writable ? (
+          {writable && payments.length === 0 ? (
             paid ? (
               <form action={markPurchasePending} className="border-t border-border pt-3">
                 <input type="hidden" name="id" value={purchase.id} />
@@ -253,6 +270,16 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
           ) : null}
         </section>
       </div>
+
+      {payments.length > 0 || purchase.status !== "PAID" ? (
+        <PaymentsPanel
+          kind="purchase"
+          documentId={purchase.id}
+          payments={payments}
+          settleTotal={purchase.totalAmount}
+          writable={writable}
+        />
+      ) : null}
 
       <DocItemsTable items={purchase.items} netAmount={purchase.netAmount} />
 

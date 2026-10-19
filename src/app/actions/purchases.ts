@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { safeReturnTo } from "@/lib/return-to";
 import { computeTotal, formatCLP, todayDate } from "@/lib/money";
+import { recomputeStatus } from "@/lib/payments";
 import { paymentMethodValues, purchaseSchema, type PurchaseInput } from "@/lib/validation";
 
 export type PurchaseFormState = { error?: string } | undefined;
@@ -134,6 +135,11 @@ export async function updatePurchase(
   const data = toData(parsed.data);
   await db.purchase.update({ where: { id, companyId: ctx.company.id }, data });
 
+  // Si la compra tiene abonos, el estado se deriva de ellos: el formulario no
+  // puede pisarlo (el selector solo ofrece pendiente/pagada).
+  const abonos = await db.payment.count({ where: { companyId: ctx.company.id, purchaseId: id } });
+  if (abonos > 0) await recomputeStatus(ctx.company.id, "purchase", id);
+
   await recordAudit(ctx, {
     action: "UPDATE",
     entityType: "Purchase",
@@ -182,6 +188,12 @@ export async function markPurchasePaid(formData: FormData): Promise<void> {
   const purchase = await db.purchase.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!purchase) redirect("/facturas/compras");
 
+  // Un documento con abonos se salda desde su panel: aquí el estado se pisaría.
+  if ((await db.payment.count({ where: { companyId: ctx.company.id, purchaseId: id } })) > 0) {
+    await setFlash("error", "Esta compra tiene abonos: administra el pago desde su panel de abonos.");
+    redirect(`/facturas/compras/${id}`);
+  }
+
   await db.purchase.update({
     where: { id, companyId: ctx.company.id },
     data: { status: "PAID", paymentMethod, paymentDate },
@@ -210,6 +222,11 @@ export async function markPurchasePending(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const purchase = await db.purchase.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!purchase) redirect("/facturas/compras");
+
+  if ((await db.payment.count({ where: { companyId: ctx.company.id, purchaseId: id } })) > 0) {
+    await setFlash("error", "Esta compra tiene abonos: administra el pago desde su panel de abonos.");
+    redirect(`/facturas/compras/${id}`);
+  }
 
   await db.purchase.update({
     where: { id, companyId: ctx.company.id },
@@ -267,7 +284,8 @@ export async function bulkSetPurchaseStatus(formData: FormData): Promise<void> {
   if (ids.length === 0) redirect(returnTo);
 
   const result = await db.purchase.updateMany({
-    where: { id: { in: ids }, companyId: ctx.company.id },
+    // Las compras con abonos quedan fuera: su estado se deriva de los abonos.
+    where: { id: { in: ids }, companyId: ctx.company.id, payments: { none: {} } },
     data: { status, paymentDate: status === "PAID" ? todayDate() : null },
   });
 

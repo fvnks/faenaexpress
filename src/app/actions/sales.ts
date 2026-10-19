@@ -8,6 +8,7 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { computeTotal, formatCLP, todayDate } from "@/lib/money";
+import { recomputeStatus } from "@/lib/payments";
 import { safeReturnTo } from "@/lib/return-to";
 import { saleSchema, type SaleInput } from "@/lib/validation";
 
@@ -133,6 +134,11 @@ export async function updateSale(
   const data = toData(parsed.data);
   await db.sale.update({ where: { id, companyId: ctx.company.id }, data });
 
+  // Si la venta tiene abonos, el estado se deriva de ellos: el formulario no
+  // puede pisarlo (el selector solo ofrece por cobrar/cobrada).
+  const abonos = await db.payment.count({ where: { companyId: ctx.company.id, saleId: id } });
+  if (abonos > 0) await recomputeStatus(ctx.company.id, "sale", id);
+
   await recordAudit(ctx, {
     action: "UPDATE",
     entityType: "Sale",
@@ -182,6 +188,11 @@ export async function markSalePaid(formData: FormData): Promise<void> {
 
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!sale) redirect("/facturas/ventas");
+
+  if ((await db.payment.count({ where: { companyId: ctx.company.id, saleId: id } })) > 0) {
+    await setFlash("error", "Esta venta tiene abonos: administra el cobro desde su panel de abonos.");
+    redirect(`/facturas/ventas/${id}`);
+  }
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
@@ -282,6 +293,11 @@ export async function markSalePending(formData: FormData): Promise<void> {
   const sale = await db.sale.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!sale) redirect("/facturas/ventas");
 
+  if ((await db.payment.count({ where: { companyId: ctx.company.id, saleId: id } })) > 0) {
+    await setFlash("error", "Esta venta tiene abonos: administra el cobro desde su panel de abonos.");
+    redirect(`/facturas/ventas/${id}`);
+  }
+
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
     data: { status: "PENDING", paymentDate: null },
@@ -363,7 +379,8 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
   if (ids.length === 0) redirect(returnTo);
 
   const result = await db.sale.updateMany({
-    where: { id: { in: ids }, companyId: ctx.company.id },
+    // Las ventas con abonos quedan fuera: su estado se deriva de los abonos.
+    where: { id: { in: ids }, companyId: ctx.company.id, payments: { none: {} } },
     // Fecha de cobro = día de Chile (medianoche UTC), no la hora exacta del
     // navegador: el dominio guarda días de calendario.
     data: { status, paymentDate: status === "PAID" ? todayDate() : null },

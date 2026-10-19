@@ -132,6 +132,7 @@ model User {
   closedCommissionMonths       CommissionClose[]      @relation("CommissionCloseClosedBy")
   bankSyncs                    BankSync[]             @relation("BankSyncBy")
   bankReconciliations          Reconciliation[]       @relation("BankReconciliationBy")
+  createdPayments              Payment[]              @relation("PaymentCreatedBy")
   orgMembers                   OrgMember[]
   invitations                  Invitation[]
 }
@@ -248,6 +249,7 @@ model Company {
   bankMovements         BankMovement[]
   bankSyncs             BankSync[]
   bankReconciliations  Reconciliation[]
+  payments             Payment[]
   invites              Invitation[]
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -778,6 +780,7 @@ enum DocumentType {
 // Compra pendiente/pagada. En ventas se interpreta por cobrar/cobrado.
 enum PaymentStatus {
   PENDING
+  PARTIAL // con abonos registrados, sin cubrir el total
   PAID
 }
 
@@ -843,6 +846,7 @@ model Purchase {
   createdBy User           @relation("PurchaseCreatedBy", fields: [createdById], references: [id])
   items     PurchaseItem[]
   bankReconciliations Reconciliation[]
+  payments            Payment[]
 
   @@index([companyId, date])
   @@index([companyId, partnerId])
@@ -908,6 +912,7 @@ model Sale {
   items       SaleItem[]
 
   bankReconciliations  Reconciliation[]
+  payments             Payment[]
 
   // Un documento tiene a lo sumo una asignación de comisión (único por documento).
   commissionAssignment CommissionAssignment?
@@ -920,6 +925,32 @@ model Sale {
   @@index([companyId, categoryId])
   @@index([companyId, areaId])
   @@index([companyId, salespersonId])
+}
+
+// Abono: un pago real aplicado a una compra (pago al proveedor) o a una venta
+// (cobro del cliente). El saldo de un documento es su total menos la suma de sus
+// abonos; el estado se deriva de ahí (nada → PENDING, parte → PARTIAL, todo →
+// PAID). Un abono pertenece a un solo documento: o compra o venta, nunca ambas.
+model Payment {
+  id          String        @id @default(cuid())
+  companyId   String
+  date        DateTime
+  amount      Int
+  method      PaymentMethod?
+  notes       String?
+  purchaseId  String?
+  saleId      String?
+  createdById String
+  createdAt   DateTime      @default(now())
+
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchase  Purchase? @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  sale      Sale?     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([companyId, date])
+  @@index([companyId, purchaseId])
+  @@index([companyId, saleId])
 }
 
 // Detalle de una compra: las líneas que trae el XML del proveedor (DscItem).

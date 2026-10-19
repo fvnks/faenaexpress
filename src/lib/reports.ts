@@ -167,12 +167,12 @@ export async function paymentsSummary(companyId: string, period: Period) {
     db.purchase.findMany({
       where,
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-      include: { partner: { select: { id: true, name: true } } },
+      include: { partner: { select: { id: true, name: true } }, payments: { select: { amount: true } } },
     }),
     db.sale.findMany({
       where,
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-      include: { partner: { select: { id: true, name: true } } },
+      include: { partner: { select: { id: true, name: true } }, payments: { select: { amount: true } } },
     }),
     db.expense.findMany({
       where,
@@ -181,13 +181,28 @@ export async function paymentsSummary(companyId: string, period: Period) {
     }),
   ]);
 
+  const abonado = (rows: { amount: number }[]) => rows.reduce((acc, row) => acc + row.amount, 0);
+
   const paidPurchases = purchases.filter((purchase) => purchase.status === "PAID");
-  const pendingPurchases = purchases.filter((purchase) => purchase.status === "PENDING");
+  // Parciales incluidas: siguen debiendo el saldo, así que pertenecen a "por pagar".
+  const pendingPurchases = purchases.filter(
+    (purchase) => purchase.status === "PENDING" || purchase.status === "PARTIAL",
+  );
   // Cobrado incluye las ventas en confirming: en confirming la empresa de
   // confirming adelanta el pago, así que ya entró el dinero. Por lo mismo,
   // "por cobrar" excluye las que están en confirming.
   const collectedSales = sales.filter((sale) => sale.status === "PAID" || sale.confirmingAt !== null);
-  const pendingSales = sales.filter((sale) => sale.status === "PENDING" && sale.confirmingAt === null);
+  const pendingSales = sales.filter(
+    (sale) =>
+      (sale.status === "PENDING" || sale.status === "PARTIAL" || sale.status === "OVERDUE") &&
+      sale.confirmingAt === null,
+  );
+
+  const purchaseSaldo = (purchase: (typeof purchases)[number]) =>
+    documentSign(purchase.documentType) * Math.max(purchase.totalAmount - abonado(purchase.payments), 0);
+  const saleSaldo = (sale: (typeof sales)[number]) =>
+    documentSign(sale.documentType) *
+    Math.max(sale.totalAmount - sale.retentionAmount - abonado(sale.payments), 0);
 
   const reimbursedExpenses = expenses.filter((expense) => expense.reimbursed);
   const pendingExpenses = expenses.filter((expense) => !expense.reimbursed);
@@ -209,10 +224,10 @@ export async function paymentsSummary(companyId: string, period: Period) {
 
   const purchasesTotal = sumAmounts(purchases);
   const paidPurchasesTotal = sumAmounts(paidPurchases);
-  const pendingPurchasesTotal = sumAmounts(pendingPurchases);
+  const pendingPurchasesTotal = pendingPurchases.reduce((acc, purchase) => acc + purchaseSaldo(purchase), 0);
   const salesTotal = sumAmounts(sales);
   const collectedSalesTotal = sumAmounts(collectedSales);
-  const pendingSalesTotal = sumAmounts(pendingSales);
+  const pendingSalesTotal = pendingSales.reduce((acc, sale) => acc + saleSaldo(sale), 0);
   const expensesTotal = expenses.reduce((acc, expense) => acc + expense.totalAmount, 0);
   const reimbursedExpensesTotal = reimbursedExpenses.reduce((acc, expense) => acc + expense.totalAmount, 0);
   const pendingExpensesTotal = pendingExpenses.reduce((acc, expense) => acc + expense.totalAmount, 0);
@@ -230,7 +245,7 @@ export async function paymentsSummary(companyId: string, period: Period) {
         documentNumber: purchase.documentNumber,
         date: purchase.date,
         dueDate: purchase.dueDate,
-        total: documentSign(purchase.documentType) * purchase.totalAmount,
+        total: purchaseSaldo(purchase),
       })),
       paidList: paidPurchases.map((purchase) => ({
         id: purchase.id,
@@ -251,7 +266,7 @@ export async function paymentsSummary(companyId: string, period: Period) {
         documentNumber: sale.documentNumber,
         date: sale.date,
         dueDate: sale.dueDate,
-        total: documentSign(sale.documentType) * sale.totalAmount,
+        total: saleSaldo(sale),
       })),
       collectedList: collectedSales.map((sale) => ({
         id: sale.id,
@@ -386,8 +401,8 @@ export async function purchasesBreakdown(companyId: string, period: Period) {
 export async function pendingTotals(companyId: string) {
   const [purchases, sales, expenses] = await Promise.all([
     db.purchase.findMany({
-      where: { companyId, status: "PENDING" },
-      select: { documentType: true, totalAmount: true },
+      where: { companyId, status: { in: ["PENDING", "PARTIAL"] } },
+      select: { documentType: true, totalAmount: true, payments: { select: { amount: true } } },
     }),
     db.sale.findMany({
       where: {
@@ -396,7 +411,12 @@ export async function pendingTotals(companyId: string) {
         status: { in: ["PENDING", "PARTIAL", "OVERDUE"] },
         documentType: { in: ["INVOICE", "RECEIPT"] },
       },
-      select: { documentType: true, totalAmount: true },
+      select: {
+        documentType: true,
+        totalAmount: true,
+        retentionAmount: true,
+        payments: { select: { amount: true } },
+      },
     }),
     db.expense.aggregate({
       where: { companyId, reimbursed: false },
@@ -404,9 +424,21 @@ export async function pendingTotals(companyId: string) {
     }),
   ]);
 
+  // El saldo pendiente es el total menos los abonos: una compra parcial ya no
+  // debe el total completo, solo lo que falta.
+  const porPagar = purchases.reduce((acc, purchase) => {
+    const abonado = purchase.payments.reduce((sum, payment) => sum + payment.amount, 0);
+    return acc + documentSign(purchase.documentType) * Math.max(purchase.totalAmount - abonado, 0);
+  }, 0);
+  const porCobrar = sales.reduce((acc, sale) => {
+    const abonado = sale.payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const aCobrar = Math.max(sale.totalAmount - sale.retentionAmount - abonado, 0);
+    return acc + documentSign(sale.documentType) * aCobrar;
+  }, 0);
+
   return {
-    porPagar: sumAmounts(purchases),
-    porCobrar: sumAmounts(sales),
+    porPagar,
+    porCobrar,
     reembolsosPendientes: expenses._sum.totalAmount ?? 0,
   };
 }
