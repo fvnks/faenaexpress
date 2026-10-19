@@ -134,7 +134,10 @@ CONTEXTO.md               # Este documento
 | --- | --- |
 | `db.ts` | Singleton de PrismaClient **con `PrismaPg` adapter** (obligatorio en Prisma 7) |
 | `session.ts` | Crear/borrar/leer sesiones opacas; "Recuérdame" y renovación automática |
-| `auth.ts` | `getCurrentUser` (cacheado por request), `requireUser`, `requireContext(section)`, `getActiveMembership`, `canWrite`, `isAdmin`, cookie `facturas_company` |
+| `auth.ts` | `getCurrentUser` (cacheado por request), `requireUser`, `requireContext(section)`, `getActiveMembership`, `canWrite`, `isAdmin`, `visibleCompanies` (permiso multiempresa), cookie `facturas_company` |
+| `deployment.ts` | Perfil de despliegue: `standalone` (instalación privada, default) vs `saas` (Yellow ERP con landing en `/`). Se define con `DEPLOYMENT_PROFILE` |
+| `types.ts` | `SessionUser` y `AuthContext` compartidos entre auth/session |
+| `rate-limit.ts` | `RateLimiter` en memoria (invitaciones y aceptación) |
 | `permissions.ts` | Matriz `ACCESS`/`WRITE` por sección y rol |
 | `password.ts` | `hashPassword`/`verifyPassword` (bcryptjs) |
 | `money.ts` | `formatCLP`, `formatDate` (es-CL, TZ UTC), `todayISO`/`todayDate` (America/Santiago), `computeIva`, `computeTotal`, `documentSign`, `monthRange`, `currentPeriod`, `formatPeriod`, `shiftPeriod`, `daysBetween`, `toISODate` |
