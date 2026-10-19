@@ -63,6 +63,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
   const [assignSalespersonId, setAssignSalespersonId] = useState<string>("");
   const [actionModal, setActionModal] = useState<{ saleId: string; kind: "PAID" | "CONFIRMING"; date: string } | null>(null);
   const [actionSalespersonId, setActionSalespersonId] = useState<string>("");
+  const [bulkVendedorId, setBulkVendedorId] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -211,7 +212,8 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                   <select
                     id="asignar-vendedor"
                     name="salespersonId"
-                    defaultValue=""
+                    value={bulkVendedorId}
+                    onChange={(event) => setBulkVendedorId(event.target.value)}
                     className="rounded-md border border-border bg-transparent px-3 py-1.5 text-sm"
                   >
                     <option value="">Seleccionar vendedor…</option>
@@ -222,25 +224,15 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                     ))}
                   </select>
                 </div>
+                {/* Envío nativo con `formAction`: el formulario manda las filas
+                    marcadas (`ids`), el vendedor elegido y `returnTo`. Antes se
+                    armaba el FormData a mano leyendo el DOM y, si algo no
+                    calzaba, el botón no hacía nada ni avisaba. */}
                 <button
-                  type="button"
+                  type="submit"
+                  formAction={bulkAssignSalesperson}
                   data-bulk
                   disabled
-                  onClick={() => {
-                    const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="ids"]:checked');
-                    if (checkboxes.length === 0) return;
-                    const ids = Array.from(checkboxes).map((c) => c.value).join(",");
-                    const select = document.getElementById("asignar-vendedor") as HTMLSelectElement;
-                    const salespersonId = select?.value ?? "";
-                    if (!salespersonId) return;
-                    const formData = new FormData();
-                    formData.set("ids", ids);
-                    formData.set("salespersonId", salespersonId);
-                    formData.set("returnTo", returnTo);
-                    startTransition(async () => {
-                      await bulkAssignSalesperson(formData);
-                    });
-                  }}
                   className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Asignar

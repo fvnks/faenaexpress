@@ -419,8 +419,11 @@ export async function bulkAssignSalesperson(formData: FormData): Promise<void> {
   const returnTo = safeReturnTo(formData.get("returnTo"), "/facturas/ventas");
   if (!canWrite(ctx, "ventas")) redirect(returnTo);
 
-  const ids = String(formData.get("ids") ?? "")
-    .split(",")
+  const ids = formData
+    .getAll("ids")
+    // El formulario manda un `ids` por fila marcada; el formato viejo venía
+    // unido por comas. Se aceptan los dos.
+    .flatMap((value) => String(value).split(","))
     .map((id) => id.trim())
     .filter(Boolean);
   const salespersonId = String(formData.get("salespersonId") ?? "").trim();
