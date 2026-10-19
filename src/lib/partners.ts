@@ -29,6 +29,12 @@ export async function listPartners(companyId: string, kind: "customers" | "suppl
   });
 }
 
+// Facturas del cliente que todavía no tienen vendedor: son las que heredan el
+// vendedor por defecto cuando se guarda el tercero.
+export async function countSalesWithoutSalesperson(companyId: string, partnerId: string) {
+  return db.sale.count({ where: { companyId, partnerId, salespersonId: null } });
+}
+
 export async function getPartner(companyId: string, id: string) {
   return db.partner.findFirst({ where: { id, companyId } });
 }

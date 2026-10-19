@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { diffChanges, recordAudit } from "@/lib/audit";
-import { canWrite, requireContext } from "@/lib/auth";
+import { canWrite, requireContext, type AuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import type { Section } from "@/lib/permissions";
@@ -16,6 +16,12 @@ export type PartnerFormState = { error?: string } | undefined;
 
 function partnerNoun(type: string): string {
   return type === "CUSTOMER" ? "cliente" : type === "SUPPLIER" ? "proveedor" : "tercero";
+}
+
+// El aviso encabeza con el tipo: «Cliente actualizado», no «Proveedor».
+function partnerNounTitle(type: string): string {
+  const noun = partnerNoun(type);
+  return noun.charAt(0).toUpperCase() + noun.slice(1);
 }
 
 // El formulario de terceros se usa en Clientes y en Proveedores; vuelve a la
@@ -68,6 +74,41 @@ async function checkSalesperson(
   return undefined;
 }
 
+// El vendedor del cliente es el que le corresponde a sus facturas: al guardarlo
+// se completa en las que quedaron sin vendedor. Nunca pisa una asignación ya
+// hecha (puede ser una venta puntual de otro vendedor).
+async function applySalespersonToSales(
+  ctx: AuthContext,
+  partnerId: string,
+  salespersonId: string | null,
+  partnerName: string,
+): Promise<{ count: number; salespersonName: string } | null> {
+  if (!salespersonId) return null;
+
+  const salesperson = await db.salesperson.findFirst({
+    where: { id: salespersonId, companyId: ctx.company.id },
+    select: { name: true },
+  });
+  if (!salesperson) return null;
+
+  const result = await db.sale.updateMany({
+    where: { companyId: ctx.company.id, partnerId, salespersonId: null },
+    data: { salespersonId },
+  });
+  if (result.count === 0) return null;
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Sale",
+    entityId: "bulk",
+    summary: `Asignó vendedor ${salesperson.name} a ${result.count} ${result.count === 1 ? "factura" : "facturas"} de «${partnerName}».`,
+  });
+  revalidatePath("/facturas/ventas");
+  revalidatePath("/facturas");
+
+  return { count: result.count, salespersonName: salesperson.name };
+}
+
 async function checkRut(
   companyId: string,
   rut: string | undefined,
@@ -116,7 +157,7 @@ export async function createPartner(
     summary: `Creó el ${partnerNoun(partner.type)} «${partner.name}».`,
   });
 
-  await setFlash("success", `${partnerNoun(partner.type) === "Cliente" ? "Cliente" : "Proveedor"} guardado`, partner.name);
+  await setFlash("success", `${partnerNounTitle(partner.type)} guardado`, partner.name);
   revalidatePartners();
   redirect(destination(formData));
 }
@@ -157,7 +198,20 @@ export async function updatePartner(
     });
   }
 
-  await setFlash("success", `${partnerNoun(parsed.data.type) === "Cliente" ? "Cliente" : "Proveedor"} actualizado`, parsed.data.name);
+  // El formulario del cliente trae marcado «aplicar a sus facturas sin vendedor»:
+  // el vendedor del cliente vale para todas sus facturas, no solo para las nuevas.
+  const applied =
+    formData.get("applyToInvoices") !== null
+      ? await applySalespersonToSales(ctx, id, parsed.data.salespersonId ?? null, parsed.data.name)
+      : null;
+
+  await setFlash(
+    "success",
+    `${partnerNounTitle(parsed.data.type)} actualizado`,
+    applied
+      ? `${parsed.data.name} · ${applied.count} ${applied.count === 1 ? "factura" : "facturas"} sin vendedor quedaron con ${applied.salespersonName}`
+      : parsed.data.name,
+  );
   revalidatePartners(id);
   redirect(destination(formData));
 }

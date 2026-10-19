@@ -5,7 +5,7 @@ import { updatePartner } from "@/app/actions/partners";
 import { PartnerForm, type PartnerForForm } from "@/components/partner-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listSalespeople } from "@/lib/catalogs";
-import { getPartner } from "@/lib/partners";
+import { countSalesWithoutSalesperson, getPartner } from "@/lib/partners";
 import { canAccess } from "@/lib/permissions";
 
 export default async function EditCustomerPage(props: PageProps<"/facturas/clientes/[id]">) {
@@ -34,6 +34,8 @@ export default async function EditCustomerPage(props: PageProps<"/facturas/clien
     active: partner.active,
   };
 
+  const sinVendedor = await countSalesWithoutSalesperson(ctx.company.id, partner.id);
+
   const action = updatePartner.bind(null, partner.id);
 
   return (
@@ -55,6 +57,7 @@ export default async function EditCustomerPage(props: PageProps<"/facturas/clien
         redirectTo="/facturas/clientes"
         salespeople={salespeople}
         canManageSalespeople={canAccess(ctx.role, "catalogos")}
+        invoicesWithoutSalesperson={sinVendedor}
       />
     </div>
   );

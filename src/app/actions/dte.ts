@@ -330,6 +330,8 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
       id: true,
       documentNumber: true,
       xmlContent: true,
+      partnerId: true,
+      salespersonId: true,
       partner: { select: { rut: true } },
       _count: { select: { items: true } },
     },
@@ -397,6 +399,7 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
     if (partner.rut) partnerPorRut.set(normalizeRut(partner.rut), info);
     partnerPorNombre.set(partner.name.trim().toLowerCase(), info);
   }
+  const partnerPorId = new Map(partners.map((partner) => [partner.id, partner]));
 
   const errores: string[] = [];
   let imported = 0;
@@ -424,10 +427,16 @@ export async function confirmDteImport(_prev: DteConfirmState, formData: FormDat
 
         const fechaDoc = dteDate(String(doc.fecha));
         const items = prepareDocItems(indiceProductos, doc.itemsDetalle);
+        // El vendedor del cliente también aplica a una factura que ya estaba
+        // cargada sin vendedor; si la factura tiene uno, no se toca.
+        const vendedorHeredado = existente.salespersonId
+          ? undefined
+          : (partnerPorId.get(existente.partnerId ?? "")?.salespersonId ?? undefined);
         await db.sale.update({
           where: { id: existente.id },
           data: {
             xmlContent: xmlDe(doc.fileIndex) ?? existente.xmlContent,
+            salespersonId: vendedorHeredado,
             date: fechaDoc,
             dueDate:
               doc.vencimiento && /^\d{4}-\d{2}-\d{2}$/.test(String(doc.vencimiento))

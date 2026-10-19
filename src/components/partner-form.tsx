@@ -29,6 +29,7 @@ export function PartnerForm({
   redirectTo,
   salespeople,
   canManageSalespeople,
+  invoicesWithoutSalesperson,
 }: {
   action: (prev: PartnerFormState, formData: FormData) => Promise<PartnerFormState>;
   defaults?: PartnerForForm;
@@ -36,6 +37,9 @@ export function PartnerForm({
   redirectTo?: string;
   salespeople?: { id: string; name: string }[];
   canManageSalespeople?: boolean;
+  // Facturas del cliente que todavía no tienen vendedor: si las hay, se ofrece
+  // aplicarlas al vendedor elegido al guardar.
+  invoicesWithoutSalesperson?: number;
 }) {
   const [state, formAction] = useActionState<PartnerFormState, FormData>(action, undefined);
 
@@ -108,6 +112,24 @@ export function PartnerForm({
                 </>
               )}
             </div>
+          ) : null}
+
+          {defaults && invoicesWithoutSalesperson ? (
+            <label className="flex items-start gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                name="applyToInvoices"
+                defaultChecked
+                className="mt-0.5 h-4 w-4 rounded border-border"
+              />
+              <span>
+                Aplicar este vendedor a sus {invoicesWithoutSalesperson}{" "}
+                {invoicesWithoutSalesperson === 1 ? "factura" : "facturas"} sin vendedor
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Completa solo las facturas que hoy no tienen vendedor; no cambia las que ya tienen uno.
+                </span>
+              </span>
+            </label>
           ) : null}
 
           <div className={fieldClass}>

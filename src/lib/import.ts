@@ -222,6 +222,9 @@ function toBool(value: CellValue): boolean {
 type Maps = {
   partnersByRut: Map<string, string>;
   partnersByName: Map<string, string>;
+  // Vendedor por defecto de cada tercero: el que heredan sus facturas cuando la
+  // planilla no trae la columna «Vendedor».
+  partnerSalesperson: Map<string, string>;
   categories: Map<string, string>;
   areas: Map<string, string>;
   salespeople: Map<string, string>;
@@ -234,7 +237,10 @@ function byName<T extends { id: string; name: string }>(rows: T[]): Map<string, 
 
 async function loadMaps(companyId: string): Promise<Maps> {
   const [partners, categories, areas, salespeople, payers] = await Promise.all([
-    db.partner.findMany({ where: { companyId }, select: { id: true, name: true, rut: true } }),
+    db.partner.findMany({
+      where: { companyId },
+      select: { id: true, name: true, rut: true, salespersonId: true },
+    }),
     db.category.findMany({ where: { companyId }, select: { id: true, name: true } }),
     db.area.findMany({ where: { companyId }, select: { id: true, name: true } }),
     db.salesperson.findMany({ where: { companyId }, select: { id: true, name: true } }),
@@ -243,14 +249,17 @@ async function loadMaps(companyId: string): Promise<Maps> {
 
   const partnersByRut = new Map<string, string>();
   const partnersByName = new Map<string, string>();
+  const partnerSalesperson = new Map<string, string>();
   for (const partner of partners) {
     if (partner.rut) partnersByRut.set(normalizeRut(partner.rut), partner.id);
     partnersByName.set(normalizeKey(partner.name), partner.id);
+    if (partner.salespersonId) partnerSalesperson.set(partner.id, partner.salespersonId);
   }
 
   return {
     partnersByRut,
     partnersByName,
+    partnerSalesperson,
     categories: byName(categories),
     areas: byName(areas),
     salespeople: byName(salespeople),
@@ -427,7 +436,11 @@ export async function importRows(
           await db.sale.create({
             data: {
               ...base,
-              salespersonId: resolveName(maps.salespeople, toText(cellAt(row, salespersonCol))),
+              // Si la planilla no trae vendedor, la venta hereda el del cliente.
+              salespersonId:
+                resolveName(maps.salespeople, toText(cellAt(row, salespersonCol))) ??
+                maps.partnerSalesperson.get(partnerId) ??
+                null,
               retentionAmount: retention,
               status,
               paymentMethod: null,
