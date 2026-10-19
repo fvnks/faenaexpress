@@ -8,6 +8,7 @@ import { listCategories, listSalespeople } from "@/lib/catalogs";
 import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
 import { listCustomers } from "@/lib/partners";
+import { canAccess } from "@/lib/permissions";
 import { listSales, parseSaleFilters } from "@/lib/sales";
 import { parseSortDir } from "@/lib/sort";
 import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
@@ -47,6 +48,9 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
     raw.estado || raw.q || raw.cliente || raw.categoria || raw.vendedor || raw.tipo || raw.desde || raw.hasta,
   );
   const writable = canWrite(ctx, "ventas");
+  // Quien no administra catálogos no puede crear vendedores: el aviso lo manda
+  // a pedírselos a administración en vez de a una pantalla que lo rebotaría.
+  const canManageSalespeople = canAccess(ctx.role, "catalogos");
 
   // La exportación se lleva toda la lista filtrada, sin la página actual.
   const exportQuery = new URLSearchParams();
@@ -205,6 +209,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
           items={items}
           writable={writable}
           salespeople={salespeople}
+          canManageSalespeople={canManageSalespeople}
           params={searchParams}
           sortKey={sortKey}
           sortDir={sortDir}

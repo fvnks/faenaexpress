@@ -7,6 +7,7 @@ import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, mar
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
+import { NoSalespeopleHint } from "@/components/no-salespeople-hint";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SortableHeader } from "@/components/sortable-header";
 import { formatCLP, formatDate } from "@/lib/money";
@@ -38,6 +39,7 @@ type Props = {
   items: SaleItem[];
   writable: boolean;
   salespeople: { id: string; name: string }[];
+  canManageSalespeople: boolean;
   params: Record<string, string | string[] | undefined>;
   sortKey: string;
   sortDir: SortDir;
@@ -55,7 +57,7 @@ function parseShortDate(input: string | null): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(wire) ? wire : null;
 }
 
-export function SalesTable({ items, writable, salespeople, params, sortKey, sortDir }: Props) {
+export function SalesTable({ items, writable, salespeople, canManageSalespeople, params, sortKey, sortDir }: Props) {
   const [cancelModalSaleId, setCancelModalSaleId] = useState<string | null>(null);
   const [assignModalSaleId, setAssignModalSaleId] = useState<string | null>(null);
   const [assignSalespersonId, setAssignSalespersonId] = useState<string>("");
@@ -198,49 +200,55 @@ export function SalesTable({ items, writable, salespeople, params, sortKey, sort
             </div>
           </div>
         ) : null}
-        {writable && salespeople.length > 0 ? (
+        {writable ? (
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="asignar-vendedor" className="text-xs text-muted-foreground">
-                Asignar vendedor a seleccionadas
-              </label>
-              <select
-                id="asignar-vendedor"
-                name="salespersonId"
-                defaultValue=""
-                className="rounded-md border border-border bg-transparent px-3 py-1.5 text-sm"
-              >
-                <option value="">Seleccionar vendedor…</option>
-                {salespeople.map((sp) => (
-                  <option key={sp.id} value={sp.id}>
-                    {sp.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              data-bulk
-              disabled
-              onClick={() => {
-                const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="ids"]:checked');
-                if (checkboxes.length === 0) return;
-                const ids = Array.from(checkboxes).map((c) => c.value).join(",");
-                const select = document.getElementById("asignar-vendedor") as HTMLSelectElement;
-                const salespersonId = select?.value ?? "";
-                if (!salespersonId) return;
-                const formData = new FormData();
-                formData.set("ids", ids);
-                formData.set("salespersonId", salespersonId);
-                formData.set("returnTo", returnTo);
-                startTransition(async () => {
-                  await bulkAssignSalesperson(formData);
-                });
-              }}
-              className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Asignar
-            </button>
+            {salespeople.length > 0 ? (
+              <>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="asignar-vendedor" className="text-xs text-muted-foreground">
+                    Asignar vendedor a seleccionadas
+                  </label>
+                  <select
+                    id="asignar-vendedor"
+                    name="salespersonId"
+                    defaultValue=""
+                    className="rounded-md border border-border bg-transparent px-3 py-1.5 text-sm"
+                  >
+                    <option value="">Seleccionar vendedor…</option>
+                    {salespeople.map((sp) => (
+                      <option key={sp.id} value={sp.id}>
+                        {sp.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  data-bulk
+                  disabled
+                  onClick={() => {
+                    const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="ids"]:checked');
+                    if (checkboxes.length === 0) return;
+                    const ids = Array.from(checkboxes).map((c) => c.value).join(",");
+                    const select = document.getElementById("asignar-vendedor") as HTMLSelectElement;
+                    const salespersonId = select?.value ?? "";
+                    if (!salespersonId) return;
+                    const formData = new FormData();
+                    formData.set("ids", ids);
+                    formData.set("salespersonId", salespersonId);
+                    formData.set("returnTo", returnTo);
+                    startTransition(async () => {
+                      await bulkAssignSalesperson(formData);
+                    });
+                  }}
+                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Asignar
+                </button>
+              </>
+            ) : (
+              <NoSalespeopleHint canManage={canManageSalespeople} />
+            )}
           </div>
         ) : null}
         <div className="overflow-x-auto">

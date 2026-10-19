@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import type { PartnerFormState } from "@/app/actions/partners";
+import { NoSalespeopleHint } from "@/components/no-salespeople-hint";
 import { SelectDropdown } from "@/components/select-dropdown";
 import { SubmitButton } from "@/components/submit-button";
 import { partnerTypeLabel } from "@/lib/labels";
@@ -27,12 +28,14 @@ export function PartnerForm({
   defaultType,
   redirectTo,
   salespeople,
+  canManageSalespeople,
 }: {
   action: (prev: PartnerFormState, formData: FormData) => Promise<PartnerFormState>;
   defaults?: PartnerForForm;
   defaultType?: string;
   redirectTo?: string;
   salespeople?: { id: string; name: string }[];
+  canManageSalespeople?: boolean;
 }) {
   const [state, formAction] = useActionState<PartnerFormState, FormData>(action, undefined);
 
@@ -80,13 +83,30 @@ export function PartnerForm({
               <label htmlFor="salespersonId" className={labelClass}>
                 Vendedor por defecto <span className="text-muted-foreground">(opcional)</span>
               </label>
-              <SelectDropdown
-                id="salespersonId"
-                name="salespersonId"
-                value={defaults?.salespersonId ?? ""}
-                emptyLabel="Sin vendedor"
-                options={salespeople.map((sp) => ({ value: sp.id, label: sp.name }))}
-              />
+              {salespeople.length > 0 ? (
+                <SelectDropdown
+                  id="salespersonId"
+                  name="salespersonId"
+                  value={defaults?.salespersonId ?? ""}
+                  emptyLabel="Sin vendedor"
+                  options={salespeople.map((sp) => ({ value: sp.id, label: sp.name }))}
+                />
+              ) : (
+                <>
+                  <NoSalespeopleHint canManage={canManageSalespeople ?? false} />
+                  {/* Sin opciones no hay selector, pero la asignación que ya tenía
+                      el tercero (puede apuntar a un vendedor inactivo) se conserva:
+                      quitarla es una decisión, no un efecto de guardar. */}
+                  {defaults?.salespersonId ? (
+                    <>
+                      <input type="hidden" name="salespersonId" value={defaults.salespersonId} />
+                      <p className="text-xs text-muted-foreground">
+                        Se mantiene el vendedor ya asignado.
+                      </p>
+                    </>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : null}
 

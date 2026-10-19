@@ -6,6 +6,7 @@ import { PartnerForm, type PartnerForForm } from "@/components/partner-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listSalespeople } from "@/lib/catalogs";
 import { getPartner } from "@/lib/partners";
+import { canAccess } from "@/lib/permissions";
 
 export default async function EditCustomerPage(props: PageProps<"/facturas/clientes/[id]">) {
   const ctx = await requireContext("clientes");
@@ -48,7 +49,13 @@ export default async function EditCustomerPage(props: PageProps<"/facturas/clien
         <p className="mt-1 text-sm text-muted-foreground">{partner.name}</p>
       </div>
 
-      <PartnerForm action={action} defaults={defaults} redirectTo="/facturas/clientes" salespeople={salespeople} />
+      <PartnerForm
+        action={action}
+        defaults={defaults}
+        redirectTo="/facturas/clientes"
+        salespeople={salespeople}
+        canManageSalespeople={canAccess(ctx.role, "catalogos")}
+      />
     </div>
   );
 }

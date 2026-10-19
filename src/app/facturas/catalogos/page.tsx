@@ -119,7 +119,7 @@ export default async function CatalogsPage() {
           </div>
         </section>
 
-        <section className={cardClass + " p-5"}>
+        <section id="vendedores" className={cardClass + " p-5"}>
           <h2 className="font-semibold">Vendedores</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Personas que realizan las ventas.

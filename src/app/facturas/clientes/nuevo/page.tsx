@@ -5,6 +5,7 @@ import { createPartner } from "@/app/actions/partners";
 import { PartnerForm } from "@/components/partner-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listSalespeople } from "@/lib/catalogs";
+import { canAccess } from "@/lib/permissions";
 
 export default async function NewCustomerPage() {
   const ctx = await requireContext("clientes");
@@ -27,7 +28,13 @@ export default async function NewCustomerPage() {
         <p className="mt-1 text-sm text-muted-foreground">A quién le facturas.</p>
       </div>
 
-      <PartnerForm action={createPartner} defaultType="CUSTOMER" redirectTo="/facturas/clientes" salespeople={salespeople} />
+      <PartnerForm
+        action={createPartner}
+        defaultType="CUSTOMER"
+        redirectTo="/facturas/clientes"
+        salespeople={salespeople}
+        canManageSalespeople={canAccess(ctx.role, "catalogos")}
+      />
     </div>
   );
 }
