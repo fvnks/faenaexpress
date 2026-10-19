@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { logout } from "@/app/actions/auth";
 import { CompanySwitcher } from "@/components/company-switcher";
@@ -7,7 +8,14 @@ import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LiveSearchInputs } from "@/components/live-search-inputs";
 import { ToasterFlash } from "@/components/toaster-flash";
-import { getActiveMembership, requireUser, visibleCompanies } from "@/lib/auth";
+import { getCurrentUser, getActiveMembership, requireUser, visibleCompanies } from "@/lib/auth";
+
+// Cambio de contraseña obligatorio al primer ingreso de un usuario invitado: si la
+// contraseña es provisional, todo el dashboard redirige a /perfil.
+async function exigePasswordNueva(): Promise<void> {
+  const user = await getCurrentUser();
+  if (user?.mustChangePassword) redirect("/perfil");
+}
 import { countPendingMovements } from "@/lib/banco";
 import { getFlash } from "@/lib/flash";
 import { roleLabel } from "@/lib/labels";
@@ -17,6 +25,9 @@ import { pendingCounts } from "@/lib/reports";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const user = await requireUser();
+  if (user.mustChangePassword) {
+    redirect("/perfil");
+  }
   const active = await getActiveMembership();
   // Companies visibles: usa `visibleCompanies` para respetar el permiso
   // `canSwitchCompanies` de la organización. Sin él, solo se ven las memberships

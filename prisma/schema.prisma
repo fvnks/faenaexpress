@@ -36,6 +36,7 @@ model Organization {
 
   members   OrgMember[]
   companies Company[]
+  invites   Invitation[]
 }
 
 // Pertenencia de un usuario a una organización.
@@ -52,10 +53,36 @@ model OrgMember {
   updatedAt          DateTime @updatedAt
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId])
   @@index([organizationId])
+}
+
+// Invitación con enlace copiable. El OWNER la genera desde Configuración → Invitaciones,
+// la copia y la manda por WhatsApp/correo/personal. Al abrir `/invitacion/<token>`:
+//   - Si no tiene cuenta: crea User + OrgMember + Membership. El correo viene fijado
+//     por la invitación; la contraseña es provisional y el usuario debe cambiarla al entrar.
+//   - Si ya tiene cuenta: se valida que el correo de la invitación coincida con su
+//     correo (evita que otra persona use el enlace) y se le agrega a la organización.
+// Token con hash, expira en 72 h, solo se usa una vez.
+model Invitation {
+  id             String   @id @default(cuid())
+  organizationId String
+  companyId      String?  // empresa destino; null = todas las de la organización
+  email          String   // correo del invitado (fijo, no editable en el registro)
+  role           Role     @default(VIEWER)
+  tokenHash      String   @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId       String?
+
+  @@unique([organizationId, email])
 }
 
 // ---------------------------------------------------------------------------
@@ -83,6 +110,8 @@ model User {
   email        String   @unique
   passwordHash String
   active       Boolean  @default(true)
+  // Los usuarios invitados entran con una contraseña provisional: obligatorio cambiarla.
+  mustChangePassword Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -104,6 +133,7 @@ model User {
   bankSyncs                    BankSync[]             @relation("BankSyncBy")
   bankReconciliations          Reconciliation[]       @relation("BankReconciliationBy")
   orgMembers                   OrgMember[]
+  invitations                  Invitation[]
 }
 
 // Pertenencia de un usuario a una empresa, con el rol que cumple en ella.
@@ -218,6 +248,7 @@ model Company {
   bankMovements         BankMovement[]
   bankSyncs             BankSync[]
   bankReconciliations  Reconciliation[]
+  invites              Invitation[]
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }

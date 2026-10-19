@@ -1,12 +1,15 @@
 import { deleteCompany, switchCompany, toggleCanSwitchCompanies, updateAlertSettings } from "@/app/actions/companies";
+import { listInvitations } from "@/app/actions/invitations";
 import { CompanyForm } from "@/app/dashboard/configuracion/company-form";
 import { AddMemberForm, MemberRow, NewMemberForm } from "@/app/dashboard/configuracion/member-forms";
+import { InviteForm } from "@/app/dashboard/configuracion/invite-form";
 import { NewCompanyForm } from "@/app/dashboard/configuracion/new-company-form";
 import { SiiCredentialsForm } from "@/app/dashboard/configuracion/sii-credentials-form";
 import { DefontanaCredentialsForm } from "@/app/dashboard/configuracion/defontana-credentials-form";
 import { getActiveMembership, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { roleLabel } from "@/lib/labels";
+import type { Role } from "@/generated/prisma/client";
 import { siiSecretKeyConfigured } from "@/lib/sii-credentials";
 import { cardClass, dangerButtonClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 
@@ -33,8 +36,8 @@ export default async function ConfigurationPage() {
       : [];
 
   // Miembros de la organización (permiso multiempresa). Solo se muestra cuando la
-  // empresa pertenece a una organización con más de una empresa y el usuario actual
-  // es ADMIN de la empresa activa.
+  // empresa pertenece a una organización y el usuario actual es ADMIN de la empresa
+  // activa.
   const orgMembers =
     admin && active?.company.organizationId
       ? await db.orgMember.findMany({
@@ -43,6 +46,9 @@ export default async function ConfigurationPage() {
           orderBy: [{ canSwitchCompanies: "desc" }, { createdAt: "asc" }],
         })
       : [];
+
+  // Invitaciones pendientes de la organización (solo ADMIN con permiso multiempresa).
+  const invites = await listInvitations();
 
   return (
     <div className="flex flex-col gap-6">
@@ -234,6 +240,43 @@ export default async function ConfigurationPage() {
         </p>
       )}
 
+      {invites.length > 0 ? (
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Invitaciones</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Enlaces copiables que se envían manualmente (WhatsApp, correo personal…).
+            Expiran en 72 horas y se pueden usar una sola vez.
+          </p>
+          <ul className="mt-4 divide-y divide-border">
+            {invites.map((invite) => (
+              <li key={invite.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div>
+                  <div className="font-medium">{invite.email}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {roleLabel(invite.role as Role)} · {invite.companyName ?? "Todas las empresas"} ·
+                    {" " + new Date(invite.expiresAt).toLocaleString("es-CL")}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {admin && user.orgMembership?.canSwitchCompanies ? (
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Invitar a un usuario</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Genera un enlace copiable. El invitado abre el enlace, crea su cuenta (la
+            contraseña es provisional y debe cambiarla al entrar) y queda miembro de la
+            organización. Tú le mandas el enlace por donde quieras.
+          </p>
+          <div className="mt-4">
+            <InviteForm companies={adminCompanies} />
+          </div>
+        </section>
+      ) : null}
+
       {orgMembers.length > 0 ? (
         <section className={cardClass + " p-5"}>
           <h2 className="font-semibold">Organización</h2>
@@ -243,7 +286,6 @@ export default async function ConfigurationPage() {
           </p>
           <ul className="mt-4 divide-y divide-border">
             {orgMembers.map((orgMember) => {
-              const isSelf = orgMember.userId === user.id;
               return (
                 <li key={orgMember.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
@@ -254,21 +296,19 @@ export default async function ConfigurationPage() {
                     <span className="text-xs text-muted-foreground">
                       {orgMember.canSwitchCompanies ? "Puede revisar empresas" : "Solo esta empresa"}
                     </span>
-                    {isSelf ? null : (
-                      <form action={toggleCanSwitchCompanies}>
-                        <input type="hidden" name="userId" value={orgMember.userId} />
-                        <button
-                          type="submit"
-                          className={
-                            orgMember.canSwitchCompanies
-                              ? secondaryButtonClass + " py-1.5 text-sm"
-                              : primaryButtonClass + " py-1.5 text-sm"
-                          }
-                        >
-                          {orgMember.canSwitchCompanies ? "Quitar permiso" : "Dar permiso"}
-                        </button>
-                      </form>
-                    )}
+                    <form action={toggleCanSwitchCompanies}>
+                      <input type="hidden" name="userId" value={orgMember.userId} />
+                      <button
+                        type="submit"
+                        className={
+                          orgMember.canSwitchCompanies
+                            ? secondaryButtonClass + " py-1.5 text-sm"
+                            : primaryButtonClass + " py-1.5 text-sm"
+                        }
+                      >
+                        {orgMember.canSwitchCompanies ? "Quitar permiso" : "Dar permiso"}
+                      </button>
+                    </form>
                   </div>
                 </li>
               );
