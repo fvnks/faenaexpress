@@ -267,6 +267,49 @@ Plan                          Subscription                     UsageRecord
   `OrgMember`, deja OWNER al ADMIN activo más antiguo y apunta `Company.organizationId`. Idempotente y
   simulable (dry-run sin `--si`).
 | **B. Consola de operador (sin impersonar)** | `PlatformStaff`, `requireStaff`, layout de `/admin`; tablero, organizaciones, ficha de organización, usuarios, incidencias; `PlatformAudit` | Puedes crear una organización, invitación y ver su uso **sin entrar a la Configuración del cliente**; ningún cliente puede abrir `/admin` | 4–6 días |
+
+**Estado de B: implementada y verificada en la base local (20-10-2026), pendiente de push.** Lo que quedó:
+
+- **Schema** (migración `20261026120000_platform_staff`): `PlatformStaff(userId @unique, level, active)` con
+  `PlatformLevel` = `SUPPORT`/`OPERATOR`/`OWNER`, y `PlatformAudit` (auditoría de plataforma: por persona
+  del equipo, no por empresa, porque una acción puede no tener empresa —crear una organización—).
+- **Autorización** (`src/lib/platform.ts`): `requirePlatformStaff(level)` con jerarquía (OWNER ⊇ OPERATOR ⊇
+  SUPPORT). Redirige a `/facturas` si hay sesión pero no es staff (quien no es del equipo no debe ver
+  siquiera que `/admin` existe) y a `/login` sin sesión. El `layout` de `/admin` corta antes de renderizar,
+  y **cada Server Action** vuelve a exigir el nivel.
+- **Auditoría** (`src/lib/platform-audit.ts`): `recordPlatformAudit(ctx, …)` deja rastro en `PlatformAudit`;
+  nunca tumba la acción que registra.
+- **Pantallas**: `/admin` (tablero), `/admin/organizaciones` (listado + buscador + alta asistida),
+  `/admin/organizaciones/[id]` (empresas, miembros, invitación, historial de plataforma), `/admin/usuarios`
+  (búsqueda global), `/admin/incidencias` (cuentas sin dueño, empresas sin admin, sync bancario con error,
+  contraseñas provisionales) y `/admin/equipo` (solo OWNER: reparte el acceso a la consola).
+- **Acciones** (`src/app/actions/platform.ts`): `createOrganizationFromAdmin` e
+  `createInvitationFromAdmin` (OPERATOR), `addPlatformStaff`/`updatePlatformStaff` (OWNER, con invariante
+  «siempre un OWNER de plataforma activo» y «no te puedes suspender a ti mismo»).
+- **Bootstrap**: el `seed` acepta `PLATFORM_STAFF_EMAIL` (+ `PLATFORM_STAFF_LEVEL`, default `OWNER`) para
+  dejar el primer dueño de plataforma. A propósito: el acceso a todas las cuentas no se reparte por defecto.
+- **Impersonar no está**: es la Fase B2. `/admin/usuarios` lo dice explícitamente.
+
+**Cómo se verificó B (local, 20-10-2026):**
+
+- Un cliente con sesión (sin `PlatformStaff`) que abre `/admin` o `/admin/equipo` **rebota a `/facturas`**;
+  el enlace «Consola de operador» tampoco le aparece en el menú de cuenta.
+- Por nivel: `SUPPORT` lee y **no** ve «Nueva organización» ni «Equipo»; `OPERATOR` puede crear cuentas e
+  invitar pero no entrar a `/admin/equipo`; `OWNER` ve todo.
+- Invariantes del equipo: degradar o suspender al **único** dueño de plataforma se rechaza con
+  «Debe quedar al menos un dueño activo en el equipo de plataforma», y nadie se puede suspender a sí mismo.
+- Alta asistida probada de punta a punta: crear la cuenta en la consola → generar la invitación → el
+  contacto abre el enlace, pone nombre y contraseña → queda como ADMIN en las empresas de la organización
+  con contraseña provisional, y la invitación se marca aceptada.
+- El enlace de la invitación **sobrevive a la revalidación** (cookie corta de 15 min + panel pintado por
+  el servidor): el estado del componente de cliente se pierde al revalidar, así que el enlace no puede
+  vivir ahí.
+- Invitar dos veces al mismo correo avisa («Ya hay una invitación vigente») en vez de chocar con la
+  restricción única `(organizationId, email)`. Si la anterior expiró sin usarse, se reemplaza.
+- Auditoría de plataforma: quedan registradas la creación de la cuenta, la invitación, el alta y los
+  cambios de nivel.
+- Verificado en **ambos temas** (R-34): la consola usa los tokens semánticos (`bg-surface`, `text-muted-foreground`,
+  `border-border`) y no colores crudos.
 | **B2. Impersonar** *(decidido: se hace)* | Sesión separada, banner, tope de tiempo, acciones destructivas prohibidas, registro visible para el cliente | Entras como soporte, haces una tarea y el dueño del cliente lo ve registrado | 2–3 días |
 | **C. Módulos por organización** | Tabla `OrganizationModule`, `enabledModules(userId)` con los dos filtros, auditoría del cambio, UI de módulos en la organización | Un cliente sin RRHH contratado no ve RRHH en `/modulos` ni puede entrar por URL | 2–3 días |
 | **D. Planes, uso y cobro** *(diferido hasta que haya cobro real)* | `Plan`, `Subscription`, `UsageRecord`; enforcement en las actions; `/admin/planes`; pantalla de facturación del cliente; Flow/Mercado Pago + webhook. **Parte con una maqueta: plan `Free` único, límites en `null` (sin tope) y UI de facturación completa** | El plan Free corta al llegar al tope con un mensaje claro; el upgrade libera el mismo día. Con la maqueta: puedes mostrar la pantalla de plan y cambiar de plan a mano desde `/admin` | 6–9 días |

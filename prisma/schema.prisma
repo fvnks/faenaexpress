@@ -86,6 +86,56 @@ model Invitation {
 }
 
 // ---------------------------------------------------------------------------
+// Plataforma (Yellow ERP): el equipo que opera el SaaS.
+//
+// `PlatformStaff` NO es lo mismo que el ADMIN de una empresa ni que el OWNER de
+// una organización: es el personal del proveedor, con acceso transversal a todas
+// las cuentas. Va en la base (no en un flag de entorno) para que el acceso sea
+// auditable y revocable sin desplegar.
+// ---------------------------------------------------------------------------
+
+enum PlatformLevel {
+  SUPPORT // solo lee (soporte: mirar, no tocar)
+  OPERATOR // actúa: crea organizaciones, invitaciones, cambia planes
+  OWNER // todo, incluido el personal de plataforma
+}
+
+model PlatformStaff {
+  id        String        @id @default(cuid())
+  userId    String        @unique
+  level     PlatformLevel @default(SUPPORT)
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user User @relation("PlatformStaffUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([active])
+}
+
+// Auditoría de plataforma: lo que hace el equipo de Yellow ERP sobre las cuentas
+// de los clientes. Es por usuario (no por empresa) porque una acción puede no
+// tener empresa (crear una organización, cambiar un plan). `organizationId` queda
+// como contexto cuando la acción sí afecta a una cuenta.
+model PlatformAudit {
+  id             String      @id @default(cuid())
+  staffUserId    String // id como texto: el log sobrevive si se borra el usuario
+  staffUserName  String
+  staffUserEmail String
+  level          PlatformLevel
+  action         AuditAction
+  entityType     String
+  entityId       String?
+  organizationId String?
+  summary        String
+  changes        Json?
+  createdAt      DateTime    @default(now())
+
+  @@index([createdAt])
+  @@index([organizationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
 // Usuarios, roles y sesiones
 // ---------------------------------------------------------------------------
 
@@ -135,6 +185,8 @@ model User {
   createdPayments              Payment[]              @relation("PaymentCreatedBy")
   orgMembers                   OrgMember[]
   invitations                  Invitation[]
+  // Personal de plataforma (Yellow ERP). Un usuario normal no lo es.
+  platformStaff                PlatformStaff? @relation("PlatformStaffUser")
 }
 
 // Pertenencia de un usuario a una empresa, con el rol que cumple en ella.

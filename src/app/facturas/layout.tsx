@@ -16,6 +16,7 @@ import { roleLabel } from "@/lib/labels";
 import { enabledModules } from "@/lib/modules";
 import { countUnreadNotifications, syncDueNotifications } from "@/lib/notifications";
 import { canAccess } from "@/lib/permissions";
+import { isAnyStaff } from "@/lib/platform";
 import { pendingCounts } from "@/lib/reports";
 
 export default async function FacturasLayout({ children }: LayoutProps<"/facturas">) {
@@ -31,6 +32,9 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
   const orgName = user.orgMembership?.organization.name ?? null;
   // Módulos habilitados del usuario: el switcher solo aparece si hay más de uno.
   const modules = await enabledModules(user.id);
+  // El personal de la plataforma ve el acceso a la consola de operador en su
+  // menú de cuenta. Una consulta con índice único: no vale la pena cachearla.
+  const isPlatformStaff = await isAnyStaff();
 
   // Las alertas de vencimiento se recalculan en cada entrada al panel.
   if (active) {
@@ -60,6 +64,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
         pendingSales={pending.sales}
         pendingBank={pendingBank}
         isOrgManager={isOrgManager(user)}
+        isPlatformStaff={isPlatformStaff}
         logout={logout}
       />
       <div className="flex min-w-0 flex-1 flex-col">

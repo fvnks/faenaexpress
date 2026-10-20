@@ -419,6 +419,15 @@ function LogOutIcon() {
   );
 }
 
+function ConsoleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 9h4M7 13h7M17 9h.01" />
+    </svg>
+  );
+}
+
 /**
  * Menú de usuario: iniciales + nombre + rol en el trigger; desplegable hacia
  * arriba con el correo y la salida de sesión. En `compact` (sidebar colapsado)
@@ -428,12 +437,15 @@ function UserMenu({
   userName,
   userEmail,
   roleLabel,
+  isPlatformStaff,
   logout,
   compact = false,
 }: {
   userName: string;
   userEmail: string;
   roleLabel: string;
+  /** Personal de la plataforma: ve el acceso a la consola de operador. */
+  isPlatformStaff?: boolean;
   logout: () => void;
   compact?: boolean;
 }) {
@@ -496,6 +508,17 @@ function UserMenu({
           </div>
           <div className="mx-1 my-1 border-t border-border" />
           <ul className="flex flex-col">
+            {isPlatformStaff ? (
+              <li>
+                <Link
+                  href="/admin"
+                  className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                >
+                  <ConsoleIcon />
+                  Consola de operador
+                </Link>
+              </li>
+            ) : null}
             <li>
               <form action={logout}>
                 <button
@@ -646,6 +669,8 @@ export type SidebarProps = {
   /** El usuario administra su organización: ve la sección Organización aunque no
    *  tenga una empresa activa (la cuenta no depende de la empresa). */
   isOrgManager: boolean;
+  /** Personal de la plataforma: ve el acceso a la consola de operador. */
+  isPlatformStaff?: boolean;
   logout: () => void;
 };
 
@@ -926,6 +951,7 @@ export function Sidebar(props: SidebarProps) {
           userName={props.userName}
           userEmail={props.userEmail}
           roleLabel={props.roleLabel}
+          isPlatformStaff={props.isPlatformStaff}
           logout={props.logout}
         />
       </div>
@@ -1060,6 +1086,7 @@ export function Sidebar(props: SidebarProps) {
           userName={props.userName}
           userEmail={props.userEmail}
           roleLabel={props.roleLabel}
+          isPlatformStaff={props.isPlatformStaff}
           logout={props.logout}
         />
       </div>

@@ -89,6 +89,7 @@ Aún no hay tests. Cuando existan, documenta aquí cómo correr uno solo.
 - El login decide el destino en el servidor con `postLoginDestination` (`src/lib/modules.ts`): 1 módulo → directo; 2+ → `/modulos` (selector con tarjetas de pendientes reales). El `ModuleSwitcher` del header solo aparece con 2+ módulos; con uno, nada.
 - Los módulos se declaran en `src/lib/modules.ts`: agregar un módulo = agregar una entrada (`code`, nombre, `href`, `pendings`) + sus rutas.
 - `DEPLOYMENT_PROFILE=saas` muestra la landing de Yellow ERP en `/`; el default (`standalone`) mantiene el redirect a sesión/login.
+- **Consola de operador (`/admin`, Nivel 2)**: mesa de trabajo del equipo de Yellow ERP sobre todas las cuentas. La protege `PlatformStaff` (tabla en BD, no flag de entorno): `SUPPORT` (lee) / `OPERATOR` (actúa) / `OWNER` (todo). `requirePlatformStaff(nivel)` corta en el layout y en **cada** Server Action; quien tiene sesión pero no es staff rebota a `/facturas`. La auditoría va a `PlatformAudit` (por persona del equipo, no por empresa). El primer dueño de plataforma se deja con `PLATFORM_STAFF_EMAIL` en el `seed`. El detalle del diseño está en `PLAN-ADMIN.md` §2.2.
 
 ## UI y tema
 

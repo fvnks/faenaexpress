@@ -69,6 +69,30 @@ async function main() {
     });
   }
   console.log("Áreas y categorías base aseguradas.");
+
+  // Personal de plataforma (acceso a /admin). Va con variable de entorno a
+  // propósito: el acceso transversal a TODAS las cuentas no se reparte por
+  // defecto. Define PLATFORM_STAFF_EMAIL (y opcionalmente PLATFORM_STAFF_LEVEL)
+  // para dejar un dueño de plataforma. El primer OWNER ya se puede agregar solo
+  // desde /admin/equipo.
+  const staffEmail = process.env.PLATFORM_STAFF_EMAIL;
+  if (staffEmail) {
+    const staffUser = await db.user.findUnique({ where: { email: staffEmail } });
+    if (!staffUser) {
+      console.log(`PLATFORM_STAFF_EMAIL=${staffEmail} no corresponde a ningún usuario; se omite.`);
+    } else {
+      const levelRaw = process.env.PLATFORM_STAFF_LEVEL ?? "OWNER";
+      const level = ["SUPPORT", "OPERATOR", "OWNER"].includes(levelRaw)
+        ? (levelRaw as "SUPPORT" | "OPERATOR" | "OWNER")
+        : "OWNER";
+      await db.platformStaff.upsert({
+        where: { userId: staffUser.id },
+        update: { level, active: true },
+        create: { userId: staffUser.id, level },
+      });
+      console.log(`Personal de plataforma asegurado: ${staffEmail} (${level}).`);
+    }
+  }
 }
 
 main()
