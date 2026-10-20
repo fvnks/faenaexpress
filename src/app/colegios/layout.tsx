@@ -15,6 +15,8 @@ import { getActiveSchool, visibleSchools } from "@/lib/school-auth";
 const SECCIONES: { href: string; label: string; section: SchoolSection }[] = [
   { href: "/colegios", label: "Panel", section: "panel" },
   { href: "/colegios/asistencia", label: "Asistencia", section: "asistencia" },
+  { href: "/colegios/calificaciones", label: "Calificaciones", section: "calificaciones" },
+  { href: "/colegios/promocion", label: "Promoción", section: "promocion" },
   { href: "/colegios/estudiantes", label: "Alumnos", section: "estudiantes" },
   { href: "/colegios/cursos", label: "Cursos", section: "cursos" },
   { href: "/colegios/libro", label: "Libro de clases", section: "libro" },

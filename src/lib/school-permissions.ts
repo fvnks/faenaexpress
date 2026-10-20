@@ -21,6 +21,7 @@ export const schoolSections = [
   "docentes",
   "asistencia",
   "calificaciones",
+  "promocion",
   "libro",
   "convivencia",
   "comunicacion",
@@ -39,6 +40,10 @@ const ACCESS: Record<SchoolSection, readonly SchoolRole[]> = {
   // La asistencia la registra el docente; el resto la ve pero no la escribe.
   asistencia: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "STAFF", "VIEWER"],
   calificaciones: ["DIRECTOR", "UTP", "TEACHER", "VIEWER"],
+  // El acta de promoción es una decisión del establecimiento (Art. 11 del
+  // Decreto 67/2018): la ve la dirección y la jefatura de estudios, no el
+  // docente.
+  promocion: ["DIRECTOR", "UTP", "VIEWER"],
   libro: ["DIRECTOR", "UTP", "TEACHER", "VIEWER"],
   convivencia: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "VIEWER"],  comunicacion: ["DIRECTOR", "UTP", "ADMIN", "STAFF", "VIEWER"],
   cobranza: ["DIRECTOR", "ADMIN", "VIEWER"],
@@ -53,6 +58,8 @@ const WRITE: Record<SchoolSection, readonly SchoolRole[]> = {
   docentes: ["DIRECTOR", "UTP", "ADMIN"],
   asistencia: ["DIRECTOR", "UTP", "TEACHER", "STAFF"],
   calificaciones: ["DIRECTOR", "UTP", "TEACHER"],
+  // El acta se arma sola: nadie la escribe a mano en el sistema.
+  promocion: [],
   libro: ["DIRECTOR", "UTP", "TEACHER"],
   convivencia: ["DIRECTOR", "UTP", "ADMIN"],
   comunicacion: ["DIRECTOR", "UTP", "ADMIN"],

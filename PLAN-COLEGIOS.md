@@ -136,7 +136,7 @@ registros existen. La Circular 30 es, literalmente, la especificación del produ
 | **C0. Cimientos** *(hecho)* | Módulo en el registro, `School`/`Course`/`Student`/`Guardian`/`Teacher`/`Subject`, roles del colegio, selector de establecimiento, la consola ve ambos negocios | Un colegio con sus cursos y sus alumnos; se entra por `/modulos` |
 | **C1. Matrícula y ficha** | Matrícula (alta, traslado, retiro), ficha del estudiante, apoderados, documentos, consents | El expediente del alumno completo, exportable |
 | **C2. Asistencia + Libro de Clases Digital** | Asistencia por curso/asignatura, atrasos/retiros/justificaciones, leccionario, registro de clases, **archivo EDE exportable**, **firma con el verificador de identidad** | El colegio puede entregar el libro digital en una fiscalización |
-| **C3. Calificaciones y promoción** | Evaluaciones con ponderación, promedios, **promoción según el Decreto 67 (85% + notas)**, actas, certificados | El parte de notas del período y la promoción con el fundamento |
+| **C3. Calificaciones y promoción** *(hecho 20-10-2026)* | Evaluaciones con ponderación, promedios, **promoción según el Decreto 67 (85% + notas)**, actas, certificados | El parte de notas del período y la promoción con el fundamento |
 | **C4. Comunicación** | Portal del apoderado, circulares, mensajes, alertas de inasistencia, citaciones | El apoderado ve la asistencia de su hijo y recibe los comunicados |
 | **C5. Aranceles y cobranza** | Aranceles en UF y CLP, emisión, **pago con Webpay**, portal de pagos, deuda, recibos, morosidad | Un apoderado paga el arancel y recibe el recibo |
 | **C6. Convivencia** | Denuncias, protocolos con plazos (Ley 21.809), Plan de Gestión de Convivencia, registro | El caso se sigue con plazo y responsable |
@@ -158,6 +158,48 @@ registros existen. La Circular 30 es, literalmente, la especificación del produ
   y si solo tiene un módulo entra directo, sin selector.
 - Verificado: el selector muestra las dos tarjetas con su estado real; `/colegios` muestra el colegio
   con sus métricas y cursos; un usuario sin colegio rebota a `/modulos`; Facturas sigue intacto.
+
+### Estado de C3 (20-10-2026): implementada y verificada en local
+
+La C3 se armó sobre el **Decreto 67/2018** (no el de 2009: aquel fue derogado por el de 2018, que
+deroga los decretos exentos 511/97, 112/99 y 83/01). El texto se bajó y se leyó antes de escribir
+una línea de cálculo, porque acá una cifra mal puesta no es un detalle: decide si un alumno pasa de
+curso.
+
+- **Schema** (migraciones `20261026220000_school_grades` y `20261026221000_subject_promotion_flag`):
+  `GradingPeriod` (el semestre o trimestre del colegio, con su ponderación), `Evaluation` (la
+  evaluación de una asignatura en un período, con su ponderación) y `Grade` (la nota de un alumno
+  en una evaluación, con quién la puso y cuándo). En `Subject`, el campo `countsForPromotion` marca
+  si la asignatura incide en el promedio final: es el Art. 7, que saca de la cuenta a Religión,
+  Consejo de Curso y Orientación.
+- **La matemática vive en un solo lugar** (`src/lib/school-grading-math.ts`): el promedio ponderado
+  y el redondeo a un decimal (Art. 8) son la misma función para el servidor y para el cliente. Si
+  fueran dos, el promedio de la pantalla y el del acta terminarían discrepando.
+- **La regla de promoción** (`src/lib/school-grades.ts` → `situaciónPromocion`): aplica el Art. 10
+  (aprobó todo, o reprobó una con promedio 4.5 o más, o reprobó dos con promedio 5.0 o más, **y**
+  tiene 85% de asistencia anual) y, cuando no se cumple, **marca el caso para el análisis del
+  Art. 11** en vez de declararlo repitente: esa decisión es del establecimiento, con informe del
+  jefe técnico-pedagógico, y no del sistema.
+- **La asistencia anual se consulta una vez** (`attendanceByStudents`): el acta de un curso con 40
+  alumnos no puede hacer una consulta por persona.
+- **La pantalla del docente** (`/colegios/calificaciones`): elige curso, período y asignatura, ve
+  las evaluaciones y abre la hoja de notas. El promedio se calcula **mientras escribe**, con la
+  misma matemática del acta.
+- **El acta de promoción** (`/colegios/promocion`): tiene lo que pide el Art. 20 — la nómina
+  completa (con el RUT o el identificador provisorio escolar), las calificaciones finales por
+  asignatura, el promedio final anual, el porcentaje de asistencia y la situación final de cada
+  alumno —, más el fundamento de cada caso y la lista de los que requieren análisis. La que se
+  entrega al MINEDUC se emite con el SIGE y solo la firma el director.
+- **Regla del Art. 18 h)**: la evaluación final de un período no puede pesar más del 30%, y la
+  acción lo hace cumplir.
+
+Verificado en local con el colegio de ejemplo: Ana (promovida por el Art. 10.1.a), Beto (promovido
+por el Art. 10.1.b: reprobó Matemática con promedio 4.6) y Carla (requiere análisis: 0% de
+asistencia).
+
+**Lo que NO se hizo de la C3** (a propósito, por lo acordado): el flujo de excepciones del Art. 11
+(el informe de la UTP, la autorización de excepción de asistencia por dirección+UTP y la resolución
+caso a caso). La primera versión calcula la regla y marca los casos; resolverlos es lo que sigue.
 
 ### Estado de C2 (20-10-2026): implementada y verificada en local
 
@@ -210,12 +252,12 @@ docker run -it --rm --name etl -v <carpeta>:/usr/src/ede -w /usr/src/ede \
 
 | Falta | Por qué |
 | --- | --- |
-| **Calificaciones y actas** | Es la C3 entera: evaluaciones con ponderación, promedios y el acta de promoción. |
 | **Registro de convivencia** | Es la C6: anotaciones positivas, negativas y observaciones con su trazabilidad (Ley 21.809). |
 | **Libro PIE** | Planes de apoyo de los NEEP/NEET (`ServicePlan` del EDE). |
 | **Firma con el verificador de identidad** | El docente valida cada registro con su código dinámico (trámite en `tramites.mineduc.cl` con Clave Única). La plataforma debe guardar el resultado en `firmaRatificador`. |
 | **Calendario escolar** | La Circular N°30 exige que el registro esté al día durante todo el año, no el día de la visita. Es la tabla `_Calendarios` del EDE. |
 | **Códigos de referencia** | `RefSchoolLevelId`, `RefAttendanceStatusId` y compañía usan las tablas de referencia del MINEDUC; los valores que se usan hoy son los habituales, pero hay que confirmarlos contra el validador. |
+| **Las calificaciones en el EDE** | La C3 ya calcula los promedios y el acta, pero todavía no se exportan al `json.zip`: falta la tabla de calificaciones del contrato del MINEDUC. |
 
 ## 7. Riesgos (y cómo se miran de frente)
 

@@ -94,6 +94,80 @@ export async function attendanceSummary(
 }
 
 /**
+ * El resumen de asistencia de varios alumnos de un curso, de una sola vez.
+ *
+ * El acta de promoción necesita el 85% de cada alumno (Art. 10.2). Consultar
+ * alumno por alumno sería una consulta por persona en cada carga de la pantalla
+ * de un curso con 40 alumnos: esto lo resuelve con dos.
+ */
+export async function attendanceByStudents(
+  courseId: string,
+  studentIds: string[],
+  desde?: Date,
+  hasta?: Date,
+): Promise<Map<string, ResumenAsistencia>> {
+  const resultado = new Map<string, ResumenAsistencia>();
+  if (studentIds.length === 0) return resultado;
+
+  const sesiones = await db.classSession.findMany({
+    where: {
+      courseId,
+      ...(desde || hasta
+        ? { date: { ...(desde ? { gte: desde } : {}), ...(hasta ? { lte: hasta } : {}) } }
+        : {}),
+    },
+    select: { id: true },
+  });
+  const sessionIds = sesiones.map((s) => s.id);
+
+  const registros =
+    sessionIds.length === 0
+      ? []
+      : await db.attendanceRecord.findMany({
+          where: { sessionId: { in: sessionIds }, studentId: { in: studentIds } },
+          select: { studentId: true, status: true },
+        });
+
+  const porAlumno = new Map<string, typeof registros>();
+  for (const r of registros) {
+    const lista = porAlumno.get(r.studentId) ?? [];
+    lista.push(r);
+    porAlumno.set(r.studentId, lista);
+  }
+
+  for (const studentId of studentIds) {
+    const delAlumno = porAlumno.get(studentId) ?? [];
+    const asiste = delAlumno.filter((r) => CUENTAN.includes(r.status)).length;
+    const falta = delAlumno.filter((r) => r.status === "ABSENT").length;
+    const eximidas = delAlumno.filter((r) => r.status === "EXCUSED").length;
+
+    // El denominador son las clases dictadas menos las eximidas: un alumno con
+    // permiso no es «inasistente» ni en el 85% ni en contra.
+    const total = sesiones.length - eximidas;
+    const porcentaje = total > 0 ? (asiste / total) * 100 : 100;
+    const cumple = porcentaje >= 85;
+
+    let clasesParaCumplir = 0;
+    if (!cumple && total > 0) {
+      clasesParaCumplir = Math.max(0, Math.floor(asiste / 0.85 - total));
+    }
+
+    resultado.set(studentId, {
+      total,
+      asiste,
+      falta,
+      eximidas,
+      porcentaje,
+      sinClases: sesiones.length === 0,
+      cumple,
+      clasesParaCumplir,
+    });
+  }
+
+  return resultado;
+}
+
+/**
  * La hoja de una clase: a quién se le marca, con qué estado y quién lo
  * registró. Es lo que el docente ve y lo que se exporta.
  */

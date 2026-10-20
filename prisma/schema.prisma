@@ -314,7 +314,9 @@ model School {
   teachers    Teacher[]
   subjects    Subject[]
   sessions    ClassSession[]
+  evaluations Evaluation[]
   absences    StudentAbsence[]
+  periods     GradingPeriod[]
 
   @@index([organizationId])
 }
@@ -352,7 +354,8 @@ model Course {
   school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
   assignments TeachingAssignment[]
-  sessions    ClassSession[]
+  sessions     ClassSession[]
+  evaluations Evaluation[]
 
   @@index([schoolId, year])
 }
@@ -378,6 +381,7 @@ model Student {
   guardianships Guardianship[]
   attendances   AttendanceRecord[]
   absences      StudentAbsence[]
+  grades        Grade[]
 
   @@index([schoolId, lastName])
 }
@@ -438,12 +442,17 @@ model Subject {
   schoolId  String
   code      String // "MAT"
   name      String // "Matemática"
+  // Las calificaciones de Religión, Consejo de Curso y Orientación no inciden
+  // en el promedio final anual ni en la promoción (Art. 7 del Decreto 67/2018).
+  // El colegio marca cuáles son esas.
+  countsForPromotion Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   assignments TeachingAssignment[]
   sessions     ClassSession[]
+  evaluations Evaluation[]
 
   @@unique([schoolId, code])
 }
@@ -1941,3 +1950,99 @@ model Reconciliation {
   @@index([expenseId])
 }
 
+// ---------------------------------------------------------------------------
+// Calificaciones y promoción (Decreto 67/2018)
+// ---------------------------------------------------------------------------
+
+// El régimen de evaluación: semestral o trimestral. No lo impone el decreto
+// (cada colegio lo fija en su reglamento), así que se configura por colegio.
+enum GradingPeriodType {
+  SEMESTRE
+  TRIMESTRE
+}
+
+enum EvaluationType {
+  DIAGNOSTICA
+  PRUEBA
+  TRABAJO
+  EXPOSICION
+  EXAMEN
+  OTRO
+}
+
+enum GradeStatus {
+  PENDIENTE // todavía sin nota
+  GRADED // calificada
+  EXENTO // no rindió la evaluación: no cuenta para el promedio
+}
+
+model GradingPeriod {
+  id       String            @id @default(cuid())
+  schoolId String
+  name     String // "Primer semestre", "Primer trimestre"
+  type     GradingPeriodType @default(SEMESTRE)
+  startDate DateTime
+  endDate   DateTime
+  // Ponderación del período sobre el promedio final del año (60, 40...).
+  // La define el reglamento del colegio: el Decreto 67 no la fija.
+  weight Int @default(0)
+  // Orden en que se muestran (1, 2, 3...).
+  order     Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school      School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  evaluations Evaluation[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId, order])
+}
+
+model Evaluation {
+  id        String         @id @default(cuid())
+  schoolId  String
+  courseId  String
+  subjectId String
+  periodId  String
+  name      String // "Prueba 1", "Trabajo unidad 2"
+  type      EvaluationType @default(PRUEBA)
+  date      DateTime
+  // Ponderación dentro de la asignatura (%). Si ninguna evaluación tiene
+  // ponderación, todas pesan lo mismo.
+  weight Int @default(0)
+  // Evaluación final del período: su ponderación no puede pasar del 30%
+  // (Art. 18 h) del Decreto 67/2018.
+  isFinal   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school   School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  course   Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject  Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  period   GradingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  grades   Grade[]
+
+  @@index([courseId, periodId])
+  @@index([subjectId, periodId])
+  @@index([schoolId, date])
+}
+
+model Grade {
+  id           String      @id @default(cuid())
+  evaluationId String
+  studentId    String
+  // Nota de 1.0 a 7.0 con un decimal (Art. 8 del Decreto 67/2018).
+  value        Float?
+  status       GradeStatus @default(PENDIENTE)
+  note         String?
+  // Quién把那 nota (la Circular N°30 pide trazabilidad de cada dato).
+  recordedById String
+  recordedAt   DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([evaluationId, studentId])
+  @@index([studentId])
+}

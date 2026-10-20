@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { EvaluationType, GradeStatus, GradingPeriodType } from "@/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite, SCHOOL_COOKIE } from "@/lib/school-auth";
@@ -260,5 +261,269 @@ export async function createCourse(
 
   revalidatePath("/colegios/cursos");
   revalidatePath("/colegios");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Calificaciones y promoción (Decreto 67/2018)
+// ---------------------------------------------------------------------------
+
+export type GradesFormState = { error?: string; ok?: boolean } | undefined;
+
+/**
+ * Guarda las notas de una evaluación.
+ *
+ * Cada nota queda con QUIÉN la puso y CUÁNDO: la Circular N°30 pide
+ * trazabilidad de cada dato que el colegio registra.
+ */
+export async function saveGrades(
+  _prev: GradesFormState,
+  formData: FormData,
+): Promise<GradesFormState> {
+  const ctx = await requireSchoolContext("calificaciones");
+  if (!schoolCanWrite(ctx, "calificaciones")) {
+    return { error: "Tu rol no permite registrar calificaciones." };
+  }
+
+  const evaluationId = String(formData.get("evaluationId") ?? "").trim();
+  if (!evaluationId) return { error: "Falta la evaluación." };
+
+  const evaluacion = await db.evaluation.findFirst({
+    where: { id: evaluationId, schoolId: ctx.school.id },
+    select: { id: true, courseId: true },
+  });
+  if (!evaluacion) return { error: "Esa evaluación no es de este colegio." };
+
+  // Solo se califica a quien está matriculado en el curso.
+  const matriculados = await db.enrollment.findMany({
+    where: { courseId: evaluacion.courseId, status: "ACTIVE" },
+    select: { studentId: true },
+  });
+  const permitidos = new Set(matriculados.map((m) => m.studentId));
+
+  const ids = formData.getAll("studentId").map(String);
+  const notas = formData.getAll("nota").map(String);
+  const estados = formData.getAll("estado").map(String);
+
+  const registros: { studentId: string; value: number | null; status: GradeStatus }[] = [];
+
+  for (let i = 0; i < ids.length; i++) {
+    const studentId = ids[i];
+    if (!permitidos.has(studentId)) continue;
+
+    const estadoCrudo = (estados[i] ?? "PENDIENTE").toUpperCase();
+    if (estadoCrudo === "EXENTO") {
+      registros.push({ studentId, value: null, status: "EXENTO" });
+      continue;
+    }
+    if (estadoCrudo !== "GRADED") {
+      registros.push({ studentId, value: null, status: "PENDIENTE" });
+      continue;
+    }
+
+    const notaCruda = (notas[i] ?? "").trim().replace(",", ".");
+    if (notaCruda === "") {
+      return { error: "Una calificación quedó marcada como puesta pero sin nota." };
+    }
+    const nota = Number(notaCruda);
+    if (!Number.isFinite(nota)) return { error: "Hay una nota que no es un número." };
+    // Escala 1.0 a 7.0 (Art. 8 del Decreto 67/2018), con un decimal.
+    if (nota < 1 || nota > 7) return { error: "Las notas van de 1.0 a 7.0." };
+    registros.push({ studentId, value: Math.round(nota * 10) / 10, status: "GRADED" });
+  }
+
+  if (registros.length === 0) return { error: "No hay alumnos que calificar." };
+
+  // La hoja es la fuente de verdad de esa evaluación: lo que viene se guarda,
+  // nota por nota, con su estado.
+  await db.$transaction(
+    registros.map((r) =>
+      db.grade.upsert({
+        where: { evaluationId_studentId: { evaluationId, studentId: r.studentId } },
+        create: {
+          evaluationId,
+          studentId: r.studentId,
+          value: r.value,
+          status: r.status,
+          recordedById: ctx.user.id,
+        },
+        update: {
+          value: r.value,
+          status: r.status,
+          recordedById: ctx.user.id,
+          recordedAt: new Date(),
+        },
+      }),
+    ),
+  );
+
+  revalidatePath("/colegios/calificaciones");
+  revalidatePath("/colegios/promocion");
+  return { ok: true };
+}
+
+/** Crea una evaluación en un curso, asignatura y período. */
+export async function createEvaluation(
+  _prev: GradesFormState,
+  formData: FormData,
+): Promise<GradesFormState> {
+  const ctx = await requireSchoolContext("calificaciones");
+  if (!schoolCanWrite(ctx, "calificaciones")) {
+    return { error: "Tu rol no permite crear evaluaciones." };
+  }
+
+  const courseId = String(formData.get("courseId") ?? "").trim();
+  const subjectId = String(formData.get("subjectId") ?? "").trim();
+  const periodId = String(formData.get("periodId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const type = String(formData.get("type") ?? "PRUEBA");
+  const dateCruda = String(formData.get("date") ?? "").trim();
+  const weight = Number(formData.get("weight") ?? 0);
+  const isFinal = formData.get("isFinal") === "on";
+
+  if (!courseId || !subjectId || !periodId) {
+    return { error: "Falta el curso, la asignatura o el período." };
+  }
+  if (name.length < 1) return { error: "El nombre de la evaluación es obligatorio." };
+
+  const [curso, asignatura, periodo] = await Promise.all([
+    db.course.findFirst({ where: { id: courseId, schoolId: ctx.school.id }, select: { id: true } }),
+    db.subject.findFirst({ where: { id: subjectId, schoolId: ctx.school.id }, select: { id: true } }),
+    db.gradingPeriod.findFirst({ where: { id: periodId, schoolId: ctx.school.id }, select: { id: true } }),
+  ]);
+  if (!curso || !asignatura || !periodo) {
+    return { error: "El curso, la asignatura o el período no son de este colegio." };
+  }
+
+  if (!Number.isFinite(weight) || weight < 0 || weight > 100) {
+    return { error: "La ponderación va de 0 a 100." };
+  }
+  // Art. 18 h) del Decreto 67/2018: la evaluación final no puede pesar más
+  // del 30% del período.
+  if (isFinal && weight > 30) {
+    return { error: "La evaluación final no puede pesar más del 30% del período." };
+  }
+
+  const date = dateCruda ? new Date(`${dateCruda}T00:00:00.000Z`) : new Date();
+  if (Number.isNaN(date.getTime())) return { error: "La fecha no es válida." };
+
+  await db.evaluation.create({
+    data: {
+      schoolId: ctx.school.id,
+      courseId,
+      subjectId,
+      periodId,
+      name,
+      type: type as EvaluationType,
+      date,
+      weight: Math.round(weight),
+      isFinal,
+    },
+  });
+
+  revalidatePath("/colegios/calificaciones");
+  return { ok: true };
+}
+
+/** Elimina una evaluación y sus notas. */
+export async function deleteEvaluation(
+  _prev: GradesFormState,
+  formData: FormData,
+): Promise<GradesFormState> {
+  const ctx = await requireSchoolContext("calificaciones");
+  if (!schoolCanWrite(ctx, "calificaciones")) {
+    return { error: "Tu rol no permite eliminar evaluaciones." };
+  }
+
+  const id = String(formData.get("evaluationId") ?? "").trim();
+  if (!id) return { error: "Falta la evaluación." };
+
+  const eliminada = await db.evaluation.deleteMany({
+    where: { id, schoolId: ctx.school.id },
+  });
+  if (eliminada.count === 0) return { error: "Esa evaluación no es de este colegio." };
+
+  revalidatePath("/colegios/calificaciones");
+  revalidatePath("/colegios/promocion");
+  return { ok: true };
+}
+
+/** Crea un período de evaluación (semestre o trimestre) del colegio. */
+export async function createGradingPeriod(
+  _prev: GradesFormState,
+  formData: FormData,
+): Promise<GradesFormState> {
+  const ctx = await requireSchoolContext("calificaciones");
+  if (!schoolCanWrite(ctx, "calificaciones")) {
+    return { error: "Tu rol no puede modificar los períodos de evaluación." };
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  const type = String(formData.get("type") ?? "SEMESTRE");
+  const startDate = String(formData.get("startDate") ?? "").trim();
+  const endDate = String(formData.get("endDate") ?? "").trim();
+  const weight = Number(formData.get("weight") ?? 0);
+  const order = Number(formData.get("order") ?? 0);
+
+  if (name.length < 1) return { error: "El nombre del período es obligatorio." };
+  if (!["SEMESTRE", "TRIMESTRE"].includes(type)) return { error: "El tipo de período no es válido." };
+  if (!startDate || !endDate) return { error: "El período necesita fechas de inicio y término." };
+  if (!Number.isFinite(weight) || weight < 0 || weight > 100) {
+    return { error: "La ponderación del período va de 0 a 100." };
+  }
+
+  const inicio = new Date(`${startDate}T00:00:00.000Z`);
+  const termino = new Date(`${endDate}T00:00:00.000Z`);
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(termino.getTime())) {
+    return { error: "Las fechas del período no son válidas." };
+  }
+  if (termino < inicio) return { error: "El período termina antes de empezar." };
+
+  const orden = Number.isFinite(order) && order > 0 ? Math.round(order) : undefined;
+
+  await db.gradingPeriod.create({
+    data: {
+      schoolId: ctx.school.id,
+      name,
+      type: type as GradingPeriodType,
+      startDate: inicio,
+      endDate: termino,
+      weight: Math.round(weight),
+      ...(orden ? { order: orden } : {}),
+    },
+  });
+
+  revalidatePath("/colegios/calificaciones");
+  revalidatePath("/colegios/promocion");
+  return { ok: true };
+}
+
+/**
+ * Marca si una asignatura incide en el promedio final y en la promoción.
+ *
+ * El Art. 7 del Decreto 67/2018 saca de la cuenta a Religión, Consejo de Curso
+ * y Orientación: el colegio lo decide sobre su plan de estudios.
+ */
+export async function updateSubjectPromotion(
+  _prev: GradesFormState,
+  formData: FormData,
+): Promise<GradesFormState> {
+  const ctx = await requireSchoolContext("calificaciones");
+  if (!schoolCanWrite(ctx, "calificaciones")) {
+    return { error: "Tu rol no puede modificar las asignaturas." };
+  }
+
+  const subjectId = String(formData.get("subjectId") ?? "").trim();
+  if (!subjectId) return { error: "Falta la asignatura." };
+
+  const incide = formData.get("countsForPromotion") === "on";
+  const actualizado = await db.subject.updateMany({
+    where: { id: subjectId, schoolId: ctx.school.id },
+    data: { countsForPromotion: incide },
+  });
+  if (actualizado.count === 0) return { error: "Esa asignatura no es de este colegio." };
+
+  revalidatePath("/colegios/calificaciones");
+  revalidatePath("/colegios/promocion");
   return { ok: true };
 }
