@@ -6,6 +6,7 @@ import { BulkSelectAll } from "@/components/bulk-select";
 import { FilterBar, type FilterField } from "@/components/filter-bar";
 import { Pagination } from "@/components/pagination";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
+import { XmlBadge } from "@/components/xml-badge";
 import { SortableHeader } from "@/components/sortable-header";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { canWrite, requireContext } from "@/lib/auth";
@@ -285,7 +286,8 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
                       </span>
                     </td>
                     <td className="tabular whitespace-nowrap px-3 py-2 align-top">
-                      {purchase.documentNumber ?? "—"}
+                      <span className="block">{purchase.documentNumber ?? "—"}</span>
+                      <XmlBadge tieneXml={Boolean(purchase.xmlContent)} />
                     </td>
                     <td className="tabular whitespace-nowrap px-3 py-2 align-top">{formatDate(purchase.date)}</td>
                     <td className="tabular whitespace-nowrap px-3 py-2 align-top">

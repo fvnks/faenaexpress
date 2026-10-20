@@ -6,9 +6,10 @@ import { ExpenseForm } from "@/app/facturas/gastos/expense-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories, listPayers, listWorkers } from "@/lib/catalogs";
 import type { ExpenseForForm } from "@/lib/expenses";
+import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
+import { paymentMethodOptions } from "@/lib/payment-methods";
 import { cardClass, primaryButtonClass } from "@/lib/ui";
-import { paymentMethodValues } from "@/lib/validation";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
@@ -35,9 +36,7 @@ function prefillFromBank(
     date,
     netAmount: net,
     ivaAmount: total - net,
-    paymentMethod: (paymentMethodValues as readonly string[]).includes(rawPayment)
-      ? rawPayment
-      : "TRANSFER",
+    paymentMethod: paymentMethodLabel(rawPayment) || "Transferencia",
     notes: date
       ? `Origen: movimiento bancario del ${formatDate(new Date(`${date}T00:00:00.000Z`))} por ${formatCLP(total)}.`
       : undefined,
@@ -56,6 +55,9 @@ export default async function NewExpensePage(props: PageProps<"/facturas/gastos/
     listPayers(ctx.company.id),
     listWorkers(ctx.company.id),
   ]);
+
+  // Las formas de pago que ofrece la empresa: su catálogo más las base.
+  const formasDePago = await paymentMethodOptions(ctx.company.id);
 
   const searchParams = await props.searchParams;
   const prefill = prefillFromBank(searchParams, ctx.company.ivaRate);
@@ -91,6 +93,7 @@ export default async function NewExpensePage(props: PageProps<"/facturas/gastos/
         </div>
       ) : (
         <ExpenseForm
+        formasDePago={formasDePago}
           action={createExpense}
           categories={categories}
           areas={areas}

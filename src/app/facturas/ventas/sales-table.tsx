@@ -10,6 +10,7 @@ import { CancelSaleModal } from "@/components/cancel-sale-modal";
 import { NoSalespeopleHint } from "@/components/no-salespeople-hint";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SortableHeader } from "@/components/sortable-header";
+import { XmlBadge } from "@/components/xml-badge";
 import { formatCLP, formatDate } from "@/lib/money";
 import { sortHref, type SortDir } from "@/lib/sort";
 import { cardClass, controlClass } from "@/lib/ui";
@@ -17,6 +18,8 @@ import { cardClass, controlClass } from "@/lib/ui";
 type SaleItem = {
   id: string;
   documentNumber: string | null;
+  /** El XML del DTE guardado, si es que se cargó. */
+  xmlContent: string | null;
   date: Date;
   totalAmount: number;
   status: string;
@@ -286,7 +289,8 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                     </span>
                   </td>
                   <td className="tabular whitespace-nowrap px-3 py-2 align-top">
-                    {sale.documentNumber ?? "—"}
+                    <span className="block">{sale.documentNumber ?? "—"}</span>
+                    <XmlBadge tieneXml={Boolean(sale.xmlContent)} />
                   </td>
                   <td className="tabular whitespace-nowrap px-3 py-2 align-top">{formatDate(sale.date)}</td>
                   <td className="tabular whitespace-nowrap px-3 py-2 align-top text-muted-foreground">

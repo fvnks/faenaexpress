@@ -92,7 +92,7 @@ async function linkMovement(
     await db.$transaction([
       db.purchase.update({
         where: { id: purchase.id },
-        data: { status: "PAID", paymentDate: movement.date, paymentMethod: "TRANSFER" },
+        data: { status: "PAID", paymentDate: movement.date, paymentMethod: "Transferencia" },
       }),
       db.reconciliation.create({
         data: { companyId: ctx.company.id, movementId: movement.id, purchaseId: purchase.id, createdById: ctx.user.id },

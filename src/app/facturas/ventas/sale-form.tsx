@@ -26,6 +26,7 @@ export function SaleForm({
   today,
   defaults,
   defaultDocumentType,
+  formasDePago,
 }: {
   action: (prev: SaleFormState, formData: FormData) => Promise<SaleFormState>;
   customers: CustomerOption[];
@@ -34,6 +35,8 @@ export function SaleForm({
   areas: Option[];
   ivaRate: number;
   retentionRate: number;
+  /** Las formas de pago del catálogo de la empresa. */
+  formasDePago: string[];
   today: string;
   defaults?: SaleForForm;
   defaultDocumentType?: string;
@@ -341,6 +344,24 @@ export function SaleForm({
                 defaultValue={defaults?.paymentDate ?? ""}
                 className={controlClass}
               />
+            </div>
+            <div className={fieldClass}>
+              <label htmlFor="paymentMethod" className={labelClass}>
+                Tipo de pago
+              </label>
+              <select
+                id="paymentMethod"
+                name="paymentMethod"
+                defaultValue={defaults?.paymentMethod ?? ""}
+                className={controlClass}
+              >
+                <option value="">Selecciona un medio de pago</option>
+                {formasDePago.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         ) : null}

@@ -9,7 +9,6 @@ import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
 import type { ExpenseForForm } from "@/lib/expenses";
 import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
-import { paymentMethodValues } from "@/lib/validation";
 
 type Option = { id: string; name: string };
 
@@ -24,6 +23,7 @@ export function ExpenseForm({
   defaults,
   prefill,
   volver,
+  formasDePago,
 }: {
   action: (prev: ExpenseFormState, formData: FormData) => Promise<ExpenseFormState>;
   categories: Option[];
@@ -31,6 +31,8 @@ export function ExpenseForm({
   payers: Option[];
   workers: Option[];
   ivaRate: number;
+  /** Las formas de pago del catálogo de la empresa. */
+  formasDePago: string[];
   today: string;
   defaults?: ExpenseForForm;
   /**
@@ -161,9 +163,9 @@ export function ExpenseForm({
             <SelectDropdown
               id="paymentMethod"
               name="paymentMethod"
-              value={initial.paymentMethod ?? "CASH"}
+              value={paymentMethodLabel(initial.paymentMethod) || "Efectivo"}
               allowEmpty={false}
-              options={paymentMethodValues.map((value) => ({ value, label: paymentMethodLabel(value) }))}
+              options={formasDePago.map((value) => ({ value, label: value }))}
             />
           </div>
         </div>

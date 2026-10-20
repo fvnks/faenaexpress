@@ -33,6 +33,7 @@ function readForm(formData: FormData) {
     ivaAmount: formData.get("ivaAmount"),
     retentionAmount: formData.get("retentionAmount"),
     status: formData.get("status"),
+    paymentMethod: formData.get("paymentMethod"),
     paymentDate: formData.get("paymentDate"),
     confirmingAt: formData.get("confirmingAt"),
     notes: formData.get("notes"),
@@ -60,7 +61,9 @@ function toData(input: SaleInput) {
     retentionAmount: input.retentionAmount ?? 0,
     status: input.status,
     paymentDate: paid ? input.paymentDate : null,
-    paymentMethod: null,
+    // El medio de pago es el nombre del catálogo de la empresa. Si la venta se
+    // marca pagada sin elegir uno, queda "Otro".
+    paymentMethod: paid ? (String(input.paymentMethod ?? "").trim() || "Otro") : null,
     confirmingAt: input.confirmingAt ?? null,
     notes: input.notes ?? null,
   };
@@ -211,6 +214,8 @@ export async function markSalePaid(formData: FormData): Promise<void> {
     data: {
       status: "PAID",
       paymentDate,
+      // El medio de pago es el nombre del catálogo de la empresa.
+      paymentMethod: String(formData.get("paymentMethod") ?? "").trim() || "Otro",
       ...(rawSalespersonId !== null ? { salespersonId: salespersonId || null } : {}),
     },
   });
@@ -312,7 +317,7 @@ export async function markSalePending(formData: FormData): Promise<void> {
 
   await db.sale.update({
     where: { id, companyId: ctx.company.id },
-    data: { status: "PENDING", paymentDate: null },
+    data: { status: "PENDING", paymentDate: null, paymentMethod: null },
   });
 
   await recordAudit(ctx, {
@@ -395,7 +400,12 @@ export async function bulkSetSaleStatus(formData: FormData): Promise<void> {
     where: { id: { in: ids }, companyId: ctx.company.id, payments: { none: {} } },
     // Fecha de cobro = día de Chile (medianoche UTC), no la hora exacta del
     // navegador: el dominio guarda días de calendario.
-    data: { status, paymentDate: status === "PAID" ? todayDate() : null },
+    data: {
+      status,
+      paymentDate: status === "PAID" ? todayDate() : null,
+      // Sin abonos, el medio de pago es el que se eligió al marcar la venta.
+      paymentMethod: status === "PAID" ? "Otro" : null,
+    },
   });
 
   if (result.count > 0) {

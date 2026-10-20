@@ -12,8 +12,10 @@ import { PaymentsPanel } from "@/components/payments-panel";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
+import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
 import { listPayments, saleSettleTotal, sumPayments } from "@/lib/payments";
+import { paymentMethodOptions } from "@/lib/payment-methods";
 import { canAccess } from "@/lib/permissions";
 import { getSale } from "@/lib/sales";
 import {
@@ -28,6 +30,8 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
   const ctx = await requireContext("ventas");
   const { id } = await props.params;
   const sale = await getSale(ctx.company.id, id);
+  // Las formas de pago que ofrece la empresa: su catálogo más las base.
+  const formasDePago = await paymentMethodOptions(ctx.company.id);
 
   if (!sale) {
     notFound();
@@ -205,6 +209,9 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
           {collected ? (
             <p className="text-sm text-success">
               Cobrada el {sale.paymentDate ? formatDate(sale.paymentDate) : "—"}.
+              {sale.paymentMethod ? (
+                <span className="text-muted-foreground"> Método: {paymentMethodLabel(sale.paymentMethod)}</span>
+              ) : null}
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -242,6 +249,23 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
                     defaultValue={todayISO()}
                     className={controlClass}
                   />
+                </div>
+                <div className={fieldClass}>
+                  <label htmlFor="paymentMethod" className={labelClass}>
+                    Método de pago
+                  </label>
+                  <select
+                    id="paymentMethod"
+                    name="paymentMethod"
+                    defaultValue={formasDePago.includes("Transferencia") ? "Transferencia" : formasDePago[0]}
+                    className={controlClass}
+                  >
+                    {formasDePago.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <SubmitButton pendingLabel="Guardando..." className={secondaryButtonClass}>
                   Marcar como cobrada
@@ -301,7 +325,9 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
           payments={payments}
           settleTotal={saleSettleTotal(total, retention)}
           writable={writable && sale.status !== "CANCELLED"}
-        />
+        
+            formasDePago={formasDePago}
+          />
       ) : null}
 
       {sale.items.length === 0 && sale.xmlContent ? (

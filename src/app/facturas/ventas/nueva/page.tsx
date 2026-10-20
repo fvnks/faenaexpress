@@ -6,6 +6,7 @@ import { SaleForm } from "@/app/facturas/ventas/sale-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories, listSalespeople } from "@/lib/catalogs";
 import { todayISO } from "@/lib/money";
+import { paymentMethodOptions } from "@/lib/payment-methods";
 import { listCustomers } from "@/lib/partners";
 import { cardClass, primaryButtonClass } from "@/lib/ui";
 
@@ -28,6 +29,9 @@ export default async function NewSalePage(props: PageProps<"/facturas/ventas/nue
     listCategories(ctx.company.id),
     listAreas(ctx.company.id),
   ]);
+
+  // Las formas de pago que ofrece la empresa: su catálogo más las base.
+  const formasDePago = await paymentMethodOptions(ctx.company.id);
 
   const title = isQuote ? "Nueva cotización" : "Nueva venta";
   const subtitle = isQuote
@@ -64,6 +68,7 @@ export default async function NewSalePage(props: PageProps<"/facturas/ventas/nue
         </div>
       ) : (
         <SaleForm
+        formasDePago={formasDePago}
           action={createSale}
           customers={customers}
           salespeople={salespeople}

@@ -299,6 +299,7 @@ export type SaleForForm = {
   ivaAmount: number;
   retentionAmount: number;
   status: string;
+  paymentMethod: string;
   paymentDate: string;
   confirmingAt: string;
   notes: string;
@@ -322,6 +323,7 @@ export function serializeSale(sale: {
   ivaAmount: { toString(): string };
   retentionAmount: { toString(): string };
   status: string;
+  paymentMethod: string | null;
   paymentDate: Date | null;
   confirmingAt: Date | null;
   notes: string | null;
@@ -344,6 +346,7 @@ export function serializeSale(sale: {
     ivaAmount: Number(sale.ivaAmount.toString()),
     retentionAmount: Number(sale.retentionAmount.toString()),
     status: sale.status,
+    paymentMethod: sale.paymentMethod ?? "",
     paymentDate: sale.paymentDate ? toISODate(sale.paymentDate) : "",
     confirmingAt: sale.confirmingAt ? toISODate(sale.confirmingAt) : "",
     notes: sale.notes ?? "",

@@ -15,6 +15,7 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate } from "@/lib/money";
 import { listPayments, sumPayments } from "@/lib/payments";
+import { paymentMethodOptions } from "@/lib/payment-methods";
 import { canAccess } from "@/lib/permissions";
 import { getPurchase } from "@/lib/purchases";
 import {
@@ -25,12 +26,13 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/lib/ui";
-import { paymentMethodValues } from "@/lib/validation";
 
 export default async function PurchaseDetailPage(props: PageProps<"/facturas/compras/[id]">) {
   const ctx = await requireContext("compras");
   const { id } = await props.params;
   const purchase = await getPurchase(ctx.company.id, id);
+  // Las formas de pago que ofrece la empresa: su catálogo más las base.
+  const formasDePago = await paymentMethodOptions(ctx.company.id);
 
   if (!purchase) {
     notFound();
@@ -242,10 +244,15 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
                   <label htmlFor="paymentMethod" className={labelClass}>
                     Método de pago
                   </label>
-                  <select id="paymentMethod" name="paymentMethod" defaultValue="TRANSFER" className={controlClass}>
-                    {paymentMethodValues.map((value) => (
+                  <select
+                    id="paymentMethod"
+                    name="paymentMethod"
+                    defaultValue={formasDePago.includes("Transferencia") ? "Transferencia" : formasDePago[0]}
+                    className={controlClass}
+                  >
+                    {formasDePago.map((value) => (
                       <option key={value} value={value}>
-                        {paymentMethodLabel(value)}
+                        {value}
                       </option>
                     ))}
                   </select>
@@ -278,7 +285,9 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
           payments={payments}
           settleTotal={purchase.totalAmount}
           writable={writable}
-        />
+        
+            formasDePago={formasDePago}
+          />
       ) : null}
 
       <DocItemsTable items={purchase.items} netAmount={purchase.netAmount} />

@@ -7,6 +7,7 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories, listPayers, listWorkers } from "@/lib/catalogs";
 import { getExpense, serializeExpense } from "@/lib/expenses";
 import { todayISO } from "@/lib/money";
+import { paymentMethodOptions } from "@/lib/payment-methods";
 
 export default async function EditExpensePage(props: PageProps<"/facturas/gastos/[id]/editar">) {
   const ctx = await requireContext("gastos");
@@ -23,6 +24,9 @@ export default async function EditExpensePage(props: PageProps<"/facturas/gastos
     listPayers(ctx.company.id),
     listWorkers(ctx.company.id),
   ]);
+
+  // Las formas de pago que ofrece la empresa: su catálogo más las base.
+  const formasDePago = await paymentMethodOptions(ctx.company.id);
 
   if (!expense) {
     notFound();
@@ -44,6 +48,7 @@ export default async function EditExpensePage(props: PageProps<"/facturas/gastos
       </div>
 
       <ExpenseForm
+        formasDePago={formasDePago}
         action={action}
         categories={categories}
         areas={areas}

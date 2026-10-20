@@ -17,14 +17,14 @@ export const documentTypeValues = [
   "OTHER",
 ] as const;
 
-export const paymentMethodValues = [
-  "CASH",
-  "TRANSFER",
-  "CREDIT_CARD",
-  "DEBIT_CARD",
-  "CHECK",
-  "OTHER",
-] as const;
+// El medio de pago es el NOMBRE del catálogo de la empresa (PaymentMethodCatalog),
+// no una lista fija: cada empresa tiene las formas de pago que necesita. La
+// lista concreta se arma en la UI con el catálogo más las formas base.
+const formaDePago = z
+  .string()
+  .trim()
+  .min(1, { error: "Selecciona el medio de pago." })
+  .max(60, { error: "El medio de pago es demasiado largo." });
 
 export const paymentStatusValues = ["PENDING", "PAID"] as const;
 export const partnerTypeValues = ["CUSTOMER", "SUPPLIER", "BOTH"] as const;
@@ -103,7 +103,7 @@ export const purchaseSchema = z.object({
   netAmount: amount,
   ivaAmount: amount,
   status: z.enum(paymentStatusValues, { error: "Selecciona el estado." }),
-  paymentMethod: z.preprocess(emptyToUndefined, z.enum(paymentMethodValues).optional()),
+  paymentMethod: z.preprocess(emptyToUndefined, formaDePago.optional()),
   paymentDate: optionalDate,
   notes: optionalText(1000),
 }).superRefine(requireReference);
@@ -127,6 +127,7 @@ export const saleSchema = z.object({
   ivaAmount: amount,
   retentionAmount: z.preprocess(emptyToUndefined, amount.optional()),
   status: z.enum(paymentStatusValues, { error: "Selecciona el estado." }),
+  paymentMethod: z.preprocess(emptyToUndefined, formaDePago.optional()),
   paymentDate: optionalDate,
   confirmingAt: optionalDate,
   notes: optionalText(1000),
@@ -139,7 +140,7 @@ export const expenseSchema = z.object({
   areaId: z.preprocess(emptyToUndefined, z.string().optional()),
   workerId: z.preprocess(emptyToUndefined, z.string().optional()),
   documentNumber: optionalText(50),
-  paymentMethod: z.enum(paymentMethodValues, { error: "Selecciona el tipo de pago." }),
+  paymentMethod: formaDePago,
   netAmount: amount,
   ivaAmount: amount,
   paidById: z.string().min(1, { error: "Selecciona quién pagó el gasto." }),
@@ -280,8 +281,8 @@ export const remunerationSchema = z.object({
   amount: amount,
   paidById: z.string().min(1, { error: "Selecciona quién pagó." }),
   paymentMethod: z.preprocess(
-    (value) => (value === undefined || value === null || value === "" ? "CASH" : value),
-    z.enum(paymentMethodValues, { error: "Selecciona el medio de pago." }),
+    (value) => (value === undefined || value === null || value === "" ? "Efectivo" : value),
+    formaDePago,
   ),
   notes: optionalText(500),
 });

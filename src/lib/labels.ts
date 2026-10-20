@@ -2,7 +2,6 @@ import type {
   CategoryKind,
   DocumentType,
   PartnerType,
-  PaymentMethod,
   PaymentStatus,
   Role,
   SaleStatus,
@@ -96,15 +95,6 @@ const documentTypeLabels: Record<DocumentType, string> = {
   OTHER: "Otro",
 };
 
-const paymentMethodLabels: Record<PaymentMethod, string> = {
-  CASH: "Efectivo",
-  TRANSFER: "Transferencia",
-  CREDIT_CARD: "Tarjeta de crédito",
-  DEBIT_CARD: "Tarjeta de débito",
-  CHECK: "Cheque",
-  OTHER: "Otro",
-};
-
 const categoryKindLabels: Record<CategoryKind, string> = {
   EXPENSE: "Gasto",
   INCOME: "Ingreso",
@@ -171,8 +161,20 @@ export function documentTypeLabel(type: DocumentType): string {
   return documentTypeLabels[type];
 }
 
-export function paymentMethodLabel(method: PaymentMethod): string {
-  return paymentMethodLabels[method];
+// Los valores antiguos (las claves del enum que había antes) se traducen; los
+// nombres del catálogo de la empresa se muestran tal cual.
+const paymentMethodLegacyLabels: Record<string, string> = {
+  CASH: "Efectivo",
+  TRANSFER: "Transferencia",
+  CREDIT_CARD: "Tarjeta de crédito",
+  DEBIT_CARD: "Tarjeta de débito",
+  CHECK: "Cheque",
+  OTHER: "Otro",
+};
+
+export function paymentMethodLabel(method: string | null | undefined): string {
+  if (!method) return "";
+  return paymentMethodLegacyLabels[method] ?? method;
 }
 
 export function categoryKindLabel(kind: CategoryKind): string {

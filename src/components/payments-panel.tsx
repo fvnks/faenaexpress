@@ -1,5 +1,3 @@
-import type { PaymentMethod } from "@/generated/prisma/client";
-
 import { registerPayment } from "@/app/actions/payments";
 import { DeletePaymentButton } from "@/components/delete-payment-button";
 import { SubmitButton } from "@/components/submit-button";
@@ -7,7 +5,6 @@ import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
 import type { PaymentKind, PaymentView } from "@/lib/payments";
 import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
-import { paymentMethodValues } from "@/lib/validation";
 
 /**
  * Abonos de una compra o venta: el historial, el saldo y el formulario para
@@ -20,6 +17,7 @@ export function PaymentsPanel({
   payments,
   settleTotal,
   writable,
+  formasDePago,
 }: {
   kind: PaymentKind;
   documentId: string;
@@ -27,6 +25,8 @@ export function PaymentsPanel({
   /** Monto a cubrir: el total de la compra o el "a cobrar" de la venta. */
   settleTotal: number;
   writable: boolean;
+  /** Las formas de pago del catálogo de la empresa. */
+  formasDePago: string[];
 }) {
   const paid = payments.reduce((total, payment) => total + payment.amount, 0);
   const saldo = Math.max(settleTotal - paid, 0);
@@ -120,9 +120,9 @@ export function PaymentsPanel({
                 className={controlClass}
               >
                 <option value="">Sin especificar</option>
-                {paymentMethodValues.map((value: PaymentMethod) => (
+                {formasDePago.map((value) => (
                   <option key={value} value={value}>
-                    {paymentMethodLabel(value)}
+                    {value}
                   </option>
                 ))}
               </select>

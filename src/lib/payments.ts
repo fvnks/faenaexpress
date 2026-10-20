@@ -6,7 +6,6 @@
 // Este archivo es la única fuente de ese cálculo: lo llaman las acciones al
 // registrar o eliminar un abono.
 
-import type { PaymentMethod } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 
 export type PaymentKind = "purchase" | "sale";
@@ -15,7 +14,8 @@ export type PaymentView = {
   id: string;
   date: Date;
   amount: number;
-  method: PaymentMethod | null;
+  /** El nombre del catálogo de la empresa (o el valor antiguo, ya traducido). */
+  method: string | null;
   notes: string | null;
   createdByName: string;
 };

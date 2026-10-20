@@ -17,6 +17,7 @@ import {
   type SectionAccess,
 } from "@/lib/permissions";
 import { checkPlanLimit } from "@/lib/plans";
+import { FORMAS_DE_PAGO_BASE } from "@/lib/payment-methods";
 import { companySchema, memberSchema, newUserSchema, orgRoleValues, roleValues } from "@/lib/validation";
 
 export type CompanyFormState = { error?: string; ok?: boolean } | undefined;
@@ -116,6 +117,13 @@ export async function createCompany(
   });
   await db.membership.create({
     data: { userId: org.user.id, companyId: company.id, role: "ADMIN" },
+  });
+  // La empresa nace con las formas de pago base en su catálogo: puede editarlas
+  // después (agregar la tarjeta de un banco, un vale...), pero nunca queda sin
+  // las estándar.
+  await db.paymentMethodCatalog.createMany({
+    data: FORMAS_DE_PAGO_BASE.map((name) => ({ companyId: company.id, name })),
+    skipDuplicates: true,
   });
 
   await recordAudit(

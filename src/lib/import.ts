@@ -1,4 +1,4 @@
-import type { DocumentType, PaymentMethod } from "@/generated/prisma/client";
+import type { DocumentType } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { computeIva, computeTotal } from "@/lib/money";
 import { normalizeRut } from "@/lib/rut";
@@ -195,22 +195,24 @@ function toStatus(value: CellValue, paidWords: string[]): "PENDING" | "PAID" {
   return paidWords.includes(normalizeKey(toText(value))) ? "PAID" : "PENDING";
 }
 
-function toMethod(value: CellValue): PaymentMethod {
-  const map: Record<string, PaymentMethod> = {
-    efectivo: "CASH",
-    cash: "CASH",
-    transferencia: "TRANSFER",
-    transfer: "TRANSFER",
-    tarjetadecredito: "CREDIT_CARD",
-    creditcard: "CREDIT_CARD",
-    tarjetadedebito: "DEBIT_CARD",
-    debitcard: "DEBIT_CARD",
-    cheque: "CHECK",
-    check: "CHECK",
-    otro: "OTHER",
-    other: "OTHER",
+// El medio de pago es el nombre del catálogo de la empresa, no un enum:
+// se traduce el texto del archivo al nombre legible que el usuario ve.
+function toMethod(value: CellValue): string {
+  const map: Record<string, string> = {
+    efectivo: "Efectivo",
+    cash: "Efectivo",
+    transferencia: "Transferencia",
+    transfer: "Transferencia",
+    tarjetadecredito: "Tarjeta de crédito",
+    creditcard: "Tarjeta de crédito",
+    tarjetadedebito: "Tarjeta de débito",
+    debitcard: "Tarjeta de débito",
+    cheque: "Cheque",
+    check: "Cheque",
+    otro: "Otro",
+    other: "Otro",
   };
-  return map[normalizeKey(toText(value))] ?? "OTHER";
+  return map[normalizeKey(toText(value))] ?? "Otro";
 }
 
 function toBool(value: CellValue): boolean {

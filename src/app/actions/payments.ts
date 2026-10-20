@@ -9,7 +9,6 @@ import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { formatCLP } from "@/lib/money";
 import { recomputeStatus, saleSettleTotal, type PaymentKind } from "@/lib/payments";
-import { paymentMethodValues } from "@/lib/validation";
 
 // Acepta AAAA-MM-DD y DD-MM-AAAA (lo que el normalizador de fechas deja en el
 // input). Mismo criterio que las fechas de pago de compras y ventas.
@@ -114,8 +113,9 @@ export async function registerPayment(formData: FormData): Promise<void> {
     redirect(back);
   }
 
-  const rawMethod = formData.get("method");
-  const method = paymentMethodValues.find((value) => value === rawMethod) ?? null;
+  const rawMethod = String(formData.get("method") ?? "").trim();
+  // El medio de pago es el nombre del catálogo de la empresa.
+  const method = rawMethod || null;
   const notes = String(formData.get("notes") ?? "").trim();
   const date = new Date(`${wired}T00:00:00.000Z`);
 

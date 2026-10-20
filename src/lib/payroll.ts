@@ -187,7 +187,7 @@ export async function closePayrollPeriod(companyId: string, periodId: string, us
             netAmount: entry.netAmount,
             ivaAmount: 0,
             totalAmount: entry.netAmount,
-            paymentMethod: "TRANSFER",
+            paymentMethod: "Transferencia",
             paidById: payer?.id ?? "",
             reimbursed: false,
             notes: "Liquidacion cerrada",

@@ -1359,15 +1359,6 @@ enum SaleStatus {
   CANCELLED // Anulada
 }
 
-enum PaymentMethod {
-  CASH // Efectivo
-  TRANSFER // Transferencia
-  CREDIT_CARD // Tarjeta de crédito
-  DEBIT_CARD // Tarjeta de débito
-  CHECK // Cheque
-  OTHER
-}
-
 model Purchase {
   id                   String         @id @default(cuid())
   companyId            String
@@ -1397,7 +1388,11 @@ model Purchase {
   formaPago            String? // CONTADO | CRÉDITO | SIN COSTO
   status               PaymentStatus  @default(PENDING)
   paymentDate          DateTime?
-  paymentMethod        PaymentMethod?
+  // El medio de pago es el NOMBRE del catálogo de la empresa
+  // (PaymentMethodCatalog), no una lista fija: cada empresa tiene las formas
+  // de pago que necesita (la tarjeta de un banco, un vale, una transferencia
+  // a una cuenta concreta).
+  paymentMethod           String?
   notes                String?
 
   createdById String
@@ -1454,7 +1449,7 @@ model Sale {
   status               SaleStatus     @default(PENDING)
   paymentDate          DateTime?
   confirmingAt         DateTime?
-  paymentMethod        PaymentMethod?
+  paymentMethod      String?
   notes                String?
 
   // Cancelación: cuando status=CANCELLED, estos campos indican el motivo.
@@ -1501,7 +1496,7 @@ model Payment {
   companyId   String
   date        DateTime
   amount      Int
-  method      PaymentMethod?
+  method      String?
   notes       String?
   purchaseId  String?
   saleId      String?
@@ -1684,7 +1679,7 @@ model Expense {
   netAmount      Int
   ivaAmount      Int           @default(0)
   totalAmount    Int
-  paymentMethod  PaymentMethod @default(CASH)
+  paymentMethod  String        @default("Efectivo")
   reimbursed     Boolean       @default(false)
   reimbursedAt   DateTime?
   notes          String?

@@ -11,7 +11,7 @@ import { safeReturnTo } from "@/lib/return-to";
 import { computeTotal, formatCLP, todayDate } from "@/lib/money";
 import { checkPlanLimit, incrementUsage } from "@/lib/plans";
 import { recomputeStatus } from "@/lib/payments";
-import { paymentMethodValues, purchaseSchema, type PurchaseInput } from "@/lib/validation";
+import { purchaseSchema, type PurchaseInput } from "@/lib/validation";
 
 export type PurchaseFormState = { error?: string } | undefined;
 
@@ -52,7 +52,7 @@ function toData(input: PurchaseInput) {
     // El total siempre se recalcula: nunca se confía en lo que llega del cliente.
     totalAmount: computeTotal(input.netAmount, input.ivaAmount),
     status: input.status,
-    paymentMethod: paid ? (input.paymentMethod ?? "OTHER") : null,
+    paymentMethod: paid ? (String(input.paymentMethod ?? "").trim() || "Otro") : null,
     // Si se marca pagada sin fecha, se usa el día de Chile (medianoche UTC),
     // no la hora exacta: el dominio guarda días de calendario.
     paymentDate: paid ? (input.paymentDate ?? todayDate()) : null,
@@ -185,8 +185,10 @@ export async function markPurchasePaid(formData: FormData): Promise<void> {
   }
 
   const id = String(formData.get("id") ?? "");
-  const rawMethod = formData.get("paymentMethod");
-  const paymentMethod = paymentMethodValues.find((value) => value === rawMethod) ?? "OTHER";
+  const rawMethod = String(formData.get("paymentMethod") ?? "").trim();
+  // El medio de pago es el nombre del catálogo de la empresa: si no viene, se
+  // deja como "Otro" (que es lo que siempre estuvo).
+  const paymentMethod = rawMethod || "Otro";
 
   const rawDate = formData.get("paymentDate");
   const wired = normalizePaymentDate(rawDate);

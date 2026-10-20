@@ -252,7 +252,8 @@ export default async function CatalogsPage() {
         <section className={cardClass + " p-5"}>
           <h2 className="font-semibold">Medios de pago</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Medios de pago disponibles para facturas de compra.
+            Medios de pago con los que se saldan compras, ventas, gastos y abonos. Los que
+            agregues aquí son los que aparecen al marcar un documento como pagado.
           </p>
 
           {writable ? (

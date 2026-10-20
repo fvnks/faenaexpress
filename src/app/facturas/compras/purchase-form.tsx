@@ -7,11 +7,11 @@ import { AutocompletePartner } from "@/components/autocomplete-partner";
 import { SelectDropdown } from "@/components/select-dropdown";
 import { InlineCreateSelect } from "@/components/inline-create-select";
 import { SubmitButton } from "@/components/submit-button";
-import { documentTypeLabel, paymentMethodLabel } from "@/lib/labels";
+import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
 import type { PurchaseForForm } from "@/lib/purchases";
 import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
-import { documentTypeValues, paymentMethodValues } from "@/lib/validation";
+import { documentTypeValues } from "@/lib/validation";
 
 type SupplierOption = { id: string; name: string; rut: string | null };
 type CategoryOption = { id: string; name: string };
@@ -24,12 +24,15 @@ export function PurchaseForm({
   ivaRate,
   today,
   defaults,
+  formasDePago,
 }: {
   action: (prev: PurchaseFormState, formData: FormData) => Promise<PurchaseFormState>;
   suppliers: SupplierOption[];
   categories: CategoryOption[];
   areas: AreaOption[];
   ivaRate: number;
+  /** Las formas de pago del catálogo de la empresa. */
+  formasDePago: string[];
   today: string;
   defaults?: PurchaseForForm;
 }) {
@@ -241,9 +244,9 @@ export function PurchaseForm({
                 className={controlClass}
               >
                 <option value="">Selecciona un medio de pago</option>
-                {paymentMethodValues.map((value) => (
+                {formasDePago.map((value) => (
                   <option key={value} value={value}>
-                    {paymentMethodLabel(value)}
+                    {value}
                   </option>
                 ))}
               </select>
