@@ -215,6 +215,7 @@ export default async function ConfigurationPage() {
                     id: membership.id,
                     role: membership.role,
                     inventoryAccess: membership.inventoryAccess ?? "NONE",
+                    sectionAccess: (membership.sectionAccess as Record<string, string> | null) ?? null,
                     userId: membership.userId,
                     userName: membership.user.name,
                     userEmail: membership.user.email,

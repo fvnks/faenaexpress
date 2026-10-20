@@ -104,6 +104,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
           isPlatformStaff={isPlatformStaff}
           hiddenSections={impersonation ? ["rrhh"] : undefined}
           disabledModuleSections={disabledModuleSections}
+          sectionAccess={active?.sectionAccess}
           logout={logout}
         />
       <div className="flex min-w-0 flex-1 flex-col">

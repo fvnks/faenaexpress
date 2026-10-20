@@ -354,6 +354,10 @@ model Membership {
   companyId String
   role      Role     @default(VIEWER)
   inventoryAccess InventoryAccess @default(NONE)
+  // Excepciones por sección para ESTA persona: {"rrhh": "EDIT", "inventario": "NONE"}.
+  // Lo que no esté aquí lo decide el rol. Sirve para los contratos que no son
+  // "todo o nada": «Juan entra a RRHH, pero no a Inventario».
+  sectionAccess Json?
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

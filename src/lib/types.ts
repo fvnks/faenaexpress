@@ -2,6 +2,7 @@
 // Exportados desde auth.ts para que los consumers no tengan que importarlos de aquí.
 
 import type { Company, InventoryAccess, Membership, OrgMember, Role, User } from "@/generated/prisma/client";
+import type { SectionAccessMap } from "@/lib/permissions";
 
 // Usuario autenticado con sus memberships y su pertenencia a una organización.
 // `orgMembership` es null si el usuario no pertenece a ninguna organización (instalación
@@ -22,4 +23,6 @@ export type AuthContext = {
   company: Company;
   role: Role;
   inventoryAccess?: InventoryAccess;
+  /** Excepciones por sección de esta persona (si tiene). */
+  sectionAccess?: SectionAccessMap;
 };

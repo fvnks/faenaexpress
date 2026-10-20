@@ -3,7 +3,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import type { Company, InventoryAccess, OrgRole, Role } from "@/generated/prisma/client";
-import { canAccess, canWrite as roleCanWrite, effectiveInventoryAccess, type Section } from "@/lib/permissions";
+import {
+  canAccessSection,
+  canWriteSection,
+  effectiveSectionAccess,
+  type Section,
+  type SectionAccessMap,
+} from "@/lib/permissions";
 import { isImpersonating } from "@/lib/impersonation";
 import { isSectionEnabled } from "@/lib/org-module-state";
 import { getSessionUser } from "@/lib/session";
@@ -92,7 +98,12 @@ export async function visibleCompanies(user: SessionUser): Promise<Company[]> {
 // Empresa activa: la del cookie si el usuario es miembro visible; si no, la primera.
 export async function resolveActiveMembership(
   user: SessionUser,
-): Promise<{ company: Company; role: Role; inventoryAccess: InventoryAccess } | null> {
+): Promise<{
+  company: Company;
+  role: Role;
+  inventoryAccess: InventoryAccess;
+  sectionAccess: SectionAccessMap;
+} | null> {
   const companies = await visibleCompanies(user);
   if (companies.length === 0) return null;
 
@@ -112,6 +123,7 @@ export async function resolveActiveMembership(
       company: companies[0],
       role: "VIEWER",
       inventoryAccess: "NONE",
+      sectionAccess: null,
     };
   }
 
@@ -119,6 +131,7 @@ export async function resolveActiveMembership(
     company: membership.company,
     role: membership.role,
     inventoryAccess: membership.inventoryAccess ?? "NONE",
+    sectionAccess: (membership.sectionAccess as SectionAccessMap) ?? null,
   };
 }
 
@@ -150,31 +163,44 @@ export async function requireContext(section?: Section): Promise<AuthContext> {
     if (!(await isSectionEnabled(organizationId, section))) {
       redirect("/facturas?bloqueo=modulo");
     }
-    // Inventario usa el nivel efectivo (override o rol base) para entrar.
-    const allowed =
-      section === "inventario"
-        ? canInventoryRead(active)
-        : canAccess(active.role, section);
-    if (!allowed) redirect("/facturas");
+    // El acceso de la sección: la excepción de esta persona si tiene, y si no
+    // el del rol. Un rol puede abrir una sección que su rol no abre, y al revés.
+    if (!canAccessSection(active.role, section, active)) {
+      redirect("/facturas");
+    }
   }
-  return { user, company: active.company, role: active.role, inventoryAccess: active.inventoryAccess };
+  return {
+    user,
+    company: active.company,
+    role: active.role,
+    inventoryAccess: active.inventoryAccess,
+    sectionAccess: active.sectionAccess,
+  };
 }
 
-export function canWrite(ctx: { role: Role; inventoryAccess?: InventoryAccess }, section: Section): boolean {
-  if (section === "inventario") {
-    return effectiveInventoryAccess(ctx.role, ctx.inventoryAccess) === "EDIT";
-  }
-  return roleCanWrite(ctx.role, section);
+export function canWrite(
+  ctx: { role: Role; inventoryAccess?: InventoryAccess; sectionAccess?: SectionAccessMap },
+  section: Section,
+): boolean {
+  return canWriteSection(ctx.role, section, ctx);
 }
 
 export function isAdmin(ctx: { role: Role }): boolean {
   return ctx.role === "ADMIN";
 }
 
-export function canInventoryRead(ctx: { role: Role; inventoryAccess?: InventoryAccess }): boolean {
-  return effectiveInventoryAccess(ctx.role, ctx.inventoryAccess) !== "NONE";
+export function canInventoryRead(ctx: {
+  role: Role;
+  inventoryAccess?: InventoryAccess;
+  sectionAccess?: SectionAccessMap;
+}): boolean {
+  return effectiveSectionAccess(ctx.role, "inventario", ctx) !== "NONE";
 }
 
-export function canInventoryEdit(ctx: { role: Role; inventoryAccess?: InventoryAccess }): boolean {
-  return effectiveInventoryAccess(ctx.role, ctx.inventoryAccess) === "EDIT";
+export function canInventoryEdit(ctx: {
+  role: Role;
+  inventoryAccess?: InventoryAccess;
+  sectionAccess?: SectionAccessMap;
+}): boolean {
+  return effectiveSectionAccess(ctx.role, "inventario", ctx) === "EDIT";
 }

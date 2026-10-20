@@ -4,12 +4,18 @@ import { hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { Prisma } from "@/generated/prisma/client";
 
 import { COMPANY_COOKIE, getCurrentUser, getActiveMembership, isAdmin, isOrgManager, isOrgOwner, requireContext, requireOrgManager, requireUser, visibleCompanies } from "@/lib/auth";
 import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { IMPERSONATION_FORBIDDEN, impersonationBlock } from "@/lib/impersonation";
+import {
+  CONFIGURABLE_SECTIONS,
+  SECTION_ACCESS_VALUES,
+  type SectionAccess,
+} from "@/lib/permissions";
 import { checkPlanLimit } from "@/lib/plans";
 import { companySchema, memberSchema, newUserSchema, orgRoleValues, roleValues } from "@/lib/validation";
 
@@ -211,6 +217,67 @@ export async function addMember(
   return { ok: true };
 }
 
+/**
+ * Guarda las excepciones por sección de una membresía.
+ *
+ * El rol dice qué tipo de persona es; esto dice qué puede tocar EN CONCRETO.
+ * Existe para los contratos que no son "todo o nada": «esta persona entra a
+ * RRHH, pero no a Inventario».
+ *
+ * Solo el ADMIN de la empresa puede cambiarlos, y queda auditado.
+ */
+export async function setMemberSectionAccess(
+  _prev: MemberFormState,
+  formData: FormData,
+): Promise<MemberFormState> {
+  const ctx = await requireContext();
+  if (!isAdmin(ctx)) {
+    return { error: "Solo un administrador puede cambiar los permisos por sección." };
+  }
+
+  const membershipId = String(formData.get("membershipId") ?? "").trim();
+  const membership = await db.membership.findFirst({
+    where: { id: membershipId, companyId: ctx.company.id },
+    select: { id: true, userId: true, sectionAccess: true, user: { select: { name: true } } },
+  });
+  if (!membership) return { error: "Ese usuario no es miembro de esta empresa." };
+
+  // Solo se guardan las excepciones: lo que no se toca lo decide el rol.
+  const anterior = (membership.sectionAccess as Record<string, string> | null) ?? {};
+  const siguiente: Record<string, string> = { ...anterior };
+
+  for (const section of CONFIGURABLE_SECTIONS) {
+    const valor = String(formData.get(`acceso:${section}`) ?? "").trim();
+    if (!valor) continue;
+    if (!SECTION_ACCESS_VALUES.includes(valor as SectionAccess)) continue;
+    // "default" = dejar que lo decida el rol → se quita la excepción.
+    if (valor === "default") {
+      delete siguiente[section];
+    } else {
+      siguiente[section] = valor;
+    }
+  }
+
+  const antes = anterior;
+  await db.membership.update({
+    where: { id: membership.id },
+    data: { sectionAccess: Object.keys(siguiente).length ? siguiente : undefined },
+  });
+
+  if (JSON.stringify(antes) !== JSON.stringify(siguiente)) {
+    await recordAudit(ctx, {
+      action: "UPDATE",
+      entityType: "Membership",
+      entityId: membership.id,
+      summary: `Cambió los permisos por sección de ${membership.user.name} en ${ctx.company.name}.`,
+      changes: { sectionAccess: { before: antes, after: siguiente } },
+    });
+  }
+
+  revalidatePath("/facturas/configuracion");
+  return { ok: true };
+}
+
 // Crea un usuario nuevo y lo asocia a la empresa activa.
 export async function createMember(
   _prev: MemberFormState,
@@ -316,8 +383,7 @@ export async function updateMemberRole(
   const membership = await db.membership.findFirst({
     where: { id: membershipId, companyId: ctx.company.id },
     include: { user: { select: { name: true } } },
-  });
-  if (!membership) return { error: "El usuario no pertenece a esta empresa." };
+  });  if (!membership) return { error: "El usuario no pertenece a esta empresa." };
 
   if (membership.role === "ADMIN" && role !== "ADMIN") {
     const admins = await db.membership.count({
@@ -329,14 +395,34 @@ export async function updateMemberRole(
   const inventoryAccessRaw = String(formData.get("inventoryAccess") ?? "NONE");
   const inventoryAccess = inventoryAccessRaw === "EDIT" ? "EDIT" : inventoryAccessRaw === "VIEW" ? "VIEW" : "NONE";
 
-  await db.membership.update({ where: { id: membershipId }, data: { role, inventoryAccess } });
+  // Al cambiar el rol, las excepciones por sección se van: estaban afinadas
+  // para el rol viejo y dejarlas haría que un ascendido quedara con menos
+  // permisos de los que su rol nuevo le da, sin que nadie lo pidiera.
+  const sectionAccess = (membership.sectionAccess as Record<string, string> | null) ?? null;
+  const limpiando = Object.keys(sectionAccess ?? {}).length > 0;
+
+  await db.membership.update({
+    where: { id: membershipId },
+    data: {
+      role,
+      inventoryAccess,
+      // Para vaciar un campo JSON hay que usar DbNull: `undefined` significa
+      // «no lo toques».
+      ...(limpiando ? { sectionAccess: Prisma.DbNull } : {}),
+    },
+  });
 
   await recordAudit(ctx, {
     action: "UPDATE",
     entityType: "Membership",
     entityId: membershipId,
     summary: `Cambió el rol de ${membership.user.name} de ${membership.role} a ${role}.`,
-    changes: { role: { before: membership.role, after: role } },
+    changes: {
+      role: { before: membership.role, after: role },
+      ...(limpiando
+        ? { sectionAccess: { before: sectionAccess, after: null } }
+        : {}),
+    },
   });
 
   revalidatePath("/facturas/configuracion");

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InviteExistingUserForm, ResetTwoFactorForm, ToggleUserActiveForm } from "@/app/admin/usuarios/user-forms";
+import { SectionAccessForm } from "@/components/section-access-form";
+import { setPlatformMemberSectionAccess } from "@/app/actions/platform";
 import { orgRoleLabel, roleLabel } from "@/lib/labels";
 import { formatDate } from "@/lib/money";
 import { requirePlatformStaff } from "@/lib/platform";
@@ -76,12 +78,29 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
             <h3 className="mt-4 text-sm font-semibold">Empresas</h3>
             <ul className="mt-2 divide-y divide-border">
               {user.memberships.map((membership) => (
-                <li key={membership.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <span className="text-sm">{membership.company.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {roleLabel(membership.role)}
-                    {!membership.active ? " · inactivo" : ""}
-                  </span>
+                <li key={membership.id} className="py-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm">{membership.company.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {roleLabel(membership.role)}
+                      {!membership.active ? " · inactivo" : ""}
+                    </span>
+                  </div>
+                  {ctx.staff.level !== "SUPPORT" ? (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                        Permisos por sección
+                      </summary>
+                      <SectionAccessForm
+                        action={setPlatformMemberSectionAccess}
+                        membershipId={membership.id}
+                        role={membership.role}
+                        sectionAccess={
+                          (membership.sectionAccess as Record<string, string> | null) ?? null
+                        }
+                      />
+                    </details>
+                  ) : null}
                 </li>
               ))}
             </ul>

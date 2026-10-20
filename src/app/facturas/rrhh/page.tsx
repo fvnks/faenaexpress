@@ -143,19 +143,21 @@ export default async function RrhhPage(props: PageProps<"/facturas/rrhh">) {
       </div>
 
       {/* Pagos por lote */}
-      <section className={cardClass + " p-5"}>
-        <h2 className="font-semibold">Pagos por lote</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Registra sueldos mensuales con un clic para los trabajadores activos seleccionados.
-        </p>
-        <div className="mt-4">
-          <BulkRemunerationForm
-            workers={workers.filter((worker) => worker.active).map((worker) => ({ id: worker.id, name: worker.name, baseAmount: worker.baseAmount ?? null }))}
-            payers={payers}
-            today={todayISO()}
-          />
-        </div>
-      </section>
+      {writable ? (
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Pagos por lote</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Registra sueldos mensuales con un clic para los trabajadores activos seleccionados.
+          </p>
+          <div className="mt-4">
+            <BulkRemunerationForm
+              workers={workers.filter((worker) => worker.active).map((worker) => ({ id: worker.id, name: worker.name, baseAmount: worker.baseAmount ?? null }))}
+              payers={payers}
+              today={todayISO()}
+            />
+          </div>
+        </section>
+      ) : null}
 
       {/* Costos laborales por mes */}
       <section className={cardClass + " p-5 overflow-x-auto"}>
@@ -197,19 +199,21 @@ export default async function RrhhPage(props: PageProps<"/facturas/rrhh">) {
       </section>
 
       {/* Registrar pago */}
-      <section className={cardClass + " p-5"}>
-        <h2 className="font-semibold">Registrar pago a trabajador</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Registra el resultado líquido del pago; el gasto se crea solo.
-        </p>
-        <div className="mt-4">
-          <NewRemunerationForm
-            workers={workers.filter((worker) => worker.active).map((worker) => ({ id: worker.id, name: worker.name }))}
-            payers={payers}
-            today={todayISO()}
-          />
-        </div>
-      </section>
+      {writable ? (
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Registrar pago a trabajador</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Registra el resultado líquido del pago; el gasto se crea solo.
+          </p>
+          <div className="mt-4">
+            <NewRemunerationForm
+              workers={workers.filter((worker) => worker.active).map((worker) => ({ id: worker.id, name: worker.name }))}
+              payers={payers}
+              today={todayISO()}
+            />
+          </div>
+        </section>
+      ) : null}
 
       {/* Trabajadores */}
       <section className={cardClass + " p-5"}>

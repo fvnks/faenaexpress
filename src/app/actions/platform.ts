@@ -16,6 +16,11 @@ import { clearPendingInvite, setPendingInvite } from "@/lib/platform-invite";
 import { setOrganizationModule, syncPlanModules } from "@/lib/org-module-state";
 import { findOrgModule, ORG_MODULES } from "@/lib/org-modules";
 import { recomputeUsage } from "@/lib/plans";
+import {
+  CONFIGURABLE_SECTIONS,
+  SECTION_ACCESS_VALUES,
+  type SectionAccess,
+} from "@/lib/permissions";
 import { disableTwoFactor } from "@/lib/two-factor";
 import { requirePlatformStaff } from "@/lib/platform";
 import { RateLimiter } from "@/lib/rate-limit";
@@ -509,6 +514,66 @@ export async function createCompanyForOrganization(
   });
 
   revalidatePath(`/admin/organizaciones/${organizationId}`);
+  return { ok: true };
+}
+
+/**
+ * Guarda las excepciones por sección de una membresía, desde la consola.
+ *
+ * Es la versión del operador de `setMemberSectionAccess`: el staff no tiene
+ * empresa activa en la cuenta del cliente, así que va por id de membresía.
+ */
+export async function setPlatformMemberSectionAccess(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const membershipId = String(formData.get("membershipId") ?? "").trim();
+  const membership = await db.membership.findUnique({
+    where: { id: membershipId },
+    select: {
+      id: true,
+      userId: true,
+      sectionAccess: true,
+      role: true,
+      user: { select: { name: true, email: true } },
+      company: { select: { name: true, organizationId: true } },
+    },
+  });
+  if (!membership) return { error: "Ese usuario no es miembro de ninguna empresa." };
+
+  const anterior = (membership.sectionAccess as Record<string, string> | null) ?? {};
+  const siguiente: Record<string, string> = { ...anterior };
+
+  for (const section of CONFIGURABLE_SECTIONS) {
+    const valor = String(formData.get(`acceso:${section}`) ?? "").trim();
+    if (!valor) continue;
+    if (!SECTION_ACCESS_VALUES.includes(valor as SectionAccess)) continue;
+    if (valor === "default") {
+      delete siguiente[section];
+    } else {
+      siguiente[section] = valor;
+    }
+  }
+
+  await db.membership.update({
+    where: { id: membership.id },
+    data: { sectionAccess: Object.keys(siguiente).length ? siguiente : undefined },
+  });
+
+  if (JSON.stringify(anterior) !== JSON.stringify(siguiente)) {
+    await recordPlatformAudit(ctx, {
+      action: "UPDATE",
+      entityType: "Membership",
+      entityId: membership.id,
+      organizationId: membership.company.organizationId,
+      summary: `Cambió los permisos por sección de ${membership.user.name} (${membership.user.email}) en «${membership.company.name}».`,
+      changes: { sectionAccess: { before: anterior, after: siguiente } },
+    });
+  }
+
+  revalidatePath(`/admin/usuarios/${membership.userId}`);
   return { ok: true };
 }
 

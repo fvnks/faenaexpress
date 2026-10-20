@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import {
   addMember,
   createMember,
+  setMemberSectionAccess,
   setMembershipActive,
   updateMemberRole,
   type MemberFormState,
 } from "@/app/actions/companies";
 import { SelectDropdown } from "@/components/select-dropdown";
+import { SectionAccessForm } from "@/components/section-access-form";
 import { SubmitButton } from "@/components/submit-button";
 import type { Role } from "@/generated/prisma/client";
 import { roleLabel } from "@/lib/labels";
@@ -21,6 +23,8 @@ export type MemberForRow = {
   id: string;
   role: Role;
   inventoryAccess?: string;
+  /** Excepciones por sección de esta persona. */
+  sectionAccess?: Record<string, string> | null;
   userId: string;
   userName: string;
   userEmail: string;
@@ -60,6 +64,19 @@ export function MemberRow({
           ) : null}
         </div>
         <div className="text-xs text-muted-foreground">{membership.userEmail}</div>
+        {canManage ? (
+          <details className="mt-1">
+            <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+              Permisos por sección
+            </summary>
+            <SectionAccessForm
+              action={setMemberSectionAccess}
+              membershipId={membership.id}
+              role={membership.role}
+              sectionAccess={membership.sectionAccess}
+            />
+          </details>
+        ) : null}
       </div>
 
       {canManage ? (

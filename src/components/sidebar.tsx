@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type { InventoryAccess, Role } from "@/generated/prisma/client";
-import { canAccess, effectiveInventoryAccess, type Section } from "@/lib/permissions";
+import { canAccess, canAccessSection, type Section, type SectionAccessMap } from "@/lib/permissions";
 
 const iconCls = "h-5 w-5 shrink-0";
 
@@ -683,6 +683,8 @@ export type SidebarProps = {
   hiddenSections?: string[];
   /** Secciones de módulos que la organización no tiene contratados. */
   disabledModuleSections?: string[];
+  /** Excepciones por sección de esta persona. */
+  sectionAccess?: SectionAccessMap;
   logout: () => void;
 };
 
@@ -797,10 +799,14 @@ export function Sidebar(props: SidebarProps) {
     // Organización no depende del rol en la empresa activa: la administra quien
     // es OWNER/ADMIN de la organización, tenga o no una empresa activa.
     if (item.section === "organizacion") return props.isOrgManager;
-    if (item.section === "inventario") {
-      return props.role ? effectiveInventoryAccess(props.role, props.inventoryAccess) !== "NONE" : false;
-    }
-    return props.role ? canAccess(props.role, item.section) : false;
+    // El resto: lo decide el rol, corregido por las excepciones por sección de
+    // esta persona («entra a RRHH, pero no a Inventario»).
+    return props.role
+      ? canAccessSection(props.role, item.section, {
+          inventoryAccess: props.inventoryAccess,
+          sectionAccess: props.sectionAccess,
+        })
+      : false;
   };
 
   const visibleGroups = groups

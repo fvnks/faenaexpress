@@ -95,3 +95,67 @@ export function effectiveInventoryAccess(role: Role, override?: InventoryAccess)
   if (ACCESS["inventario"].includes(role)) return "VIEW";
   return "NONE";
 }
+
+// ---------------------------------------------------------------------------
+// Excepciones por sección (permisos finos por persona)
+// ---------------------------------------------------------------------------
+
+/** Nivel de acceso a una sección: nada, solo leer, o leer y escribir. */
+export type SectionAccess = "NONE" | "VIEW" | "EDIT";
+
+export const SECTION_ACCESS_VALUES: SectionAccess[] = ["NONE", "VIEW", "EDIT"];
+
+/** Secciones que se pueden afinar por persona (las que son módulos contratables). */
+export const CONFIGURABLE_SECTIONS = ["rrhh", "inventario", "comisiones", "banco"] as const;
+
+export type ConfigurableSection = (typeof CONFIGURABLE_SECTIONS)[number];
+
+/** El mapa de excepciones tal como viene de la base (JSON). */
+export type SectionAccessMap = Record<string, string> | null | undefined;
+
+/**
+ * El acceso efectivo a una sección: primero la excepción de esta persona, y si
+ * no hay, el rol.
+ *
+ * `NONE` en el mapa significa «esta persona NO entra a esta sección», aunque su
+ * rol se la dé. Es al revés de la columna `inventoryAccess`, donde `NONE` quiere
+ * decir «sin configurar» y por eso se cae al rol: esa columna es más antigua y
+ * no se cambia de significado para no romper lo que ya funciona.
+ */
+export function effectiveSectionAccess(
+  role: Role,
+  section: Section,
+  opts: { inventoryAccess?: InventoryAccess; sectionAccess?: SectionAccessMap } = {},
+): SectionAccess {
+  const excepcion = opts.sectionAccess?.[section];
+  if (excepcion === "NONE" || excepcion === "VIEW" || excepcion === "EDIT") {
+    return excepcion;
+  }
+
+  // Inventario tiene su columna propia, más antigua: manda si no es "NONE".
+  if (section === "inventario" && opts.inventoryAccess && opts.inventoryAccess !== "NONE") {
+    return opts.inventoryAccess;
+  }
+
+  if (WRITE[section].includes(role)) return "EDIT";
+  if (ACCESS[section].includes(role)) return "VIEW";
+  return "NONE";
+}
+
+/** ¿Puede entrar a la sección? */
+export function canAccessSection(
+  role: Role,
+  section: Section,
+  opts: { inventoryAccess?: InventoryAccess; sectionAccess?: SectionAccessMap } = {},
+): boolean {
+  return effectiveSectionAccess(role, section, opts) !== "NONE";
+}
+
+/** ¿Puede escribir en la sección? */
+export function canWriteSection(
+  role: Role,
+  section: Section,
+  opts: { inventoryAccess?: InventoryAccess; sectionAccess?: SectionAccessMap } = {},
+): boolean {
+  return effectiveSectionAccess(role, section, opts) === "EDIT";
+}
