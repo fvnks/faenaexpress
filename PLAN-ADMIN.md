@@ -325,7 +325,21 @@ plan son los de C). B2 y E son decisiones de riesgo, no bloquean vender.
 
 ## 6b. Despliegue: el subdominio de la consola (Coolify)
 
-Decidido: durante el desarrollo la consola vive en el **mismo dominio** (`yellow-erp.cl/admin`); al
+**Corrección de un supuesto (verificado el 20-10-2026):** `yellow-erp.cl` **no** sirve esta app. Ese
+dominio lo ocupa **otro proyecto** (la landing de marketing con un panel de muestra). Esta app (la de
+"Facturas") está desplegada en **`erp.faenaexpress.cl`**, apuntando al mismo VPS (`148.113.196.87`).
+Por eso, la consola quedó viva en **`erp.faenaexpress.cl/admin`** y no en `yellow-erp.cl/admin`.
+
+**No es un problema de seguridad:** la autorización la decide `PlatformStaff` en la base, no el host. Un
+cliente del SaaS (por ejemplo `paola@montajevertikal.cl`) que abra `/admin` rebota a `/facturas` porque no
+está en la tabla de personal. Lo que sí es un problema es de **marca y de ergonomía**: la consola del
+proveedor no debería vivir en el dominio del cliente.
+
+**Decisión a tomar (pendiente):** cuando exista el despliegue de esta app con perfil `saas`, la consola se
+publica como **`admin.yellow-erp.cl`** y el `/admin` del dominio del cliente devuelve 404. No es un cambio
+de código salvo el punto 5 de abajo.
+
+Decidido: durante el desarrollo la consola vive en el **mismo dominio** de la app; al
 terminar las fases se publica como **`admin.yellow-erp.cl`**. No es un cambio de código: la app no
 depende del host (`requireStaff` decide, no el dominio), así que es configuración de despliegue.
 

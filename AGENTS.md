@@ -97,9 +97,19 @@ Aún no hay tests. Cuando existan, documenta aquí cómo correr uno solo.
 - Tema claro/oscuro mediante la clase `dark` en `<html>`. Se aplica antes de pintar con un script inline en `src/app/layout.tsx` y se alterna con `src/components/theme-toggle.tsx`. Verifica **ambos** temas (R-34).
 - Tipografía IBM Plex Sans vía `next/font/google`; montos y tablas usan la clase `.tabular`.
 
-## Deploy (pendiente)
+## Deploy
 
-Local primero; luego VPS Ubuntu con Coolify. En Coolify: build `pnpm build`, release `pnpm db:deploy`, y definir `DATABASE_URL` + credenciales del admin como variables de entorno.
+VPS Ubuntu con Coolify (`148.113.196.87`). Build `pnpm build`, release `pnpm db:deploy` (lo corre el
+entrypoint del contenedor), y `DATABASE_URL` + credenciales del admin como variables de entorno.
+
+- **Esta app vive en `erp.faenaexpress.cl`** (perfil `standalone`: sin landing, el visitante va a `/login`).
+  Ojo: **`yellow-erp.cl` es otro proyecto** (landing de marketing), no esta app.
+- La consola de operador (`/admin`) está en `erp.faenaexpress.cl/admin` por ahora. Cuando exista el
+  despliegue con perfil `saas`, se publica como `admin.yellow-erp.cl` (ver `PLAN-ADMIN.md` §6b).
+- La base de producción está en el puerto **5432 del VPS, sin TLS** (la CLI de Prisma en Windows no
+  puede conectar: hay que apuntar `DATABASE_URL` y `PRISMA_DATABASE_URL` a ella y llamar
+  `node node_modules/prisma/build/index.js <comando>`; el puente TLS de `scripts/prisma-run.mjs` no sirve
+  contra ese puerto). El `.env` local apunta a la **5433**, que sí tiene TLS.
 
 <!-- antislop:start -->
 ## antislop
