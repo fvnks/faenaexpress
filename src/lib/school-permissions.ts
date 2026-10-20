@@ -40,8 +40,7 @@ const ACCESS: Record<SchoolSection, readonly SchoolRole[]> = {
   asistencia: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "STAFF", "VIEWER"],
   calificaciones: ["DIRECTOR", "UTP", "TEACHER", "VIEWER"],
   libro: ["DIRECTOR", "UTP", "TEACHER", "VIEWER"],
-  convivencia: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "VIEWER"],
-  comunicacion: ["DIRECTOR", "UTP", "ADMIN", "STAFF", "VIEWER"],
+  convivencia: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "VIEWER"],  comunicacion: ["DIRECTOR", "UTP", "ADMIN", "STAFF", "VIEWER"],
   cobranza: ["DIRECTOR", "ADMIN", "VIEWER"],
   administracion: ["DIRECTOR", "ADMIN"],
 };

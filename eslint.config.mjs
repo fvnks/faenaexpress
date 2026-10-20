@@ -12,9 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Directorio de desarrollo alternativo (instancia paralela con
-    // NEXT_DIST_DIR): no es código fuente.
-    ".next-dev2/**",
+    // Directorios de desarrollo alternativos (instancia paralela con
+    // NEXT_DIST_DIR): no son código fuente.
+    ".next-dev*/**",
   ]),
 ]);
 

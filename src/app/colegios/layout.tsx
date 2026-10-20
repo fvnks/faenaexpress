@@ -7,8 +7,18 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ToasterFlash } from "@/components/toaster-flash";
 import { getCurrentUser } from "@/lib/auth";
 import { getFlash } from "@/lib/flash";
-import { schoolRoleLabel } from "@/lib/school-permissions";
+import { canAccessSchool, schoolRoleLabel, type SchoolSection } from "@/lib/school-permissions";
 import { getActiveSchool, visibleSchools } from "@/lib/school-auth";
+
+// Secciones del módulo Colegios. Cada una tiene su propio permiso: un docente
+// ve el libro y la asistencia, no la cobranza.
+const SECCIONES: { href: string; label: string; section: SchoolSection }[] = [
+  { href: "/colegios", label: "Panel", section: "panel" },
+  { href: "/colegios/asistencia", label: "Asistencia", section: "asistencia" },
+  { href: "/colegios/estudiantes", label: "Alumnos", section: "estudiantes" },
+  { href: "/colegios/cursos", label: "Cursos", section: "cursos" },
+  { href: "/colegios/libro", label: "Libro de clases", section: "libro" },
+];
 
 // Shell del módulo Colegios. Es paralelo al de Facturas, pero con su propia
 // navegación: las secciones de un colegio no son las de una empresa.
@@ -24,6 +34,8 @@ export default async function ColegiosLayout({ children }: LayoutProps<"/colegio
 
   // Sin colegio al que entrar: se vuelve al selector de módulos.
   if (!ctx) redirect("/modulos");
+
+  const visibles = SECCIONES.filter((s) => canAccessSchool(ctx.role, s.section));
 
   return (
     <div className="min-h-dvh">
@@ -56,6 +68,21 @@ export default async function ColegiosLayout({ children }: LayoutProps<"/colegio
             </form>
           </div>
         </div>
+
+        <nav aria-label="Secciones del colegio" className="border-t border-border">
+          <ul className="mx-auto flex max-w-6xl flex-wrap gap-1 px-4 lg:px-8">
+            {visibles.map((s) => (
+              <li key={s.href}>
+                <Link
+                  href={s.href}
+                  className="inline-block px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {s.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6 lg:px-8">{children}</main>

@@ -313,6 +313,8 @@ model School {
   guardians   Guardian[]
   teachers    Teacher[]
   subjects    Subject[]
+  sessions    ClassSession[]
+  absences    StudentAbsence[]
 
   @@index([organizationId])
 }
@@ -350,6 +352,7 @@ model Course {
   school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
   assignments TeachingAssignment[]
+  sessions    ClassSession[]
 
   @@index([schoolId, year])
 }
@@ -370,9 +373,11 @@ model Student {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school        School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   enrollments   Enrollment[]
   guardianships Guardianship[]
+  attendances   AttendanceRecord[]
+  absences      StudentAbsence[]
 
   @@index([schoolId, lastName])
 }
@@ -423,6 +428,7 @@ model Teacher {
 
   school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   assignments TeachingAssignment[]
+  sessions     ClassSession[]
 
   @@index([schoolId, name])
 }
@@ -437,6 +443,7 @@ model Subject {
 
   school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   assignments TeachingAssignment[]
+  sessions     ClassSession[]
 
   @@unique([schoolId, code])
 }
@@ -476,6 +483,105 @@ model Enrollment {
 
   @@unique([courseId, studentId])
   @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// Libro de clases digital (Circular N°30)
+//
+// El MINEDUC extiende el estándar CEDS: el libro de clases se mapea a
+// `SchoolCalendarItem` (cada día del calendario escolar) con la asistencia
+// del alumno y del docente, más las respuestas de evaluación. El archivo que
+// se entrega es un `json.zip` que su contenedor (`edemineduc/etl`) parsea y
+// valida. Ver `PLAN-COLEGIOS.md` §2.
+//
+// Lo que la norma exige y el modelo tiene queensure:
+//   - Registros completos durante el año, no al momento de la fiscalización.
+//   - Trazabilidad: quién registró cada dato y cuándo, y las correcciones.
+//   - Respaldo exportable.
+// ---------------------------------------------------------------------------
+
+enum AttendanceStatus {
+  PRESENT // presente
+  ABSENT // ausente
+  LATE // atraso
+  JUSTIFIED // justificada (con justificativo): cuenta como asistencia
+  EXCUSED // eximido (permiso, retirada anticipada): no cuenta ni a favor ni en contra
+}
+
+// Una clase dictada: curso + asignatura + docente + fecha. Es la unidad del
+// registro diario y la que se exporta al EDE.
+model ClassSession {
+  id        String @id @default(cuid())
+  schoolId  String
+  courseId  String
+  subjectId String
+  teacherId String
+  date      DateTime
+  // Período del horario (1ª, 2ª...). No es opcional: la clave única de la
+  // clase lo necesita, y una clase sin período es la primera.
+  period    Int      @default(1)
+  startTime String? // "08:30"
+  endTime   String?
+  // El registro de la clase: contenidos, actividades y objetivos.
+  contents   String?
+  activities String?
+  objectives String?
+  // Trazabilidad (la Circular 30 la pide): quién registró y cuándo.
+  recordedById String
+  recordedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school      School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject     Subject            @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher     Teacher            @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  attendances AttendanceRecord[]
+
+  @@unique([courseId, subjectId, date, period])
+  @@index([schoolId, date])
+  @@index([teacherId, date])
+}
+
+// La asistencia de un alumno en una clase. El estado lleva el justificativo
+// cuando corresponde.
+model AttendanceRecord {
+  id         String @id @default(cuid())
+  sessionId  String
+  studentId  String
+  status     AttendanceStatus @default(PRESENT)
+  minutesLate Int @default(0)
+  // "ENFERMEDAD", "PERMISO", "RETIRADA_TEMPORANA", "FALTA_JUSTIFICADA", "OTRO"
+  justificationType String?
+  justificationNote String?
+  recordedById String
+  recordedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@index([studentId])
+}
+
+// Permisos, licencias y retiradas anticipadas: días en que el alumno no asiste
+// por un motivo con registro. No cuentan ni a favor ni en contra del 85%.
+model StudentAbsence {
+  id        String @id @default(cuid())
+  schoolId  String
+  studentId String
+  // "PERMISO", "LICENCIA_MEDICA", "RETIRADA_ANTICIPADA", "OTRO"
+  type      String
+  reason    String?
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, startDate])
+  @@index([studentId, startDate])
 }
 
 // ---------------------------------------------------------------------------

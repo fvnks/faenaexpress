@@ -17,7 +17,7 @@
 /.next/
 /out/
 # instancia de desarrollo paralela (NEXT_DIST_DIR)
-/.next-dev2/
+/.next-dev*/
 
 # production
 /build

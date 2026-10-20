@@ -159,6 +159,64 @@ registros existen. La Circular 30 es, literalmente, la especificación del produ
 - Verificado: el selector muestra las dos tarjetas con su estado real; `/colegios` muestra el colegio
   con sus métricas y cursos; un usuario sin colegio rebota a `/modulos`; Facturas sigue intacto.
 
+### Estado de C2 (20-10-2026): implementada y verificada en local
+
+- **Schema** (migración `20261026180000_class_book`): `ClassSession` (la clase dictada: curso + asignatura +
+  docente + fecha + período, con el contenido de la clase), `AttendanceRecord` (la asistencia de un alumno en
+  una clase, con su justificativo) y `StudentAbsence` (permisos, licencias y retiradas anticipadas).
+- **Trazabilidad**: cada clase y cada registro guardan **quién** lo registró y **cuándo**. La Circular N°30 la
+  pide: en una fiscalización hay que poder identificar al autor de cada dato y sus correcciones.
+- **El 85% del Decreto 67** (`src/lib/school-attendance.ts`): el requisito de promoción. La regla de conteo
+  queda explícita y auditable: cuentan la presencia, los atrasos y las justificadas; la falta sin justificar
+  no; y las eximidas (permisos, licencias) no suman ni restan. Cuando un curso no tiene clases
+  registradas, la pantalla dice «sin clases registradas» en vez de un 100% engañoso.
+- **La pantalla del docente** (`/colegios/asistencia`): elige la clase y marca. La ficha del alumno
+  (`/colegios/estudiantes/[id]`) muestra el porcentaje por curso y cuántos atrasos le faltan para llegar
+  al 85%.
+- **La exportación al MINEDUC** (`src/lib/school-ede.ts` + `/colegios/libro/export`): genera el `json.zip`
+  con la estructura exacta que espera el contenedor del MINEDUC.
+
+**El contrato real de la exportación** (está en el repositorio del propio MINEDUC,
+<https://github.com/Admin-EDE/DockerEdeCode>, y en la imagen `edemineduc/etl`):
+
+```json
+{
+  "<JSONGroup>": [              // _Establecimientos, _Personas, _ComunidadEducativa, _Cursos…
+    { "<Table>": [ { "<Column>": valor } ] }   // columnas del NDS Reference v7.1
+  ]
+}
+```
+
+Los grupos y las tablas son del MINEDUC, no de CEDS puro; las columnas sí son de CEDS v7.1 con sus
+extensiones (por eso `RoleAttendanceEvent` trae `firmaRatificador`, `oprIdRatificador` y `fechaRatificador`:
+la firma del verificador de identidad).
+
+Lo que genera hoy: `K12School`, `Person`, `PersonIdentifier`, `PersonEmailAddress`, `PersonTelephone`,
+`OrganizationPersonRole` (la matrícula), `RoleAttendanceEvent` (la asistencia), `RoleAttendance` (el
+resumen con `AttendanceRate`), `K12Course` y `CourseSectionSchedule` (el horario).
+
+Para validarlo en local hace falta Docker:
+
+```
+docker run -it --rm --name etl -v <carpeta>:/usr/src/ede -w /usr/src/ede \
+  edemineduc/etl python3 parseCSVtoEDE.py parse json ./json.zip
+docker run -it --rm --name etl -v <carpeta>:/usr/src/ede -w /usr/src/ede \
+  edemineduc/etl python3 parseCSVtoEDE.py insert
+docker run -it --rm --name etl -v <carpeta>:/usr/src/ede -w /usr/src/ede \
+  edemineduc/etl python3 parseCSVtoEDE.py check {frase_secreta} ./file.db
+```
+
+**Lo que falta para la fiscalización** (y por qué no se hizo aún):
+
+| Falta | Por qué |
+| --- | --- |
+| **Calificaciones y actas** | Es la C3 entera: evaluaciones con ponderación, promedios y el acta de promoción. |
+| **Registro de convivencia** | Es la C6: anotaciones positivas, negativas y observaciones con su trazabilidad (Ley 21.809). |
+| **Libro PIE** | Planes de apoyo de los NEEP/NEET (`ServicePlan` del EDE). |
+| **Firma con el verificador de identidad** | El docente valida cada registro con su código dinámico (trámite en `tramites.mineduc.cl` con Clave Única). La plataforma debe guardar el resultado en `firmaRatificador`. |
+| **Calendario escolar** | La Circular N°30 exige que el registro esté al día durante todo el año, no el día de la visita. Es la tabla `_Calendarios` del EDE. |
+| **Códigos de referencia** | `RefSchoolLevelId`, `RefAttendanceStatusId` y compañía usan las tablas de referencia del MINEDUC; los valores que se usan hoy son los habituales, pero hay que confirmarlos contra el validador. |
+
 ## 7. Riesgos (y cómo se miran de frente)
 
 | Riesgo | Por qué importa | Mitigación |
