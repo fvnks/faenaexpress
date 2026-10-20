@@ -5,6 +5,7 @@ import { InviteFromAdminForm } from "@/app/admin/admin-forms";
 import { ImpersonateForm } from "@/app/admin/impersonate-form";
 import { InviteLinkPanel } from "@/app/admin/invite-link-panel";
 import { ModuleToggle } from "@/app/admin/module-toggle";
+import { NewCompanyForOrganizationForm } from "@/app/admin/new-company-for-org-form";
 import { PlanForOrganizationForm } from "@/app/admin/plan-for-organization";
 import { RecomputeUsageForm } from "@/app/admin/recompute-usage-form";
 import { orgRoleLabel, roleLabel, subscriptionStatusLabel } from "@/lib/labels";
@@ -64,10 +65,23 @@ export default async function AdminOrganizationDetailPage({
         <h2 className="font-semibold">Empresas</h2>
         {organization.companies.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">
-            Esta cuenta todavía no tiene empresas. El cliente las crea al entrar.
+            Esta cuenta todavía no tiene empresas. Sin al menos una, la persona que invites entra y
+            no tiene dónde trabajar.
+          </p>
+        ) : null}
+
+        {ctx.staff.level === "SUPPORT" ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Tu nivel (soporte) solo permite leer. Crear una empresa es de operador.
           </p>
         ) : (
-          <ul className="mt-3 divide-y divide-border">
+          <div className="mt-4">
+            <NewCompanyForOrganizationForm organizationId={organization.id} />
+          </div>
+        )}
+
+        {organization.companies.length > 0 ? (
+          <ul className="mt-4 divide-y divide-border">
             {organization.companies.map((company) => (
               <li key={company.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                 <div>
@@ -83,7 +97,7 @@ export default async function AdminOrganizationDetailPage({
               </li>
             ))}
           </ul>
-        )}
+        ) : null}
       </section>
 
       <section className={cardClass + " p-5"}>

@@ -450,6 +450,69 @@ export async function resetUserTwoFactor(
 }
 
 /**
+ * Crea una empresa dentro de una organización (alta asistida).
+ *
+ * Es de OPERATOR. La cuenta se crea desde la consola, pero la empresa con sus
+ * datos fiscales la pone el cliente: si la crea el operador, la está
+ * escribiendo de memoria y el RUT termina mal.
+ *
+ * Quien acepta la invitación recibe su membresía en esta empresa.
+ */
+export async function createCompanyForOrganization(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const organizationId = String(formData.get("organizationId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const rut = String(formData.get("rut") ?? "").trim() || null;
+  const ivaRate = Number(formData.get("ivaRate") ?? 19);
+
+  if (!organizationId) return { error: "Falta la organización." };
+  if (name.length < 2 || name.length > 120) {
+    return { error: "El nombre debe tener entre 2 y 120 caracteres." };
+  }
+  if (ivaRate < 0 || ivaRate > 100) {
+    return { error: "El IVA debe ser un porcentaje entre 0 y 100." };
+  }
+
+  const organization = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true, name: true },
+  });
+  if (!organization) return { error: "Esa organización no existe." };
+
+  const existing = await db.company.findFirst({
+    where: { organizationId, name: { equals: name, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (existing) return { error: `Ya existe una empresa llamada «${name}» en esa cuenta.` };
+
+  const company = await db.company.create({
+    data: {
+      organizationId,
+      name,
+      rut,
+      ivaRate: Number.isInteger(ivaRate) ? ivaRate : 19,
+      currency: "CLP",
+    },
+    select: { id: true, name: true },
+  });
+
+  await recordPlatformAudit(ctx, {
+    action: "CREATE",
+    entityType: "Company",
+    entityId: company.id,
+    organizationId,
+    summary: `Creó la empresa «${company.name}» en «${organization.name}».`,
+  });
+
+  revalidatePath(`/admin/organizaciones/${organizationId}`);
+  return { ok: true };
+}
+
+/**
  * Habilita o deshabilita un módulo para una organización.
  *
  * Es un cambio COMERCIAL, no un ajuste: por eso va con auditoría de plataforma

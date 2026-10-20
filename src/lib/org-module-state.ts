@@ -13,7 +13,7 @@
 // es el único lugar por donde pasan todas las páginas.
 
 import { db } from "@/lib/db";
-import { ALL_ORG_MODULES, findOrgModule, moduleForSection, type OrgModule } from "@/lib/org-modules";
+import { ALL_ORG_MODULES, findOrgModule, moduleForSection, ORG_MODULES, type OrgModule } from "@/lib/org-modules";
 import type { Section } from "@/lib/permissions";
 
 /** Estado de un módulo para una organización. */
@@ -148,10 +148,15 @@ export async function setOrganizationModule(
 /**
  * Refleja en la organización los módulos que trae el plan.
  *
- * Solo toca las filas `source = "plan"`: lo que el operador habilitó a mano
- * (un módulo vendido suelto) no se pisa nunca. El plan manda sobre el defecto,
- * así que un módulo que el plan no incluye queda deshabilitado para esa
- * cuenta, salvo que esté activado a mano.
+ * La lista del plan es **autoritativa** para los módulos que administra: si un
+ * módulo no está en el plan, queda DESHABILITADO para esa cuenta. Por eso se
+ * escribe una fila `source = "plan"` para cada módulo contratable, también
+ * para los que no están (con `enabled: false`): si no, el defecto
+ * («habilitado») los dejaría activos y un cliente pagaría por un plan que no
+ * los incluye.
+ *
+ * Lo que el operador habilitó a mano (un módulo vendido suelto) **no se pisa
+ * nunca**: esas filas son `source = "manual"` y mandan sobre el plan.
  */
 export async function syncPlanModules(
   organizationId: string,
@@ -163,38 +168,37 @@ export async function syncPlanModules(
   const existentes = await db.organizationModule.findMany({
     where: { organizationId, source: "plan" },
   });
+  const porCodigo = new Map(existentes.map((r) => [r.moduleCode, r]));
 
-  for (const row of existentes) {
-    if (!delPlan.has(row.moduleCode)) {
-      // El plan ya no lo incluye: se cierra la ventana.
-      if (row.enabled) {
-        await db.organizationModule.update({
-          where: { id: row.id },
-          data: { enabled: false, enabledTo: ahora },
-        });
-      }
-    }
-  }
+  // Todos los módulos contratables, no solo los del plan: la lista del plan
+  // tiene que ser la que manda.
+  for (const modulo of ORG_MODULES) {
+    const row = porCodigo.get(modulo.code);
+    const debeEstar = delPlan.has(modulo.code);
 
-  for (const code of delPlan) {
-    const modulo = findOrgModule(code);
-    if (!modulo || modulo.core) continue;
-    const row = existentes.find((r) => r.moduleCode === code);
     if (!row) {
       await db.organizationModule.create({
         data: {
           organizationId,
-          moduleCode: code,
-          enabled: true,
+          moduleCode: modulo.code,
+          enabled: debeEstar,
           enabledFrom: ahora,
-          enabledTo: null,
+          enabledTo: debeEstar ? null : ahora,
           source: "plan",
         },
       });
-    } else if (!row.enabled) {
+      continue;
+    }
+
+    if (debeEstar && !row.enabled) {
       await db.organizationModule.update({
         where: { id: row.id },
         data: { enabled: true, enabledFrom: ahora, enabledTo: null },
+      });
+    } else if (!debeEstar && row.enabled) {
+      await db.organizationModule.update({
+        where: { id: row.id },
+        data: { enabled: false, enabledTo: ahora },
       });
     }
   }
