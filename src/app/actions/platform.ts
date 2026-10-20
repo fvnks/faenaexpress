@@ -13,8 +13,9 @@ import {
 } from "@/lib/impersonation";
 import { recordPlatformAudit } from "@/lib/platform-audit";
 import { clearPendingInvite, setPendingInvite } from "@/lib/platform-invite";
-import { setOrganizationModule } from "@/lib/org-module-state";
-import { findOrgModule } from "@/lib/org-modules";
+import { setOrganizationModule, syncPlanModules } from "@/lib/org-module-state";
+import { findOrgModule, ORG_MODULES } from "@/lib/org-modules";
+import { recomputeUsage } from "@/lib/plans";
 import { requirePlatformStaff } from "@/lib/platform";
 import { RateLimiter } from "@/lib/rate-limit";
 import { roleValues } from "@/lib/validation";
@@ -198,6 +199,220 @@ export async function inviteExistingUser(
   revalidatePath(`/admin/usuarios/${userId}`);
   revalidatePath(`/admin/organizaciones/${organizationId}`);
   return { ok: true, url };
+}
+
+/**
+ * Crea o actualiza un plan del catálogo.
+ *
+ * El catálogo es lo que vendes: lo edita el operador, no el cliente. Los
+ * límites en blanco (sin número) significan «sin tope».
+ */
+export async function savePlan(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const planId = String(formData.get("planId") ?? "").trim();
+  const code = String(formData.get("code") ?? "").trim().toLowerCase();
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  const priceCLP = Number(formData.get("priceCLP") ?? 0);
+  const period = String(formData.get("period") ?? "MONTHLY");
+  const active = String(formData.get("active")) === "true";
+
+  if (!code) return { error: "El código del plan es obligatorio." };
+  if (!/^[a-z0-9-]+$/.test(code)) {
+    return { error: "El código solo puede tener letras minúsculas, números y guiones." };
+  }
+  if (name.length < 2 || name.length > 60) {
+    return { error: "El nombre debe tener entre 2 y 60 caracteres." };
+  }
+  if (!Number.isInteger(priceCLP) || priceCLP < 0) {
+    return { error: "El precio debe ser un número de pesos válido." };
+  }
+  if (period !== "MONTHLY" && period !== "YEARLY") {
+    return { error: "El período debe ser mensual o anual." };
+  }
+
+  // Límites: en blanco = sin tope.
+  const leerLimite = (campo: string): number | null => {
+    const crudo = String(formData.get(campo) ?? "").trim();
+    if (crudo === "") return null;
+    const n = Number(crudo);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  };
+  const maxCompanies = leerLimite("maxCompanies");
+  const maxUsers = leerLimite("maxUsers");
+  const maxDocsPerMonth = leerLimite("maxDocsPerMonth");
+
+  // Módulos incluidos: los del catálogo, no los del núcleo.
+  const modulos = ORG_MODULES.filter((m) =>
+    formData.get(`modulo:${m.code}`) === "on",
+  ).map((m) => m.code);
+
+  const data = {
+    code,
+    name,
+    description,
+    priceCLP,
+    period,
+    maxCompanies,
+    maxUsers,
+    maxDocsPerMonth,
+    modules: modulos,
+    active,
+  };
+
+  if (planId) {
+    const before = await db.plan.findUnique({ where: { id: planId } });
+    if (!before) return { error: "Ese plan no existe." };
+
+    const choque = await db.plan.findFirst({ where: { code, NOT: { id: planId } } });
+    if (choque) return { error: `Ya existe un plan con el código «${code}».` };
+
+    await db.plan.update({ where: { id: planId }, data });
+
+    // Los módulos del plan se reflejan en las cuentas que lo tienen.
+    const cuentas = await db.subscription.findMany({ where: { planId } });
+    for (const cuenta of cuentas) {
+      await syncPlanModules(cuenta.organizationId, modulos);
+    }
+
+    await recordPlatformAudit(ctx, {
+      action: "UPDATE",
+      entityType: "Plan",
+      entityId: planId,
+      summary: `Editó el plan «${name}» (${code}).`,
+      changes: {
+        priceCLP: { before: before.priceCLP, after: priceCLP },
+        maxDocsPerMonth: { before: before.maxDocsPerMonth, after: maxDocsPerMonth },
+        maxUsers: { before: before.maxUsers, after: maxUsers },
+        maxCompanies: { before: before.maxCompanies, after: maxCompanies },
+        modules: { before: before.modules, after: modulos },
+        active: { before: before.active, after: active },
+      },
+    });
+  } else {
+    const existe = await db.plan.findUnique({ where: { code } });
+    if (existe) return { error: `Ya existe un plan con el código «${code}».` };
+
+    const plan = await db.plan.create({ data });
+
+    await recordPlatformAudit(ctx, {
+      action: "CREATE",
+      entityType: "Plan",
+      entityId: plan.id,
+      summary: `Creó el plan «${name}» (${code}).`,
+      changes: { priceCLP: { before: null, after: priceCLP } },
+    });
+  }
+
+  revalidatePath("/admin/planes");
+  revalidatePath("/admin/organizaciones");
+  return { ok: true };
+}
+
+/**
+ * Cambia el plan de una cuenta (o el estado de su suscripción). Es el «upgrade
+ * libera el mismo día»: el corte se recalcula al instante.
+ */
+export async function changeOrganizationPlan(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const organizationId = String(formData.get("organizationId") ?? "").trim();
+  const planId = String(formData.get("planId") ?? "").trim();
+  const status = String(formData.get("status") ?? "ACTIVE");
+
+  const organization = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true, name: true },
+  });
+  if (!organization) return { error: "Esa organización no existe." };
+
+  const plan = await db.plan.findUnique({ where: { id: planId } });
+  if (!plan) return { error: "Ese plan no existe." };
+
+  const antes = await db.subscription.findUnique({
+    where: { organizationId },
+    include: { plan: { select: { name: true } } },
+  });
+
+  const estadoValido = ["TRIAL", "ACTIVE", "PAST_DUE", "CANCELED"].includes(status)
+    ? (status as "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELED")
+    : "ACTIVE";
+
+  const trialEndsAt =
+    estadoValido === "TRIAL"
+      ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 14 días de prueba
+      : null;
+
+  await db.subscription.upsert({
+    where: { organizationId },
+    update: {
+      planId,
+      status: estadoValido,
+      trialEndsAt,
+      canceledAt: estadoValido === "CANCELED" ? new Date() : null,
+    },
+    create: {
+      organizationId,
+      planId,
+      status: estadoValido,
+      trialEndsAt,
+    },
+  });
+
+  // Los módulos del plan se reflejan en la cuenta (lo manual no se pisa).
+  await syncPlanModules(organizationId, plan.modules);
+
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Subscription",
+    entityId: organizationId,
+    organizationId,
+    summary: `Cambió el plan de «${organization.name}»${antes ? ` de «${antes.plan.name}»` : ""} a «${plan.name}» (${estadoValido}).`,
+    changes: {
+      plan: { before: antes?.plan.name ?? null, after: plan.name },
+      status: { before: antes?.status ?? null, after: estadoValido },
+    },
+  });
+
+  revalidatePath(`/admin/organizaciones/${organizationId}`);
+  revalidatePath("/admin/planes");
+  revalidatePath("/facturas/organizacion");
+  return { ok: true };
+}
+
+/** Recalcula el consumo real de una cuenta (el contador puede desviarse). */
+export async function recomputeOrganizationUsage(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const organizationId = String(formData.get("organizationId") ?? "").trim();
+  const organization = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true, name: true },
+  });
+  if (!organization) return { error: "Esa organización no existe." };
+
+  const usage = await recomputeUsage(organizationId);
+
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "UsageRecord",
+    entityId: organizationId,
+    organizationId,
+    summary: `Recalculó el uso de «${organization.name}» (${usage.documentsCreated} documentos, ${usage.activeUsers} usuarios).`,
+  });
+
+  revalidatePath(`/admin/organizaciones/${organizationId}`);
+  return { ok: true };
 }
 
 /**

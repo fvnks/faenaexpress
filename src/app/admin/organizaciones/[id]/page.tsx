@@ -5,9 +5,12 @@ import { InviteFromAdminForm } from "@/app/admin/admin-forms";
 import { ImpersonateForm } from "@/app/admin/impersonate-form";
 import { InviteLinkPanel } from "@/app/admin/invite-link-panel";
 import { ModuleToggle } from "@/app/admin/module-toggle";
-import { orgRoleLabel, roleLabel } from "@/lib/labels";
+import { PlanForOrganizationForm } from "@/app/admin/plan-for-organization";
+import { RecomputeUsageForm } from "@/app/admin/recompute-usage-form";
+import { orgRoleLabel, roleLabel, subscriptionStatusLabel } from "@/lib/labels";
 import { formatDate } from "@/lib/money";
 import { organizationModuleStates } from "@/lib/org-module-state";
+import { listPlans, subscriptionFor, usageFor } from "@/lib/plans";
 import { requirePlatformStaff } from "@/lib/platform";
 import { listPlatformAudit } from "@/lib/platform-audit";
 import { getPendingInvite } from "@/lib/platform-invite";
@@ -34,6 +37,11 @@ export default async function AdminOrganizationDetailPage({
   const candidates =
     ctx.staff.level === "SUPPORT" ? [] : await impersonationCandidates(id);
   const moduleStates = await organizationModuleStates(id);
+  const [subscription, usage, plans] = await Promise.all([
+    subscriptionFor(id),
+    usageFor(id),
+    listPlans(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -127,6 +135,62 @@ export default async function AdminOrganizationDetailPage({
             organizationId={organization.id}
             companies={organization.companies.map((c) => ({ id: c.id, name: c.name }))}
           />
+        </div>
+      </section>
+
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Plan y uso</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          El plan que tiene contratado esta cuenta y cuánto lleva usado este mes.
+        </p>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Plan</p>
+            <p className="text-sm font-medium">
+              {subscription ? subscription.plan.name : "Sin plan"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Estado</p>
+            <p className="text-sm font-medium">
+              {subscription ? subscriptionStatusLabel(subscription.status) : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Documentos del mes</p>
+            <p className="tabular text-sm font-medium">
+              {usage?.documentsCreated ?? 0}
+              {subscription?.plan.maxDocsPerMonth
+                ? ` de ${subscription.plan.maxDocsPerMonth}`
+                : ""}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Usuarios</p>
+            <p className="tabular text-sm font-medium">
+              {usage?.activeUsers ?? 0}
+              {subscription?.plan.maxUsers ? ` de ${subscription.plan.maxUsers}` : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {ctx.staff.level === "SUPPORT" ? (
+            <p className="text-sm text-muted-foreground">
+              Tu nivel (soporte) solo permite leer. Cambiar el plan es de operador.
+            </p>
+          ) : (
+            <>
+              <PlanForOrganizationForm
+                organizationId={organization.id}
+                plans={plans.map((p) => ({ id: p.id, name: p.name, priceCLP: p.priceCLP }))}
+                currentPlanId={subscription?.planId ?? null}
+                currentStatus={subscription?.status ?? null}
+              />
+              <RecomputeUsageForm organizationId={organization.id} />
+            </>
+          )}
         </div>
       </section>
 

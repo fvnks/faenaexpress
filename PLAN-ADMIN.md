@@ -372,6 +372,39 @@ plataforma, y dos acciones: **desactivar/reactivar la cuenta** (cierra sus sesio
 y no borra nada) e **invitar a otra cuenta** (por enlace: nadie se auto-asigna un rol). Guardas: no se
 desactiva uno mismo, no se desactiva al único dueño de una organización, y el núcleo no se deshabilita.
 | **D. Planes, uso y cobro** *(diferido hasta que haya cobro real)* | `Plan`, `Subscription`, `UsageRecord`; enforcement en las actions; `/admin/planes`; pantalla de facturación del cliente; Flow/Mercado Pago + webhook. **Parte con una maqueta: plan `Free` único, límites en `null` (sin tope) y UI de facturación completa** | El plan Free corta al llegar al tope con un mensaje claro; el upgrade libera el mismo día. Con la maqueta: puedes mostrar la pantalla de plan y cambiar de plan a mano desde `/admin` | 6–9 días |
+
+**Estado de D (la parte de planes, sin cobro): implementada y verificada (20-10-2026), pendiente de push.**
+
+- **Schema** (migración `20261026150000_plans`): `Plan` (catálogo), `Subscription` (lo contratado) y
+  `UsageRecord` (consumo del período). `Plan` y `Subscription` **no son lo mismo**: si se mezclaran,
+  habría que duplicar el catálogo por cliente.
+- **Maqueta**: el `seed` asegura el plan `Free` (sin topes, con los cuatro módulos) y una suscripción `Free`
+  por organización. La pantalla de facturación queda completa desde el día uno, pero **no bloquea a nadie**.
+  El seed corre en cada deploy y es idempotente.
+- **Los planes se editan desde la consola** (`/admin/planes`): nombre, código, precio en CLP, período,
+  descripción, límites (vacío = sin tope), módulos incluidos y activo/inactivo. Crear y editar, con
+  auditoría de plataforma.
+- **El plan de cada cuenta** se cambia en su ficha (`/admin/organizaciones/[id]`), junto con el estado
+  (al día / en prueba / pago pendiente / cancelado) y un botón para **recalcular el uso** real.
+- **Enforcement en la Server Action**, no en el botón (un POST directo lo saltaría): al registrar venta,
+  compra o gasto (`maxDocsPerMonth`), al agregar un usuario (`maxUsers`) y al crear una empresa
+  (`maxCompanies`). El mensaje es el que importa: «Llegaste al límite de 3 documentos del mes en el plan
+  Free. Tus documentos no se perdieron; cambia de plan para seguir registrando este mes.»
+- **El upgrade libera el mismo día**: cambiar el plan recalcula el corte al instante.
+- **Los módulos del plan se reflejan en la cuenta** (`source = "plan"`), pero **lo que el operador
+  habilitó a mano no se pisa nunca**: un módulo vendido suelto sobrevive a un cambio de plan. La
+  resolución es manual > plan > defecto.
+- **Pantalla del cliente** (`/facturas/facturacion`): su plan, lo que incluye, cuánto lleva usado este mes
+  y qué límites tiene. En el app, una cuenta en prueba vencida o con pago pendiente ve un aviso — **nunca
+  se borra nada por falta de pago**.
+- **Uso como contador**, no como `count(*)` en cada petición: los documentos se cuentan al crearlos.
+  El contador puede desviarse (una eliminación, una importación), por eso hay «recalcular uso» en la
+  consola.
+
+**Lo que NO se hizo (queda atado al cobro real):** la pasarela (Flow o Mercado Pago), el webhook con
+firma e idempotencia, y el modo de solo lectura cuando vence una prueba. Este último tocaría cada acción
+de escritura; hoy una prueba vencida deja la cuenta usable con avisos, que es el comportamiento que el
+plan pide para `PAST_DUE`.
 | **E. Endurecimiento** | 2FA para `OWNER` y para `PlatformStaff`; rate limit en invitaciones y login; registro de accesos por organización; `proxy` de sesión | Owner con 2FA; nadie entra a `/admin` sin segundo factor | 3–4 días |
 
 **Dependencias:** B necesita A (si A no cierra, el operador administra sobre reglas ambiguas). C es

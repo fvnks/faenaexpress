@@ -17,6 +17,7 @@ import { getImpersonationContext } from "@/lib/impersonation";
 import { roleLabel } from "@/lib/labels";
 import { disabledModuleCodes } from "@/lib/org-module-state";
 import { findOrgModule } from "@/lib/org-modules";
+import { subscriptionState } from "@/lib/plans";
 import { enabledModules } from "@/lib/modules";
 import { countUnreadNotifications, syncDueNotifications } from "@/lib/notifications";
 import { canAccess } from "@/lib/permissions";
@@ -60,6 +61,10 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
   // señal de que el operador está dentro de la cuenta de un cliente).
   const impersonation = await getImpersonationContext();
 
+  // Aviso de plan: una cuenta en prueba vencida o con pago pendiente sigue
+  // funcionando, pero hay que decirlo. Nunca se borra nada por falta de pago.
+  const suscripcion = await subscriptionState(user.orgMembership?.organizationId ?? null);
+
   // Módulos que la organización no tiene contratados: se esconden del menú.
   const disabledModules = await disabledModuleCodes(user.orgMembership?.organizationId ?? null);
   const disabledModuleSections = disabledModules
@@ -76,6 +81,14 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
           reason={impersonation.reason}
           until={impersonation.until.toISOString()}
         />
+      ) : null}
+      {suscripcion.warning ? (
+        <div
+          role="status"
+          className="border-b border-accent/40 bg-accent-soft px-4 py-2 text-sm text-foreground"
+        >
+          {suscripcion.warning}
+        </div>
       ) : null}
       <div className="lg:flex">
         <Sidebar

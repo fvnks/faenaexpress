@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { safeReturnTo } from "@/lib/return-to";
 import { computeTotal, formatCLP, todayDate } from "@/lib/money";
+import { checkPlanLimit, incrementUsage } from "@/lib/plans";
 import { recomputeStatus } from "@/lib/payments";
 import { paymentMethodValues, purchaseSchema, type PurchaseInput } from "@/lib/validation";
 
@@ -73,6 +74,11 @@ export async function createPurchase(
     return { error: "No tienes permiso para registrar compras." };
   }
 
+  // El corte va en la acción, no en el botón: un POST directo lo saltaría.
+  const organizationId = ctx.user.orgMembership?.organizationId ?? null;
+  const bloqueado = await checkPlanLimit(organizationId, "documents");
+  if (bloqueado) return { error: bloqueado };
+
   const parsed = purchaseSchema.safeParse(readForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos del formulario." };
@@ -90,6 +96,11 @@ export async function createPurchase(
   const purchase = await db.purchase.create({
     data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
   });
+
+  // El contador de documentos del mes.
+  if (organizationId) {
+    await incrementUsage(organizationId, { documents: 1 });
+  }
 
   await recordAudit(ctx, {
     action: "CREATE",

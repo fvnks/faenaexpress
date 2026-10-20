@@ -76,6 +76,42 @@ async function main() {
   // para dejar un dueño de plataforma. El primer OWNER ya se puede agregar solo
   // desde /admin/equipo.
   const staffEmail = process.env.PLATFORM_STAFF_EMAIL;
+  // Plan de la maqueta: `Free`, sin topes y con todos los módulos. La pantalla
+  // de facturación queda completa desde el día uno, pero no bloquea a nadie.
+  // Los números reales entran cuando haya precio; el modelo no cambia.
+  const freePlan =
+    (await db.plan.findUnique({ where: { code: "free" } })) ??
+    (await db.plan.create({
+      data: {
+        code: "free",
+        name: "Free",
+        description: "Para empezar: registro de compras, ventas y gastos sin límites.",
+        priceCLP: 0,
+        period: "MONTHLY",
+        maxCompanies: null,
+        maxUsers: null,
+        maxDocsPerMonth: null,
+        modules: ["rrhh", "inventario", "comisiones", "banco"],
+        active: true,
+      },
+    }));
+
+  // Cada organización tiene una suscripción: sin ella no hay corte que aplicar.
+  const organizaciones = await db.organization.findMany({ select: { id: true } });
+  for (const org of organizaciones) {
+    const existente = await db.subscription.findUnique({
+      where: { organizationId: org.id },
+    });
+    if (!existente) {
+      await db.subscription.create({
+        data: { organizationId: org.id, planId: freePlan.id, status: "ACTIVE" },
+      });
+    }
+  }
+  console.log(
+    `Plan «${freePlan.name}» asegurado y ${organizaciones.length} suscripción(es) vigente(s).`,
+  );
+
   if (staffEmail) {
     const staffUser = await db.user.findUnique({ where: { email: staffEmail } });
     if (!staffUser) {

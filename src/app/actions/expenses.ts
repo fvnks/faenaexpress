@@ -8,6 +8,7 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { computeTotal, formatCLP } from "@/lib/money";
+import { checkPlanLimit, incrementUsage } from "@/lib/plans";
 import { expenseSchema, type ExpenseInput } from "@/lib/validation";
 
 export type ExpenseFormState = { error?: string } | undefined;
@@ -77,6 +78,11 @@ export async function createExpense(
   const ctx = await requireContext();
   if (!canWrite(ctx, "gastos")) return { error: "No tienes permiso para registrar gastos." };
 
+  // El corte va en la acción, no en el botón: un POST directo lo saltaría.
+  const organizationId = ctx.user.orgMembership?.organizationId ?? null;
+  const bloqueado = await checkPlanLimit(organizationId, "documents");
+  if (bloqueado) return { error: bloqueado };
+
   const parsed = expenseSchema.safeParse(readForm(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
 
@@ -84,6 +90,11 @@ export async function createExpense(
   const expense = await db.expense.create({
     data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
   });
+
+  // El contador de documentos del mes.
+  if (organizationId) {
+    await incrementUsage(organizationId, { documents: 1 });
+  }
 
   await recordAudit(ctx, {
     action: "CREATE",

@@ -8,6 +8,7 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { computeTotal, formatCLP, todayDate } from "@/lib/money";
+import { checkPlanLimit, incrementUsage } from "@/lib/plans";
 import { recomputeStatus } from "@/lib/payments";
 import { safeReturnTo } from "@/lib/return-to";
 import { saleSchema, type SaleInput } from "@/lib/validation";
@@ -73,6 +74,11 @@ export async function createSale(_prev: SaleFormState, formData: FormData): Prom
   const ctx = await requireContext();
   if (!canWrite(ctx, "ventas")) return { error: "No tienes permiso para registrar ventas." };
 
+  // El corte va en la acción, no en el botón: un POST directo lo saltaría.
+  const organizationId = ctx.user.orgMembership?.organizationId ?? null;
+  const bloqueado = await checkPlanLimit(organizationId, "documents");
+  if (bloqueado) return { error: bloqueado };
+
   const parsed = saleSchema.safeParse(readForm(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
 
@@ -95,6 +101,11 @@ export async function createSale(_prev: SaleFormState, formData: FormData): Prom
   const sale = await db.sale.create({
     data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
   });
+
+  // El contador de documentos del mes.
+  if (organizationId) {
+    await incrementUsage(organizationId, { documents: 1 });
+  }
 
   await recordAudit(ctx, {
     action: "CREATE",

@@ -6,7 +6,22 @@ import type {
   PaymentStatus,
   Role,
   SaleStatus,
+  SubscriptionStatus,
 } from "@/generated/prisma/client";
+
+/** Estado de la suscripción de una cuenta, en palabras. */
+export function subscriptionStatusLabel(status: SubscriptionStatus): string {
+  switch (status) {
+    case "TRIAL":
+      return "En prueba";
+    case "ACTIVE":
+      return "Al día";
+    case "PAST_DUE":
+      return "Pago pendiente";
+    case "CANCELED":
+      return "Cancelado";
+  }
+}
 
 const roleLabels: Record<Role, string> = {
   ADMIN: "Administrador",

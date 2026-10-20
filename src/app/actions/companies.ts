@@ -10,6 +10,7 @@ import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { IMPERSONATION_FORBIDDEN, impersonationBlock } from "@/lib/impersonation";
+import { checkPlanLimit } from "@/lib/plans";
 import { companySchema, memberSchema, newUserSchema, orgRoleValues, roleValues } from "@/lib/validation";
 
 export type CompanyFormState = { error?: string; ok?: boolean } | undefined;
@@ -76,6 +77,10 @@ export async function createCompany(
   // Empresa nueva = capacidad de la organización (OWNER/ADMIN): no pertenece a
   // ninguna empresa todavía, así que no se decide con el rol de la empresa activa.
   const org = await requireOrgManager();
+
+  // El corte por plan va en la acción, no en el botón.
+  const bloqueado = await checkPlanLimit(org.organization.id, "companies");
+  if (bloqueado) return { error: bloqueado };
 
   const parsed = companySchema.safeParse({
     name: formData.get("name"),
@@ -171,6 +176,11 @@ export async function addMember(
   const ctx = await requireContext();
   if (!isAdmin(ctx)) return { error: "Solo un administrador puede gestionar usuarios." };
 
+  // El corte por plan va en la acción, no en el botón.
+  const organizationId = ctx.user.orgMembership?.organizationId ?? null;
+  const bloqueado = await checkPlanLimit(organizationId, "users");
+  if (bloqueado) return { error: bloqueado };
+
   const parsed = memberSchema.safeParse({ email: formData.get("email"), role: formData.get("role") });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
@@ -208,6 +218,10 @@ export async function createMember(
 ): Promise<MemberFormState> {
   const ctx = await requireContext();
   if (!isAdmin(ctx)) return { error: "Solo un administrador puede gestionar usuarios." };
+
+  // El corte por plan va en la acción, no en el botón.
+  const bloqueado = await checkPlanLimit(ctx.user.orgMembership?.organizationId ?? null, "users");
+  if (bloqueado) return { error: bloqueado };
 
   const parsed = newUserSchema.safeParse({
     name: formData.get("name"),

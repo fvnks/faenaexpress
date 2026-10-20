@@ -38,6 +38,8 @@ model Organization {
   companies Company[]
   invites   Invitation[]
   modules   OrganizationModule[]
+  subscription Subscription?
+  usage     UsageRecord[]
 }
 
 // Pertenencia de un usuario a una organización.
@@ -162,6 +164,90 @@ model OrganizationModule {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, moduleCode])
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Planes y suscripciones
+//
+// `Plan` es el CATÁLOGO (lo que vendes) y `Subscription` lo que una cuenta
+// tiene contratado. No son lo mismo: si se mezclaran, habría que duplicar el
+// catálogo por cliente.
+//
+// La maqueta arranca con un solo plan `Free` sin topes (los límites en `null`)
+// y una suscripción `Free` por organización: la pantalla de facturación queda
+// completa desde el día uno, pero no bloquea a nadie. Los números reales
+// (y la pasarela) se llenan después; el modelo no cambia.
+// ---------------------------------------------------------------------------
+
+enum SubscriptionStatus {
+  TRIAL // prueba: al vencer, avisos (y solo lectura)
+  ACTIVE // al día
+  PAST_DUE // no pagó: avisos, nunca se borra nada
+  CANCELED // dio de baja: los datos se quedan
+}
+
+model Plan {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+  // Precio en CLP por período (0 = gratis).
+  priceCLP Int @default(0)
+  // "MONTHLY" | "YEARLY"
+  period String @default("MONTHLY")
+  // Límites. `null` = sin tope.
+  maxCompanies    Int?
+  maxUsers        Int?
+  maxDocsPerMonth Int?
+  // Módulos incluidos (códigos de `src/lib/org-modules.ts`). Los que se
+  // vendan sueltos se activan aparte, con fila propia en OrganizationModule.
+  modules String[]
+  active  Boolean   @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@index([active])
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  organizationId String             @unique
+  planId         String
+  status         SubscriptionStatus @default(ACTIVE)
+  startedAt      DateTime           @default(now())
+  // Fin del período en curso (NULL = mensual sin tope de cierre).
+  currentPeriodEnd DateTime?
+  // Prueba: hasta cuándo dura.
+  trialEndsAt DateTime?
+  canceledAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
+
+  @@index([planId])
+}
+
+// Consumo del período en curso por organización. Es un contador, no un
+// `count(*)` sobre la tabla entera en cada petición: los documentos se cuentan
+// al crearlos.
+model UsageRecord {
+  id             String @id @default(cuid())
+  organizationId String
+  // Período en formato YYYY-MM.
+  period         String
+  documentsCreated Int @default(0)
+  activeUsers      Int @default(0)
+  bankSyncs        Int @default(0)
+  computedAt     DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, period])
   @@index([organizationId])
 }
 

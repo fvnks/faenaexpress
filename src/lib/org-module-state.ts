@@ -1,8 +1,13 @@
 // Estado de los módulos de una organización: qué tiene habilitado y qué no.
 //
-// La fila en `OrganizationModule` es el estado explícito. Si no hay fila, aplica
-// el defecto, que es «habilitado»: la maqueta no bloquea a nadie y así una
-// cuenta recién creada no se queda sin nada por un forgets de backfill.
+// La resolución tiene tres capas, en este orden:
+//
+//   1. Lo que el OPERADOR habilitó a mano (fila `source = "manual"`): manda.
+//      Un módulo vendido suelto sobrevive a un cambio de plan.
+//   2. Lo que trae el PLAN contratado: la fila `source = "plan"` refleja el
+//      catálogo, y el plan manda sobre el defecto.
+//   3. El defecto: habilitado. La maqueta no bloquea a nadie, así que una
+//      cuenta recién creada no se queda sin nada por un olvido de backfill.
 //
 // El corte real (que no se vea un módulo por URL) está en `requireContext`, que
 // es el único lugar por donde pasan todas las páginas.
@@ -21,24 +26,43 @@ export type ModuleState = {
 
 /** Todos los módulos con su estado para la organización indicada. */
 export async function organizationModuleStates(organizationId: string | null): Promise<ModuleState[]> {
-  const rows = organizationId
-    ? await db.organizationModule.findMany({ where: { organizationId } })
-    : [];
+  if (!organizationId) {
+    return ALL_ORG_MODULES.map((module) => ({ module, enabled: true, source: "defecto" }));
+  }
+
+  const [rows, subscription] = await Promise.all([
+    db.organizationModule.findMany({ where: { organizationId } }),
+    db.subscription.findUnique({
+      where: { organizationId },
+      select: { plan: { select: { modules: true } } },
+    }),
+  ]);
 
   const byCode = new Map(rows.map((r) => [r.moduleCode, r]));
+  const delPlan = new Set(subscription?.plan.modules ?? []);
   const ahora = new Date();
 
   return ALL_ORG_MODULES.map((module) => {
     const row = byCode.get(module.code);
-    if (!row) {
-      // Sin fila: el defecto. El núcleo siempre; lo contratable también, porque
-      // la maqueta no bloquea a nadie.
-      return { module, enabled: true, source: "defecto" };
+
+    // 1. Lo manual manda.
+    if (row?.source === "manual") {
+      const vigente = row.enabledTo === null || row.enabledTo > ahora;
+      return { module, enabled: row.enabled && vigente, source: "manual" };
     }
-    // Con fila, manda la fila. Una ventana vencida (`enabledTo` en el pasado)
-    // cuenta como deshabilitado.
-    const vigente = row.enabledTo === null || row.enabledTo > ahora;
-    return { module, enabled: row.enabled && vigente, source: row.source };
+
+    // 2. El plan contracted manda sobre el defecto.
+    if (delPlan.has(module.code)) {
+      return { module, enabled: true, source: "plan" };
+    }
+
+    // 3. Fila del plan que dice que no (o defecto).
+    if (row?.source === "plan") {
+      const vigente = row.enabledTo === null || row.enabledTo > ahora;
+      return { module, enabled: row.enabled && vigente, source: "plan" };
+    }
+
+    return { module, enabled: true, source: "defecto" };
   });
 }
 
@@ -119,4 +143,59 @@ export async function setOrganizationModule(
       source,
     },
   });
+}
+
+/**
+ * Refleja en la organización los módulos que trae el plan.
+ *
+ * Solo toca las filas `source = "plan"`: lo que el operador habilitó a mano
+ * (un módulo vendido suelto) no se pisa nunca. El plan manda sobre el defecto,
+ * así que un módulo que el plan no incluye queda deshabilitado para esa
+ * cuenta, salvo que esté activado a mano.
+ */
+export async function syncPlanModules(
+  organizationId: string,
+  planModules: string[],
+): Promise<void> {
+  const delPlan = new Set(planModules);
+  const ahora = new Date();
+
+  const existentes = await db.organizationModule.findMany({
+    where: { organizationId, source: "plan" },
+  });
+
+  for (const row of existentes) {
+    if (!delPlan.has(row.moduleCode)) {
+      // El plan ya no lo incluye: se cierra la ventana.
+      if (row.enabled) {
+        await db.organizationModule.update({
+          where: { id: row.id },
+          data: { enabled: false, enabledTo: ahora },
+        });
+      }
+    }
+  }
+
+  for (const code of delPlan) {
+    const modulo = findOrgModule(code);
+    if (!modulo || modulo.core) continue;
+    const row = existentes.find((r) => r.moduleCode === code);
+    if (!row) {
+      await db.organizationModule.create({
+        data: {
+          organizationId,
+          moduleCode: code,
+          enabled: true,
+          enabledFrom: ahora,
+          enabledTo: null,
+          source: "plan",
+        },
+      });
+    } else if (!row.enabled) {
+      await db.organizationModule.update({
+        where: { id: row.id },
+        data: { enabled: true, enabledFrom: ahora, enabledTo: null },
+      });
+    }
+  }
 }
