@@ -4,8 +4,10 @@ import { notFound } from "next/navigation";
 import { InviteFromAdminForm } from "@/app/admin/admin-forms";
 import { ImpersonateForm } from "@/app/admin/impersonate-form";
 import { InviteLinkPanel } from "@/app/admin/invite-link-panel";
+import { ModuleToggle } from "@/app/admin/module-toggle";
 import { orgRoleLabel, roleLabel } from "@/lib/labels";
 import { formatDate } from "@/lib/money";
+import { organizationModuleStates } from "@/lib/org-module-state";
 import { requirePlatformStaff } from "@/lib/platform";
 import { listPlatformAudit } from "@/lib/platform-audit";
 import { getPendingInvite } from "@/lib/platform-invite";
@@ -31,6 +33,7 @@ export default async function AdminOrganizationDetailPage({
   // Entrar a la cuenta es de OPERATOR: SUPPORT solo lee.
   const candidates =
     ctx.staff.level === "SUPPORT" ? [] : await impersonationCandidates(id);
+  const moduleStates = await organizationModuleStates(id);
 
   return (
     <div className="flex flex-col gap-6">
@@ -128,8 +131,27 @@ export default async function AdminOrganizationDetailPage({
       </section>
 
       <section className={cardClass + " p-5"}>
-        <h2 className="font-semibold">Entrar a la cuenta</h2>
+        <h2 className="font-semibold">Módulos de la cuenta</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
+          Las partes del producto que esta cuenta tiene contratadas. El núcleo siempre está
+          incluido.
+        </p>
+        <ul className="mt-3 divide-y divide-border">
+          {moduleStates.map((s) => (
+            <ModuleToggle
+              key={s.module.code}
+              organizationId={organization.id}
+              moduleCode={s.module.code}
+              moduleName={s.module.name}
+              enabled={s.enabled}
+              core={s.module.core}
+            />
+          ))}
+        </ul>
+      </section>
+
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Entrar a la cuenta</h2>        <p className="mt-0.5 text-sm text-muted-foreground">
           Abre la sesión de soporte dentro de la cuenta del cliente, para reproducir un problema o
           hacer un ajuste puntual con sus datos.
         </p>

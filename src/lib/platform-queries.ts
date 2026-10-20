@@ -119,19 +119,38 @@ export async function organizationDetail(organizationId: string) {
 }
 
 /** Búsqueda global de usuarios (soporte: «no me llega el correo»). */
-export async function searchUsers(query?: string) {
-  const q = query?.trim();
+export async function searchUsers(filters: {
+  query?: string;
+  organizationId?: string;
+  /** "activo" | "inactivo" | "todos" */
+  estado?: string;
+  limit?: number;
+} = {}) {
+  const q = filters.query?.trim();
+  const estado = filters.estado ?? "todos";
+
   return db.user.findMany({
-    where: q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { email: { contains: q, mode: "insensitive" } },
-          ],
-        }
-      : undefined,
-    orderBy: { createdAt: "desc" },
-    take: 50,
+    where: {
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { email: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+      ...(estado === "activo" ? { active: true } : {}),
+      ...(estado === "inactivo" ? { active: false } : {}),
+      ...(filters.organizationId
+        ? {
+            orgMembers: {
+              some: { organizationId: filters.organizationId, active: true },
+            },
+          }
+        : {}),
+    },
+    orderBy: [{ active: "desc" }, { createdAt: "desc" }],
+    take: filters.limit ?? 100,
     include: {
       memberships: {
         include: { company: { select: { id: true, name: true, organizationId: true } } },
@@ -140,6 +159,41 @@ export async function searchUsers(query?: string) {
       platformStaff: { select: { level: true, active: true } },
     },
   });
+}
+
+/** Ficha de un usuario para la consola: en qué cuentas está y con qué rol. */
+export async function userDetail(userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    include: {
+      memberships: {
+        include: {
+          company: { select: { id: true, name: true, organizationId: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      orgMembers: {
+        include: { organization: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+      platformStaff: { select: { level: true, active: true } },
+      sessions: { select: { id: true, createdAt: true, expiresAt: true } },
+    },
+  });
+  if (!user) return null;
+
+  const audit = await db.platformAudit.findMany({
+    where: {
+      OR: [
+        { entityId: user.id },
+        { changes: { path: ["email"], equals: user.email } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  return { user, audit };
 }
 
 /**

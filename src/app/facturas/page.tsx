@@ -223,7 +223,13 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
           detalle:
             "Los sueldos y remuneraciones del cliente no se abren desde una impersonación: es el dato más sensible de la cuenta y requiere la sesión del cliente.",
         }
-      : null;
+      : rawBloqueo === "modulo"
+        ? {
+            titulo: "Esta sección no está habilitada en tu cuenta",
+            detalle:
+              "El módulo que la contiene no está contratado. Si debería estarlo, escríbenos y lo activamos.",
+          }
+        : null;
   const range = monthRange(period) ?? { from: new Date(), to: new Date() };
   const prevRange = monthRange(shiftPeriod(period, -1)) ?? { from: new Date(), to: new Date() };
   const mes = formatPeriod(period);

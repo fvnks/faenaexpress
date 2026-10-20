@@ -673,6 +673,8 @@ export type SidebarProps = {
   isPlatformStaff?: boolean;
   /** Secciones que no se muestran porque la impersonación las bloquea. */
   hiddenSections?: string[];
+  /** Secciones de módulos que la organización no tiene contratados. */
+  disabledModuleSections?: string[];
   logout: () => void;
 };
 
@@ -781,6 +783,8 @@ export function Sidebar(props: SidebarProps) {
     // Secciones bloqueadas durante la impersonación: no se muestran, para no
     // ofrecer un enlace que va a ser rechazado.
     if (props.hiddenSections?.includes(item.section)) return false;
+    // Módulos que la organización no tiene contratados: tampoco se ofrecen.
+    if (props.disabledModuleSections?.includes(item.section)) return false;
     if (item.section === "configuracion") return props.role ? canAccess(props.role, "configuracion") : true;
     // Organización no depende del rol en la empresa activa: la administra quien
     // es OWNER/ADMIN de la organización, tenga o no una empresa activa.

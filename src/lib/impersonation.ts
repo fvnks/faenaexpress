@@ -74,7 +74,13 @@ export async function getImpersonationContext(): Promise<ImpersonationContext | 
     !session.user.active
   ) {
     await db.session.delete({ where: { id: session.id } }).catch(() => {});
-    cookieStore.delete(IMPERSONATION_COOKIE);
+    // Borrar cookies durante un render no está permitido en Next: se intenta
+    // y, si falla, se deja. La sesión ya no existe, así que no habilita nada.
+    try {
+      cookieStore.delete(IMPERSONATION_COOKIE);
+    } catch {
+      // La cookie se limpia sola cuando expira.
+    }
     return null;
   }
 

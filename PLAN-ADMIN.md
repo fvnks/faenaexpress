@@ -110,6 +110,7 @@ Es la pieza nueva del pedido. No es «un panel de usuarios»: es **tu mesa de tr
 | `/admin` | Tablero: organizaciones activas, altas del mes, uso contra límites, cobros pendientes, errores recientes |
 | `/admin/organizaciones` | Listado con buscador: nombre, RUT, plan, estado, nº de empresas y usuarios, último acceso |
 | `/admin/organizaciones/[id]` | Ficha: empresas, miembros (con rol y permiso), suscripción, uso del mes, historial de auditoría de plataforma, acciones (suspender, cambiar plan, crear invitación) |
+| `/admin/modulos` | Catálogo de módulos y qué cuenta tiene cada uno, con los interruptores para cambiarlo |
 | `/admin/planes` | Catálogo de planes: nombre, precio CLP, límites, módulos incluidos, activo/inactivo |
 | `/admin/usuarios` | Búsqueda global de usuarios (soporte: «no me llega el correo», «quedó bloqueado») |
 | `/admin/incidencias` | Lo que hoy vive en el chat: sync bancario caído, Defontana rechazando token, migración a medias |
@@ -345,6 +346,31 @@ de contraseña; `deleteCompany` bloqueado (la empresa sigue en la base); «Salir
 operador; la auditoría registra entrada y salida; y el dueño de la cuenta ve el registro. Sin errores de
 hidratación y con ambos temas verificados.
 | **C. Módulos por organización** | Tabla `OrganizationModule`, `enabledModules(userId)` con los dos filtros, auditoría del cambio, UI de módulos en la organización | Un cliente sin RRHH contratado no ve RRHH en `/modulos` ni puede entrar por URL | 2–3 días |
+
+**Estado de C: implementada y verificada en la base local (20-10-2026), pendiente de push.**
+
+- **Schema** (migración `20261026140000_org_modules`): `OrganizationModule(organizationId, moduleCode, enabled,
+  enabledFrom, enabledTo, source)`. La fila es el estado **explícito** de esa combinación; si no hay fila
+  aplica el defecto, que es «habilitado» — la maqueta no bloquea a nadie y así una cuenta recién creada no
+  se queda sin nada por un olvido de backfill. `enabledFrom`/`enabledTo` dejan el historial y abren la
+  puerta a las ventanas que venga de un plan; `source` dice si lo habilitó el plan o el operador.
+- **Catálogo** (`src/lib/org-modules.ts`): núcleo (`facturas`) y cuatro módulos contratables — `rrhh`,
+  `inventario`, `comisiones`, `banco`. El núcleo no se puede deshabilitar.
+- **Los dos filtros, en serie** (`requireContext`): la organización tiene el módulo **y** el rol da acceso a
+  la sección. Los dos se aplican; ninguno reemplaza al otro. El corte está en `requireContext`, que es el
+  punto único por donde pasan todas las páginas y rutas (incluidas las anidadas: nóminas, lotes, conteos,
+  documentos del trabajador).
+- **En la UI**: el ítem desaparece del menú y la URL responde con un aviso claro («Esta sección no está
+  habilitada en tu cuenta»). El cliente ve sus módulos en `/facturas/organizacion`; el operador los
+  gestiona en `/admin/modulos` (catálogo + quién tiene qué) y en la ficha de cada organización.
+- **Auditoría**: cada habilitación/deshabilitación queda en `PlatformAudit` con el módulo y la cuenta
+  afectados. Es un cambio comercial, no un ajuste.
+
+**Consola de usuarios (parte de B, completada):** `/admin/usuarios` con buscador y filtros por cuenta y
+estado; `/admin/usuarios/[id]` con la ficha completa (cuentas, empresas, rol en cada una), historial de
+plataforma, y dos acciones: **desactivar/reactivar la cuenta** (cierra sus sesiones en todas las empresas
+y no borra nada) e **invitar a otra cuenta** (por enlace: nadie se auto-asigna un rol). Guardas: no se
+desactiva uno mismo, no se desactiva al único dueño de una organización, y el núcleo no se deshabilita.
 | **D. Planes, uso y cobro** *(diferido hasta que haya cobro real)* | `Plan`, `Subscription`, `UsageRecord`; enforcement en las actions; `/admin/planes`; pantalla de facturación del cliente; Flow/Mercado Pago + webhook. **Parte con una maqueta: plan `Free` único, límites en `null` (sin tope) y UI de facturación completa** | El plan Free corta al llegar al tope con un mensaje claro; el upgrade libera el mismo día. Con la maqueta: puedes mostrar la pantalla de plan y cambiar de plan a mano desde `/admin` | 6–9 días |
 | **E. Endurecimiento** | 2FA para `OWNER` y para `PlatformStaff`; rate limit en invitaciones y login; registro de accesos por organización; `proxy` de sesión | Owner con 2FA; nadie entra a `/admin` sin segundo factor | 3–4 días |
 

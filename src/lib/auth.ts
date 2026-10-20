@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { Company, InventoryAccess, OrgRole, Role } from "@/generated/prisma/client";
 import { canAccess, canWrite as roleCanWrite, effectiveInventoryAccess, type Section } from "@/lib/permissions";
 import { isImpersonating } from "@/lib/impersonation";
+import { isSectionEnabled } from "@/lib/org-module-state";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import type { AuthContext, SessionUser } from "@/lib/types";
@@ -129,12 +130,18 @@ export async function requireContext(section?: Section): Promise<AuthContext> {
     redirect("/facturas/configuracion");
   }
   if (section) {
-    // RRHH es lo más sensible del cliente (sueldos, remuneraciones, documentos
-    // del trabajador). Durante una impersonación no se entra: ni por URL ni por
-    // la navegación. Es el punto único de corte: todas las páginas y rutas de
-    // RRHH pasan por acá.
+    // Dos filtros en serie: el rol da acceso a la sección, y la organización
+    // tiene contratado el módulo que la agrupa. Los dos se aplican.
+    //
+    // RRHH además queda fuera durante una impersonación: es el dato más
+    // sensible del cliente (sueldos, remuneraciones, documentos del
+    // trabajador). Todas las páginas y rutas de RRHH pasan por acá.
     if (section === "rrhh" && (await isImpersonating())) {
       redirect("/facturas?bloqueo=rrhh");
+    }
+    const organizationId = user.orgMembership?.organizationId ?? null;
+    if (!(await isSectionEnabled(organizationId, section))) {
+      redirect("/facturas?bloqueo=modulo");
     }
     // Inventario usa el nivel efectivo (override o rol base) para entrar.
     const allowed =

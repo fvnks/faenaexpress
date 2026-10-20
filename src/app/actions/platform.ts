@@ -13,6 +13,8 @@ import {
 } from "@/lib/impersonation";
 import { recordPlatformAudit } from "@/lib/platform-audit";
 import { clearPendingInvite, setPendingInvite } from "@/lib/platform-invite";
+import { setOrganizationModule } from "@/lib/org-module-state";
+import { findOrgModule } from "@/lib/org-modules";
 import { requirePlatformStaff } from "@/lib/platform";
 import { RateLimiter } from "@/lib/rate-limit";
 import { roleValues } from "@/lib/validation";
@@ -25,8 +27,230 @@ import { roleValues } from "@/lib/validation";
 // es de `OPERATOR`; gestionar al equipo de plataforma, de `OWNER`.
 
 export type PlatformActionState =
-  | { error?: string; ok?: boolean; url?: string; organizationId?: string }
+  | {
+      error?: string;
+      ok?: boolean;
+      url?: string;
+      organizationId?: string;
+      /** Estado resultante, para que la interfaz no adivine. */
+      enabled?: boolean;
+    }
   | undefined;
+
+/**
+ * Desactiva o reactiva la cuenta de un usuario.
+ *
+ * Desactivar, no borrar: el usuario conserva su trazabilidad (auditoría,
+ * documentos que creó) y deja de poder entrar. Es la misma regla de la Fase A
+ * para los miembros de una organización, pero aquí alcanza a TODAS sus cuentas:
+ * un usuario desactivado no entra a ninguna.
+ */
+export async function setPlatformUserActive(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const userId = String(formData.get("userId") ?? "").trim();
+  const active = String(formData.get("active")) === "true";
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, active: true },
+  });
+  if (!user) return { error: "Ese usuario no existe." };
+
+  if (userId === ctx.user.id) {
+    return { error: "No puedes desactivar tu propia cuenta desde la consola." };
+  }
+
+  if (!active) {
+    // Invariante: una organización no puede quedar sin dueño activo.
+    const orgs = await db.orgMember.findMany({
+      where: { userId, active: true, orgRole: "OWNER" },
+      select: { organizationId: true, organization: { select: { name: true } } },
+    });
+    for (const org of orgs) {
+      const otherOwners = await db.orgMember.count({
+        where: {
+          organizationId: org.organizationId,
+          orgRole: "OWNER",
+          active: true,
+          userId: { not: userId },
+        },
+      });
+      if (otherOwners === 0) {
+        return {
+          error: `No se puede desactivar: «${user.name}» es el único dueño de «${org.organization.name}». Deja otro dueño primero.`,
+        };
+      }
+    }
+  }
+
+  if (user.active === active) return { ok: true };
+
+  await db.user.update({ where: { id: userId }, data: { active } });
+
+  // Al desactivar, sus sesiones dieeben dejar de servir: se cierran.
+  if (!active) {
+    await db.session.deleteMany({ where: { userId } });
+  }
+
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "User",
+    entityId: userId,
+    summary: `${active ? "Reactivó" : "Desactivó"} la cuenta de ${user.name} (${user.email}).`,
+    changes: { active: { before: user.active, after: active } },
+  });
+
+  revalidatePath("/admin/usuarios");
+  revalidatePath(`/admin/usuarios/${userId}`);
+  return { ok: true };
+}
+
+/**
+ * Genera una invitación para un usuario que YA tiene cuenta, para que entre a
+ * otra organización. La persona confirma abriendo el enlace: nadie se auto-asigna
+ * un rol.
+ */
+export async function inviteExistingUser(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const userId = String(formData.get("userId") ?? "").trim();
+  const organizationId = String(formData.get("organizationId") ?? "").trim();
+  const roleRaw = String(formData.get("role") ?? "VIEWER");
+  const companyId = String(formData.get("companyId") ?? "").trim() || null;
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, active: true },
+  });
+  if (!user) return { error: "Ese usuario no existe." };
+  if (!user.active) return { error: "El usuario está desactivado. Reactívalo antes." };
+
+  const organization = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true, name: true },
+  });
+  if (!organization) return { error: "Esa organización no existe." };
+
+  // Si ya es miembro de la organización, no hay nada que invitar.
+  const yaEs = await db.orgMember.findUnique({
+    where: { userId_organizationId: { userId, organizationId } },
+    select: { id: true, active: true },
+  });
+  if (yaEs?.active) {
+    return { error: `${user.name} ya es miembro de «${organization.name}».` };
+  }
+
+  if (companyId) {
+    const pertenece = await db.company.findFirst({
+      where: { id: companyId, organizationId },
+      select: { id: true },
+    });
+    if (!pertenece) return { error: "Esa empresa no pertenece a la organización." };
+  }
+
+  const role = (roleValues as readonly string[]).includes(roleRaw)
+    ? (roleRaw as (typeof roleValues)[number])
+    : "VIEWER";
+
+  const token = generateToken();
+  try {
+    await db.invitation.create({
+      data: {
+        organizationId,
+        companyId,
+        email: user.email,
+        role,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+      },
+    });
+  } catch {
+    return { error: `Ya hay una invitación para ${user.email} en «${organization.name}».` };
+  }
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const url = `${baseUrl}/invitacion/${token}`;
+
+  await recordPlatformAudit(ctx, {
+    action: "CREATE",
+    entityType: "Invitation",
+    entityId: user.id,
+    organizationId,
+    summary: `Generó una invitación para ${user.name} (${user.email}) en «${organization.name}».`,
+  });
+
+  await setPendingInvite({
+    id: crypto.randomUUID(),
+    url,
+    email: user.email,
+    organizationId,
+  });
+
+  revalidatePath(`/admin/usuarios/${userId}`);
+  revalidatePath(`/admin/organizaciones/${organizationId}`);
+  return { ok: true, url };
+}
+
+/**
+ * Habilita o deshabilita un módulo para una organización.
+ *
+ * Es un cambio COMERCIAL, no un ajuste: por eso va con auditoría de plataforma
+ * y con el nivel que corresponde (OPERATOR). El núcleo no se toca.
+ */
+export async function setOrganizationModuleEnabled(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const organizationId = String(formData.get("organizationId") ?? "").trim();
+  const moduleCode = String(formData.get("moduleCode") ?? "").trim();
+  const enabled = String(formData.get("enabled")) === "true";
+
+  if (!organizationId) return { error: "Falta la organización." };
+
+  const modulo = findOrgModule(moduleCode);
+  if (!modulo) return { error: "Ese módulo no existe." };
+  if (modulo.core) return { error: "El núcleo del producto no se puede deshabilitar." };
+
+  const organization = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true, name: true },
+  });
+  if (!organization) return { error: "Esa organización no existe." };
+
+  const before = await db.organizationModule.findUnique({
+    where: { organizationId_moduleCode: { organizationId, moduleCode } },
+    select: { enabled: true, enabledTo: true },
+  });
+
+  await setOrganizationModule(organizationId, moduleCode, enabled);
+
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "OrganizationModule",
+    entityId: organizationId,
+    organizationId,
+    summary: `${enabled ? "Habilitó" : "Deshabilitó"} el módulo «${modulo.name}» en «${organization.name}».`,
+    changes: {
+      module: { before: null, after: modulo.code },
+      enabled: { before: before?.enabled ?? true, after: enabled },
+    },
+  });
+
+  revalidatePath(`/admin/organizaciones/${organizationId}`);
+  revalidatePath("/admin/modulos");
+  return { ok: true, enabled };
+}
 
 const inviteLimiter = new RateLimiter({ max: 10, windowMs: 60_000 });
 

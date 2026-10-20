@@ -18,6 +18,7 @@ type NavItem = {
 const ITEMS: NavItem[] = [
   { href: "/admin", label: "Tablero", min: "SUPPORT" },
   { href: "/admin/organizaciones", label: "Organizaciones", min: "SUPPORT" },
+  { href: "/admin/modulos", label: "Módulos", min: "SUPPORT" },
   { href: "/admin/usuarios", label: "Usuarios", min: "SUPPORT" },
   { href: "/admin/incidencias", label: "Incidencias", min: "SUPPORT" },
   { href: "/admin/equipo", label: "Equipo", min: "OWNER" },

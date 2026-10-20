@@ -37,6 +37,7 @@ model Organization {
   members   OrgMember[]
   companies Company[]
   invites   Invitation[]
+  modules   OrganizationModule[]
 }
 
 // Pertenencia de un usuario a una organización.
@@ -133,6 +134,35 @@ model PlatformAudit {
 
   @@index([createdAt])
   @@index([organizationId, createdAt])
+}
+
+// Módulos que una organización tiene contratados.
+//
+// Un módulo es una parte del producto que se puede vender por separado (RRHH,
+// inventario, comisiones, conciliación bancaria). La fila es el estado EXPLÍCITO
+// de esa combinación: si existe, manda la fila. Si NO existe, aplica el
+// defecto, que es «habilitado» — la maqueta no bloquea a nadie, así que una
+// organización sin filas tiene todo lo que existe.
+//
+// `enabledFrom`/`enabledTo` dejan el historial y abren la puerta a las
+// ventanas que venga de un plan. `source` dice de dónde salió la habilitación:
+// del plan o de la mano del operador (un módulo vendido suelto).
+model OrganizationModule {
+  id             String    @id @default(cuid())
+  organizationId String
+  moduleCode     String
+  enabled        Boolean   @default(true)
+  enabledFrom    DateTime  @default(now())
+  enabledTo      DateTime? // null = vigente
+  // "plan" (viene del plan contratado) | "manual" (lo activó el operador)
+  source         String    @default("manual")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, moduleCode])
+  @@index([organizationId])
 }
 
 // ---------------------------------------------------------------------------

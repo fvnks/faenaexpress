@@ -15,6 +15,8 @@ import { countPendingMovements } from "@/lib/banco";
 import { getFlash } from "@/lib/flash";
 import { getImpersonationContext } from "@/lib/impersonation";
 import { roleLabel } from "@/lib/labels";
+import { disabledModuleCodes } from "@/lib/org-module-state";
+import { findOrgModule } from "@/lib/org-modules";
 import { enabledModules } from "@/lib/modules";
 import { countUnreadNotifications, syncDueNotifications } from "@/lib/notifications";
 import { canAccess } from "@/lib/permissions";
@@ -58,6 +60,13 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
   // señal de que el operador está dentro de la cuenta de un cliente).
   const impersonation = await getImpersonationContext();
 
+  // Módulos que la organización no tiene contratados: se esconden del menú.
+  const disabledModules = await disabledModuleCodes(user.orgMembership?.organizationId ?? null);
+  const disabledModuleSections = disabledModules
+    .map((code) => findOrgModule(code))
+    .filter((m): m is NonNullable<typeof m> => m !== undefined)
+    .flatMap((m) => m.sections);
+
   return (
     <div className="min-h-dvh">
       {impersonation ? (
@@ -81,6 +90,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
           isOrgManager={isOrgManager(user)}
           isPlatformStaff={isPlatformStaff}
           hiddenSections={impersonation ? ["rrhh"] : undefined}
+          disabledModuleSections={disabledModuleSections}
           logout={logout}
         />
       <div className="flex min-w-0 flex-1 flex-col">

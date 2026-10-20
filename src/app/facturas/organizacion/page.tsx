@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { roleLabel } from "@/lib/labels";
 import type { Role } from "@/generated/prisma/client";
 import { ensureOrgOwner, syncOrgName } from "@/lib/organizations";
+import { organizationModuleStates } from "@/lib/org-module-state";
 import { cardClass, dangerButtonClass, secondaryButtonClass } from "@/lib/ui";
 
 // Nivel 1 del panel de administración: la CUENTA (organización).
@@ -96,6 +97,9 @@ export default async function OrganizationPage() {
         select: { id: true, summary: true, createdAt: true },
       })
     : [];
+
+  // Módulos contratados por la cuenta.
+  const moduleStates = await organizationModuleStates(organization.id);
 
   // Empresas de la organización: destino posible de una invitación.
   const orgCompanies = companies.map((company) => ({ id: company.id, name: company.name }));
@@ -259,6 +263,34 @@ export default async function OrganizationPage() {
             de revisar todas las empresas.
           </p>
         ) : null}
+      </section>
+
+      {/* Los módulos de la cuenta: el cliente ve qué tiene contratado. */}
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Módulos de tu cuenta</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Las partes del producto que tienes activas. Si necesitas una que no aparece, escríbenos.
+        </p>
+        <ul className="mt-3 divide-y divide-border">
+          {moduleStates.map((s) => (
+            <li key={s.module.code} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+              <div>
+                <p className="text-sm font-medium">{s.module.name}</p>
+                <p className="text-xs text-muted-foreground">{s.module.description}</p>
+              </div>
+              <span
+                className={
+                  "rounded-full border px-2 py-0.5 text-xs " +
+                  (s.enabled
+                    ? "border-border text-muted-foreground"
+                    : "border-danger/40 text-danger")
+                }
+              >
+                {s.enabled ? "activo" : "no contratado"}
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* Transparencia: el dueño de la cuenta ve quién entró a ella y cuándo.

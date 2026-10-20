@@ -173,7 +173,15 @@ async function getImpersonatedUser(): Promise<SessionUser | null> {
     if (session) {
       await db.session.delete({ where: { id: session.id } }).catch(() => {});
     }
-    cookieStore.delete(IMPERSONATION_COOKIE);
+    // Borrar la cookie durante un render no está permitido (Next lo rechaza):
+    // se intenta y, si falla, la cookie se queda. Da igual: la sesión ya no
+    // existe, así que no habilita nada. En una acción o una ruta sí se borra.
+    try {
+      cookieStore.delete(IMPERSONATION_COOKIE);
+    } catch {
+      // Sin cookie de impersonación, esta función vuelve a null en cada
+      // petición. Es un caso raro: solo cuando la sesión venció sola.
+    }
     return null;
   }
 
