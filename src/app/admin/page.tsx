@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { requirePlatformStaff } from "@/lib/platform";
-import { activeImpersonations, listPlatformAuditRecent, listOrganizations, platformOverview } from "@/lib/platform-queries";
+import { activeImpersonations, listPlatformAuditRecent, listOrganizations, moduleSummary, platformOverview } from "@/lib/platform-queries";
 import { formatDate } from "@/lib/money";
 import { cardClass } from "@/lib/ui";
 
@@ -9,11 +9,12 @@ import { cardClass } from "@/lib/ui";
 export default async function AdminDashboardPage() {
   await requirePlatformStaff("SUPPORT");
 
-  const [overview, orgs, audit, openSessions] = await Promise.all([
+  const [overview, orgs, audit, openSessions, modulos] = await Promise.all([
     platformOverview(),
     listOrganizations(),
     listPlatformAuditRecent(8),
     activeImpersonations(),
+    moduleSummary(),
   ]);
 
   // Orden por actividad reciente: primero lo que se está usando.
@@ -71,6 +72,29 @@ export default async function AdminDashboardPage() {
                   {org._count.companies} empresa{org._count.companies === 1 ? "" : "s"} ·{" "}
                   {org.activeMembers} usuario{org.activeMembers === 1 ? "" : "s"} ·{" "}
                   {org.lastActivity ? `última venta ${formatDate(org.lastActivity)}` : "sin ventas"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className={cardClass + " p-5"}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold">Módulos por cuenta</h2>
+          <Link href="/admin/modulos" className="text-sm text-primary underline underline-offset-2">
+            Gestionar
+          </Link>
+        </div>
+        {modulos.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">No hay módulos contratables.</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {modulos.map((m) => (
+              <li key={m.module.code} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">{m.module.name}</span>
+                <span className="tabular">
+                  {m.enabled} de {m.total} cuenta{m.total === 1 ? "" : "s"}
                 </span>
               </li>
             ))}

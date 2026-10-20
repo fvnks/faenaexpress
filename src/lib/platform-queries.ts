@@ -6,6 +6,8 @@
 // llama (cada página de /admin), no el helper.
 
 import { db } from "@/lib/db";
+import { ALL_ORG_MODULES } from "@/lib/org-modules";
+import { organizationModuleStates } from "@/lib/org-module-state";
 
 /** Resumen del tablero: cuántas cuentas, empresas y usuarios hay. */
 export async function platformOverview() {
@@ -268,6 +270,23 @@ export async function impersonationCandidates(organizationId: string) {
     include: { user: { select: { id: true, name: true, email: true } } },
     orderBy: [{ orgRole: "asc" }, { createdAt: "asc" }],
   });
+}
+
+/**
+ * Resumen de módulos por cuenta: cuántas organizaciones tienen cada módulo
+ * habilitado. Es la pregunta que se hace primero («¿quién no tiene RRHH?»).
+ */
+export async function moduleSummary() {
+  const orgs = await db.organization.findMany({ select: { id: true, name: true } });
+  const porOrg = await Promise.all(orgs.map((o) => organizationModuleStates(o.id)));
+  // Un estado por (organización, módulo): aplanado para poder contar.
+  const todos = porOrg.flat();
+
+  return ALL_ORG_MODULES.filter((m) => !m.core).map((modulo) => ({
+    module: modulo,
+    enabled: todos.filter((s) => s.module.code === modulo.code && s.enabled).length,
+    total: orgs.length,
+  }));
 }
 
 /** Sesiones de soporte abiertas ahora mismo (impersonaciones vigentes). */
