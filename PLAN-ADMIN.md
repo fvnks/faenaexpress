@@ -365,6 +365,30 @@ hidratación y con ambos temas verificados.
   gestiona en `/admin/modulos` (catálogo + quién tiene qué) y en la ficha de cada organización.
 - **Auditoría**: cada habilitación/deshabilitación queda en `PlatformAudit` con el módulo y la cuenta
   afectados. Es un cambio comercial, no un ajuste.
+- **La lista de módulos del plan es autoritativa**: `syncPlanModules` escribe una fila `source = "plan"`
+  por cada módulo contratable, con `enabled = false` para los que el plan **no** trae. Si no, el defecto
+  («habilitado») los dejaría activos y el cliente pagaría por un plan que no los incluye. Lo que el
+  operador habilitó a mano (`source = "manual"`) no se pisa nunca: un módulo vendido suelto sobrevive a un
+  cambio de plan.
+
+**Permisos finos por sección (complemento de C):** el rol dice **qué tipo de persona** es; la excepción por
+sección dice **qué puede tocar en concreto**. Es lo que faltaba para los contratos que no son «todo o
+nada» («entra a RRHH, pero no a Inventario»).
+
+- `Membership.sectionAccess` (JSONB, migración `20261026170000_section_access`) guarda las **excepciones**:
+  lo que no está ahí lo decide el rol. Secciones afinables: `rrhh`, `inventario`, `comisiones`, `banco`.
+  Niveles: sin acceso / solo ver / editar.
+- **La resolución es unificada** (`effectiveSectionAccess`, en `src/lib/permissions.ts`) y la usan
+  `requireContext`, `canWrite`, el menú y `canInventoryRead/Edit`: el corte está en un solo lugar y cubre
+  el menú, la URL y las acciones.
+- Ojo con la semántica: en este mapa `NONE` significa «esta persona **no** entra»; en la columna antigua
+  `inventoryAccess` significa «sin configurar» y por eso se cae al rol. Esa columna no se cambia de
+  significado para no romper lo que ya funciona.
+- **Al cambiar el rol de alguien, sus excepciones se borran**: estaban afinadas para el rol viejo y
+  dejarlas haría que un ascendido quedara con menos permisos de los que su rol nuevo le da, sin que nadie
+  lo pidiera.
+- El cliente lo ajusta en Configuración (por persona) y el operador también, desde la ficha del usuario
+  en la consola. Todo queda auditado.
 
 **Consola de usuarios (parte de B, completada):** `/admin/usuarios` con buscador y filtros por cuenta y
 estado; `/admin/usuarios/[id]` con la ficha completa (cuentas, empresas, rol en cada una), historial de
