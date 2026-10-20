@@ -1,14 +1,58 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { getOrCreateDefaultWarehouse, registerMovement } from "@/lib/inventory";
+import { reverseStockMovement } from "@/lib/inventory-reversal";
 
 export type InventorySyncResult = { ok: boolean; errors: string[] };
+
+/**
+ * Revierte los movimientos de stock de un documento.
+ *
+ * Las ventas (y las compras) que mueven stock generan movimientos con una
+ * referencia `sale:<id>:item:<itemId>`. Si el documento se anula, esos
+ * movimientos tienen que revertirse: si no, el stock queda distinto de la
+ * realidad y el inventario miente.
+ *
+ * La reversión es idempotente: `reverseStockMovement` no revierte dos veces el
+ * mismo movimiento.
+ */
+export async function reverseStockForDocument(input: {
+  companyId: string;
+  documentType: "sale" | "purchase";
+  documentId: string;
+  createdById: string;
+}): Promise<{ reverted: number; errors: string[] }> {
+  const prefijo = `${input.documentType}:${input.documentId}:item:`;
+
+  const movimientos = await db.stockMovement.findMany({
+    where: { companyId: input.companyId, reference: { startsWith: prefijo } },
+    select: { id: true },
+  });
+
+  const errors: string[] = [];
+  let reverted = 0;
+  for (const movimiento of movimientos) {
+    const result = await reverseStockMovement(
+      input.companyId,
+      movimiento.id,
+      input.createdById,
+    );
+    if (result.ok) reverted += 1;
+    else if (!result.error?.includes("ya fue revertido")) {
+      errors.push(result.error ?? "No se pudo revertir el movimiento.");
+    }
+  }
+
+  return { reverted, errors };
+}
 
 export async function syncPurchaseItemsToInventory(input: {
   companyId: string;
   purchaseId: string;
   date: Date;
   createdById: string;
+  /** Por qué se genera el movimiento: la compra llega importada o se registró a mano. */
+  reason?: string;
 }): Promise<InventorySyncResult> {
   const errors: string[] = [];
   const items = await db.purchaseItem.findMany({
@@ -37,7 +81,7 @@ export async function syncPurchaseItemsToInventory(input: {
       quantity: new Prisma.Decimal(quantity.toFixed(3)),
       unitCost: item.unitPrice,
       warehouseId: warehouse.id,
-      reason: "Compra importada desde DTE",
+      reason: input.reason ?? "Compra importada desde DTE",
       reference,
       notes: item.name,
       createdById: input.createdById,
@@ -55,6 +99,8 @@ export async function syncSaleItemsToInventory(input: {
   saleId: string;
   date: Date;
   createdById: string;
+  /** Por qué se genera el movimiento: la venta llega importada o se registró a mano. */
+  reason?: string;
 }): Promise<InventorySyncResult> {
   const errors: string[] = [];
   const items = await db.saleItem.findMany({
@@ -83,7 +129,7 @@ export async function syncSaleItemsToInventory(input: {
       quantity: new Prisma.Decimal(quantity.toFixed(3)),
       unitCost: null,
       warehouseId: warehouse.id,
-      reason: "Venta importada desde DTE",
+      reason: input.reason ?? "Venta importada desde DTE",
       reference,
       notes: item.name,
       createdById: input.createdById,

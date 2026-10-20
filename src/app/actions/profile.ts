@@ -9,6 +9,7 @@ import { setFlash } from "@/lib/flash";
 import { IMPERSONATION_FORBIDDEN, impersonationBlock } from "@/lib/impersonation";
 import { postLoginDestination } from "@/lib/modules";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { RateLimiter } from "@/lib/rate-limit";
 import {
   confirmTwoFactorSetup,
   regenerateRecoveryCodes as regenerateRecoveryCodesFor,
@@ -29,6 +30,12 @@ export type TwoFactorState =
       recoveryCodes?: string[];
     }
   | undefined;
+
+// 5 códigos ERRÓNEOS por cada 15 minutos. El código son 6 dígitos: con la
+// ventana de tolerancia (±30 s) cada intento cubre 3 códigos válidos, así que
+// sin tope se podría agotar el espacio en horas. Los aciertos no gastan
+// intentos.
+const twoFactorLimiter = new RateLimiter({ max: 5, windowMs: 15 * 60_000 });
 
 /**
  * Paso 1 del alta: genera el secreto y lo deja cifrado. El 2FA todavía NO
@@ -77,7 +84,20 @@ export async function verifyTwoFactorCode(
 
   const code = String(formData.get("code") ?? "").trim();
   const resultado = await verifyTwoFactor(user.id, code);
-  if (!resultado.ok) return { error: resultado.error ?? "El código no es correcto." };
+
+  if (!resultado.ok) {
+    // Solo los códigos ERRÓNEOS gastan intentos: si el acierto gastara uno, un
+    // usuario que se equivoca cinco veces quedaría bloqueado aunque después
+    // acierte.
+    if (!twoFactorLimiter.allow(`2fa:${user.id}`)) {
+      await db.session.deleteMany({ where: { userId: user.id, totpPending: true } });
+      return { error: "Demasiados códigos incorrectos. Vuelve a iniciar sesión." };
+    }
+    return { error: resultado.error ?? "El código no es correcto." };
+  }
+
+  // Acertó: el contador vuelve a cero.
+  twoFactorLimiter.reset(`2fa:${user.id}`);
 
   // La sesión pendiente pasa a ser normal.
   await db.session.updateMany({

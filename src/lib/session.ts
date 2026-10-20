@@ -16,6 +16,9 @@ const PERSISTENT_TTL_MS = DAY_MS * 90;
 const BROWSER_TTL_MS = DAY_MS * 7;
 // Se renueva la sesión en BD cuando le queda menos de un mes de vida.
 const RENEW_THRESHOLD_MS = DAY_MS * 30;
+// Una sesión PENDIENTE (falta el segundo factor) vive poco: no puede hacer nada
+// más que confirmar el 2FA, así que no tiene sentido que dure meses.
+const PENDING_TTL_MS = 30 * 60_000;
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -29,7 +32,11 @@ export async function createSession(
   remember = false,
   options: { totpPending?: boolean } = {},
 ): Promise<void> {
-  const ttl = remember ? PERSISTENT_TTL_MS : BROWSER_TTL_MS;
+  const ttl = options.totpPending
+    ? Math.min(remember ? PERSISTENT_TTL_MS : BROWSER_TTL_MS, PENDING_TTL_MS)
+    : remember
+      ? PERSISTENT_TTL_MS
+      : BROWSER_TTL_MS;
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + ttl);
 

@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { computeTotal, formatCLP, todayDate } from "@/lib/money";
 import { checkPlanLimit, incrementUsage } from "@/lib/plans";
+import { reverseStockForDocument } from "@/lib/inventory-sync";
 import { recomputeStatus } from "@/lib/payments";
 import { safeReturnTo } from "@/lib/return-to";
 import { saleSchema, type SaleInput } from "@/lib/validation";
@@ -537,6 +538,18 @@ export async function cancelSale(formData: FormData): Promise<void> {
       refacturadaNumber: refacturadaNumber || null,
     },
   });
+
+  // Anular una venta devuelve el stock: si no, el inventario queda con menos
+  // unidades de las que realmente hay.
+  const revertido = await reverseStockForDocument({
+    companyId: ctx.company.id,
+    documentType: "sale",
+    documentId: saleId,
+    createdById: ctx.user.id,
+  });
+  for (const error of revertido.errors) {
+    await setFlash("error", "La venta se anuló, pero el stock no se pudo corregir", error);
+  }
 
   await recordAudit(ctx, {
     action: "UPDATE",

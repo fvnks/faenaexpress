@@ -20,6 +20,11 @@ export type LoginState = { error?: string; needsCode?: boolean } | undefined;
 const limitPorIp = new RateLimiter({ max: 20, windowMs: 15 * 60_000 });
 const limitPorCuenta = new RateLimiter({ max: 10, windowMs: 15 * 60_000 });
 
+// Hash de relleno: cuando el correo no existe, se verifica la contraseña
+// contra este hash en vez de responder rápido. Sin eso, el tiempo de respuesta
+// delata qué correos existen. Es un bcrypt válido de una frase que nadie tiene.
+const HASH_DE_RELLENO = "$2b$10$uBxhdfafvYjLOGs0A81BF.pEOewEyv62K5gKSVtSc7ko8kxZEcdoG";
+
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
@@ -54,11 +59,19 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
       },
     },
   });
-  if (!user || !user.active || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
-    // Se registra el intento fallido: es la señal de alguien probando
-    // contraseñas. Sin organización (puede no existir) y sin usuario.
+
+  // Siempre se verifica un hash (el real o el de relleno), para que el tiempo
+  // de respuesta no diga si el correo existe.
+  const hash = user?.passwordHash ?? HASH_DE_RELLENO;
+  const contrasenaOk = await verifyPassword(parsed.data.password, hash);
+
+  if (!user || !user.active || !contrasenaOk) {
+    // El intento fallido queda anotado en la cuenta a la que apunta ese
+    // correo, si la hay: el dueño de la cuenta tiene que ver los intentos.
     await recordAccess({
+      userId: user?.id ?? null,
       userEmail: email,
+      organizationId: user?.orgMembers?.[0]?.organizationId ?? null,
       kind: "failed",
       ip,
       userAgent: headerList.get("user-agent")?.slice(0, 300) ?? null,

@@ -399,46 +399,52 @@ export async function purchasesBreakdown(companyId: string, period: Period) {
 // --- KPIs del panel ----------------------------------------------------------
 
 export async function pendingTotals(companyId: string) {
-  const [purchases, sales, expenses] = await Promise.all([
-    db.purchase.findMany({
-      where: { companyId, status: { in: ["PENDING", "PARTIAL"] } },
-      select: { documentType: true, totalAmount: true, payments: { select: { amount: true } } },
-    }),
-    db.sale.findMany({
-      where: {
-        companyId,
-        confirmingAt: null,
-        status: { in: ["PENDING", "PARTIAL", "OVERDUE"] },
-        documentType: { in: ["INVOICE", "RECEIPT"] },
-      },
-      select: {
-        documentType: true,
-        totalAmount: true,
-        retentionAmount: true,
-        payments: { select: { amount: true } },
-      },
-    }),
+  // Esto se calcula con SQL y no con un findMany + reduce: son miles de
+  // documentos pendientes y traerlos todos a memoria en cada carga del panel
+  // era un desperdicio (1.379 filas en producción, y crece con el negocio).
+  //
+  // El saldo pendiente es el total menos los abonos: una compra parcial ya no
+  // debe el total completo, solo lo que falta.
+  const [porPagar, porCobrar, expenses] = await Promise.all([
+    db.$queryRaw<{ total: number | null }[]>`
+      SELECT COALESCE(SUM(
+        GREATEST(p."totalAmount" - COALESCE(pay.abonado, 0), 0)
+        * (CASE WHEN p."documentType" = 'CREDIT_NOTE' THEN -1 ELSE 1 END)
+      ), 0) AS total
+      FROM "Purchase" p
+      LEFT JOIN (
+        SELECT "purchaseId", SUM(amount) AS abonado
+        FROM "Payment" WHERE "purchaseId" IS NOT NULL
+        GROUP BY "purchaseId"
+      ) pay ON pay."purchaseId" = p.id
+      WHERE p."companyId" = ${companyId}
+        AND p.status IN ('PENDING', 'PARTIAL')
+    `,
+    db.$queryRaw<{ total: number | null }[]>`
+      SELECT COALESCE(SUM(
+        GREATEST(s."totalAmount" - s."retentionAmount" - COALESCE(pay.abonado, 0), 0)
+        * (CASE WHEN s."documentType" = 'CREDIT_NOTE' THEN -1 ELSE 1 END)
+      ), 0) AS total
+      FROM "Sale" s
+      LEFT JOIN (
+        SELECT "saleId", SUM(amount) AS abonado
+        FROM "Payment" WHERE "saleId" IS NOT NULL
+        GROUP BY "saleId"
+      ) pay ON pay."saleId" = s.id
+      WHERE s."companyId" = ${companyId}
+        AND s."confirmingAt" IS NULL
+        AND s.status IN ('PENDING', 'PARTIAL', 'OVERDUE')
+        AND s."documentType" IN ('INVOICE', 'RECEIPT')
+    `,
     db.expense.aggregate({
       where: { companyId, reimbursed: false },
       _sum: { totalAmount: true },
     }),
   ]);
 
-  // El saldo pendiente es el total menos los abonos: una compra parcial ya no
-  // debe el total completo, solo lo que falta.
-  const porPagar = purchases.reduce((acc, purchase) => {
-    const abonado = purchase.payments.reduce((sum, payment) => sum + payment.amount, 0);
-    return acc + documentSign(purchase.documentType) * Math.max(purchase.totalAmount - abonado, 0);
-  }, 0);
-  const porCobrar = sales.reduce((acc, sale) => {
-    const abonado = sale.payments.reduce((sum, payment) => sum + payment.amount, 0);
-    const aCobrar = Math.max(sale.totalAmount - sale.retentionAmount - abonado, 0);
-    return acc + documentSign(sale.documentType) * aCobrar;
-  }, 0);
-
   return {
-    porPagar,
-    porCobrar,
+    porPagar: Number(porPagar[0]?.total ?? 0),
+    porCobrar: Number(porCobrar[0]?.total ?? 0),
     reembolsosPendientes: expenses._sum.totalAmount ?? 0,
   };
 }

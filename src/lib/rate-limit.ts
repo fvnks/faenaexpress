@@ -26,6 +26,15 @@ export class RateLimiter {
     return true;
   }
 
+  /**
+   * Olvida el contador de una clave. Se usa cuando el acierto no debe gastar un
+   * intento: si no, un usuario que se equivoca cinco veces queda bloqueado
+   * aunque después acierte.
+   */
+  reset(key: string): void {
+    this.entries.delete(key);
+  }
+
   // Solo para tests internos.
   _resetAll(): void {
     this.entries.clear();
