@@ -73,3 +73,32 @@ export async function listOrgMembers(organizationId: string) {
     orderBy: [{ active: "desc" }, { canSwitchCompanies: "desc" }, { createdAt: "asc" }],
   });
 }
+
+/**
+ * Regla de nombre de la cuenta: con UNA sola empresa, la organización se llama como
+ * la empresa; con más de una, el dueño decide el nombre (no se toca aquí).
+ *
+ * Idempotente. Se ejecuta al abrir Organización para que el nombre siga a la
+ * empresa mientras la cuenta sea de una sola empresa (por ejemplo, al eliminar
+ * todas las demás).
+ */
+export async function syncOrgName(organizationId: string): Promise<void> {
+  const companies = await db.company.findMany({
+    where: { organizationId },
+    select: { name: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (companies.length !== 1) return;
+
+  const organization = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { name: true },
+  });
+  if (!organization || organization.name === companies[0].name) return;
+
+  await db.organization.update({
+    where: { id: organizationId },
+    data: { name: companies[0].name },
+  });
+}
+

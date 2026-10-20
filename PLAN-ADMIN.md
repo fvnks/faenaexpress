@@ -258,6 +258,10 @@ Plan                          Subscription                     UsageRecord
 - **Invitaciones** (`src/app/actions/invitations.ts`): pasan a `requireOrgManager`; invitar sin empresa
   destino (toda la organización) es solo del OWNER; el destino debe pertenecer a la organización. La
   auditoría elige la primera empresa del grupo (el `AuditLog` es por empresa, no por organización).
+- **Nombre de la cuenta**: con **una sola empresa**, la organización se llama como la empresa
+  (`syncOrgName`, idempotente, se corre al abrir Organización y no se ofrece editar). Con **más de
+  una**, el dueño le pone el nombre a su «holding» desde Organización (`updateOrganization` + el
+  formulario `organization-name-form.tsx`). El `slug` no cambia (es identificador interno `@unique`).
 - **Backfill** (`scripts/backfill-organizations.ts`, `pnpm db:backfill-orgs`): agrupa las empresas sin
   organización por **administrador activo compartido** (componentes conexas), crea la `Organization` +
   `OrgMember`, deja OWNER al ADMIN activo más antiguo y apunta `Company.organizationId`. Idempotente y

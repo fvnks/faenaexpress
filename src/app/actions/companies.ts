@@ -422,6 +422,48 @@ export async function setOrgRole(
   return { ok: true };
 }
 
+// Edita el nombre de la ORGANIZACIÓN (el «holding» de la cuenta). Solo lo hace
+// quien administra la organización, y solo cuando hay más de una empresa: con una
+// sola empresa la cuenta se llama como la empresa y no hay nada que nombrar.
+export async function updateOrganization(
+  _prev: CompanyFormState,
+  formData: FormData,
+): Promise<CompanyFormState> {
+  const org = await requireOrgManager();
+
+  const companyCount = await db.company.count({
+    where: { organizationId: org.organization.id },
+  });
+  if (companyCount <= 1) {
+    return { error: "Con una sola empresa, la cuenta se llama como la empresa." };
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (name.length < 2 || name.length > 80) {
+    return { error: "El nombre debe tener entre 2 y 80 caracteres." };
+  }
+  if (name === org.organization.name) return { ok: true };
+
+  await db.organization.update({
+    where: { id: org.organization.id },
+    data: { name },
+  });
+
+  const ctx = await requireContext().catch(() => null);
+  if (ctx) {
+    await recordAudit(ctx, {
+      action: "UPDATE",
+      entityType: "Organization",
+      entityId: org.organization.id,
+      summary: `Cambió el nombre de la organización de «${org.organization.name}» a «${name}».`,
+      changes: { name: { before: org.organization.name, after: name } },
+    });
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 // Alterna el permiso `canSwitchCompanies` de un miembro de la organización.
 // Solo el OWNER lo otorga: ver todas las empresas del grupo es un permiso de
 // dueño, no del administrador de una empresa suelta.

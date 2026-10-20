@@ -20,7 +20,12 @@
 //   Prod:   node --env-file=.env.prod node_modules/.bin/tsx scripts/backfill-organizations.ts
 // Sin `--si` solo simula (dry-run).
 
-import "dotenv/config";
+// Carga `.env` como respaldo, pero sin pisar lo que ya venga por `--env-file`:
+// `pnpm db:backfill-orgs` usa `.env` (local) y `--env-file=.env.prod` apunta a
+// producción. `dotenv/config` no debe sobrescribir esa decisión.
+import { config } from "dotenv";
+
+config({ override: false });
 
 import { PrismaPg } from "@prisma/adapter-pg";
 

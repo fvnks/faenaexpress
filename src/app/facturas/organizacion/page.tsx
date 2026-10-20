@@ -5,11 +5,12 @@ import { listInvitations } from "@/app/actions/invitations";
 import { InviteForm } from "@/app/facturas/configuracion/invite-form";
 import { NewCompanyForm } from "@/app/facturas/configuracion/new-company-form";
 import { OrgMemberRow } from "@/app/facturas/organizacion/org-member-row";
+import { OrganizationNameForm } from "@/app/facturas/organizacion/organization-name-form";
 import { getActiveMembership, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { roleLabel } from "@/lib/labels";
 import type { Role } from "@/generated/prisma/client";
-import { ensureOrgOwner } from "@/lib/organizations";
+import { ensureOrgOwner, syncOrgName } from "@/lib/organizations";
 import { cardClass, dangerButtonClass, secondaryButtonClass } from "@/lib/ui";
 
 // Nivel 1 del panel de administración: la CUENTA (organización).
@@ -40,6 +41,9 @@ export default async function OrganizationPage() {
   // antiguo. Es idempotente.
   await ensureOrgOwner(organization.id);
 
+  // Con una sola empresa la cuenta se llama como la empresa (idempotente).
+  await syncOrgName(organization.id);
+
   // El rol se relee de la base: `ensureOrgOwner` pudo acabar de promover a este
   // usuario, y la sesión cargada antes de la reparación todavía lo ve como ADMIN.
   const selfMember = await db.orgMember.findUnique({
@@ -62,7 +66,7 @@ export default async function OrganizationPage() {
     );
   }
 
-  const [companies, orgMembers, invites] = await Promise.all([
+  const [companies, orgMembers, invites, organizationRow] = await Promise.all([
     db.company.findMany({
       where: { organizationId: organization.id },
       orderBy: { createdAt: "asc" },
@@ -74,7 +78,14 @@ export default async function OrganizationPage() {
       orderBy: [{ active: "desc" }, { orgRole: "asc" }, { createdAt: "asc" }],
     }),
     listInvitations(),
+    db.organization.findUnique({
+      where: { id: organization.id },
+      select: { name: true },
+    }),
   ]);
+
+  // Nombre fresco: `syncOrgName` pudo acabar de ajustarlo.
+  const orgName = organizationRow?.name ?? organization.name;
 
   // Empresas de la organización: destino posible de una invitación.
   const orgCompanies = companies.map((company) => ({ id: company.id, name: company.name }));
@@ -83,12 +94,19 @@ export default async function OrganizationPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Organización</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {organization.name} · Empresas de la cuenta, sus usuarios y las invitaciones
-          pendientes. Los datos fiscales de cada empresa se editan al entrar a ella.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Organización</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {orgName} · Empresas de la cuenta, sus usuarios y las invitaciones
+            pendientes. Los datos fiscales de cada empresa se editan al entrar a ella.
+          </p>
+        </div>
+        {/* El nombre de la cuenta solo se edita cuando agrupa más de una empresa:
+            con una sola, la cuenta se llama como la empresa. */}
+        {companies.length > 1 ? (
+          <OrganizationNameForm name={orgName} />
+        ) : null}
       </div>
 
       <section className={cardClass + " p-5"}>
@@ -179,7 +197,7 @@ export default async function OrganizationPage() {
         <div className="mt-5 border-t border-border pt-5">
           <h3 className="text-sm font-semibold">Nueva empresa</h3>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Queda dentro de {organization.name} y tú serás su administrador. Sus datos
+            Queda dentro de {orgName} y tú serás su administrador. Sus datos
             están separados de las demás.
           </p>
           <div className="mt-3">
@@ -227,7 +245,7 @@ export default async function OrganizationPage() {
 
         {!isOwner ? (
           <p className="mt-4 border-t border-border pt-4 text-sm text-muted-foreground">
-            Solo el dueño de {organization.name} puede cambiar roles u otorgar el permiso
+            Solo el dueño de {orgName} puede cambiar roles u otorgar el permiso
             de revisar todas las empresas.
           </p>
         ) : null}
