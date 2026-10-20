@@ -104,7 +104,8 @@ VPS Ubuntu con Coolify (`148.113.196.87`). Build `pnpm build`, release `pnpm db:
 entrypoint del contenedor), y `DATABASE_URL` + credenciales del admin como variables de entorno.
 
 - **Esta app vive en `erp.faenaexpress.cl`** (perfil `standalone`: sin landing, el visitante va a `/login`).
-  Ojo: **`yellow-erp.cl` es otro proyecto** (landing de marketing), no esta app.
+  Ojo: **`yellow-erp.cl` es otro proyecto** (landing de marketing), no esta app — y está detrás de
+  Cloudflare. El plan para reemplazarlo está en `DEPLOY.md`.
 - La consola de operador (`/admin`) está en `erp.faenaexpress.cl/admin` por ahora. Cuando exista el
   despliegue con perfil `saas`, se publica como `admin.yellow-erp.cl` (ver `PLAN-ADMIN.md` §6b).
 - La base de producción está en el puerto **5432 del VPS, sin TLS** (la CLI de Prisma en Windows no
