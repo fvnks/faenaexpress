@@ -3,7 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { getActiveMembership, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { enabledModules, MODULE_COOKIE } from "@/lib/modules";
 
 export const metadata: Metadata = {
@@ -20,12 +20,37 @@ export default async function ModulosPage() {
     redirect(modules[0].href);
   }
 
-  // Los pendientes son de la empresa activa: el estado real de cada módulo.
-  const active = await getActiveMembership();
+  // Sin ningún módulo: no hay nada que elegir ni a dónde ir. Es el caso de una
+  // persona sin empresa ni colegio: hay que decirle qué hacer, no mostrarle un
+  // selector vacío.
+  if (modules.length === 0) {
+    return (
+      <div className="min-h-dvh bg-background">
+        <header className="border-b border-border">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+            <span className="flex items-center gap-2 font-semibold tracking-tight">Yellow ERP</span>
+            <p className="text-sm text-muted-foreground">{user.name}</p>
+          </div>
+        </header>
+        <main className="mx-auto max-w-5xl px-6 py-14">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+            Todavía no tienes acceso
+          </h1>
+          <p className="mt-2 max-w-xl text-base text-muted-foreground">
+            Tu usuario no está en ninguna empresa ni en ningún colegio todavía. Pídele a quien
+            administra tu cuenta que te invite, y en cuanto lo haga te va a aparecer acá.
+          </p>
+        </main>
+      </div>
+    );
+  }
+
+  // Los pendientes son de cada módulo en su propio ámbito: la empresa activa
+  // para Facturas, el colegio activo para Colegios.
   const cards = await Promise.all(
     modules.map(async (module) => ({
       module,
-      pendings: active ? await module.pendings(active.company.id) : [],
+      pendings: await module.pendings(user.id),
     })),
   );
 
@@ -55,7 +80,7 @@ export default async function ModulosPage() {
         </h1>
         <p className="mt-2 text-base text-muted-foreground">
           Elige el módulo en el que quieres trabajar. Cada tarjeta muestra el estado
-          real de esa área en {active?.company.name ?? "tu empresa"}.
+          real de esa área en tu cuenta.
         </p>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2">

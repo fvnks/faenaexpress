@@ -41,6 +41,7 @@ model Organization {
   subscription Subscription?
   usage     UsageRecord[]
   accessLogs AccessLog[]
+  schools     School[]
 }
 
 // Pertenencia de un usuario a una organización.
@@ -253,6 +254,231 @@ model UsageRecord {
 }
 
 // ---------------------------------------------------------------------------
+// COLEGIOS: dominio escolar (módulo aparte de Facturas)
+//
+// Es un producto distinto que comparte la plataforma (organización, planes,
+// auditoría, consola), pero con su propio aislamiento: aquí el inquilino de
+// los datos es el ESTABLECIMIENTO (colegio), no la empresa. El `Organization`
+// es el sostenedor, que puede tener varios.
+//
+// Lo que manda en el diseño NO es laerpferencia sino la norma: la Circular N°30
+// (Libro de Clases Digital) define qué registros existen y el Decreto 67 los
+// criterios de promoción (85% de asistencia). Ver `PLAN-COLEGIOS.md`.
+// ---------------------------------------------------------------------------
+
+enum SchoolRole {
+  DIRECTOR // dirección: ve y decide todo en el colegio
+  UTP // jefatura de estudios: lo académico
+  ADMIN // administración: secretaría, inspección,admisiones
+  TEACHER // docente: sus cursos y sus registros
+  STAFF // funcionario: asistencia y reemplazos
+  VIEWER // solo lectura
+}
+
+enum SchoolLevel {
+  PARVULARIA
+  PREBASICA
+  BASICA
+  MEDIA
+  TECNICO
+}
+
+enum StudentStatus {
+  ACTIVE // cursando
+  TRANSFERRED // seMudó de colegio
+  WITHDRAWN // se retiró
+  GRADUATED // egresó
+}
+
+model School {
+  id             String      @id @default(cuid())
+  organizationId String? // el sostenedor; null si el colegio no tiene uno
+  name           String
+  rut            String?
+  level          SchoolLevel @default(BASICA)
+  address        String?
+  commune        String?
+  phone          String?
+  email          String?
+  // RUT del sostenedor y del colegio se necesitan aparte: el RUT de la unidad
+  // educational y el del establecimiento son distintos.
+  sostenedorRut  String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  memberships SchoolMembership[]
+  courses     Course[]
+  students    Student[]
+  guardians   Guardian[]
+  teachers    Teacher[]
+  subjects    Subject[]
+
+  @@index([organizationId])
+}
+
+// Acceso de una persona a un colegio, con su rol ahí. Es el equivalente
+// escolar de `Membership` (que es de empresas).
+model SchoolMembership {
+  id        String     @id @default(cuid())
+  userId    String
+  schoolId  String
+  role      SchoolRole @default(VIEWER)
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, schoolId])
+  @@index([schoolId])
+}
+
+// Curso: "3°Básico A", año escolar 2026.
+model Course {
+  id       String      @id @default(cuid())
+  schoolId String
+  name     String
+  level    SchoolLevel @default(BASICA)
+  year     Int // año escolar
+  section  String? // "A", "B"
+  active   Boolean     @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
+  assignments TeachingAssignment[]
+
+  @@index([schoolId, year])
+}
+
+model Student {
+  id        String        @id @default(cuid())
+  schoolId  String
+  rut       String?
+  firstName String
+  lastName  String
+  birthDate DateTime?
+  gender    String? // "F", "M", "OTRO"
+  address   String?
+  commune   String?
+  email     String?
+  phone     String?
+  status    StudentStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  enrollments   Enrollment[]
+  guardianships Guardianship[]
+
+  @@index([schoolId, lastName])
+}
+
+// Apoderado (o apoderada): el contacto del estudiante. No es personal del
+// colegio: accede al PORTAL, no al sistema interno.
+model Guardian {
+  id        String   @id @default(cuid())
+  schoolId  String
+  rut       String?
+  name      String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  guardianships Guardianship[]
+
+  @@index([schoolId, name])
+}
+
+// Vínculo entre apoderado y estudiante, con el tipo de responsabilidad.
+model Guardianship {
+  id         String   @id @default(cuid())
+  studentId  String
+  guardianId String
+  // "TITULAR", "SUPLENTE", "EMERGENCIA"
+  type       String   @default("TITULAR")
+  createdAt  DateTime @default(now())
+
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, guardianId])
+  @@index([guardianId])
+}
+
+model Teacher {
+  id        String   @id @default(cuid())
+  schoolId  String
+  rut       String?
+  name      String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  assignments TeachingAssignment[]
+
+  @@index([schoolId, name])
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  schoolId  String
+  code      String // "MAT"
+  name      String // "Matemática"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  assignments TeachingAssignment[]
+
+  @@unique([schoolId, code])
+}
+
+// Qué docente hace qué asignatura en qué curso. Es el corazón del libro de
+// clases: sin esto no hay quién registre la asistencia ni las notas.
+model TeachingAssignment {
+  id           String   @id @default(cuid())
+  courseId     String
+  subjectId    String
+  teacherId    String
+  weeklyHours  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, subjectId])
+  @@index([teacherId])
+}
+
+// Matrícula de un estudiante en un curso.
+model Enrollment {
+  id         String   @id @default(cuid())
+  courseId   String
+  studentId  String
+  enrolledAt DateTime @default(now())
+  // "ACTIVE", "RETIRADO"
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, studentId])
+  @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
 // Usuarios, roles y sesiones
 // ---------------------------------------------------------------------------
 
@@ -307,6 +533,7 @@ model User {
   createdPayments              Payment[]              @relation("PaymentCreatedBy")
   orgMembers                   OrgMember[]
   invitations                  Invitation[]
+  schoolMemberships            SchoolMembership[]
   // Personal de plataforma (Yellow ERP). Un usuario normal no lo es.
   platformStaff                PlatformStaff? @relation("PlatformStaffUser")
   recoveryCodes                RecoveryCode[]
