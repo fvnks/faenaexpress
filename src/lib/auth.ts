@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import type { Company, InventoryAccess, OrgRole, Role } from "@/generated/prisma/client";
 import { canAccess, canWrite as roleCanWrite, effectiveInventoryAccess, type Section } from "@/lib/permissions";
+import { isImpersonating } from "@/lib/impersonation";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import type { AuthContext, SessionUser } from "@/lib/types";
@@ -55,7 +56,6 @@ export const COMPANY_COOKIE = "facturas_company";
 
 // Deduplica la lectura de sesión dentro de una misma request.
 export const getCurrentUser = cache(getSessionUser);
-
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) {
@@ -129,6 +129,13 @@ export async function requireContext(section?: Section): Promise<AuthContext> {
     redirect("/facturas/configuracion");
   }
   if (section) {
+    // RRHH es lo más sensible del cliente (sueldos, remuneraciones, documentos
+    // del trabajador). Durante una impersonación no se entra: ni por URL ni por
+    // la navegación. Es el punto único de corte: todas las páginas y rutas de
+    // RRHH pasan por acá.
+    if (section === "rrhh" && (await isImpersonating())) {
+      redirect("/facturas?bloqueo=rrhh");
+    }
     // Inventario usa el nivel efectivo (override o rol base) para entrar.
     const allowed =
       section === "inventario"

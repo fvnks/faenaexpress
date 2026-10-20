@@ -208,17 +208,31 @@ model Membership {
 }
 
 // Sesión con token opaco: se guarda el hash, nunca el token en claro.
+//
+// La impersonación (Fase B2) usa una sesión SEPARADA de la del operador: el
+// personal de plataforma no cambia su propia sesión, crea una sesión aparte que
+// actúa como un usuario del cliente. Así «salir de la impersonación» es
+// siempre un clic y no un «volver a mi cuenta» que se puede perder.
 model Session {
   id        String   @id @default(cuid())
   tokenHash String   @unique
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
+  // Impersonación: presente solo en la sesión de soporte.
+  // `impersonatedByStaffId` es el id del usuario del equipo de plataforma (texto
+  // plano, como en AuditLog: el registro sobrevive si se borra el usuario).
+  impersonatedByStaffId     String?
+  impersonatedOrganizationId String? // organización del cliente
+  impersonatedUntil          DateTime? // tope duro de tiempo
+  // Motivo que dejó el operador al entrar (queda en la auditoría).
+  impersonationReason        String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([impersonatedByStaffId])
 }
 
 // ---------------------------------------------------------------------------

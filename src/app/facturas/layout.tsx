@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { logout } from "@/app/actions/auth";
 import { CompanySwitcher } from "@/components/company-switcher";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { ModuleSwitcher } from "@/components/module-switcher";
 import { PeriodNav } from "@/components/period-nav";
 import { Sidebar } from "@/components/sidebar";
@@ -12,6 +13,7 @@ import { ToasterFlash } from "@/components/toaster-flash";
 import { getActiveMembership, isOrgManager, requireUser, visibleCompanies } from "@/lib/auth";
 import { countPendingMovements } from "@/lib/banco";
 import { getFlash } from "@/lib/flash";
+import { getImpersonationContext } from "@/lib/impersonation";
 import { roleLabel } from "@/lib/labels";
 import { enabledModules } from "@/lib/modules";
 import { countUnreadNotifications, syncDueNotifications } from "@/lib/notifications";
@@ -52,21 +54,35 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
     getFlash(),
   ]);
 
+  // Impersonación: si está activa, el banner va por encima de todo (es la
+  // señal de que el operador está dentro de la cuenta de un cliente).
+  const impersonation = await getImpersonationContext();
+
   return (
-    <div className="min-h-dvh lg:flex">
-      <Sidebar
-        role={active?.role ?? null}
-        inventoryAccess={active?.inventoryAccess ?? undefined}
-        userName={user.name}
-        userEmail={user.email}
-        roleLabel={active ? roleLabel(active.role) : "Sin empresa"}
-        companyName={active?.company.name ?? "Sin empresa"}
-        pendingSales={pending.sales}
-        pendingBank={pendingBank}
-        isOrgManager={isOrgManager(user)}
-        isPlatformStaff={isPlatformStaff}
-        logout={logout}
-      />
+    <div className="min-h-dvh">
+      {impersonation ? (
+        <ImpersonationBanner
+          organizationName={impersonation.organization.name}
+          targetName={impersonation.target.name}
+          reason={impersonation.reason}
+          until={impersonation.until.toISOString()}
+        />
+      ) : null}
+      <div className="lg:flex">
+        <Sidebar
+          role={active?.role ?? null}
+          inventoryAccess={active?.inventoryAccess ?? undefined}
+          userName={user.name}
+          userEmail={user.email}
+          roleLabel={active ? roleLabel(active.role) : "Sin empresa"}
+          companyName={active?.company.name ?? "Sin empresa"}
+          pendingSales={pending.sales}
+          pendingBank={pendingBank}
+          isOrgManager={isOrgManager(user)}
+          isPlatformStaff={isPlatformStaff}
+          hiddenSections={impersonation ? ["rrhh"] : undefined}
+          logout={logout}
+        />
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Barra superior: período + empresa + tema + campana, en el flujo del layout */}
         <div className="flex items-center justify-end gap-2 px-4 pt-4 lg:px-8 lg:pt-6">
@@ -113,6 +129,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
           </Link>
         </div>
         <main className="min-w-0 flex-1 px-4 py-4 lg:px-10 lg:py-6">{children}</main>
+      </div>
       </div>
       <LiveSearchInputs />
       <ToasterFlash flash={flash} />

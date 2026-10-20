@@ -87,6 +87,16 @@ export default async function OrganizationPage() {
   // Nombre fresco: `syncOrgName` pudo acabar de ajustarlo.
   const orgName = organizationRow?.name ?? organization.name;
 
+  // Historial de accesos del equipo de Yellow ERP a esta cuenta (solo el dueño).
+  const accessLog = isOwner
+    ? await db.platformAudit.findMany({
+        where: { organizationId: organization.id, entityType: "Impersonation" },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { id: true, summary: true, createdAt: true },
+      })
+    : [];
+
   // Empresas de la organización: destino posible de una invitación.
   const orgCompanies = companies.map((company) => ({ id: company.id, name: company.name }));
 
@@ -250,6 +260,34 @@ export default async function OrganizationPage() {
           </p>
         ) : null}
       </section>
+
+      {/* Transparencia: el dueño de la cuenta ve quién entró a ella y cuándo.
+          El soporte de Yellow ERP deja rastro, y ese rastro es del cliente. */}
+      {isOwner ? (
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Accesos de Yellow ERP a esta cuenta</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Cada vez que el equipo de Yellow ERP entra a tu cuenta para prestarte soporte queda
+            anotado aquí, con el motivo y el tiempo que duró.
+          </p>
+          {accessLog.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Nadie del equipo de Yellow ERP ha entrado a esta cuenta.
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border">
+              {accessLog.map((entry) => (
+                <li key={entry.id} className="py-2.5 text-sm">
+                  <span className="text-muted-foreground">
+                    {new Date(entry.createdAt).toLocaleString("es-CL")} ·{" "}
+                  </span>
+                  {entry.summary}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
       {invites.length > 0 ? (
         <section className={cardClass + " p-5"}>

@@ -212,6 +212,18 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
   const searchParams = await props.searchParams;
   const rawPeriod = typeof searchParams.period === "string" ? searchParams.period : "";
   const period = /^\d{4}-\d{2}$/.test(rawPeriod) ? rawPeriod : currentPeriod();
+
+  // Aviso cuando una acción quedó bloqueada por la impersonación: el operador
+  // tiene que saber POR QUÉ no puede seguir, no solo que no puede.
+  const rawBloqueo = typeof searchParams.bloqueo === "string" ? searchParams.bloqueo : "";
+  const bloqueo =
+    rawBloqueo === "rrhh"
+      ? {
+          titulo: "RRHH no se puede ver en una sesión de soporte",
+          detalle:
+            "Los sueldos y remuneraciones del cliente no se abren desde una impersonación: es el dato más sensible de la cuenta y requiere la sesión del cliente.",
+        }
+      : null;
   const range = monthRange(period) ?? { from: new Date(), to: new Date() };
   const prevRange = monthRange(shiftPeriod(period, -1)) ?? { from: new Date(), to: new Date() };
   const mes = formatPeriod(period);
@@ -280,6 +292,13 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
 
   return (
     <div>
+      {bloqueo ? (
+        <div className="mb-4">
+          <Alert variant="warning" title={bloqueo.titulo}>
+            {bloqueo.detalle}
+          </Alert>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Panel</h1>

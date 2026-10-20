@@ -2,8 +2,15 @@
 
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { db } from "@/lib/db";
+import {
+  createImpersonationSession,
+  deleteImpersonationSession,
+  getImpersonationContext,
+} from "@/lib/impersonation";
 import { recordPlatformAudit } from "@/lib/platform-audit";
 import { clearPendingInvite, setPendingInvite } from "@/lib/platform-invite";
 import { requirePlatformStaff } from "@/lib/platform";
@@ -27,6 +34,121 @@ const inviteLimiter = new RateLimiter({ max: 10, windowMs: 60_000 });
 export async function dismissPendingInvite(): Promise<void> {
   await requirePlatformStaff("SUPPORT");
   await clearPendingInvite();
+}
+
+/**
+ * Entra a la cuenta de un cliente («impersonar»).
+ *
+ * Exige OPERATOR:SUPPORT lee, pero entrar a la cuenta de un cliente es una de
+ * las cosas más delicadas del panel. Se elige:
+ *   - la organización whose,
+ *   - el usuario del cliente dentro de ella (por defecto, el dueño de la
+ *     organización, que es quien puede hacer de todo en su cuenta),
+ *   - el motivo, que queda escrito para el cliente.
+ *
+ * La sesión es nueva y aparte: la del operador no se toca. Tope duro de 30
+ * minutos, banner permanente y prohibidas las acciones destructivas.
+ */
+export async function startImpersonation(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const organizationId = String(formData.get("organizationId") ?? "").trim();
+  const targetUserId = String(formData.get("targetUserId") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 300) || null;
+
+  if (!organizationId) return { error: "Falta la organización." };
+
+  const organization = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true, name: true },
+  });
+  if (!organization) return { error: "Esa organización no existe." };
+
+  // El usuario imitado tiene que pertenecer a la organización: nunca se entra a
+  // una cuenta con un usuario de otra.
+  const membership = await db.orgMember.findUnique({
+    where: { userId_organizationId: { userId: targetUserId, organizationId } },
+    select: {
+      id: true,
+      active: true,
+      orgRole: true,
+      user: { select: { id: true, name: true, email: true, active: true } },
+    },
+  });
+  if (!membership || !membership.active || !membership.user.active) {
+    return { error: "Ese usuario no pertenece a la organización." };
+  }
+
+  // Si ya hay una impersonación viva, se cierra antes de abrir otra: no puede
+  // haber dos ventanas de soporte dentro de la misma cuenta.
+  const current = await getImpersonationContext();
+  if (current) {
+    await deleteImpersonationSession();
+    await recordPlatformAudit(ctx, {
+      action: "UPDATE",
+      entityType: "Impersonation",
+      entityId: current.sessionId,
+      organizationId: current.organization.id,
+      summary: `Cerró la impersonación de «${current.organization.name}» (duración: ${Math.round((Date.now() - current.startedAt.getTime()) / 60000)} min) para abrir otra.`,
+    });
+  }
+
+  await createImpersonationSession({
+    staffUserId: ctx.user.id,
+    organizationId,
+    targetUserId,
+    reason,
+  });
+
+  await recordPlatformAudit(ctx, {
+    action: "CREATE",
+    entityType: "Impersonation",
+    entityId: targetUserId,
+    organizationId,
+    summary: `Entró a la cuenta de «${organization.name}» como ${membership.user.name} (${membership.user.email})${reason ? ` · motivo: ${reason}` : ""}.`,
+    changes: { reason: { before: null, after: reason } },
+  });
+
+  // La empresa activa: la primera donde el usuario imitado tiene membresía, para
+  // que la sesión no caiga en una empresa donde no puede hacer nada.
+  const company = await db.membership.findFirst({
+    where: { userId: targetUserId, active: true },
+    select: { companyId: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (company) {
+    const cookieStore = await cookies();
+    cookieStore.set("facturas_company", company.companyId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
+  }
+
+  redirect("/facturas");
+}
+
+/** Sale de la impersonación y vuelve a la sesión del operador. */
+export async function stopImpersonation(): Promise<void> {
+  const ctx = await requirePlatformStaff("SUPPORT");
+  const current = await getImpersonationContext();
+  if (!current) redirect("/facturas");
+
+  await deleteImpersonationSession();
+
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Impersonation",
+    entityId: current.sessionId,
+    organizationId: current.organization.id,
+    summary: `Salió de la cuenta de «${current.organization.name}» (duración: ${Math.round((Date.now() - current.startedAt.getTime()) / 60000)} min).`,
+  });
+
+  redirect("/admin");
 }
 
 function generateToken(): string {

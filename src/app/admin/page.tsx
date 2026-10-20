@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { requirePlatformStaff } from "@/lib/platform";
-import { listPlatformAuditRecent, listOrganizations, platformOverview } from "@/lib/platform-queries";
+import { activeImpersonations, listPlatformAuditRecent, listOrganizations, platformOverview } from "@/lib/platform-queries";
 import { formatDate } from "@/lib/money";
 import { cardClass } from "@/lib/ui";
 
@@ -9,10 +9,11 @@ import { cardClass } from "@/lib/ui";
 export default async function AdminDashboardPage() {
   await requirePlatformStaff("SUPPORT");
 
-  const [overview, orgs, audit] = await Promise.all([
+  const [overview, orgs, audit, openSessions] = await Promise.all([
     platformOverview(),
     listOrganizations(),
     listPlatformAuditRecent(8),
+    activeImpersonations(),
   ]);
 
   // Orden por actividad reciente: primero lo que se está usando.
@@ -71,6 +72,33 @@ export default async function AdminDashboardPage() {
                   {org.activeMembers} usuario{org.activeMembers === 1 ? "" : "s"} ·{" "}
                   {org.lastActivity ? `última venta ${formatDate(org.lastActivity)}` : "sin ventas"}
                 </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Sesiones de soporte abiertas</h2>
+        {openSessions.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Nadie está dentro de la cuenta de un cliente ahora mismo.
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-border">
+            {openSessions.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                <div>
+                  <p className="text-sm font-medium">{s.organizationName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {s.staffName} está dentro como {s.targetName}
+                    {s.reason ? ` · ${s.reason}` : ""}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(s.startedAt)} · hasta las{" "}
+                  {s.until.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                </p>
               </li>
             ))}
           </ul>

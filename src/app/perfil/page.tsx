@@ -3,6 +3,7 @@ import Link from "next/link";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { requireUser } from "@/lib/auth";
+import { IMPERSONATION_FORBIDDEN, impersonationBlock } from "@/lib/impersonation";
 import { postLoginDestination } from "@/lib/modules";
 
 import { ChangePasswordForm } from "./change-password-form";
@@ -10,6 +11,10 @@ import { LoginVisual } from "../login/visual";
 
 export default async function PerfilPage() {
   const user = await requireUser();
+
+  // Cambiar la contraseña del cliente es de las acciones que la impersonación
+  // prohíbe: se cambia con la sesión del cliente, no con la de soporte.
+  const bloqueoPassword = await impersonationBlock(IMPERSONATION_FORBIDDEN.changePassword);
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
@@ -46,7 +51,16 @@ export default async function PerfilPage() {
             </p>
           ) : null}
 
-          <ChangePasswordForm obligatorio={user.mustChangePassword} />
+          {bloqueoPassword ? (
+            <p
+              role="alert"
+              className="mt-6 rounded-[10px] border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-foreground"
+            >
+              {bloqueoPassword}
+            </p>
+          ) : (
+            <ChangePasswordForm obligatorio={user.mustChangePassword} />
+          )}
 
           <div className="mt-8 flex items-center justify-between border-t border-border pt-5">
             {user.mustChangePassword ? (

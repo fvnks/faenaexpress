@@ -311,6 +311,39 @@ Plan                          Subscription                     UsageRecord
 - Verificado en **ambos temas** (R-34): la consola usa los tokens semánticos (`bg-surface`, `text-muted-foreground`,
   `border-border`) y no colores crudos.
 | **B2. Impersonar** *(decidido: se hace)* | Sesión separada, banner, tope de tiempo, acciones destructivas prohibidas, registro visible para el cliente | Entras como soporte, haces una tarea y el dueño del cliente lo ve registrado | 2–3 días |
+
+**Estado de B2: implementada y verificada en la base local (20-10-2026), pendiente de push.**
+
+- **Sesión separada** (`src/lib/impersonation.ts`): la impersonación crea una sesión **nueva** con su propia cookie
+  (`facturas_impersonacion`). La del operador no se toca: salir es siempre un clic y nunca un «volver a mi
+  cuenta» que se puede perder. `Session` ganó `impersonatedByStaffId`, `impersonatedOrganizationId`,
+  `impersonatedUntil` e `impersonationReason` (migración `20261026130000_impersonation`).
+- **Tope duro de 30 minutos** (`IMPERSONATION_MAX_MS`). No es configurable a voluntad: es el techo del
+  permiso. Si se vence, la sesión se cierra sola y el operador vuelve a su propia sesión.
+- **Banner permanente** en toda la app y en la consola, con la cuenta regresiva y el botón de salida. El
+  servidor pinta «máx. 30 min» y el cliente la cuenta viva: si el servidor calculara el tiempo también,
+  el HTML y la carga útil llegarían con un segundo de diferencia y React abortaría la hidratación (el
+  botón «Salir» dejaría de funcionar).
+- **Acciones prohibidas durante la impersonación** (`IMPERSONATION_FORBIDDEN`): eliminar una empresa,
+  exportar los datos, cambiar contraseñas y ver RRHH. Los cuatro cortes están donde hacen falta:
+  `deleteCompany`, la ruta de exportación ZIP, `changePassword` (+ la página de perfil) y
+  `requireContext("rrhh")`, que es el punto único por donde pasan todas las páginas y rutas de RRHH
+  (el ítem también desaparece del menú).
+- **Registro para el cliente**: apertura y cierre quedan en `PlatformAudit`, y el **dueño de la cuenta**
+  los ve en `/facturas/organizacion` («Accesos de Yellow ERP a esta cuenta»), con el motivo y la
+  duración. La consola muestra además las sesiones de soporte abiertas.
+- **Niveles**: entrar a la cuenta de un cliente es de `OPERATOR` (`SUPPORT` solo lee). A quién se entra:
+  a los miembros activos de la organización con rol `OWNER` o `ADMIN` — nunca a un `MEMBER`, que no
+  puede administrar su cuenta y abriría la puerta de más.
+- **La consola no se abre desde una impersonación**: `requirePlatformStaff` usa la sesión **propia**, no
+  la de la identidad del cliente.
+
+**Cómo se verificó B2 (local, 20-10-2026):** alta asistida completa desde la consola (crear cuenta →
+invitar → el contacto entra); la impersonación muestra el banner con la cuenta regresiva; RRHH bloqueado
+por URL y oculto en el menú; exportación ZIP bloqueada con 403 y el motivo real; perfil sin formulario
+de contraseña; `deleteCompany` bloqueado (la empresa sigue en la base); «Salir» vuelve a la sesión del
+operador; la auditoría registra entrada y salida; y el dueño de la cuenta ve el registro. Sin errores de
+hidratación y con ambos temas verificados.
 | **C. Módulos por organización** | Tabla `OrganizationModule`, `enabledModules(userId)` con los dos filtros, auditoría del cambio, UI de módulos en la organización | Un cliente sin RRHH contratado no ve RRHH en `/modulos` ni puede entrar por URL | 2–3 días |
 | **D. Planes, uso y cobro** *(diferido hasta que haya cobro real)* | `Plan`, `Subscription`, `UsageRecord`; enforcement en las actions; `/admin/planes`; pantalla de facturación del cliente; Flow/Mercado Pago + webhook. **Parte con una maqueta: plan `Free` único, límites en `null` (sin tope) y UI de facturación completa** | El plan Free corta al llegar al tope con un mensaje claro; el upgrade libera el mismo día. Con la maqueta: puedes mostrar la pantalla de plan y cambiar de plan a mano desde `/admin` | 6–9 días |
 | **E. Endurecimiento** | 2FA para `OWNER` y para `PlatformStaff`; rate limit en invitaciones y login; registro de accesos por organización; `proxy` de sesión | Owner con 2FA; nadie entra a `/admin` sin segundo factor | 3–4 días |

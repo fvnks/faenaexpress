@@ -2,13 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InviteFromAdminForm } from "@/app/admin/admin-forms";
+import { ImpersonateForm } from "@/app/admin/impersonate-form";
 import { InviteLinkPanel } from "@/app/admin/invite-link-panel";
 import { orgRoleLabel, roleLabel } from "@/lib/labels";
 import { formatDate } from "@/lib/money";
 import { requirePlatformStaff } from "@/lib/platform";
 import { listPlatformAudit } from "@/lib/platform-audit";
 import { getPendingInvite } from "@/lib/platform-invite";
-import { organizationDetail } from "@/lib/platform-queries";
+import { impersonationCandidates, organizationDetail } from "@/lib/platform-queries";
 import { cardClass } from "@/lib/ui";
 
 // Ficha de una organización para el operador: sus empresas, sus miembros y el
@@ -16,7 +17,7 @@ import { cardClass } from "@/lib/ui";
 export default async function AdminOrganizationDetailPage({
   params,
 }: PageProps<"/admin/organizaciones/[id]">) {
-  await requirePlatformStaff("SUPPORT");
+  const ctx = await requirePlatformStaff("SUPPORT");
   const { id } = await params;
 
   const detail = await organizationDetail(id);
@@ -27,6 +28,9 @@ export default async function AdminOrganizationDetailPage({
   // Enlace de la última invitación generada, si sigue vigente.
   const pendingInvite = await getPendingInvite();
   const showInvite = pendingInvite?.organizationId === id ? pendingInvite : null;
+  // Entrar a la cuenta es de OPERATOR: SUPPORT solo lee.
+  const candidates =
+    ctx.staff.level === "SUPPORT" ? [] : await impersonationCandidates(id);
 
   return (
     <div className="flex flex-col gap-6">
@@ -120,6 +124,31 @@ export default async function AdminOrganizationDetailPage({
             organizationId={organization.id}
             companies={organization.companies.map((c) => ({ id: c.id, name: c.name }))}
           />
+        </div>
+      </section>
+
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Entrar a la cuenta</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Abre la sesión de soporte dentro de la cuenta del cliente, para reproducir un problema o
+          hacer un ajuste puntual con sus datos.
+        </p>
+        <div className="mt-4">
+          {ctx.staff.level === "SUPPORT" ? (
+            <p className="text-sm text-muted-foreground">
+              Tu nivel (soporte) solo permite leer. Entrar a la cuenta del cliente es de operador.
+            </p>
+          ) : (
+            <ImpersonateForm
+              organizationId={organization.id}
+              candidates={candidates.map((c) => ({
+                id: c.user.id,
+                name: c.user.name,
+                email: c.user.email,
+                orgRole: orgRoleLabel(c.orgRole),
+              }))}
+            />
+          )}
         </div>
       </section>
 

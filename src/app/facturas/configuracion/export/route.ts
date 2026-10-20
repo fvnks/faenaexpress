@@ -3,6 +3,7 @@ import JSZip from "jszip";
 import { requireContext, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toCsv, csvDate } from "@/lib/csv";
+import { IMPERSONATION_FORBIDDEN, impersonationBlock } from "@/lib/impersonation";
 
 // Exporta TODOS los datos de la empresa activa en un ZIP con un CSV por tabla.
 // Sirve para portabilidad (ley 21.719), respaldo puntual y como antídoto contra el
@@ -12,6 +13,13 @@ import { toCsv, csvDate } from "@/lib/csv";
 // Company) ni passwordHash (viven en User): esas tablas no van.
 export async function GET() {
   const ctx = await requireContext();
+  // Exportar los datos de la empresa es de las acciones que la impersonación
+  // prohíbe: la copia se la lleva el cliente, no el soporte. Se comprueba antes
+  // que el rol, para que el motivo que se le da sea el real.
+  const bloqueado = await impersonationBlock(IMPERSONATION_FORBIDDEN.exportData);
+  if (bloqueado) {
+    return new Response(bloqueado, { status: 403 });
+  }
   if (!isAdmin(ctx)) {
     return new Response("Solo un administrador puede exportar los datos.", { status: 403 });
   }

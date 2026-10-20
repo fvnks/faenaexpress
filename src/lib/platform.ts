@@ -15,7 +15,7 @@ import { redirect } from "next/navigation";
 
 import type { PlatformLevel } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/session";
+import { getRealSessionUser } from "@/lib/session";
 import type { SessionUser } from "@/lib/types";
 
 // Jerarquía de niveles: un nivel incluye a los de menor alcance.
@@ -32,7 +32,9 @@ export type PlatformContext = {
 
 /** ¿El usuario es personal de plataforma activo, al menos del nivel pedido? */
 export async function isPlatformStaff(level: PlatformLevel = "SUPPORT"): Promise<boolean> {
-  const user = await getSessionUser();
+  // Sesión propia: durante una impersonación el operador está actuando como un
+  // cliente, y no debe ver el acceso a la consola.
+  const user = await getRealSessionUser();
   if (!user) return false;
   return hasPlatformLevel(user.id, level);
 }
@@ -55,9 +57,12 @@ export async function isAnyStaff(): Promise<boolean> {
  * Exige sesión y nivel de plataforma. Redirige a /facturas (no a /login) si no
  * lo es: quien tiene sesión pero no es del equipo no debe ver siquiera que /admin
  * existe. Sin sesión, el login normal decide.
+ *
+ * Usa la sesión PROPIA, no la de impersonación: el personal de plataforma no
+ * puede entrar a la consola de operador con la identidad de un cliente.
  */
 export async function requirePlatformStaff(level: PlatformLevel = "SUPPORT"): Promise<PlatformContext> {
-  const user = await getSessionUser();
+  const user = await getRealSessionUser();
   if (!user) redirect("/login");
 
   const staff = await db.platformStaff.findUnique({

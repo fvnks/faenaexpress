@@ -671,6 +671,8 @@ export type SidebarProps = {
   isOrgManager: boolean;
   /** Personal de la plataforma: ve el acceso a la consola de operador. */
   isPlatformStaff?: boolean;
+  /** Secciones que no se muestran porque la impersonación las bloquea. */
+  hiddenSections?: string[];
   logout: () => void;
 };
 
@@ -776,6 +778,9 @@ export function Sidebar(props: SidebarProps) {
   const filtering = needle !== "";
   const canSee = (item: SidebarItem) => {
     if (item.section === "panel") return true;
+    // Secciones bloqueadas durante la impersonación: no se muestran, para no
+    // ofrecer un enlace que va a ser rechazado.
+    if (props.hiddenSections?.includes(item.section)) return false;
     if (item.section === "configuracion") return props.role ? canAccess(props.role, "configuracion") : true;
     // Organización no depende del rol en la empresa activa: la administra quien
     // es OWNER/ADMIN de la organización, tenga o no una empresa activa.

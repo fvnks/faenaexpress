@@ -9,6 +9,7 @@ import { COMPANY_COOKIE, getCurrentUser, getActiveMembership, isAdmin, isOrgMana
 import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
+import { IMPERSONATION_FORBIDDEN, impersonationBlock } from "@/lib/impersonation";
 import { companySchema, memberSchema, newUserSchema, orgRoleValues, roleValues } from "@/lib/validation";
 
 export type CompanyFormState = { error?: string; ok?: boolean } | undefined;
@@ -334,6 +335,14 @@ export async function updateMemberRole(
 // Nunca la empresa activa.
 export async function deleteCompany(formData: FormData): Promise<void> {
   const user = await requireUser();
+
+  // Borrar una empresa es de las acciones que la impersonación prohíbe: es
+  // destructiva e irreversible, y el cliente tiene que hacerlo con su sesión.
+  const bloqueado = await impersonationBlock(IMPERSONATION_FORBIDDEN.deleteCompany);
+  if (bloqueado) {
+    await setFlash("error", "No se pudo eliminar la empresa", bloqueado);
+    redirect("/facturas/organizacion");
+  }
 
   const companyId = String(formData.get("companyId") ?? "");
   const confirmName = String(formData.get("confirmName") ?? "").trim();

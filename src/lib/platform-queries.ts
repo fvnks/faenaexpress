@@ -198,6 +198,73 @@ export async function listPlatformStaff() {
   });
 }
 
+/**
+ * A quién se puede entrar a una cuenta: los miembros activos de la organización
+ * con rol de dueño o administrador. Entrar como un MEMBER no sirve de nada
+ * (no puede administrar la cuenta) y abre la puerta de más.
+ */
+export async function impersonationCandidates(organizationId: string) {
+  return db.orgMember.findMany({
+    where: {
+      organizationId,
+      active: true,
+      orgRole: { in: ["OWNER", "ADMIN"] },
+      user: { active: true },
+    },
+    include: { user: { select: { id: true, name: true, email: true } } },
+    orderBy: [{ orgRole: "asc" }, { createdAt: "asc" }],
+  });
+}
+
+/** Sesiones de soporte abiertas ahora mismo (impersonaciones vigentes). */
+export async function activeImpersonations() {
+  const sessions = await db.session.findMany({
+    where: {
+      impersonatedByStaffId: { not: null },
+      impersonatedUntil: { gt: new Date() },
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      createdAt: true,
+      impersonatedUntil: true,
+      impersonationReason: true,
+      impersonatedByStaffId: true,
+      impersonatedOrganizationId: true,
+      user: { select: { name: true, email: true } },
+    },
+  });
+
+  const staffIds = [...new Set(sessions.map((s) => s.impersonatedByStaffId).filter(Boolean))] as string[];
+  const orgIds = [
+    ...new Set(sessions.map((s) => s.impersonatedOrganizationId).filter(Boolean)),
+  ] as string[];
+
+  const [staff, orgs] = await Promise.all([
+    staffIds.length
+      ? db.user.findMany({ where: { id: { in: staffIds } }, select: { id: true, name: true } })
+      : Promise.resolve([]),
+    orgIds.length
+      ? db.organization.findMany({ where: { id: { in: orgIds } }, select: { id: true, name: true } })
+      : Promise.resolve([]),
+  ]);
+
+  const staffName = new Map(staff.map((s) => [s.id, s.name]));
+  const orgName = new Map(orgs.map((o) => [o.id, o.name]));
+
+  return sessions.map((s) => ({
+    id: s.id,
+    staffName: staffName.get(s.impersonatedByStaffId as string) ?? "Operador",
+    organizationName:
+      orgName.get(s.impersonatedOrganizationId as string) ?? "Cuenta del cliente",
+    targetName: s.user.name,
+    reason: s.impersonationReason,
+    startedAt: s.createdAt,
+    until: s.impersonatedUntil as Date,
+  }));
+}
+
 export async function listPlatformAuditRecent(limit = 30) {
   return db.platformAudit.findMany({
     orderBy: { createdAt: "desc" },

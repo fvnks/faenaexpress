@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 import type { SessionUser } from "@/lib/types";
 
 const COOKIE_NAME = "facturas_session";
+// Cookie de la sesión de impersonación (Fase B2). Es SEPARADA de la del
+// operador: su sesión propia no se toca, así que salir de la impersonación es
+// siempre un clic y nunca un "volver a mi cuenta" que se puede perder.
+export const IMPERSONATION_COOKIE = "facturas_impersonacion";
 const DAY_MS = 1000 * 60 * 60 * 24;
 // Con "Recuérdame": cookie persistente y renovación automática mientras se use la app.
 const PERSISTENT_TTL_MS = DAY_MS * 90;
@@ -51,10 +55,48 @@ export async function deleteSession(): Promise<void> {
 
 // Devuelve el usuario con sus membresías activas (empresa + rol).
 export async function getSessionUser(): Promise<SessionUser | null> {
+  // La impersonación manda sobre la sesión propia: mientras dura, el operador
+  // está actuando como el usuario del cliente.
+  const impersonated = await getImpersonatedUser();
+  if (impersonated) return impersonated;
+
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
 
+  const user = await resolveUserByToken(token);
+  if (!user) return null;
+
+  // Renovación automática: si la sesión se usa y está por vencer, se extiende.
+  // Así, quien marcó "Recuérdame" y usa la app con regularidad no queda fuera.
+  const remaining = user.sessionExpiresAt - Date.now();
+  if (remaining < RENEW_THRESHOLD_MS) {
+    const extended = new Date(Date.now() + PERSISTENT_TTL_MS);
+    await db.session.update({
+      where: { id: user.sessionId },
+      data: { expiresAt: extended },
+    });
+  }
+
+  return user.user;
+}
+
+/**
+ * Sesión propia del navegador, sin impersonación. La usa la consola de
+ * operador: el personal de plataforma no puede entrar a /adminacting con la
+ * identidad de un cliente.
+ */
+export async function getRealSessionUser(): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  const resolved = await resolveUserByToken(token);
+  return resolved?.user ?? null;
+}
+
+// Resuelve el token a un usuario con sus membresías. `sessionExpiresAt` se
+// devuelve aparte porque la renovación necesita el id de la sesión.
+async function resolveUserByToken(token: string) {
   const session = await db.session.findUnique({
     where: { tokenHash: hashToken(token) },
     include: {
@@ -80,21 +122,63 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     return null;
   }
 
-  // Renovación automática: si la sesión se usa y está por vencer, se extiende.
-  // Así, quien marcó "Recuérdame" y usa la app con regularidad no queda fuera.
-  const remaining = session.expiresAt.getTime() - Date.now();
-  if (remaining < RENEW_THRESHOLD_MS) {
-    const extended = new Date(Date.now() + PERSISTENT_TTL_MS);
-    await db.session.update({
-      where: { id: session.id },
-      data: { expiresAt: extended },
-    });
+  return {
+    sessionId: session.id,
+    sessionExpiresAt: session.expiresAt.getTime(),
+    user: {
+      ...session.user,
+      orgMembership: session.user.orgMembers?.[0] ?? null,
+    } as SessionUser,
+  };
+}
+
+/**
+ * Usuario de la sesión de impersonación, si hay una vigente. Si el tope de
+ * tiempo ya pasó, la sesión se da por terminada: se borra y se limpia la
+ * cookie, para que nadie siga dentro de la cuenta del cliente por un descuido.
+ */
+async function getImpersonatedUser(): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(IMPERSONATION_COOKIE)?.value;
+  if (!token) return null;
+
+  const session = await db.session.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: {
+      user: {
+        include: {
+          memberships: {
+            where: { active: true },
+            include: { company: true },
+            orderBy: { createdAt: "asc" },
+          },
+          orgMembers: {
+            where: { active: true },
+            include: {
+              organization: { select: { id: true, name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const expired =
+    !session ||
+    session.expiresAt < new Date() ||
+    !session.user.active ||
+    (session.impersonatedUntil !== null && session.impersonatedUntil < new Date());
+
+  if (expired || !session) {
+    if (session) {
+      await db.session.delete({ where: { id: session.id } }).catch(() => {});
+    }
+    cookieStore.delete(IMPERSONATION_COOKIE);
+    return null;
   }
 
-  return session?.user
-    ? {
-        ...session.user,
-        orgMembership: session.user.orgMembers?.[0] ?? null,
-      }
-    : null;
+  return {
+    ...session.user,
+    orgMembership: session.user.orgMembers?.[0] ?? null,
+  } as SessionUser;
 }

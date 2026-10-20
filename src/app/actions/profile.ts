@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
+import { IMPERSONATION_FORBIDDEN, impersonationBlock } from "@/lib/impersonation";
 import { hashPassword, verifyPassword } from "@/lib/password";
 
 export type ChangePasswordState = { error?: string; ok?: boolean } | undefined;
@@ -19,6 +20,11 @@ export async function changePassword(
   formData: FormData,
 ): Promise<ChangePasswordState> {
   const user = await requireUser();
+
+  // Cambiar una contraseña es de las acciones que la impersonación prohíbe:
+  // tocar las credenciales del cliente exige su sesión, no la de soporte.
+  const bloqueado = await impersonationBlock(IMPERSONATION_FORBIDDEN.changePassword);
+  if (bloqueado) return { error: bloqueado };
 
   const current = String(formData.get("current") ?? "");
   const next = String(formData.get("next") ?? "");
