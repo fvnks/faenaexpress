@@ -10,6 +10,11 @@ import type { Company, InventoryAccess, Membership, OrgMember, Role, User } from
 export type SessionUser = User & {
   memberships: (Membership & { company: Company })[];
   orgMembership: (OrgMember & { organization: { id: string; name: string } }) | null;
+  /**
+   * La sesión está a medio camino: la contraseña está bien pero falta el
+   * segundo factor. Con ella solo se puede confirmar el 2FA.
+   */
+  totpPending?: boolean;
 };
 
 export type AuthContext = {

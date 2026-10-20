@@ -7,6 +7,7 @@ import { NewCompanyForm } from "@/app/facturas/configuracion/new-company-form";
 import { OrgMemberRow } from "@/app/facturas/organizacion/org-member-row";
 import { OrganizationNameForm } from "@/app/facturas/organizacion/organization-name-form";
 import { getActiveMembership, requireUser } from "@/lib/auth";
+import { listOrganizationAccess } from "@/lib/access-log";
 import { db } from "@/lib/db";
 import { roleLabel } from "@/lib/labels";
 import type { Role } from "@/generated/prisma/client";
@@ -100,6 +101,9 @@ export default async function OrganizationPage() {
 
   // Módulos contratados por la cuenta.
   const moduleStates = await organizationModuleStates(organization.id);
+
+  // Accesos a la cuenta: lo ve el dueño (es su dato).
+  const accesos = isOwner ? await listOrganizationAccess(organization.id, 15) : [];
 
   // Empresas de la organización: destino posible de una invitación.
   const orgCompanies = companies.map((company) => ({ id: company.id, name: company.name }));
@@ -292,6 +296,36 @@ export default async function OrganizationPage() {
           ))}
         </ul>
       </section>
+
+      {/* Quién entró a la cuenta. Es el dato del cliente: por eso lo ve el dueño. */}
+      {isOwner ? (
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Accesos a tu cuenta</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Quién entró y desde dónde. Si ves un acceso que no reconoces, cámbiate la contraseña.
+          </p>
+          {accesos.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">Todavía no hay accesos registrados.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border">
+              {accesos.map((acceso) => (
+                <li key={acceso.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                  <span>
+                    {acceso.userEmail}
+                    {acceso.kind === "failed" ? (
+                      <span className="ml-2 text-xs text-danger">intento fallido</span>
+                    ) : null}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(acceso.createdAt).toLocaleString("es-CL")}
+                    {acceso.ip ? ` · ${acceso.ip}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
       {/* Transparencia: el dueño de la cuenta ve quién entró a ella y cuándo.
           El soporte de Yellow ERP deja rastro, y ese rastro es del cliente. */}

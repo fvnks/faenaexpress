@@ -5,11 +5,53 @@ import { toast } from "sonner";
 
 import {
   inviteExistingUser,
+  resetUserTwoFactor,
   setPlatformUserActive,
   type PlatformActionState,
 } from "@/app/actions/platform";
 import { SubmitButton } from "@/components/submit-button";
 import { controlClass, labelClass, secondaryButtonClass } from "@/lib/ui";
+
+// Restablecer el segundo factor: para cuando el cliente perdió el teléfono.
+// Deja a la persona sin 2FA, así que hay que avisarla.
+export function ResetTwoFactorForm({
+  userId,
+  userName,
+  enabled,
+}: {
+  userId: string;
+  userName: string;
+  enabled: boolean;
+}) {
+  const [state, action, pending] = useActionState<PlatformActionState, FormData>(
+    resetUserTwoFactor,
+    undefined,
+  );
+
+  useEffect(() => {
+    if (state?.ok) toast.success(`Segundo factor de ${userName} restablecido`);
+  }, [state, userName]);
+
+  if (!enabled) {
+    return <p className="text-sm text-muted-foreground">No tiene segundo factor activo.</p>;
+  }
+
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="userId" value={userId} />
+      <SubmitButton
+        className="rounded-control border border-border bg-transparent px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+        pendingLabel="Restableciendo..."
+      >
+        Restablecer su segundo factor
+      </SubmitButton>
+      {state?.error ? <p className="w-full text-xs text-danger">{state.error}</p> : null}
+      <span className="sr-only" aria-live="polite">
+        {pending ? "Restableciendo" : ""}
+      </span>
+    </form>
+  );
+}
 
 // Desactivar la cuenta: el usuario deja de entrar a cualquier cuenta, pero
 // conserva su trazabilidad. No se borra nunca.

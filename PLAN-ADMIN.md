@@ -407,6 +407,40 @@ de escritura; hoy una prueba vencida deja la cuenta usable con avisos, que es el
 plan pide para `PAST_DUE`.
 | **E. Endurecimiento** | 2FA para `OWNER` y para `PlatformStaff`; rate limit en invitaciones y login; registro de accesos por organización; `proxy` de sesión | Owner con 2FA; nadie entra a `/admin` sin segundo factor | 3–4 días |
 
+**Estado de E: implementada y verificada en la base local (20-10-2026), pendiente de push.**
+
+- **Segundo factor (TOTP)**: `src/lib/totp.ts` (implementación propia, sin dependencias: HMAC-SHA1, base32,
+  ±1 paso de tolerancia) y `src/lib/two-factor.ts`. Lo necesitan el **dueño de una organización** y el
+  **personal de plataforma** (`requiresTwoFactor`): son las dos personas que pueden tocar todas las
+  empresas de alguien.
+- **La sesión nace «pendiente»** (`Session.totpPending`): la contraseña está bien pero falta el segundo
+  factor. Con esa sesión **no se puede usar la app**: `requireUser` manda a `/perfil/2fa`. El corte está
+  en un solo lugar, no repetido en cada acción.
+- **El secreto va cifrado** con la llave de secretos de la app (la misma que protege el SII y
+  Defontana). Nunca en claro, ni en la base ni en la cookie.
+- **Códigos de recuperación**: 8, de un solo uso, con hash. Se muestran una sola vez, al activar. Y el
+  OWNER de plataforma puede **restablecer** el 2FA de alguien desde `/admin/usuarios/[id]` (el caso real
+  es «el cliente perdió el teléfono»).
+- **Rate limit del login**: 20 intentos por IP y 10 por cuenta cada 15 minutos, con mensaje claro
+  («Demasiados intentos con esta cuenta. Espera unos minutos.»). El de invitaciones ya existía.
+  OJO: es **en memoria**; con más de una instancia hay que moverlo a Redis.
+- **Registro de accesos por organización**: la tabla `AccessLog` anota cada entrada (y los intentos
+  fallidos) con IP y agente. El **dueño de la cuenta** los ve en `/facturas/organizacion`: es su dato.
+- **`proxy` de sesión** (`src/proxy.ts`, el nombre de Next 16): primer filtro antes de renderizar. Sin
+  cookie de sesión, las rutas privadas van al login sin llegar a la app. **No consulta la base** (que sea
+  válida lo decide la app). `/invitacion` queda afuera a propósito: es para quien todavía no tiene
+  cuenta.
+
+**Cómo se verificó E (local, 20-10-2026):** alta del 2FA completa (secreto cifrado → código verificado →
+8 códigos de recuperación); login con segundo factor (contraseña → `/perfil/2fa` → código → app); la
+sesión pendiente **no** sirve para usar la app; el proxy manda a `/facturas` al login sin sesión; el rate
+limit corta con el mensaje; y la invitación sigue funcionando sin sesión.
+
+**Lo que hay que saber antes de que esto llegue a producción:** el dueño de una organización y el
+personal de plataforma **van a tener que activar el 2FA en su próximo login**. No es opcional: la sesión
+queda pendiente hasta que lo activen. Si alguien pierde el teléfono y no tiene códigos de recuperación,
+el restablecimiento se hace desde la consola (OWNER de plataforma) o, en el peor caso, por SQL.
+
 **Dependencias:** B necesita A (si A no cierra, el operador administra sobre reglas ambiguas). C es
 independiente de B pero se apoya en su UI de organización. D necesita C (los límites de «módulos» del
 plan son los de C). B2 y E son decisiones de riesgo, no bloquean vender.

@@ -1,14 +1,106 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { IMPERSONATION_FORBIDDEN, impersonationBlock } from "@/lib/impersonation";
+import { postLoginDestination } from "@/lib/modules";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import {
+  confirmTwoFactorSetup,
+  regenerateRecoveryCodes as regenerateRecoveryCodesFor,
+  startTwoFactorSetup,
+  verifyTwoFactor,
+} from "@/lib/two-factor";
 
 export type ChangePasswordState = { error?: string; ok?: boolean } | undefined;
+
+export type TwoFactorState =
+  | {
+      error?: string;
+      ok?: boolean;
+      /** El secreto y el enlace para la app de autenticación (primer paso). */
+      secret?: string;
+      uri?: string;
+      /** Códigos de recuperación, que se muestran una sola vez. */
+      recoveryCodes?: string[];
+    }
+  | undefined;
+
+/**
+ * Paso 1 del alta: genera el secreto y lo deja cifrado. El 2FA todavía NO
+ * queda activo hasta que se verifique un código.
+ */
+export async function startTwoFactor(
+  _prev: TwoFactorState,
+  formData: FormData,
+): Promise<TwoFactorState> {
+  // El botón manda qué paso es: evita que un POST a ciegas active el alta.
+  if (String(formData.get("paso") ?? "") !== "generar") {
+    return { error: "Solicitud incompleta." };
+  }
+
+  // OJO: no se usa `requireUser` porque esa función manda a esta misma
+  // pantalla cuando la sesión está pendiente (sería un bucle).
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const { secret, uri } = await startTwoFactorSetup(user.id);
+  return { ok: true, secret, uri };
+}
+
+/** Paso 2: verifica el código y activa el 2FA. Devuelve los códigos de recuperación. */
+export async function confirmTwoFactor(
+  _prev: TwoFactorState,
+  formData: FormData,
+): Promise<TwoFactorState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const code = String(formData.get("code") ?? "").trim();
+  const resultado = await confirmTwoFactorSetup(user.id, code);
+  if (!resultado.ok) return { error: resultado.error ?? "El código no es correcto." };
+  return { ok: true, recoveryCodes: resultado.recoveryCodes };
+}
+
+/** Confirma el 2FA en una sesión que estaba pendiente (login normal). */
+export async function verifyTwoFactorCode(
+  _prev: TwoFactorState,
+  formData: FormData,
+): Promise<TwoFactorState> {
+  // OJO: no se usa `requireUser` porque esa función manda a esta misma pantalla
+  // cuando la sesión está pendiente (sería un bucle).
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const code = String(formData.get("code") ?? "").trim();
+  const resultado = await verifyTwoFactor(user.id, code);
+  if (!resultado.ok) return { error: resultado.error ?? "El código no es correcto." };
+
+  // La sesión pendiente pasa a ser normal.
+  await db.session.updateMany({
+    where: { userId: user.id, totpPending: true },
+    data: { totpPending: false },
+  });
+
+  const destino = await postLoginDestination(user.id);
+  redirect(destino);
+}
+
+/** Genera códigos de recuperación nuevos. */
+export async function regenerateRecoveryCodes(
+  _prev: TwoFactorState,
+  formData: FormData,
+): Promise<TwoFactorState> {
+  if (String(formData.get("accion") ?? "") !== "recuperacion") {
+    return { error: "Solicitud incompleta." };
+  }
+  const user = await requireUser();
+  const codes = await regenerateRecoveryCodesFor(user.id);
+  return { ok: true, recoveryCodes: codes };
+}
 
 /**
  * Cambia la contraseña del usuario autenticado.

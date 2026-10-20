@@ -16,6 +16,7 @@ import { clearPendingInvite, setPendingInvite } from "@/lib/platform-invite";
 import { setOrganizationModule, syncPlanModules } from "@/lib/org-module-state";
 import { findOrgModule, ORG_MODULES } from "@/lib/org-modules";
 import { recomputeUsage } from "@/lib/plans";
+import { disableTwoFactor } from "@/lib/two-factor";
 import { requirePlatformStaff } from "@/lib/platform";
 import { RateLimiter } from "@/lib/rate-limit";
 import { roleValues } from "@/lib/validation";
@@ -412,6 +413,39 @@ export async function recomputeOrganizationUsage(
   });
 
   revalidatePath(`/admin/organizaciones/${organizationId}`);
+  return { ok: true };
+}
+
+/**
+ * Restablece el segundo factor de una persona (soporte: el cliente perdió su
+ * teléfono o cambió de app). Es una acción de OWNER de plataforma: deja a esa
+ * persona sin 2FA, así que hay que avisarla.
+ */
+export async function resetUserTwoFactor(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OWNER");
+
+  const userId = String(formData.get("userId") ?? "").trim();
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, totpEnabled: true },
+  });
+  if (!user) return { error: "Ese usuario no existe." };
+  if (!user.totpEnabled) return { error: "Esa persona no tiene segundo factor activo." };
+
+  await disableTwoFactor(user.id);
+
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "User",
+    entityId: user.id,
+    summary: `Restableció el segundo factor de ${user.name} (${user.email}).`,
+    changes: { totpEnabled: { before: true, after: false } },
+  });
+
+  revalidatePath(`/admin/usuarios/${user.id}`);
   return { ok: true };
 }
 

@@ -62,6 +62,13 @@ export async function requireUser(): Promise<SessionUser> {
   if (!user) {
     redirect("/login");
   }
+  // Sesión a medio camino: la contraseña está bien pero falta el segundo factor.
+  // Con esa sesión no se usa la app: solo se confirma el 2FA. Es el corte que
+  // hace que un dueño de organización o del equipo de plataforma no pueda
+  // entrar sin segundo factor.
+  if (user.totpPending) {
+    redirect("/perfil/2fa");
+  }
   return user;
 }
 

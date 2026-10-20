@@ -101,6 +101,11 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                       equipo
                     </span>
                   ) : null}
+                  {user.totpEnabled ? (
+                    <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+                      2FA
+                    </span>
+                  ) : null}
                 </p>
                 <p className="text-xs text-muted-foreground">{user.email}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">

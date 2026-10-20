@@ -24,13 +24,22 @@ function hashToken(token: string): string {
 // El token viaja al cliente; en la base solo se guarda su hash.
 // Con remember la cookie es persistente (90 días, se renueva sola);
 // sin remember es de sesión: desaparece al cerrar el navegador.
-export async function createSession(userId: string, remember = false): Promise<void> {
+export async function createSession(
+  userId: string,
+  remember = false,
+  options: { totpPending?: boolean } = {},
+): Promise<void> {
   const ttl = remember ? PERSISTENT_TTL_MS : BROWSER_TTL_MS;
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + ttl);
 
   await db.session.create({
-    data: { tokenHash: hashToken(token), userId, expiresAt },
+    data: {
+      tokenHash: hashToken(token),
+      userId,
+      expiresAt,
+      totpPending: options.totpPending ?? false,
+    },
   });
 
   const cookieStore = await cookies();
@@ -78,7 +87,10 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     });
   }
 
-  return user.user;
+  return {
+    ...user.user,
+    totpPending: user.totpPending,
+  };
 }
 
 /**
@@ -125,6 +137,7 @@ async function resolveUserByToken(token: string) {
   return {
     sessionId: session.id,
     sessionExpiresAt: session.expiresAt.getTime(),
+    totpPending: session.totpPending,
     user: {
       ...session.user,
       orgMembership: session.user.orgMembers?.[0] ?? null,

@@ -40,6 +40,7 @@ model Organization {
   modules   OrganizationModule[]
   subscription Subscription?
   usage     UsageRecord[]
+  accessLogs AccessLog[]
 }
 
 // Pertenencia de un usuario a una organización.
@@ -278,6 +279,11 @@ model User {
   active       Boolean  @default(true)
   // Los usuarios invitados entran con una contraseña provisional: obligatorio cambiarla.
   mustChangePassword Boolean @default(false)
+  // Segundo factor (TOTP). El secreto va cifrado con la misma llave que el SII
+  // y Defontana: nunca en claro, ni siquiera en la base.
+  totpSecretEnc  String?
+  totpEnabled    Boolean   @default(false)
+  totpEnabledAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -303,6 +309,42 @@ model User {
   invitations                  Invitation[]
   // Personal de plataforma (Yellow ERP). Un usuario normal no lo es.
   platformStaff                PlatformStaff? @relation("PlatformStaffUser")
+  recoveryCodes                RecoveryCode[]
+  accessLogs                   AccessLog[]
+}
+
+// Códigos de recuperación: por si el cliente pierde su teléfono. Se muestran
+// una sola vez y se guardan cifrados (hash), nunca en claro.
+model RecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Entradas a la cuenta: quién entró, desde dónde y cuándo. Es el registro que
+// el dueño de la organización puede ver («quién entró a mi cuenta»).
+model AccessLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  userEmail     String
+  ip             String?
+  userAgent      String?
+  // "login" | "logout" | "2fa" | "failed"
+  kind           String   @default("login")
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
 }
 
 // Pertenencia de un usuario a una empresa, con el rol que cumple en ella.
@@ -343,6 +385,10 @@ model Session {
   impersonatedUntil          DateTime? // tope duro de tiempo
   // Motivo que dejó el operador al entrar (queda en la auditoría).
   impersonationReason        String?
+  // Sesión a medio camino: la contraseña está bien pero falta el segundo factor.
+  // Sirve SOLO para configurar o confirmar el 2FA: `requireUser` la expulsa a
+  // la pantalla del 2FA en cualquier otra página.
+  totpPending                Boolean   @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { InviteExistingUserForm, ToggleUserActiveForm } from "@/app/admin/usuarios/user-forms";
+import { InviteExistingUserForm, ResetTwoFactorForm, ToggleUserActiveForm } from "@/app/admin/usuarios/user-forms";
 import { orgRoleLabel, roleLabel } from "@/lib/labels";
 import { formatDate } from "@/lib/money";
 import { requirePlatformStaff } from "@/lib/platform";
@@ -124,6 +124,20 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
                 }.`
               : "No es parte del equipo de plataforma."}
           </p>
+
+          <h3 className="mt-4 text-sm font-semibold">Segundo factor</h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {user.totpEnabled
+              ? "Activo: pide un código además de la contraseña."
+              : "No activo. Si es dueño de una organización o del equipo, tendría que activarlo."}
+          </p>
+          <div className="mt-2">
+            <ResetTwoFactorForm
+              userId={user.id}
+              userName={user.name}
+              enabled={user.totpEnabled}
+            />
+          </div>
         </section>
       ) : null}
 
