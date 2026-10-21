@@ -168,18 +168,35 @@ export async function updateSale(
   redirect(`/facturas/ventas/${id}`);
 }
 
+/**
+ * Fecha escrita por una persona → YYYY-MM-DD, o null si no es válida.
+ *
+ * Acepta `DD-MM`, `DD-MM-AAAA` y `YYYY-MM-DD`. Además del formato se comprueba
+ * que la fecha exista: "31-02" tiene la forma correcta pero no existe, y
+ * guardarla dejaría un `Invalid Date` en la base.
+ */
 function normalizeDateInput(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const cleaned = value.trim().replace(/\//g, "-");
-  let match = /^\d{4}-\d{2}-\d{2}$/.exec(cleaned);
-  if (match) return cleaned;
-  match = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
-  if (!match) return null;
-  const day = match[1].padStart(2, "0");
-  const month = match[2].padStart(2, "0");
-  const year = match[3] ?? String(new Date().getFullYear());
-  const iso = `${year}-${month}-${day}`;
-  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
+
+  let wire: string | null = null;
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(cleaned);
+  if (iso) {
+    wire = `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+  } else {
+    const short = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
+    if (!short) return null;
+    const day = Number(short[1]);
+    const month = Number(short[2]);
+    const year = Number(short[3] ?? new Date().getFullYear());
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    wire = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  const date = new Date(`${wire}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  // 31-02 se "rebalsa" a marzo: si la fecha no vuelve igual, no existía.
+  return date.toISOString().slice(0, 10) === wire ? wire : null;
 }
 
 export async function markSalePaid(formData: FormData): Promise<void> {

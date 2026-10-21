@@ -48,16 +48,29 @@ type Props = {
   sortDir: SortDir;
 };
 
+/**
+ * DD-MM o DD-MM-AAAA → YYYY-MM-DD (o null si no es una fecha real).
+ *
+ * El formato no alcanza: "31-02" o "13-13" tienen la forma correcta pero no
+ * existen, y un `new Date("2026-02-31T00:00:00.000Z")` da `Invalid Date`. Como
+ * la vista previa del modal formatea esa fecha en cada tecla, una fecha
+ * imposible tiraba `RangeError: Invalid time value`. Por eso se verifica que la
+ * fecha exista: al volver a construirla, sus partes tienen que coincidir.
+ */
 function parseShortDate(input: string | null): string | null {
   if (!input) return null;
   const cleaned = input.trim().replace(/\//g, "-");
   const parsed = /^(\d{1,2})-(\d{1,2})(?:-(\d{4}))?$/.exec(cleaned);
   if (!parsed) return null;
-  const day = parsed[1].padStart(2, "0");
-  const month = parsed[2].padStart(2, "0");
-  const year = parsed[3] ?? String(new Date().getFullYear());
-  const wire = `${year}-${month}-${day}`;
-  return /^\d{4}-\d{2}-\d{2}$/.test(wire) ? wire : null;
+  const day = Number(parsed[1]);
+  const month = Number(parsed[2]);
+  const year = Number(parsed[3] ?? new Date().getFullYear());
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const wire = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const date = new Date(`${wire}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  // 31-02 se "rebalsa" a marzo: si la fecha no vuelve igual, no existía.
+  return date.toISOString().slice(0, 10) === wire ? wire : null;
 }
 
 export function SalesTable({ items, writable, salespeople, canManageSalespeople, params, sortKey, sortDir }: Props) {

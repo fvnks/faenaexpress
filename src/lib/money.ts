@@ -26,6 +26,11 @@ export const dateFormatter = new Intl.DateTimeFormat("es-CL", {
 });
 
 export function formatDate(date: Date): string {
+  // Una fecha inválida (un `Invalid Date` que llegó de un dato corrupto o de un
+  // texto mal escrito) no debe tumbar la pantalla entera: `Intl.format` tira
+  // `RangeError: Invalid time value`. Se devuelve un texto neutro y la vista
+  // sigue viva; el dato malo se corrige en su origen.
+  if (!date || Number.isNaN(date.getTime())) return "—";
   return dateFormatter.format(date);
 }
 
