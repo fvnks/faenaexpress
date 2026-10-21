@@ -1,7 +1,16 @@
 import { portalLogout } from "@/app/actions/portal";
 import { PortalForm } from "@/app/apoderado/portal-form";
+import {
+  PortalAppointments,
+  PortalCirculars,
+  PortalJustifications,
+} from "@/app/apoderado/portal-communication";
 import { db } from "@/lib/db";
 import { attendanceSummary } from "@/lib/school-attendance";
+import {
+  circularesParaApoderado,
+  inasistenciasPorJustificar,
+} from "@/lib/school-communication";
 import { courseReport } from "@/lib/school-grades";
 import { apoderadoActual } from "@/lib/school-portal";
 import { cardClass } from "@/lib/ui";
@@ -59,6 +68,23 @@ export default async function PortalPage() {
     select: { name: true, commune: true },
   });
 
+  // Lo que la familia tiene pendiente de mirar o de responder.
+  const [circulares, inasistencias, citas] = await Promise.all([
+    circularesParaApoderado(apoderado.id),
+    inasistenciasPorJustificar(apoderado.schoolId, apoderado.id),
+    db.appointment.findMany({
+      where: {
+        schoolId: apoderado.schoolId,
+        OR: [
+          { guardianId: apoderado.id },
+          { student: { guardianships: { some: { guardianId: apoderado.id } } } },
+        ],
+      },
+      orderBy: { scheduledAt: "desc" },
+      take: 20,
+    }),
+  ]);
+
   return (
     <div className="min-h-dvh">
       <header className="border-b border-border bg-surface">
@@ -82,6 +108,38 @@ export default async function PortalPage() {
       </header>
 
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Comunicados</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Lo que el colegio comunica a las familias. Al marcar una como leída, el colegio lo
+            sabe.
+          </p>
+          <div className="mt-4">
+            <PortalCirculars circulares={circulares} />
+          </div>
+        </section>
+
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Justificar inasistencias</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Si un hijo faltó y tiene justificativo, envíalo por acá. Lo revisa la secretaría del
+            colegio: el registro no cambia hasta que ellos lo acepten.
+          </p>
+          <div className="mt-4">
+            <PortalJustifications inasistencias={inasistencias} />
+          </div>
+        </section>
+
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Citaciones</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Entrevistas y reuniones con el colegio.
+          </p>
+          <div className="mt-4">
+            <PortalAppointments citas={citas} />
+          </div>
+        </section>
+
         {hijos.length === 0 ? (
           <section className={cardClass + " p-5"}>
             <p className="text-sm text-muted-foreground">

@@ -20,6 +20,7 @@ const SECCIONES: { href: string; label: string; section: SchoolSection }[] = [
   { href: "/colegios/estudiantes", label: "Alumnos", section: "estudiantes" },
   { href: "/colegios/cursos", label: "Cursos", section: "cursos" },
   { href: "/colegios/docentes", label: "Docentes", section: "docentes" },
+  { href: "/colegios/comunicacion", label: "Comunicación", section: "comunicacion" },
   { href: "/colegios/libro", label: "Libro de clases", section: "libro" },
 ];
 

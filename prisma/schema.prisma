@@ -315,10 +315,13 @@ model School {
   subjects    Subject[]
   sessions    ClassSession[]
   evaluations Evaluation[]
+  circulars   Circular[]
   absences    StudentAbsence[]
   periods     GradingPeriod[]
   documents   StudentDocument[]
   consents    StudentConsent[]
+  justifications JustificationRequest[]
+  appointments  Appointment[]
 
   @@index([organizationId])
 }
@@ -358,6 +361,7 @@ model Course {
   assignments TeachingAssignment[]
   sessions     ClassSession[]
   evaluations Evaluation[]
+  circulars   Circular[]
 
   @@index([schoolId, year])
 }
@@ -386,6 +390,8 @@ model Student {
   grades        Grade[]
   documents     StudentDocument[]
   consents      StudentConsent[]
+  justifications JustificationRequest[]
+  appointments  Appointment[]
 
   @@index([schoolId, lastName])
 }
@@ -411,6 +417,10 @@ model Guardian {
   school        School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   guardianships Guardianship[]
   sessions      GuardianSession[]
+  acks           CircularAck[]
+  circulars      Circular[]
+  justifications JustificationRequest[]
+  appointments   Appointment[]
 
   @@index([schoolId, name])
 }
@@ -576,6 +586,7 @@ model ClassSession {
   subject     Subject            @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacher     Teacher            @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   attendances AttendanceRecord[]
+  justifications JustificationRequest[]
 
   @@unique([courseId, subjectId, date, period])
   @@index([schoolId, date])
@@ -2149,5 +2160,124 @@ model Grade {
   student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([evaluationId, studentId])
+  @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// Comunicación: circulares, justificaciones y citaciones (C4)
+// ---------------------------------------------------------------------------
+
+// A quién va la circular. "FAMILIA" es para una familia en particular.
+enum CircularAudience {
+  COLEGIO
+  CURSO
+  FAMILIA
+}
+
+model Circular {
+  id       String          @id @default(cuid())
+  schoolId String
+  title    String
+  body     String
+  audience CircularAudience @default(COLEGIO)
+  // Si el público es un curso, estos son los que la reciben.
+  courseId String?
+  // Si es para una familia en particular.
+  guardianId String?
+  publishedAt DateTime        @default(now())
+  // Hasta cuándo se puede leer (después queda de archivo).
+  closesAt  DateTime?
+  createdById String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  school   School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  course   Course?        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  guardian Guardian?      @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  acks     CircularAck[]
+
+  @@index([schoolId, publishedAt])
+}
+
+// El acuse de lectura: quién leyó la circular. Es lo que le sirve al colegio
+// para saber a quién hay que volver a avisar.
+model CircularAck {
+  id         String   @id @default(cuid())
+  circularId String
+  guardianId String
+  readAt     DateTime @default(now())
+
+  circular Circular @relation(fields: [circularId], references: [id], onDelete: Cascade)
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  @@unique([circularId, guardianId])
+  @@index([guardianId])
+}
+
+enum JustificationStatus {
+  PENDIENTE
+  ACEPTADA
+  RECHAZADA
+}
+
+// La familia propone justificar una inasistencia. No la justifica por su
+// cuenta: lo acepta o lo rechaza la secretaría, que es quien responde por el
+// registro de asistencia.
+model JustificationRequest {
+  id         String             @id @default(cuid())
+  schoolId   String
+  studentId  String
+  sessionId  String
+  status     JustificationStatus @default(PENDIENTE)
+  reason     String
+  note       String?
+  requestedByGuardianId String
+  requestedAt DateTime          @default(now())
+  resolvedAt DateTime?
+  resolvedById String?
+  resolution String?
+
+  school   School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student  Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session  ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  guardian Guardian     @relation(fields: [requestedByGuardianId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, status])
+  @@index([studentId])
+}
+
+enum AppointmentStatus {
+  PENDIENTE
+  CONFIRMADA
+  RECHAZADA
+  REALIZADA
+  CANCELADA
+}
+
+// Una citación: una entrevista o reunión con la familia.
+model Appointment {
+  id         String            @id @default(cuid())
+  schoolId   String
+  studentId  String
+  guardianId String?
+  title      String
+  reason     String?
+  scheduledAt DateTime
+  durationMin Int              @default(30)
+  place      String?
+  status     AppointmentStatus @default(PENDIENTE)
+  notes      String?
+  // Lo que respondió la familia.
+  response   String?
+  respondedAt DateTime?
+  createdById String
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student  Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian Guardian? @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, scheduledAt])
   @@index([studentId])
 }

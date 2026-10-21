@@ -137,7 +137,7 @@ registros existen. La Circular 30 es, literalmente, la especificación del produ
 | **C1. Matrícula y ficha** *(hecho 20-10-2026)* | Matrícula (alta, traslado, retiro), ficha del estudiante, apoderados, documentos, consents | El expediente del alumno completo, exportable |
 | **C2. Asistencia + Libro de Clases Digital** | Asistencia por curso/asignatura, atrasos/retiros/justificaciones, leccionario, registro de clases, **archivo EDE exportable**, **firma con el verificador de identidad** | El colegio puede entregar el libro digital en una fiscalización |
 | **C3. Calificaciones y promoción** *(hecho 20-10-2026)* | Evaluaciones con ponderación, promedios, **promoción según el Decreto 67 (85% + notas)**, actas, certificados | El parte de notas del período y la promoción con el fundamento |
-| **C4. Comunicación** | **Portal del apoderado**, circulares, mensajes, alertas de inasistencia, citaciones | El apoderado ve la asistencia y las notas de su hijo, recibe los comunicados y justifica inasistencias desde el celular |
+| **C4. Comunicación** *(hecho 21-10-2026)* | **Portal del apoderado**, circulares, mensajes, alertas de inasistencia, citaciones | El apoderado ve la asistencia y las notas de su hijo, recibe los comunicados y justifica inasistencias desde el celular |
 | **C5. Aranceles y cobranza** | Aranceles en UF y CLP, emisión, **pago con Webpay**, portal de pagos, deuda, recibos, morosidad | Un apoderado paga el arancel y recibe el recibo |
 | **C6. Convivencia** | Denuncias, protocolos con plazos (Ley 21.809), Plan de Gestión de Convivencia, registro | El caso se sigue con plazo y responsable |
 | **C7. Administración y reporting** | Funcionarios, contratos, jornadas, asistencia de funcionarios, reportabilidad para la dirección | La dirección ve sus indicadores |
@@ -342,6 +342,30 @@ lado. Y con eso se cierra la C1 entera:
   devuelve un JSON con todo lo que el colegio tiene del alumno (datos, matrículas, apoderados,
   asistencia, notas, permisos, registros, consentimientos y documentos). Es lo que la familia puede
   pedir.
+
+### Estado de C4 (21-10-2026): implementada y verificada en local
+
+La comunicación es el módulo que se usa **todos los días**, así que va de las dos puntas: lo que el
+colegio manda y lo que la familia responde. Esta primera versión tiene las tres piezas que la
+familia necesita para no tener que llamar al colegio.
+
+- **Schema** (migración `20261026260000_school_communication`): `Circular` (el comunicado, con su
+  destinatario: todo el colegio, un curso o una familia), `CircularAck` (el acuse de lectura),
+  `JustificationRequest` (la justificación que propone una familia) y `Appointment` (la citación).
+- **Las circulares con acuse de lectura**: el colegio publica y ve **quién leyó y quién no**, con
+  la lista de los que falta. Es el dato que hoy se averigua preguntando uno por uno.
+- **La justificación de inasistencias**: la familia elige la clase que el hijo faltó, pone el
+  motivo y el detalle del certificado, y lo envía. **La familia no cambia la asistencia por su
+  cuenta**: queda como solicitud, y la secretaría la acepta o la rechaza. Al aceptarla, el registro
+  pasa a "justificada" con la fecha de la resolución y quién la resolvió.
+- **Las citaciones**: el colegio agenda una entrevista con la familia (fecha, duración, lugar) y la
+  familia la confirma o dice que no puede.
+- Del lado del colegio, `/colegios/comunicacion` tiene la **bandeja de pendientes** (lo que las
+  familias esperan respuesta), las circulares con su conteo de lectura y los formularios de alta.
+
+Verificado en local: una circular publicada para todo el colegio (2 familias, 1 leída), el acuse
+desde el portal, la justificación propuesta por la familia de Beto, la aceptación en la secretaría
+(y el registro de asistencia pasó a "justificada" con su motivo), y la citación agendada.
 
 ### Estado de C2 (20-10-2026): implementada y verificada en local
 
