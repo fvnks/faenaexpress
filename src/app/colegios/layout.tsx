@@ -38,8 +38,12 @@ export default async function ColegiosLayout({ children }: LayoutProps<"/colegio
     getFlash(),
   ]);
 
-  // Sin colegio al que entrar: se vuelve al selector de módulos.
-  if (!ctx) redirect("/modulos");
+  // Sin colegio al que entrar: el personal de plataforma va a la consola de colegios,
+  // el resto vuelve al selector de módulos.
+  if (!ctx) {
+    const { hasPlatformLevel } = await import("@/lib/platform");
+    redirect((await hasPlatformLevel(user.id, "SUPPORT")) ? "/admin/colegios" : "/modulos");
+  }
 
   const visibles = SECCIONES.filter((s) => canAccessSchool(ctx.role, s.section));
 
