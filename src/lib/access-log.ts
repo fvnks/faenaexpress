@@ -8,7 +8,15 @@ import { headers } from "next/headers";
 
 import { db } from "@/lib/db";
 
-export type AccessKind = "login" | "logout" | "2fa" | "failed";
+export type AccessKind =
+  | "login"
+  | "logout"
+  | "2fa"
+  | "failed"
+  // El portal del apoderado: no es una sesión de empleado, pero también
+  // tiene que quedar registro de quién entró y desde dónde.
+  | "portal_login"
+  | "portal_failed";
 
 /**-IP y agente del cliente, para saber desde dónde se entró. */
 export async function requestContext(): Promise<{ ip: string | null; userAgent: string | null }> {

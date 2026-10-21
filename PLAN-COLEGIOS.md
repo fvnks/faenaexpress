@@ -137,11 +137,100 @@ registros existen. La Circular 30 es, literalmente, la especificación del produ
 | **C1. Matrícula y ficha** *(hecho 20-10-2026)* | Matrícula (alta, traslado, retiro), ficha del estudiante, apoderados, documentos, consents | El expediente del alumno completo, exportable |
 | **C2. Asistencia + Libro de Clases Digital** | Asistencia por curso/asignatura, atrasos/retiros/justificaciones, leccionario, registro de clases, **archivo EDE exportable**, **firma con el verificador de identidad** | El colegio puede entregar el libro digital en una fiscalización |
 | **C3. Calificaciones y promoción** *(hecho 20-10-2026)* | Evaluaciones con ponderación, promedios, **promoción según el Decreto 67 (85% + notas)**, actas, certificados | El parte de notas del período y la promoción con el fundamento |
-| **C4. Comunicación** | Portal del apoderado, circulares, mensajes, alertas de inasistencia, citaciones | El apoderado ve la asistencia de su hijo y recibe los comunicados |
+| **C4. Comunicación** | **Portal del apoderado**, circulares, mensajes, alertas de inasistencia, citaciones | El apoderado ve la asistencia y las notas de su hijo, recibe los comunicados y justifica inasistencias desde el celular |
 | **C5. Aranceles y cobranza** | Aranceles en UF y CLP, emisión, **pago con Webpay**, portal de pagos, deuda, recibos, morosidad | Un apoderado paga el arancel y recibe el recibo |
 | **C6. Convivencia** | Denuncias, protocolos con plazos (Ley 21.809), Plan de Gestión de Convivencia, registro | El caso se sigue con plazo y responsable |
 | **C7. Administración y reporting** | Funcionarios, contratos, jornadas, asistencia de funcionarios, reportabilidad para la dirección | La dirección ve sus indicadores |
 | **C8. Cobro real** | Flow / Mercado Pago para el SaaS (en el plano de la cuenta, no del arancel) | El SaaS se factura |
+
+### El portal del apoderado (diseño, 21-10-2026)
+
+Es la pieza que hace que el colegio se use **todos los días**, no una vez al mes. Pero es también
+la primera superficie **pública** del producto: por primera vez los datos de un menor quedan
+accesibles desde internet. Por eso va con diseño, no como un "extra".
+
+**Quién entra.** El apoderado de uno o más alumnos del colegio. **No es un empleado**: no tiene
+`Membership` ni `SchoolMembership`. Es un tercer tipo de usuario, y por eso va fuera del módulo
+`/colegios` (ese layout exige una membresía del colegio) en su propia ruta: `/apoderado`.
+
+**Cómo entra (v1).** Un **código de acceso por familia**, que el colegio entrega en persona (en la
+reunión de apoderados, como hoy se reparte la libreta de notas). Decisiones:
+
+- El código se guarda en `Guardian.accessCode` (aleatorio, largo y **rotable** por el colegio).
+- **No hay correo ni SMS**: el proyecto no tiene proveedor de mensajes, y el correo del apoderado en
+  la base suele estar vacío o equivocado. Agregar un canal dependable es trabajo para después, y
+  mientras tanto el código es lo que se puede entregar de verdad.
+- Es un **secreto de la familia**, no de la persona: con él se ven todos los hijos de esa familia.
+- Se **limitan los intentos** por IP (como el login) y se registran los accesos (el `AccessLog` que
+  ya existe alcanza: `kind = "portal_login"` / `"portal_failed"`), para que el colegio pueda
+  responder "quién entró y cuándo".
+- Si más adelante se quiere más seguridad, el segundo factor natural es el **RUT de un hijo**: el
+  portal puede pedirlo sin cambiar nada del modelo. Queda anotado como decisión del colegio.
+- La referencia de seguridad es honesta: hoy la información del alumno viaja en una libreta de notas
+  de papel que cualquiera puede mirar por encima del hombro. El portal, con código, sesión con
+  vencimiento y registro de accesos, es **más** seguro que eso.
+
+**Qué ve la familia** (de cada uno de sus hijos, y solo de sus hijos):
+
+| Sección | Qué encuentra |
+| --- | --- |
+| **Asistencia** | El porcentaje de cada curso y si cumple el 85% (con el fundamento), los últimos registros, las inasistencias con su justificativo y los permisos/autorizaciones |
+| **Notas** | Las notas por asignatura y período, el promedio final y la situación de promoción con su fundamento legal. Es el mismo cálculo del acta, no una versión aparte |
+| **Comunicados** | Las circulares del colegio (y de su curso), con la fecha y si ya las leyó |
+| **Citaciones** | Las entrevistas o reuniones agendadas, con fecha, motivo y con quién |
+| **Documentos** | Solo los que el colegio **compartió con la familia** (un documento del expediente lleva su marca; la ficha médica y el documento de custodia **no** se exponen por defecto) |
+
+**Qué puede hacer la familia** (esto es lo que lo vuelve útil, y no solo un tablero de lectura):
+
+- **Justificar una inasistencia**: elige el registro, explica y adjunta el certificado. Queda como
+  *solicitud*: el colegio la acepta o la rechaza. **La familia no cambia la asistencia por su
+  cuenta** — eso la acepta o la rechaza la secretaría, que es quien responde por el registro.
+- **Acusar recibo** de un comunicado (queda el acuse de lectura, que es lo que le sirve al colegio
+  para saber si llegó).
+- **Confirmar o reagendar** una citación.
+
+**Qué gana el colegio** (el otro lado de la misma pantalla):
+
+- Las **circulares con acuse de lectura** por familia: quién leyó y quién no. Hoy eso se sabe
+  preguntando uno por uno.
+- Las **alertas de inasistencia**: los alumnos que acumularon faltas sin justificar, para que la
+  secretaría llame al apoderado. La Ley 21.809 y el propio reglamento obligan a hacer seguimiento.
+- Los **pendientes**: justificaciones propuestas por las familias y citaciones pedidas, en una
+  bandeja única.
+- Quién tiene acceso al portal y cuándo entró por última vez.
+
+**Lo que el portal NO va a mostrar** (y por qué): el libro de clases completo con los contenidos de
+cada clase (es del colegio, no de la familia), las fichas de otros alumnos, el historial de
+conducta (eso es de la convivencia y requiere su propio cuidado), y los documentos sensibles del
+expediente salvo que el colegio los marque como compartidos.
+
+**Cómo se construye** (para que quede el orden de trabajo):
+
+1. ✅ **El acceso** (hecho 21-10-2026): `Guardian.accessCode` + el portal en `/apoderado`, con su
+   propia sesión (`GuardianSession`, cookie `facturas_apoderado`, aparte de la del empleado) y el
+   registro de accesos (el `AccessLog` que ya existe, con `kind = "portal_login"`).
+2. ✅ **La pantalla del apoderado** (hecho 21-10-2026): asistencia (con el 85%), notas por asignatura
+   y período, promedio y situación de promoción. Es el mismo cálculo que ve el colegio.
+3. ⬜ **Las circulares** con acuse de lectura por familia.
+4. ⬜ **La justificación de inasistencias** (solicitud de la familia, aceptar o rechazar en el
+   colegio) y las **citaciones**, con la bandeja de pendientes del colegio.
+
+**Lo que ya está hecho del portal** (21-10-2026, migración `20261026250000_guardian_portal`):
+
+- El código se genera desde la ficha del alumno ("Dar acceso al portal", y "Rotar código" cuando ya
+  existe) y se muestra en pantalla para que el colegio se lo entregue. **Al rotarlo se cortan las
+  sesiones abiertas**: el código es el mismo secreto, y si cambió es para cortar el acceso.
+- El portal vive fuera de `/colegios` a propósito (ese layout exige membresía del colegio) y **el
+  apoderado no usa la sesión de empleados**: es un tercer tipo de usuario.
+- Intentos limitados por IP (10 cada 15 minutos, con el mismo `RateLimiter` del login) y **acierto no
+  gasta intento**: una familia que se equivoca una vez y acierta al segundo tiene que poder entrar.
+- Los accesos quedan en el registro. Ojo: **el código que se intentó no se escribe en el log** (puede
+  ser el válido de otra familia); queda la IP, la hora y una marca genérica.
+
+**Riesgos que hay que tener a la vista** (del §7): exponer datos de menores por internet sin
+verificación de la identidad es el riesgo grande de este módulo. Mitigaciones: código rotable,
+sesiones con vencimiento, límite de intentos, registro de accesos, y que el colegio sea quien
+entrega el código en persona.
 
 ### Estado de C0 (20-10-2026): implementada y verificada
 
@@ -340,6 +429,12 @@ verificador (§0). Quedan estas, que **no bloquean los cimientos**:
    con IVA; un sostenedor sin fines de lucro tiene reglas distintas)
 6. **¿Aislamiento de datos por cliente en la base, o una base por colegio?** (hoy es una base con
    aislamiento por fila, igual que en Facturas)
+7. **¿Cómo se entrega el código del portal del apoderado?** En persona en la reunión (lo que se
+   asume en el diseño) o por correo. Cambia el nivel de confianza, no el modelo.
+8. **¿Se pide el RUT de un hijo como segundo factor del portal?** El diseño lo deja abierto: es un
+   campo más en la pantalla de entrada. Depends de cuánta fricción acepte el colegio.
+9. **¿Qué documentos del expediente se comparten con la familia?** El diseño deja el archivo con una
+   marca (compartido o no) y por defecto no se comparte nada.
 
 ## 9. Lo que NO se hará ahora
 

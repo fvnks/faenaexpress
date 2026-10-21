@@ -393,19 +393,41 @@ model Student {
 // Apoderado (o apoderada): el contacto del estudiante. No es personal del
 // colegio: accede al PORTAL, no al sistema interno.
 model Guardian {
-  id        String   @id @default(cuid())
-  schoolId  String
-  rut       String?
-  name      String
-  email     String?
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id       String  @id @default(cuid())
+  schoolId String
+  rut      String?
+  name     String
+  email    String?
+  phone    String?
+  // Código de acceso al portal del apoderado. Es un secreto de la familia: con
+  // él se ven todos los hijos de ese apoderado. Lo entrega el colegio en
+  // persona y el colegio lo puede rotar cuando quiere.
+  accessCode          String?   @unique
+  accessCodeCreatedAt DateTime?
+  lastAccessAt        DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school        School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   guardianships Guardianship[]
+  sessions      GuardianSession[]
 
   @@index([schoolId, name])
+}
+
+// La sesión del portal del apoderado. Es aparte de la del empleado: el
+// apoderado no es personal del colegio y no tiene membresía de ninguna clase.
+model GuardianSession {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  guardianId String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  @@index([guardianId])
 }
 
 // Vínculo entre apoderado y estudiante, con el tipo de responsabilidad.

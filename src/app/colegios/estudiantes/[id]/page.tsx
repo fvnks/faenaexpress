@@ -50,7 +50,11 @@ export default async function EstudiantePage({
         orderBy: { enrolledAt: "desc" },
       },
       guardianships: {
-        include: { guardian: { select: { id: true, name: true, phone: true, email: true } } },
+        include: {
+          guardian: {
+            select: { id: true, name: true, phone: true, email: true, accessCode: true },
+          },
+        },
       },
       documents: {
         orderBy: { createdAt: "desc" },
@@ -201,6 +205,7 @@ export default async function EstudiantePage({
               id: g.guardian.id,
               nombre: g.guardian.name,
               tipo: g.type,
+              tieneCodigo: g.guardian.accessCode !== null,
             }))}
             disponibles={apoderadosDelColegio
               .filter((g) => !vinculadas.has(g.id))
