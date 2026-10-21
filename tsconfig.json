@@ -52,7 +52,13 @@
     ".next-dev9/types/**/*.ts",
     ".next-dev9/dev/types/**/*.ts",
     ".next-dev10/types/**/*.ts",
-    ".next-dev10/dev/types/**/*.ts"
+    ".next-dev10/dev/types/**/*.ts",
+    ".next-dev11/types/**/*.ts",
+    ".next-dev11/dev/types/**/*.ts",
+    ".next-build/types/**/*.ts",
+    ".next-build/dev/types/**/*.ts",
+    ".next-dev12/types/**/*.ts",
+    ".next-dev12/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

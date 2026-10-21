@@ -18,6 +18,8 @@
 /out/
 # instancia de desarrollo paralela (NEXT_DIST_DIR)
 /.next-dev*/
+# build propio, para no pelear con el dev server del 3000
+/.next-build/
 
 # production
 /build

@@ -139,7 +139,7 @@ registros existen. La Circular 30 es, literalmente, la especificación del produ
 | **C3. Calificaciones y promoción** *(hecho 20-10-2026)* | Evaluaciones con ponderación, promedios, **promoción según el Decreto 67 (85% + notas)**, actas, certificados | El parte de notas del período y la promoción con el fundamento |
 | **C4. Comunicación** *(hecho 21-10-2026)* | **Portal del apoderado**, circulares, mensajes, alertas de inasistencia, citaciones | El apoderado ve la asistencia y las notas de su hijo, recibe los comunicados y justifica inasistencias desde el celular |
 | **C5. Aranceles y cobranza** | Aranceles en UF y CLP, emisión, **pago con Webpay**, portal de pagos, deuda, recibos, morosidad | Un apoderado paga el arancel y recibe el recibo |
-| **C6. Convivencia** | Denuncias, protocolos con plazos (Ley 21.809), Plan de Gestión de Convivencia, registro | El caso se sigue con plazo y responsable |
+| **C6. Convivencia** *(hecho 21-10-2026)* | Denuncias, protocolos con plazos (Ley 21.809), Plan de Gestión de Convivencia, registro | El caso se sigue con plazo y responsable |
 | **C7. Administración y reporting** | Funcionarios, contratos, jornadas, asistencia de funcionarios, reportabilidad para la dirección | La dirección ve sus indicadores |
 | **C8. Cobro real** | Flow / Mercado Pago para el SaaS (en el plano de la cuenta, no del arancel) | El SaaS se factura |
 
@@ -366,6 +366,43 @@ familia necesita para no tener que llamar al colegio.
 Verificado en local: una circular publicada para todo el colegio (2 familias, 1 leída), el acuse
 desde el portal, la justificación propuesta por la familia de Beto, la aceptación en la secretaría
 (y el registro de asistencia pasó a "justificada" con su motivo), y la citación agendada.
+
+### Estado de C6 (21-10-2026): implementada y verificada en local
+
+La **Ley 21.809** (publicada el 1-abr-2026, vigente desde el 1-jul-2026) cambió el reglamento interno de
+convivencia escolar. Antes de escribir una línea se leyó la norma y sus obligaciones, porque acá el
+sistema tiene que ayudar a que el colegio cumpla, no a que anote cosas:
+
+- **El plazo de la investigación no lo elige el colegio**: la ley fija que la investigación interna
+  de un caso de alumno no puede pasar de **2 meses** (60 días). El sistema calcula ese vencimiento
+  al abrir el caso y avisa cuando se vence o cuando se acerca (15 días). Es el número que la ley
+  quiso que se notara, y por eso vive en el código y no en un campo editable.
+- **El protocolo con plazos definidos**: el reglamento interno tiene que traer procedimientos de
+  investigación con plazos. Los protocolos del colegio (`ConductProtocol`) se escriben con sus
+  etapas y su plazo en días, en el formato en que están escritos en el RICE ("nombre | días |
+  responsable"), sin obligar a nadie a escribir JSON.
+- **La comisión de expulsión**: antes de una medida de expulsión o de cancelación de matrícula, la ley
+  exige el informe de una comisión (profesor jefe, coordinador de convivencia y un
+  técnico-pedagógico). El sistema **no deja cerrar el caso con una expulsión sin ese informe**.
+- **El Plan de Gestión de la Convivencia Escolar**: obligatorio, con las áreas que la ley menciona
+  (participación, igualdad, resolución pacífica, mediación, cuidados y responsabilidades digitales,
+  desarrollo socioemocional y salud mental), con la **revisión participativa cada 4 años** y la
+  **constancia de que se entregó copia a las familias** (que es lo que la ley pide).
+- **Canales de denuncia confidenciales**: el registro del caso es interno del colegio; lo que la
+  familia ve del caso es lo que el colegio comparte, y hoy la familia ve su asistencia, sus notas y
+  los comunicados, no el historial de convivencia de su hijo.
+
+- **Schema** (migración `20261026270000_school_convivencia`): `ConductCase` (el caso, con su
+  vencimiento legal), `CaseParticipant` (quiénes y en qué calidad), `ConductAction` (las etapas con
+  su plazo, su responsable y su resultado), `ConductProtocol` (los protocolos con sus etapas) y
+  `ConvivenciaPlan` + `PlanActivity` (el plan de gestión).
+- **Las pantallas**: `/colegios/convivencia` (los casos con su urgencia, las etapas por hacer y el
+  alta de casos), `/colegios/convivencia/casos/[id]` (el caso etapa por etapa), `/protocolos` y
+  `/plan`.
+
+Verificado en local: caso reportado con el vencimiento legal de 60 días calculado, etapas con su
+plazo, el rechazo del cierre sin informe de comisión cuando hubo expulsión, y el plan con su acción
+y su fecha de revisión.
 
 ### Estado de C2 (20-10-2026): implementada y verificada en local
 

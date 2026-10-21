@@ -322,6 +322,9 @@ model School {
   consents    StudentConsent[]
   justifications JustificationRequest[]
   appointments  Appointment[]
+  conductCases  ConductCase[]
+  protocols     ConductProtocol[]
+  plans         ConvivenciaPlan[]
 
   @@index([organizationId])
 }
@@ -392,6 +395,7 @@ model Student {
   consents      StudentConsent[]
   justifications JustificationRequest[]
   appointments  Appointment[]
+  caseRoles       CaseParticipant[]
 
   @@index([schoolId, lastName])
 }
@@ -2280,4 +2284,193 @@ model Appointment {
 
   @@index([schoolId, scheduledAt])
   @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// Convivencia escolar (Ley 21.809, vigente desde el 1-jul-2026)
+// ---------------------------------------------------------------------------
+
+enum ConductCaseType {
+  CONDUCTA // conducta disruptiva
+  ACOSO_ESCOLAR // acoso escolar (entre estudiantes)
+  AGRESION // agresión física o verbal
+  MALTRATO_INFANTIL // sospecha de maltrato
+  DISCRIMINACION
+  ACOSO_LABORAL // entre adultos (Ley Karin)
+  SALUD_MENTAL // bienestar socioemocional
+  OTRO
+}
+
+enum ConductCaseStatus {
+  ABIERTO
+  EN_INVESTIGACION
+  MEDIACION
+  RESUELTO
+  CERRADO
+}
+
+enum CaseParticipantRole {
+  DENUNCIANTE
+  DENUNCIADO
+  AFECTADO
+  TESTIGO
+}
+
+enum ConductActionType {
+  RECEPCION
+  INVESTIGACION
+  ENTREVISTA
+  CITACION
+  MEDIACION
+  INFORME_COMISION
+  SANCTION
+  SUSPENSION
+  EXPULSION
+  DERIVACION
+  REPOSICION
+  CIERRE
+}
+
+// Un caso de convivencia: la denuncia y su seguimiento.
+//
+// El plazo de investigación NO es un dato del colegio: la Ley 21.809 fija que
+// la investigación interna de un caso de alumno no puede pasar de 2 meses. El
+// sistema lo calcula al abrir el caso y avisa cuando se vence.
+model ConductCase {
+  id          String            @id @default(cuid())
+  schoolId    String
+  type        ConductCaseType   @default(CONDUCTA)
+  // "LEVE" | "MEDIA" | "GRAVE"
+  severity    String            @default("LEVE")
+  title       String
+  description String
+  status      ConductCaseStatus @default(ABIERTO)
+  // La Ley 21.809 fija que la investigación de un caso de alumno no puede
+  // pasar de 2 meses. El colegio no lo acorta: lo acorta la ley.
+  investigationDueAt DateTime
+  reportedById       String
+  reportedAt         DateTime        @default(now())
+  closedAt           DateTime?
+  resolution         String?
+  // Si hubo medida de expulsión o cancelación de matrícula, la ley exige el
+  // informe de una comisión (profesor jefe, coordinador de convivencia y un
+  // técnico-pedagógico). Se guarda acá.
+  commissionReport String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @default(now()) @updatedAt
+
+  school       School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  participants CaseParticipant[]
+  actions      ConductAction[]
+
+  @@index([schoolId, status])
+  @@index([schoolId, investigationDueAt])
+}
+
+// Quién participa del caso y en qué calidad.
+model CaseParticipant {
+  id        String              @id @default(cuid())
+  caseId    String
+  studentId String
+  role      CaseParticipantRole @default(AFECTADO)
+  note      String?
+
+  caso    ConductCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  student Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, studentId, role])
+  @@index([studentId])
+}
+
+// Una acción del caso: una etapa del protocolo, con su plazo y su responsable.
+model ConductAction {
+  id         String             @id @default(cuid())
+  caseId     String
+  type       ConductActionType
+  title      String
+  notes      String?
+  // El plazo de la etapa. Si el protocolo del colegio lo define, se hereda.
+  dueAt      DateTime?
+  doneAt     DateTime?
+  outcome    String?
+  // Quién quedó a cargo. Es un id de usuario del colegio (el personal del
+  // colegio es un User con membresía escolar).
+  responsibleId String?
+  responsible   String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @default(now()) @updatedAt
+
+  caso ConductCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, dueAt])
+  @@index([dueAt])
+}
+
+// El protocolo del colegio (el RICE y sus protocolos): las etapas con su plazo.
+//
+// Los pasos se guardan como JSON porque son la configuración del protocolo y
+// cambian por versión; lo que se sigue en el tiempo (los casos) vive en tablas.
+model ConductProtocol {
+  id       String   @id @default(cuid())
+  schoolId String
+  name     String
+  // "CONVIVENCIA" | "MALTRATO" | "ACOSO" | "ACOSO_LABORAL" | "DISCRIMINACION"
+  kind     String   @default("CONVIVENCIA")
+  version  Int      @default(1)
+  // Los pasos: [{ name, deadlineDays, responsible }]
+  steps    Json
+  active   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, name, version])
+  @@index([schoolId, active])
+}
+
+// El Plan de Gestión de la Convivencia Escolar: obligatorio por la Ley 21.809
+// y con revisión participativa cada 4 años.
+model ConvivenciaPlan {
+  id       String   @id @default(cuid())
+  schoolId String
+  year     Int
+  // "BORRADOR" | "APROBADO" | "VIGENTE"
+  status   String   @default("BORRADOR")
+  // Los objetivos del plan.
+  objectives Json
+  // Cuándo se hace la revisión participativa (la ley pide cada 4 años).
+  reviewDueAt DateTime?
+  approvedAt  DateTime?
+  // La constancia de que se entregó copia a las familias (la ley lo pide).
+  deliveredAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  school    School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  activities PlanActivity[]
+
+  @@unique([schoolId, year])
+}
+
+// Las acciones del plan. Las áreas son las que la ley menciona: participación,
+// igualdad, resolución pacífica, mediación, cuidados y responsabilidades
+// digitales, desarrollo socioemocional y salud mental.
+model PlanActivity {
+  id        String   @id @default(cuid())
+  planId    String
+  name      String
+  // "PARTICIPACION" | "IGUALDAD" | "RESOLUCION_PACIFICA" | "MEDIACION" |
+  // "CUIDADOS_DIGITALES" | "SOCIOEMOCIONAL" | "SALUD_MENTAL"
+  area      String
+  responsible String?
+  dueAt     DateTime?
+  doneAt    DateTime?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  plan ConvivenciaPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId, dueAt])
 }

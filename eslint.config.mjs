@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Directorios de desarrollo alternativos (instancia paralela con
     // NEXT_DIST_DIR): no son código fuente.
     ".next-dev*/**",
+    // Carpeta de build propia, para no pelear con el dev server del 3000.
+    ".next-build/**",
   ]),
 ]);
 
