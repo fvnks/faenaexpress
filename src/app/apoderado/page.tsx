@@ -34,16 +34,18 @@ export default async function PortalPage() {
       <div className="min-h-dvh">
         <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-10">
           <div className="mb-6">
-            <p className="text-sm font-bold tracking-tight text-muted-foreground">Yellow ERP</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight">Portal del apoderado</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Portal del apoderado
+            </p>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight">Entra a ver a tus hijos</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Entra con el código que te dio el colegio para ver la asistencia y las notas de tus
-              hijos.
+              Usa el código que te dio el colegio para ver la asistencia y las notas.
             </p>
           </div>
           <PortalForm />
           <p className="mt-6 text-xs text-muted-foreground">
-            ¿No tienes el código? Pídelo en la secretaría del colegio.
+            ¿No tienes el código? Pídelo en la secretaría del colegio. Si tu colegio te dio un
+            enlace propio, ábrelo: ahí el código se pide para ese colegio.
           </p>
         </main>
       </div>

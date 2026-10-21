@@ -72,6 +72,11 @@ export async function portalLogin(
   const crudo = String(formData.get("codigo") ?? "").trim();
   if (!crudo) return { error: "Escribe el código que te dio el colegio." };
 
+  // Cuando la familia entró por el enlace de su colegio (`/c/<colegio>`), el
+  // código tiene que ser de ESE colegio: si no, el enlace de un colegio serviría
+  // para entrar a otro, y la familia vería datos que no son de su comunidad.
+  const schoolId = String(formData.get("schoolId") ?? "").trim() || null;
+
   const { ip, userAgent } = await requestContext();
 
   // Límite de intentos por IP: el código tiene ocho caracteres, pero probar
@@ -82,7 +87,7 @@ export async function portalLogin(
 
   const codigo = normalizarCodigo(crudo);
   const apoderado = await db.guardian.findFirst({
-    where: { accessCode: codigo },
+    where: schoolId ? { accessCode: codigo, schoolId } : { accessCode: codigo },
     select: { id: true, name: true, email: true },
   });
 

@@ -176,3 +176,30 @@ export async function postLoginDestination(userId: string): Promise<string> {
   const modules = await enabledModules(userId);
   return modules.length === 1 ? modules[0].href : "/modulos";
 }
+
+/**
+ * Los módulos que la plataforma ofrece, para la pantalla de entrada.
+ *
+ * Es la lista que ve alguien que todavía no entró: no depende de ninguna cuenta
+ * (sería una fuga) ni de lo que tenga contratado nadie. Sale del mismo registro
+ * que usa el selector, así que el login y el selector nunca dicen cosas
+ * distintas; lo único propio de acá es la frase corta, que en el registro sería
+ * un párrafo largo y acá tiene que caber en una línea.
+ */
+export type ProductoPublico = {
+  code: string;
+  name: string;
+  /** Una línea: qué es, para quien nunca lo vio. */
+  tagline: string;
+};
+
+const TAGLINES: Record<string, string> = {
+  facturas: "Compras, ventas, gastos y conciliación bancaria.",
+  colegios: "Libro de clases, asistencia, notas y convivencia.",
+};
+
+export const PRODUCTOS_PUBLICOS: ProductoPublico[] = ALL_MODULES.map((m) => ({
+  code: m.code,
+  name: m.name,
+  tagline: TAGLINES[m.code] ?? m.description,
+}));

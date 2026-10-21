@@ -14,6 +14,7 @@ import {
 import { recordPlatformAudit } from "@/lib/platform-audit";
 import { clearPendingInvite, setPendingInvite } from "@/lib/platform-invite";
 import { setOrganizationModule, syncPlanModules } from "@/lib/org-module-state";
+import { slugUnicoParaColegio } from "@/lib/school-slug-store";
 import { findOrgModule, ORG_MODULES } from "@/lib/org-modules";
 import { recomputeUsage } from "@/lib/plans";
 import {
@@ -1170,6 +1171,9 @@ export async function createSchoolFromAdmin(
   const school = await db.school.create({
     data: {
       name,
+      // El enlace que el colegio reparte a las familias. Se fija acá y no se
+      // vuelve a tocar.
+      slug: await slugUnicoParaColegio(name),
       organizationId,
       level,
       rut,

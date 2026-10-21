@@ -1,12 +1,19 @@
+import { PRODUCTOS_PUBLICOS } from "@/lib/modules";
+
 /**
- * Columna visual del login: gradiente mesh con los tonos de la marca y un
- * mockup de navegador flotando (perspectiva suave) con un mini panel ERP
- * dibujado en HTML/CSS puro. Es decorativo: aria-hidden en todo el conjunto.
+ * Columna visual de las pantallas de entrada.
+ *
+ * Antes dibujaba un panel de Facturas (gráfico de barras, filas de tabla,
+ * tarjetas de montos): la puerta de entrada prometía un producto contable cuando
+ * la plataforma ya tiene más de uno. Ahora muestra los módulos que la plataforma
+ * ofrece, sacados del registro real, así que uno nuevo aparece solo.
+ *
+ * No muestra datos de ninguna cuenta: la ve cualquiera antes de entrar.
  */
-export function LoginVisual() {
+export function PlatformVisual() {
   return (
     <div className="relative h-full w-full overflow-hidden" aria-hidden="true">
-      {/* Gradiente mesh con los colores de la marca */}
+      {/* Gradiente mesh con los tonos de la marca */}
       <div
         className="absolute inset-0"
         style={{
@@ -21,78 +28,32 @@ export function LoginVisual() {
       {/* Velo diagonal sutil para dar profundidad */}
       <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-primary/25" />
 
-      {/* Mockup flotante */}
-      <div className="absolute inset-0 flex items-center justify-center p-8 [perspective:1400px]">
-        <div className="float-soft motion-reduce:animate-none w-full max-w-[460px] [transform:rotateY(-5deg)_rotateX(2deg)]">
-          <div className="overflow-hidden rounded-xl border border-border/70 bg-surface shadow-[0_40px_80px_-24px_rgb(0_0_0/0.35)]">
-            {/* Chrome del navegador */}
-            <div className="flex items-center gap-1.5 border-b border-border bg-background px-4 py-2.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-danger/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-accent/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-success/70" />
-              <span className="ml-3 h-4 flex-1 rounded-md bg-primary-soft/60" />
-            </div>
-
-            {/* Mini panel ERP */}
-            <div className="flex">
-              {/* Mini sidebar */}
-              <div className="flex w-12 flex-col items-center gap-3 border-r border-border bg-background px-2 py-4">
-                <span className="h-6 w-6 rounded-md bg-primary" />
-                <span className="h-1.5 w-6 rounded-full bg-muted-foreground/25" />
-                <span className="h-1.5 w-6 rounded-full bg-muted-foreground/15" />
-                <span className="h-1.5 w-6 rounded-full bg-muted-foreground/15" />
-                <span className="h-1.5 w-6 rounded-full bg-muted-foreground/15" />
-              </div>
-
-              {/* Contenido */}
-              <div className="flex-1 space-y-3 p-4">
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { bar: "bg-primary", w: "w-3/4" },
-                    { bar: "bg-accent", w: "w-2/3" },
-                    { bar: "bg-muted-foreground/40", w: "w-1/2" },
-                  ].map((chip, i) => (
-                    <div key={i} className="rounded-lg border border-border bg-background p-2.5">
-                      <span className="block h-1.5 w-8 rounded-full bg-muted-foreground/25" />
-                      <span className={`tabular mt-2 block h-2 ${chip.w} rounded-full ${chip.bar}`} />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Gráfico de barras */}
-                <div className="rounded-lg border border-border bg-background p-3">
-                  <div className="flex h-20 items-end gap-1.5">
-                    {[38, 55, 30, 68, 46, 84, 60, 95, 52, 74, 44, 88].map((h, i) => (
-                      <div
-                        key={i}
-                        className={`flex-1 rounded-t-sm ${i % 3 === 1 ? "bg-accent/70" : "bg-primary/80"}`}
-                        style={{ height: `${h}%` }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Filas de tabla */}
-                <div className="space-y-1.5">
-                  {[90, 70, 80].map((w, i) => (
-                    <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5">
-                      <span className="h-3.5 w-3.5 rounded-full bg-primary-soft" />
-                      <span className="h-1.5 rounded-full bg-muted-foreground/20" style={{ width: `${w}%` }} />
-                      <span className="ml-auto h-1.5 w-10 rounded-full bg-primary/60" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="relative flex h-full flex-col justify-center gap-10 px-8 py-10 lg:px-14">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Los sistemas de gestión
+          </p>
+          <p className="mt-2 max-w-sm text-2xl font-light leading-snug tracking-tight">
+            Todo lo que tu empresa y tu colegio necesitan, en el mismo lugar.
+          </p>
         </div>
-      </div>
 
-      {/* Texto decorativo */}
-      <p className="absolute bottom-6 right-8 text-right font-light tracking-wide text-foreground/55">
-        Facturación clara para tu negocio.
-        <span className="block text-xs opacity-80">Hecho en Chile.</span>
-      </p>
+        <ul className="grid max-w-md gap-3">
+          {PRODUCTOS_PUBLICOS.map((producto) => (
+            <li
+              key={producto.code}
+              className="float-soft motion-reduce:animate-none rounded-xl border border-border/70 bg-surface/95 p-4 shadow-[0_18px_40px_-24px_rgb(0_0_0/0.4)] backdrop-blur-sm"
+            >
+              <p className="text-sm font-semibold tracking-tight">{producto.name}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{producto.tagline}</p>
+            </li>
+          ))}
+        </ul>
+
+        <p className="max-w-sm text-sm font-light tracking-wide text-foreground/55">
+          Hecho en Chile.
+        </p>
+      </div>
     </div>
   );
 }

@@ -12,8 +12,11 @@ import { controlClass, fieldClass, labelClass } from "@/lib/ui";
  *
  * El código lo entrega el colegio en persona (en la reunión de apoderados).
  * Si la familia no lo tiene, lo pide en la secretaría.
+ *
+ * `schoolId` viene puesto cuando la familia entró por el enlace de su colegio
+ * (`/c/<colegio>`): en ese caso el código se busca solo en ese colegio.
  */
-export function PortalForm() {
+export function PortalForm({ schoolId }: { schoolId?: string }) {
   const [state, action] = useActionState<PortalFormState, FormData>(portalLogin, undefined);
 
   useEffect(() => {
@@ -22,6 +25,8 @@ export function PortalForm() {
 
   return (
     <form action={action} className="flex w-full max-w-sm flex-col gap-3">
+      {schoolId ? <input type="hidden" name="schoolId" value={schoolId} /> : null}
+
       <div className={fieldClass}>
         <label htmlFor="codigo" className={labelClass}>
           Código de acceso

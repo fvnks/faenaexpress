@@ -12,8 +12,10 @@ const plex = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Facturas",
-  description: "Registro de compras, ventas y gastos.",
+  // El nombre de la plataforma, no el de un módulo: la raíz la comparten
+  // Facturas, Colegios y la puerta de entrada.
+  title: "Yellow ERP",
+  description: "Sistemas de gestión para tu empresa y tu colegio.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

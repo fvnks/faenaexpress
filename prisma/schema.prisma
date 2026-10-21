@@ -294,6 +294,10 @@ model School {
   id             String      @id @default(cuid())
   organizationId String? // el sostenedor; null si el colegio no tiene uno
   name           String
+  // Identificador legible para la URL de la familia (`/c/colegio-ejemplo-spa`).
+  // Se guarda y no se deriva del nombre: el colegio puede cambiarse el nombre sin
+  // que se rompa el enlace que ya repartió a los apoderados.
+  slug           String?     @unique
   rut            String?
   level          SchoolLevel @default(BASICA)
   address        String?

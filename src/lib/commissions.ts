@@ -91,8 +91,50 @@ export type CommissionPeriodReport = {
 // La comisión se redondea a pesos enteros, igual que todo lo demás en CLP.
 function commissionOf(base: number, rateBps: number): number {
   const value = Math.round((base * rateBps) / 10_000);
-  // Math.round(-0.4) devuelve -0, que se imprimiría como "$-0".
+  // Math.round(-0.4) devuelve -0, que se imprimirá como "$-0".
   return value === 0 ? 0 : value;
+}
+
+/**
+ * Determina el signo que debe tener una venta para el cálculo de comisiones.
+ *
+ * Las notas de crédito/débito solo restan si hay una factura anulada con esa
+ * nota de crédito/débito. Si no hay factura anulada asociada, se tratan como
+ * ventas normales (signo positivo).
+ */
+async function commissionSignForSale(
+  companyId: string,
+  sale: { id: string; documentType: string; documentNumber: string | null; cancellationNoteNumber: string | null },
+): Promise<1 | -1> {
+  if (sale.documentType !== "CREDIT_NOTE" && sale.documentType !== "DEBIT_NOTE") {
+    return 1;
+  }
+
+  if (sale.documentNumber) {
+    const invoice = await db.sale.findFirst({
+      where: {
+        companyId,
+        cancellationNoteNumber: sale.documentNumber,
+        status: "CANCELLED",
+      },
+      select: { id: true },
+    });
+    if (invoice) return -1;
+  }
+
+  if (sale.cancellationNoteNumber) {
+    const invoice = await db.sale.findFirst({
+      where: {
+        companyId,
+        documentNumber: sale.cancellationNoteNumber,
+        status: "CANCELLED",
+      },
+      select: { id: true },
+    });
+    if (invoice) return -1;
+  }
+
+  return 1;
 }
 
 async function loadSalespeople(companyId: string) {
@@ -478,7 +520,9 @@ export async function computeCommission(
     // puede ser cualquier documento, haya guía o no.
     if (person.rule === "GUIDE" && !sale.dispatchGuide) continue;
 
-    const base = documentSign(sale.documentType) * sale.netAmount;
+    // La comisión se calcula sobre el NETO.
+    const sign = await commissionSignForSale(companyId, sale);
+    const base = sign * sale.netAmount;
     lines.push({
       saleId: sale.id,
       dispatchGuideId: null,
@@ -501,7 +545,9 @@ export async function computeCommission(
     if (assignment.sale) {
       const sale = assignment.sale;
       const person = peopleById.get(assignment.salespersonId);
-      const base = documentSign(sale.documentType) * sale.netAmount;
+      // La comisión se calcula sobre el NETO.
+      const sign = await commissionSignForSale(companyId, sale);
+      const base = sign * sale.netAmount;
       lines.push({
         saleId: sale.id,
         dispatchGuideId: null,
