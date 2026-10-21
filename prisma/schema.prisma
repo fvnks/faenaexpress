@@ -482,10 +482,15 @@ model Enrollment {
   courseId   String
   studentId  String
   enrolledAt DateTime @default(now())
-  // "ACTIVE", "RETIRADO"
+  // "ACTIVE" (cursando), "TRASLADO" (cambió de curso), "RETIRADO" (se fue).
   status     String   @default("ACTIVE")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  // Por qué se cerró la matrícula. La trazabilidad importa: un traslado o un
+  // retiro tienen que quedar explicados.
+  statusReason String?
+  // Cuándo se cerró la matrícula (traslado o retiro).
+  endedAt      DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)

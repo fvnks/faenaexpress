@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AttendanceSheet } from "@/app/colegios/asistencia/attendance-sheet";
+import { ClassForm } from "@/app/colegios/asistencia/class-form";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { classSheet, enrolledStudents, listSessions } from "@/lib/school-attendance";
+import { todayISO } from "@/lib/money";
 import { cardClass } from "@/lib/ui";
 
 // El registro diario: la pantalla del docente. Elige la clase y marca.
@@ -26,6 +28,23 @@ export default async function AsistenciaPage({
   const sesiones = courseId ? await listSessions(courseId) : [];
 
   if (!sessionId) {
+    // Para registrar una clase hacen falta las asignaturas que se imparten y
+    // los docentes: son el plan del curso.
+    const [asignaturas, docentes] = await Promise.all([
+      db.subject.findMany({
+        where: { schoolId: ctx.school.id, assignments: { some: {} } },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      db.teacher.findMany({
+        where: { schoolId: ctx.school.id },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+    ]);
+
+    const puedeRegistrar = schoolCanWrite(ctx, "asistencia");
+
     return (
       <div className="flex flex-col gap-6">
         <div>
@@ -35,6 +54,17 @@ export default async function AsistenciaPage({
             cuándo.
           </p>
         </div>
+
+        {puedeRegistrar ? (
+          <section className={cardClass + " p-5"}>
+            <ClassForm
+              cursos={courses.map((c) => ({ id: c.id, nombre: `${c.name} · ${c.year}` }))}
+              asignaturas={asignaturas.map((a) => ({ id: a.id, nombre: a.name }))}
+              docentes={docentes.map((d) => ({ id: d.id, nombre: d.name }))}
+              hoy={todayISO()}
+            />
+          </section>
+        ) : null}
 
         <section className={cardClass + " p-5"}>
           <h2 className="font-semibold">Clases registradas</h2>

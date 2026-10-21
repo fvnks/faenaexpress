@@ -134,7 +134,7 @@ registros existen. La Circular 30 es, literalmente, la especificación del produ
 | Fase | Contenido | Entregable verificable |
 | --- | --- | --- |
 | **C0. Cimientos** *(hecho)* | Módulo en el registro, `School`/`Course`/`Student`/`Guardian`/`Teacher`/`Subject`, roles del colegio, selector de establecimiento, la consola ve ambos negocios | Un colegio con sus cursos y sus alumnos; se entra por `/modulos` |
-| **C1. Matrícula y ficha** | Matrícula (alta, traslado, retiro), ficha del estudiante, apoderados, documentos, consents | El expediente del alumno completo, exportable |
+| **C1. Matrícula y ficha** *(hecho 20-10-2026)* | Matrícula (alta, traslado, retiro), ficha del estudiante, apoderados, documentos, consents | El expediente del alumno completo, exportable |
 | **C2. Asistencia + Libro de Clases Digital** | Asistencia por curso/asignatura, atrasos/retiros/justificaciones, leccionario, registro de clases, **archivo EDE exportable**, **firma con el verificador de identidad** | El colegio puede entregar el libro digital en una fiscalización |
 | **C3. Calificaciones y promoción** *(hecho 20-10-2026)* | Evaluaciones con ponderación, promedios, **promoción según el Decreto 67 (85% + notas)**, actas, certificados | El parte de notas del período y la promoción con el fundamento |
 | **C4. Comunicación** | Portal del apoderado, circulares, mensajes, alertas de inasistencia, citaciones | El apoderado ve la asistencia de su hijo y recibe los comunicados |
@@ -200,6 +200,46 @@ asistencia).
 **Lo que NO se hizo de la C3** (a propósito, por lo acordado): el flujo de excepciones del Art. 11
 (el informe de la UTP, la autorización de excepción de asistencia por dirección+UTP y la resolución
 caso a caso). La primera versión calcula la regla y marca los casos; resolverlos es lo que sigue.
+
+### Estado de C1 (20-10-2026): implementada y verificada en local
+
+Hasta acá el módulo Colegios **no era operable**: las acciones existían (`createStudent`, `createCourse`,
+`saveClassSession`) pero ninguna tenía formulario, así que un colegio no podía matricular a un alumno,
+crear un curso ni registrar una clase. La C1 cierra ese hueco.
+
+- **Matrícula con historial** (`src/app/actions/school-enrollment.ts`): alta de alumno (nombre, RUT,
+  fecha de nacimiento) y matrícula en un curso, en un solo paso; matriculación de un alumno que ya
+  está en el colegio; **traslado** (cierra la matrícula del curso anterior con su motivo y abre la
+  nueva) y **retiro** (cierra la matrícula con su motivo). La matrícula guarda `statusReason` y
+  `endedAt` (migración `20261026230000_enrollment_history`): el curso anterior sigue contando para la
+  asistencia y las notas de lo que ya cursó, y el motivo queda explicito.
+- **El estado del alumno y su historial no se contradicen**: si a un alumno se le cierran todas sus
+  matrículas activas, queda como retirado en el colegio.
+- **Docentes**: alta de docente y **asignaturas** (`Subject`), y la **asignación** de asignatura +
+  docente a un curso (`TeachingAssignment`), que es el plan del curso: sin plan no hay clase, y sin
+  clase no hay nota ni asistencia. La página `/colegios/docentes` es nueva.
+- **Registro de clase** (lo que faltaba de la C2): el formulario del leccionario que pide la Circular
+  N°30 (contenidos, actividades y objetivos) cuelga de `/colegios/asistencia`, y la clase creada se
+  abre directo a marcar la asistencia.
+- **Apoderados**: alta, edición, vínculo con el alumno (titular, suplente, emergencia) y desvinculo.
+  El apoderado es la contraparte de todo lo que hace el colegio: el que recibe las comunicaciones, el
+  que paga y el que autoriza.
+- **La ficha del alumno** (`/colegios/estudiantes/[id]`) ahora es el expediente completo: matrícula con
+  su historial, apoderados, asistencia con el 85%, **las notas por asignatura y período** (el mismo
+  cálculo que el acta) y la situación de promoción con su fundamento. Y hay una versión
+  **imprimible** (`/colegios/estudiantes/[id]/expediente`): un solo documento con todo, para cuando lo
+  piden.
+- **Las fechas de calendario se guardan al mediodía UTC**: al mediodía, ningún cambio de zona horaria
+  del servidor corre la fecha de día.
+
+Verificado en local: alta de alumno, traslado (la matrícula anterior queda con su motivo), retiro
+(el alumno queda retirado), alta de docente, registro de clase y la ficha con sus notas.
+
+**Lo que NO se hizo de la C1** (a propósito): los **documentos y consentimientos** del expediente
+(la Ley 21.719 pide registrar el consentimiento y la portabilidad de los datos de menores). No hay
+almacenamiento de archivos en el módulo de Colegios: hay que elegir dónde se guardan (¿el bucket de
+Facturas? ¿S3 propio?) antes de hacerlo, porque un documento de un menor no puede quedar en el mismo
+sitio que las facturas de una empresa.
 
 ### Estado de C2 (20-10-2026): implementada y verificada en local
 

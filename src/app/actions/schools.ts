@@ -226,7 +226,9 @@ export async function createStudent(
   return { ok: true };
 }
 
-/** Crea un curso del colegio. */
+/**
+ * Crea un curso del colegio.
+ */
 export async function createCourse(
   _prev: AttendanceFormState,
   formData: FormData,
@@ -261,6 +263,166 @@ export async function createCourse(
 
   revalidatePath("/colegios/cursos");
   revalidatePath("/colegios");
+  return { ok: true };
+}
+
+/** Crea un docente del colegio. */
+export async function createTeacher(
+  _prev: AttendanceFormState,
+  formData: FormData,
+): Promise<AttendanceFormState> {
+  const ctx = await requireSchoolContext("docentes");
+  if (!schoolCanWrite(ctx, "docentes")) {
+    return { error: "Tu rol no permite crear docentes." };
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  const rut = String(formData.get("rut") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+
+  if (name.length < 1) return { error: "El nombre del docente es obligatorio." };
+  if (email && !email.includes("@")) return { error: "El correo no parece válido." };
+
+  await db.teacher.create({
+    data: {
+      schoolId: ctx.school.id,
+      name,
+      rut: rut || null,
+      email: email || null,
+      phone: phone || null,
+    },
+  });
+
+  revalidatePath("/colegios/docentes");
+  revalidatePath("/colegios/cursos");
+  return { ok: true };
+}
+
+/** Crea una asignatura del colegio. */
+export async function createSubject(
+  _prev: AttendanceFormState,
+  formData: FormData,
+): Promise<AttendanceFormState> {
+  const ctx = await requireSchoolContext("cursos");
+  if (!schoolCanWrite(ctx, "cursos")) {
+    return { error: "Tu rol no permite crear asignaturas." };
+  }
+
+  const code = String(formData.get("code") ?? "").trim().toUpperCase();
+  const name = String(formData.get("name") ?? "").trim();
+
+  if (code.length < 1) return { error: "El código de la asignatura es obligatorio." };
+  if (name.length < 1) return { error: "El nombre de la asignatura es obligatorio." };
+
+  const repetida = await db.subject.findFirst({
+    where: { schoolId: ctx.school.id, code },
+    select: { id: true },
+  });
+  if (repetida) return { error: `Ya existe una asignatura con el código ${code}.` };
+
+  await db.subject.create({
+    data: { schoolId: ctx.school.id, code, name },
+  });
+
+  revalidatePath("/colegios/cursos");
+  revalidatePath("/colegios/asistencia");
+  return { ok: true };
+}
+
+/**
+ * Asigna una asignatura a un curso, con su docente.
+ *
+ * Sin esto el curso no tiene plan: no se puede dictar una clase de esa
+ * asignatura ni calificar en ella.
+ */
+export async function assignSubject(
+  _prev: AttendanceFormState,
+  formData: FormData,
+): Promise<AttendanceFormState> {
+  const ctx = await requireSchoolContext("cursos");
+  if (!schoolCanWrite(ctx, "cursos")) {
+    return { error: "Tu rol no puede asignar asignaturas." };
+  }
+
+  const courseId = String(formData.get("courseId") ?? "").trim();
+  const subjectId = String(formData.get("subjectId") ?? "").trim();
+  const teacherId = String(formData.get("teacherId") ?? "").trim();
+  const weeklyHours = Number(formData.get("weeklyHours") ?? 0);
+
+  if (!courseId || !subjectId || !teacherId) {
+    return { error: "Elige el curso, la asignatura y el docente." };
+  }
+  if (!Number.isFinite(weeklyHours) || weeklyHours < 0 || weeklyHours > 40) {
+    return { error: "Las horas semanales van de 0 a 40." };
+  }
+
+  const [curso, asignatura, docente] = await Promise.all([
+    db.course.findFirst({ where: { id: courseId, schoolId: ctx.school.id }, select: { id: true } }),
+    db.subject.findFirst({ where: { id: subjectId, schoolId: ctx.school.id }, select: { id: true } }),
+    db.teacher.findFirst({ where: { id: teacherId, schoolId: ctx.school.id }, select: { id: true } }),
+  ]);
+  if (!curso || !asignatura || !docente) {
+    return { error: "El curso, la asignatura o el docente no son de este colegio." };
+  }
+
+  await db.teachingAssignment.upsert({
+    where: { courseId_subjectId: { courseId, subjectId } },
+    create: { courseId, subjectId, teacherId, weeklyHours: Math.round(weeklyHours) },
+    update: { teacherId, weeklyHours: Math.round(weeklyHours) },
+  });
+
+  revalidatePath("/colegios/cursos");
+  revalidatePath("/colegios/asistencia");
+  revalidatePath("/colegios/calificaciones");
+  return { ok: true };
+}
+
+/** Quita la asignación de una asignatura a un curso. */
+export async function removeAssignment(
+  _prev: AttendanceFormState,
+  formData: FormData,
+): Promise<AttendanceFormState> {
+  const ctx = await requireSchoolContext("cursos");
+  if (!schoolCanWrite(ctx, "cursos")) {
+    return { error: "Tu rol no puede modificar el plan." };
+  }
+
+  const id = String(formData.get("assignmentId") ?? "").trim();
+  if (!id) return { error: "Falta la asignación." };
+
+  const eliminada = await db.teachingAssignment.deleteMany({
+    where: { id, course: { schoolId: ctx.school.id } },
+  });
+  if (eliminada.count === 0) return { error: "Esa asignación no es de este colegio." };
+
+  revalidatePath("/colegios/cursos");
+  return { ok: true };
+}
+
+/** Marca (o no) si una asignatura incide en el promedio final (Art. 7). */
+export async function toggleSubjectPromotion(
+  _prev: GradesFormState,
+  formData: FormData,
+): Promise<GradesFormState> {
+  const ctx = await requireSchoolContext("calificaciones");
+  if (!schoolCanWrite(ctx, "calificaciones")) {
+    return { error: "Tu rol no puede modificar las asignaturas." };
+  }
+
+  const subjectId = String(formData.get("subjectId") ?? "").trim();
+  if (!subjectId) return { error: "Falta la asignatura." };
+
+  const incide = formData.get("countsForPromotion") === "on";
+  const actualizado = await db.subject.updateMany({
+    where: { id: subjectId, schoolId: ctx.school.id },
+    data: { countsForPromotion: incide },
+  });
+  if (actualizado.count === 0) return { error: "Esa asignatura no es de este colegio." };
+
+  revalidatePath("/colegios/calificaciones");
+  revalidatePath("/colegios/promocion");
+  revalidatePath("/colegios/cursos");
   return { ok: true };
 }
 
@@ -404,7 +566,9 @@ export async function createEvaluation(
     return { error: "La evaluación final no puede pesar más del 30% del período." };
   }
 
-  const date = dateCruda ? new Date(`${dateCruda}T00:00:00.000Z`) : new Date();
+  // Las fechas son de calendario, sin hora: se guardan al mediodía UTC para
+  // que ningún cambio de zona horaria las corra de día.
+  const date = dateCruda ? new Date(`${dateCruda}T12:00:00.000Z`) : new Date();
   if (Number.isNaN(date.getTime())) return { error: "La fecha no es válida." };
 
   await db.evaluation.create({
@@ -472,8 +636,8 @@ export async function createGradingPeriod(
     return { error: "La ponderación del período va de 0 a 100." };
   }
 
-  const inicio = new Date(`${startDate}T00:00:00.000Z`);
-  const termino = new Date(`${endDate}T00:00:00.000Z`);
+  const inicio = new Date(`${startDate}T12:00:00.000Z`);
+  const termino = new Date(`${endDate}T12:00:00.000Z`);
   if (Number.isNaN(inicio.getTime()) || Number.isNaN(termino.getTime())) {
     return { error: "Las fechas del período no son válidas." };
   }
@@ -492,36 +656,6 @@ export async function createGradingPeriod(
       ...(orden ? { order: orden } : {}),
     },
   });
-
-  revalidatePath("/colegios/calificaciones");
-  revalidatePath("/colegios/promocion");
-  return { ok: true };
-}
-
-/**
- * Marca si una asignatura incide en el promedio final y en la promoción.
- *
- * El Art. 7 del Decreto 67/2018 saca de la cuenta a Religión, Consejo de Curso
- * y Orientación: el colegio lo decide sobre su plan de estudios.
- */
-export async function updateSubjectPromotion(
-  _prev: GradesFormState,
-  formData: FormData,
-): Promise<GradesFormState> {
-  const ctx = await requireSchoolContext("calificaciones");
-  if (!schoolCanWrite(ctx, "calificaciones")) {
-    return { error: "Tu rol no puede modificar las asignaturas." };
-  }
-
-  const subjectId = String(formData.get("subjectId") ?? "").trim();
-  if (!subjectId) return { error: "Falta la asignatura." };
-
-  const incide = formData.get("countsForPromotion") === "on";
-  const actualizado = await db.subject.updateMany({
-    where: { id: subjectId, schoolId: ctx.school.id },
-    data: { countsForPromotion: incide },
-  });
-  if (actualizado.count === 0) return { error: "Esa asignatura no es de este colegio." };
 
   revalidatePath("/colegios/calificaciones");
   revalidatePath("/colegios/promocion");
