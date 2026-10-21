@@ -5,6 +5,7 @@ import {
   MoveStudentForm,
   WithdrawStudentForm,
 } from "@/app/colegios/estudiantes/enrollment-forms";
+import { ConsentForms, DocumentForm } from "@/app/colegios/estudiantes/document-forms";
 import { GuardianForms } from "@/app/colegios/estudiantes/guardian-form";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
@@ -50,6 +51,31 @@ export default async function EstudiantePage({
       },
       guardianships: {
         include: { guardian: { select: { id: true, name: true, phone: true, email: true } } },
+      },
+      documents: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          description: true,
+          fileName: true,
+          sizeBytes: true,
+          createdAt: true,
+        },
+      },
+      consents: {
+        orderBy: { purpose: "asc" },
+        select: {
+          id: true,
+          purpose: true,
+          status: true,
+          grantedAt: true,
+          grantedBy: true,
+          method: true,
+          revokedAt: true,
+          revokedReason: true,
+        },
       },
     },
   });
@@ -179,6 +205,61 @@ export default async function EstudiantePage({
             disponibles={apoderadosDelColegio
               .filter((g) => !vinculadas.has(g.id))
               .map((g) => ({ id: g.id, nombre: g.name }))}
+            puedeEditar={puedeEditar}
+          />
+        </div>
+      </section>
+
+      <section className={cardClass + " p-5"}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-semibold">Documentos</h2>
+          <a
+            href={`/colegios/estudiantes/${student.id}/portabilidad`}
+            className="text-sm text-primary underline-offset-2 hover:underline"
+          >
+            Descargar datos del alumno
+          </a>
+        </div>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          El certificado de nacimiento, el de estudios y lo que el colegio tenga del alumno. El
+          archivo queda en el expediente y solo lo ve quien tiene acceso al colegio.
+        </p>
+        <div className="mt-4">
+          <DocumentForm
+            studentId={student.id}
+            documentos={student.documents.map((d) => ({
+              id: d.id,
+              title: d.title,
+              type: d.type,
+              description: d.description,
+              fileName: d.fileName,
+              sizeBytes: d.sizeBytes,
+              creado: d.createdAt.toLocaleDateString("es-CL"),
+            }))}
+            puedeEditar={puedeEditar}
+          />
+        </div>
+      </section>
+
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Consentimientos</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          La Ley 21.719 pide que el consentimiento sea específico (para qué se usa el dato) y que
+          quede registro de quién lo firmó. También se puede revocar.
+        </p>
+        <div className="mt-4">
+          <ConsentForms
+            studentId={student.id}
+            consentimientos={student.consents.map((c) => ({
+              id: c.id,
+              purpose: c.purpose,
+              status: c.status,
+              grantedAt: c.grantedAt ? c.grantedAt.toLocaleDateString("es-CL") : null,
+              grantedBy: c.grantedBy,
+              method: c.method,
+              revokedAt: c.revokedAt ? c.revokedAt.toLocaleDateString("es-CL") : null,
+              revokedReason: c.revokedReason,
+            }))}
             puedeEditar={puedeEditar}
           />
         </div>

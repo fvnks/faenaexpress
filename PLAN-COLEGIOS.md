@@ -235,11 +235,24 @@ crear un curso ni registrar una clase. La C1 cierra ese hueco.
 Verificado en local: alta de alumno, traslado (la matrícula anterior queda con su motivo), retiro
 (el alumno queda retirado), alta de docente, registro de clase y la ficha con sus notas.
 
-**Lo que NO se hizo de la C1** (a propósito): los **documentos y consentimientos** del expediente
-(la Ley 21.719 pide registrar el consentimiento y la portabilidad de los datos de menores). No hay
-almacenamiento de archivos en el módulo de Colegios: hay que elegir dónde se guardan (¿el bucket de
-Facturas? ¿S3 propio?) antes de hacerlo, porque un documento de un menor no puede quedar en el mismo
-sitio que las facturas de una empresa.
+**Lo que NO se hizo de la C1** (a propósito): los **documentos y consentimientos** quedaron para
+después, porque había que decidir dónde se guardaban los archivos de los menores. Se resolvieron el
+21-10-2026: el proyecto **ya tenía la convención** (los documentos del trabajador en el módulo de
+Facturas, `WorkerDocument.fileData`, se guardan en la base), así que los del alumno van al mismo
+lado. Y con eso se cierra la C1 entera:
+
+- **Documentos del expediente** (`StudentDocument`, migración `20261026240000_student_documents`):
+  certificado de nacimiento, certificado de estudios, ficha médica, documento de custodia u otro. El
+  archivo (hasta 5 MB) queda en la base con su nombre, su tipo MIME y quién lo subió; se descarga
+  por una ruta que **verifica que el documento sea de ese alumno y de ese colegio**.
+- **Consentimientos** (`StudentConsent`): uno por fin, porque la Ley 21.719 pide que el consentimiento
+  sea específico y no un "sí" a todo. Los fines son datos personales, fotografías, salud, actividades
+  extraescolares y viajes; queda quién lo firmó, cómo y cuándo; y **se puede revocar** (con el
+  motivo). El estado de cada uno se ve de un vistazo en la ficha.
+- **Portabilidad de datos** (art. 12 de la Ley 21.719): `/colegios/estudiantes/[id]/portabilidad`
+  devuelve un JSON con todo lo que el colegio tiene del alumno (datos, matrículas, apoderados,
+  asistencia, notas, permisos, registros, consentimientos y documentos). Es lo que la familia puede
+  pedir.
 
 ### Estado de C2 (20-10-2026): implementada y verificada en local
 

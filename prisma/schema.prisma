@@ -317,6 +317,8 @@ model School {
   evaluations Evaluation[]
   absences    StudentAbsence[]
   periods     GradingPeriod[]
+  documents   StudentDocument[]
+  consents    StudentConsent[]
 
   @@index([organizationId])
 }
@@ -382,6 +384,8 @@ model Student {
   attendances   AttendanceRecord[]
   absences      StudentAbsence[]
   grades        Grade[]
+  documents     StudentDocument[]
+  consents      StudentConsent[]
 
   @@index([schoolId, lastName])
 }
@@ -1953,6 +1957,80 @@ model Reconciliation {
   @@index([purchaseId])
   @@index([saleId])
   @@index([expenseId])
+}
+
+// ---------------------------------------------------------------------------
+// Expediente del alumno: documentos y consentimientos
+// ---------------------------------------------------------------------------
+
+// Los documentos se guardan en la base, como los del trabajador en el módulo de
+// Facturas (`WorkerDocument`): el archivo es de un alumno y vive con él, no
+// con una empresa.
+enum StudentDocumentType {
+  CERTIFICADO_NACIMIENTO
+  CERTIFICADO_ESTUDIOS
+  FICHA_MEDICA
+  CUSTODIA
+  OTRO
+}
+
+// Para qué se pide consentimiento. La Ley 21.719 exige que sea específico:
+// un "sí" genérico no sirve (art. 14).
+enum ConsentPurpose {
+  DATOS_PERSONALES // tratamiento de datos personales del alumno
+  FOTOGRAFIAS // fotos y videos de actividades
+  SALUD // datos de salud y planes de apoyo
+  ACTIVIDADES // actividades extraescolares y salidas
+  VIAJES // viajes y traslados fuera del colegio
+}
+
+enum ConsentStatus {
+  PENDIENTE
+  OTORGADO
+  REVOCADO
+}
+
+model StudentDocument {
+  id           String             @id @default(cuid())
+  schoolId     String
+  studentId    String
+  type         StudentDocumentType @default(OTRO)
+  title        String
+  description  String?
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  fileData     Bytes
+  uploadedById String
+  createdAt    DateTime           @default(now())
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, studentId])
+}
+
+model StudentConsent {
+  id            String         @id @default(cuid())
+  schoolId      String
+  studentId     String
+  purpose       ConsentPurpose
+  status        ConsentStatus  @default(PENDIENTE)
+  grantedAt     DateTime?
+  grantedBy     String? // quién firmó: el apoderado, en nombre del titular
+  method        String? // PRESENCIAL, DIGITAL, TESTIMONIO
+  revokedAt     DateTime?
+  revokedReason String?
+  notes         String?
+  recordedById  String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, purpose])
+  @@index([schoolId, status])
 }
 
 // ---------------------------------------------------------------------------
