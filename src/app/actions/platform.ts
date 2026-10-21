@@ -1049,3 +1049,154 @@ export async function updatePlatformStaff(
   revalidatePath("/admin/equipo");
   return { ok: true };
 }
+
+/**
+ * Crea un usuario desde la consola, con contraseña provisional.
+ *
+ * Es distinto de la invitación: acá la persona existe al instante y entra con
+ * la clave que le pasa el operador (y la cambia sola en su perfil). La
+ * invitación sirve cuando el cliente arma su propio equipo; esto, para el alta
+ * asistida y para cuentas de prueba o de soporte.
+ *
+ * La contraseña provisional obliga el cambio al primer ingreso
+ * (`mustChangePassword`): el operador no queda conociendo la clave definitiva.
+ */
+export async function createUserFromAdmin(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const organizationId = String(formData.get("organizationId") ?? "").trim() || null;
+  const orgRoleRaw = String(formData.get("orgRole") ?? "OWNER");
+
+  if (name.length < 2 || name.length > 120) {
+    return { error: "El nombre debe tener entre 2 y 120 caracteres." };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Escribe un correo válido." };
+  }
+  if (password.length < 8) {
+    return { error: "La contraseña provisional debe tener al menos 8 caracteres." };
+  }
+
+  const yaExiste = await db.user.findUnique({ where: { email }, select: { id: true } });
+  if (yaExiste) {
+    return { error: "Ya existe una cuenta con ese correo. Invítala a la organización en vez de crearla." };
+  }
+
+  if (organizationId) {
+    const org = await db.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, name: true },
+    });
+    if (!org) return { error: "Esa organización no existe." };
+  }
+
+  const orgRoles = ["OWNER", "ADMIN", "MEMBER", "BILLING"] as const;
+  const orgRole = (orgRoles as readonly string[]).includes(orgRoleRaw)
+    ? (orgRoleRaw as (typeof orgRoles)[number])
+    : "MEMBER";
+
+  const { hashPassword } = await import("@/lib/password");
+
+  const user = await db.user.create({
+    data: {
+      name,
+      email,
+      passwordHash: await hashPassword(password),
+      // El operador conoce esta clave: el usuario la cambia al entrar.
+      mustChangePassword: true,
+      ...(organizationId
+        ? { orgMembers: { create: { organizationId, orgRole } } }
+        : {}),
+    },
+    select: { id: true, name: true, email: true },
+  });
+
+  await recordPlatformAudit(ctx, {
+    action: "CREATE",
+    entityType: "User",
+    entityId: user.id,
+    organizationId,
+    summary: `Creó la cuenta de ${user.name} (${user.email})${organizationId ? ` y la sumó a la organización con rol ${orgRole}` : ""}.`,
+  });
+
+  revalidatePath("/admin/usuarios");
+  return { ok: true };
+}
+
+/**
+ * Crea un colegio desde la consola y deja al operador como DIRECTOR.
+ *
+ * Sin esto, habilitar el módulo Colegios no servía de nada: no había forma de
+ * crear un colegio, así que `visibleSchools` seguía vacío y la tarjeta del
+ * selector nunca aparecía. El colegio queda a nombre del operador hasta que
+ * llegue el equipo del establecimiento; después se le cambia el rol a VIEWER o
+ * se lo saca.
+ */
+export async function createSchoolFromAdmin(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const name = String(formData.get("name") ?? "").trim();
+  const organizationId = String(formData.get("organizationId") ?? "").trim() || null;
+  const levelRaw = String(formData.get("level") ?? "BASICA");
+  const rut = String(formData.get("rut") ?? "").trim() || null;
+  const commune = String(formData.get("commune") ?? "").trim() || null;
+
+  if (name.length < 2 || name.length > 120) {
+    return { error: "El nombre del colegio debe tener entre 2 y 120 caracteres." };
+  }
+
+  const niveles = ["PARVULARIA", "PREBASICA", "BASICA", "MEDIA", "TECNICO"] as const;
+  const level = (niveles as readonly string[]).includes(levelRaw)
+    ? (levelRaw as (typeof niveles)[number])
+    : "BASICA";
+
+  if (organizationId) {
+    const org = await db.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    });
+    if (!org) return { error: "Esa organización no existe." };
+  }
+
+  const school = await db.school.create({
+    data: {
+      name,
+      organizationId,
+      level,
+      rut,
+      commune,
+      // El operador queda dentro para poder verlo; es temporal.
+      memberships: {
+        create: { userId: ctx.user.id, role: "DIRECTOR" },
+      },
+    },
+    select: { id: true, name: true },
+  });
+
+  // El módulo Colegios tiene que quedar habilitado para la organización, o el
+  // colegio recién creado no aparecería en el selector.
+  if (organizationId) {
+    await setOrganizationModule(organizationId, "colegios", true, "manual");
+  }
+
+  await recordPlatformAudit(ctx, {
+    action: "CREATE",
+    entityType: "School",
+    entityId: school.id,
+    organizationId,
+    summary: `Creó el colegio «${school.name}»${organizationId ? " y habilitó el módulo Colegios para la organización" : ""}.`,
+  });
+
+  revalidatePath("/admin/organizaciones");
+  revalidatePath("/modulos");
+  return { ok: true, organizationId: organizationId ?? undefined };
+}

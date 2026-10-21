@@ -57,6 +57,16 @@ export const ORG_MODULES: OrgModule[] = [
     sections: ["banco"],
     core: false,
   },
+  {
+    code: "colegios",
+    name: "Colegios",
+    description: "Libro de clases digital, asistencia, calificaciones y convivencia escolar.",
+    // Colegios es un módulo de OTRO producto: sus secciones no viven en el
+    // sidebar de Facturas (son rutas y permisos propios, `SchoolSection`). Acá
+    // solo se declara para que se pueda vender y habilitar por organización.
+    sections: [],
+    core: false,
+  },
 ];
 
 /** Módulos del núcleo: siempre están, no se tocan. */

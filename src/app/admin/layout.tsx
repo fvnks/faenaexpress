@@ -43,6 +43,12 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
             <span className="text-xs text-muted-foreground">
               {ctx.user.name} · {platformLevelLabel(ctx.staff.level)}
             </span>
+            <Link
+              href="/perfil"
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Mi cuenta
+            </Link>
             <ThemeToggle />
             <form action={logout}>
               <button type="submit" className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">

@@ -62,6 +62,12 @@ export default async function ColegiosLayout({ children }: LayoutProps<"/colegio
             <span className="text-xs text-muted-foreground">
               {user.name} · {schoolRoleLabel(ctx.role)}
             </span>
+            <Link
+              href="/perfil"
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Mi cuenta
+            </Link>
             <ThemeToggle />
             <form action={logout}>
               <button

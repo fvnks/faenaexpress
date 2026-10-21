@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CreateUserForm } from "@/app/admin/create-forms";
 import { formatDate } from "@/lib/money";
 import { requirePlatformStaff } from "@/lib/platform";
 import { listOrganizations, searchUsers } from "@/lib/platform-queries";
@@ -8,8 +9,11 @@ import { cardClass, controlClass } from "@/lib/ui";
 // Búsqueda global de usuarios: soporte («no me llega el correo», «quedó
 // bloqueado»). Se filtra por cuenta y por estado, porque el caso típico es
 // «mira estos usuarios de esta cuenta».
+//
+// El alta directa solo la ve quien puede actuar (OPERATOR): crear una cuenta es
+// escribir, no mirar.
 export default async function AdminUsersPage({ searchParams }: PageProps<"/admin/usuarios">) {
-  await requirePlatformStaff("SUPPORT");
+  const ctx = await requirePlatformStaff("SUPPORT");
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q : "";
   const organizationId = typeof params.organizacion === "string" ? params.organizacion : "";
@@ -20,6 +24,8 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
     listOrganizations(),
   ]);
 
+  const puedeCrear = ctx.staff.level === "OPERATOR" || ctx.staff.level === "OWNER";
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -29,6 +35,17 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
           detalle y administrarla.
         </p>
       </div>
+
+      {puedeCrear ? (
+        <section className={cardClass + " p-5"}>
+          <h2 className="font-semibold">Crear usuario</h2>
+          <p className="mt-0.5 mb-4 text-sm text-muted-foreground">
+            La cuenta existe al instante con la contraseña provisional que le pases. La persona
+            tendrá que cambiarla al entrar.
+          </p>
+          <CreateUserForm organizations={orgs.map((o) => ({ id: o.id, name: o.name }))} />
+        </section>
+      ) : null}
 
       <form method="get" className="flex flex-wrap items-end gap-2">
         <div className="min-w-52 flex-1">

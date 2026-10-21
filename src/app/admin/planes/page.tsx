@@ -6,9 +6,14 @@ import { cardClass } from "@/lib/ui";
 
 // Catálogo de planes: lo que vendes. Se edita acá mismo; el cliente solo ve el
 // plan que tiene contratado.
+//
+// Crear un plan nuevo es de OPERATOR (escribir, no mirar): el formulario de alta
+// está siempre disponible, aunque ya haya planes.
 export default async function AdminPlansPage() {
-  await requirePlatformStaff("SUPPORT");
+  const ctx = await requirePlatformStaff("SUPPORT");
   const plans = await listPlans();
+
+  const puedeCrear = ctx.staff.level === "OPERATOR" || ctx.staff.level === "OWNER";
 
   return (
     <div className="flex flex-col gap-6">
@@ -20,17 +25,22 @@ export default async function AdminPlansPage() {
         </p>
       </div>
 
-      {plans.length === 0 ? (
+      {puedeCrear ? (
         <section className={cardClass + " p-5"}>
-          <h2 className="font-semibold">Crear el primer plan</h2>
+          <h2 className="font-semibold">Nuevo plan</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Sin planes, todas las cuentas están sin suscripción y no hay ningún
-            límite que aplicar.
+            Se agrega al catálogo y queda disponible para asignar a cualquier cuenta.
           </p>
           <div className="mt-4">
             <PlanForm />
           </div>
         </section>
+      ) : null}
+
+      {plans.length === 0 ? (
+        <p className={cardClass + " px-4 py-6 text-sm text-muted-foreground"}>
+          Todavía no hay planes en el catálogo.
+        </p>
       ) : (
         plans.map((plan) => (
           <section key={plan.id} className={cardClass + " p-5"}>

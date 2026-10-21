@@ -62,13 +62,19 @@ export const getActiveSchool = cache(async () => {
 /**
  * Contexto de trabajo en el colegio. Exige sesión y colegio abierto; y si se
  * pide una sección, que el rol del usuario entre a ella.
+ *
+ * Sin colegio no hay nada que mostrar. El personal de plataforma va a la
+ * consola a crear uno (es el único que puede); un usuario normal, al selector.
  */
 export async function requireSchoolContext(section?: SchoolSection): Promise<SchoolContext> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const ctx = await resolveActiveSchool(user);
-  if (!ctx) redirect("/modulos");
+  if (!ctx) {
+    const { hasPlatformLevel } = await import("@/lib/platform");
+    redirect((await hasPlatformLevel(user.id, "SUPPORT")) ? "/admin/colegios" : "/modulos");
+  }
 
   if (section && !canAccessSchool(ctx.role, section)) {
     redirect("/colegios");

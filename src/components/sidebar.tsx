@@ -436,6 +436,15 @@ function ConsoleIcon() {
   );
 }
 
+function AccountIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+    </svg>
+  );
+}
+
 /**
  * Menú de usuario: iniciales + nombre + rol en el trigger; desplegable hacia
  * arriba con el correo y la salida de sesión. En `compact` (sidebar colapsado)
@@ -516,6 +525,15 @@ function UserMenu({
           </div>
           <div className="mx-1 my-1 border-t border-border" />
           <ul className="flex flex-col">
+            <li>
+              <Link
+                href="/perfil"
+                className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              >
+                <AccountIcon />
+                Mi cuenta y seguridad
+              </Link>
+            </li>
             {isPlatformStaff ? (
               <li>
                 <Link

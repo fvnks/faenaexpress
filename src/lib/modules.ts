@@ -7,16 +7,24 @@
 // Cada módulo resuelve su propio ámbito: Facturas, la empresa activa; Colegios,
 // el colegio activo. Por eso `pendings` recibe el usuario y no una empresa.
 //
-// Habilitación: hoy todos los módulos del registry están activos para todas las
-// organizaciones. Cuando lleguen los planes, `enabledModules` leerá el plan de
-// cada organización y filtrará esta lista.
+// Habilitación: `enabledModules` exige las dos cosas en serie, igual que
+// `requireContext`: que la organización tenga el módulo habilitado y que el
+// usuario tenga acceso real a su ámbito (una empresa, un colegio).
+//
+// OJO con el personal de plataforma: ve TODOS los módulos habilitados del
+// catálogo, aunque todavía no tenga ningún colegio creado. Sin esto, habilitar
+// «Colegios» en la consola no servía para nada: el operador no tenía forma de
+// entrar a verlo.
 
 import { getCurrentUser } from "@/lib/auth";
 import { countPendingMovements } from "@/lib/banco";
 import { db } from "@/lib/db";
 import { formatCLP } from "@/lib/money";
+import { enabledModuleCodes } from "@/lib/org-module-state";
 import { pendingTotals } from "@/lib/reports";
+import { hasPlatformLevel } from "@/lib/platform";
 import { resolveActiveSchool } from "@/lib/school-auth";
+import type { SessionUser } from "@/lib/types";
 
 // Estado real de un módulo: números que ya existen, no adorno de tarjeta.
 export type ModulePending = { label: string; value: string };
@@ -37,6 +45,11 @@ export type AppModule = {
    * una tarjeta que lleva a ninguna parte es peor que no tenerla.
    */
   hasAccess: (userId: string) => Promise<boolean>;
+  /**
+   * Módulo del núcleo: no se vende por separado, así que la habilitación por
+   * organización no lo alcanza. En Colegios es `false`: se contrata.
+   */
+  core?: boolean;
 };
 
 const facturas: AppModule = {
@@ -44,6 +57,7 @@ const facturas: AppModule = {
   name: "Facturas",
   description: "Compras, ventas, gastos, conciliación bancaria e IVA.",
   href: "/facturas",
+  core: true,
   hasAccess: async (userId) => {
     const user = await getCurrentUser();
     if (!user || user.id !== userId) return false;
@@ -78,6 +92,9 @@ const colegios: AppModule = {
   hasAccess: async (userId) => {
     const user = await getCurrentUser();
     if (!user || user.id !== userId) return false;
+    // El personal de plataforma entra a Colegios aunque todavía no tenga
+    // colegio asignado: necesita ver el módulo que acaba de habilitar.
+    if (await hasPlatformLevel(userId, "SUPPORT")) return true;
     const { visibleSchools } = await import("@/lib/school-auth");
     return (await visibleSchools(user)).length > 0;
   },
@@ -109,17 +126,46 @@ const ALL_MODULES: AppModule[] = [facturas, colegios];
 
 /**
  * Módulos a los que el usuario puede entrar: los del registry a los que tiene
- * acceso (una empresa activa, un colegio activo) y que su plan tenga
- * habilitados.
+ * acceso real (una empresa activa, un colegio activo) y que su organización
+ * tenga habilitados.
+ *
+ * Las dos condiciones van en serie, como en `requireContext`: la organización
+ * decide si el producto se vendió, el ámbito decide si esta persona puede
+ * usarlo.
  */
 export async function enabledModules(userId: string): Promise<AppModule[]> {
+  const user = await getCurrentUser();
+  if (!user || user.id !== userId) return [];
+
+  // Módulos habilitados para la organización activa del usuario. Sin
+  // organización (instalación suelta), el catálogo entero.
+  const organizationId = await activeOrganizationId(user);
+  const habilitados = new Set(await enabledModuleCodes(organizationId));
+
   const resultados = await Promise.all(
     ALL_MODULES.map(async (module) => ({
       module,
+      // El núcleo (Facturas) no se vende aparte: siempre está.
+      habilitado: module.core === true || habilitados.has(module.code),
       acceso: await module.hasAccess(userId),
     })),
   );
-  return resultados.filter((r) => r.acceso).map((r) => r.module);
+  return resultados.filter((r) => r.habilitado && r.acceso).map((r) => r.module);
+}
+
+/** Organización de la que cuelga el usuario (la de su primera membresía activa). */
+async function activeOrganizationId(user: SessionUser): Promise<string | null> {
+  const { getActiveMembership } = await import("@/lib/auth");
+  const active = await getActiveMembership();
+  if (active) return active.company.organizationId ?? null;
+
+  // Sin empresa (un colegio suelto) la organización sale de la pertenencia.
+  const member = await db.orgMember.findFirst({
+    where: { userId: user.id, active: true },
+    select: { organizationId: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return member?.organizationId ?? null;
 }
 
 /**
