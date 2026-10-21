@@ -136,7 +136,7 @@ registros existen. La Circular 30 es, literalmente, la especificación del produ
 | **C0. Cimientos** *(hecho)* | Módulo en el registro, `School`/`Course`/`Student`/`Guardian`/`Teacher`/`Subject`, roles del colegio, selector de establecimiento, la consola ve ambos negocios | Un colegio con sus cursos y sus alumnos; se entra por `/modulos` |
 | **C1. Matrícula y ficha** *(hecho 20-10-2026)* | Matrícula (alta, traslado, retiro), ficha del estudiante, apoderados, documentos, consents | El expediente del alumno completo, exportable |
 | **C2. Asistencia + Libro de Clases Digital** | Asistencia por curso/asignatura, atrasos/retiros/justificaciones, leccionario, registro de clases, **archivo EDE exportable**, **firma con el verificador de identidad** | El colegio puede entregar el libro digital en una fiscalización |
-| **C3. Calificaciones y promoción** *(hecho 20-10-2026)* | Evaluaciones con ponderación, promedios, **promoción según el Decreto 67 (85% + notas)**, actas, certificados | El parte de notas del período y la promoción con el fundamento |
+| **C3. Calificaciones y promoción** *(hecho 20-10-2026; Art. 11, 21-10-2026)* | Evaluaciones con ponderación, promedios, **promoción según el Decreto 67 (85% + notas)**, **análisis del Art. 11**, actas, certificados | El parte de notas del período y la promoción con el fundamento |
 | **C4. Comunicación** *(hecho 21-10-2026)* | **Portal del apoderado**, circulares, mensajes, alertas de inasistencia, citaciones | El apoderado ve la asistencia y las notas de su hijo, recibe los comunicados y justifica inasistencias desde el celular |
 | **C5. Aranceles y cobranza** | Aranceles en UF y CLP, emisión, **pago con Webpay**, portal de pagos, deuda, recibos, morosidad | Un apoderado paga el arancel y recibe el recibo |
 | **C6. Convivencia** *(hecho 21-10-2026)* | Denuncias, protocolos con plazos (Ley 21.809), Plan de Gestión de Convivencia, registro | El caso se sigue con plazo y responsable |
@@ -286,9 +286,40 @@ Verificado en local con el colegio de ejemplo: Ana (promovida por el Art. 10.1.a
 por el Art. 10.1.b: reprobó Matemática con promedio 4.6) y Carla (requiere análisis: 0% de
 asistencia).
 
-**Lo que NO se hizo de la C3** (a propósito, por lo acordado): el flujo de excepciones del Art. 11
-(el informe de la UTP, la autorización de excepción de asistencia por dirección+UTP y la resolución
-caso a caso). La primera versión calcula la regla y marca los casos; resolverlos es lo que sigue.
+### El Art. 11 (21-10-2026): implementado y verificado en local
+
+Cerró el hueco de la C3. El Art. 11 no permite declarar repitente a quien no cumple la regla del
+Art. 10: obliga al establecimiento a un análisis **deliberativo**, con informe del jefe
+técnico-pedagógico y la visión del estudiante y su apoderado. El sistema no decide: registra quién
+decidió, cuándo y con qué fundamento.
+
+- **Schema** (migración `20261026280000_promotion_resolution`): `PromotionResolution`, una fila por
+  (alumno, año escolar). Guarda el informe de la UTP y su autor, la audiencia (fecha y notas), la
+  decisión y quién la tomó, y la **excepción al 85% de asistencia** (Art. 10.2) con su fundamento y
+  quién la autorizó. Son hechos distintos y van en campos distintos, porque una promoción puede
+  tener excepción de asistencia y aun así una decisión propia.
+- **Las reglas viven aparte y son puras** (`src/lib/school-promotion.ts`): `faltantesDeliberacion`
+  enumera lo que falta para poder resolver (informe, audiencia, decisión) y `excepcionAplica` dice
+  cuándo el caso lo que falla es la asistencia, no las notas. Sin base de datos, para que la
+  pantalla calcule lo mismo que el servidor.
+- **El acceso a datos** (`src/lib/school-promotion-store.ts` → `casosArt11`): cruza el acta del curso
+  con las resoluciones ya guardadas y devuelve **solo** los marcados "requiere análisis". Reusa
+  `courseReport`, así que el caso que se ve acá es exactamente el que sale en el acta.
+- **Las acciones** (`src/app/actions/school-promotion.ts`): `saveUtpReport`, `saveHearing`,
+  `savePromotionDecision` y `saveAttendanceException`. La decisión **no deja cerrar el caso** sin el
+  informe y la audiencia: son los antecedentes que la norma exige antes de resolver. Cada monto de
+  texto tiene un mínimo, para que no se pueda resolver con un "ok".
+- **La pantalla** (`/colegios/promocion/art11`): los casos por curso, con los tres pasos en orden y
+  la excepción de asistencia aparte. La sección es `art11` (dirección y UTP), nueva: `promocion` es
+  de solo lectura porque el acta se arma sola. El acta enlaza acá con el número de casos pendientes.
+
+Verificado en local con el caso de Carla (0% de asistencia): resolver sin informe ni audiencia falla
+y dice qué falta; con ambos cargados, la decisión se guarda con sus fechas, su autora y la excepción
+de asistencia, y el caso pasa a "todos resueltos".
+
+**Lo que falta de la C3**: exportar las calificaciones al EDE (falta la tabla del contrato del
+MINEDUC) y confirmar los códigos de referencia (`RefSchoolLevelId`, `RefAttendanceStatusId`) contra
+el validador del MINEDUC.
 
 ### Estado de C1 (20-10-2026): implementada y verificada en local
 

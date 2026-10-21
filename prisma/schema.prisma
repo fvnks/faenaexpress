@@ -325,6 +325,7 @@ model School {
   conductCases  ConductCase[]
   protocols     ConductProtocol[]
   plans         ConvivenciaPlan[]
+  promotions    PromotionResolution[]
 
   @@index([organizationId])
 }
@@ -396,6 +397,7 @@ model Student {
   justifications JustificationRequest[]
   appointments  Appointment[]
   caseRoles       CaseParticipant[]
+  promotions      PromotionResolution[]
 
   @@index([schoolId, lastName])
 }
@@ -2165,6 +2167,57 @@ model Grade {
 
   @@unique([evaluationId, studentId])
   @@index([studentId])
+}
+
+// La decisión del Art. 11 del Decreto 67/2018: qué pasa con el alumno que no
+// cumple la regla del Art. 10.
+//
+// El sistema NO decide por el establecimiento: calcula la regla, marca el caso
+// y guarda acá la deliberación que hizo la dirección con la UTP. Es un registro
+// por alumno y año escolar, porque la decisión es anual.
+model PromotionResolution {
+  id        String @id @default(cuid())
+  schoolId  String
+  studentId String
+  year      Int // año escolar al que corresponde la decisión
+
+  // El informe del jefe técnico-pedagógico, en colaboración con el profesor
+  // jefe (Art. 11): es el antecedente que exige la norma antes de resolver.
+  utpReport      String?
+  utpReportById  String?
+  utpReportedAt  DateTime?
+  // Si se dio audiencia al estudiante y a su apoderado antes de resolver.
+  hearingHeldAt  DateTime?
+  hearingNotes   String?
+
+  // La decisión, en palabras de la dirección, con quién la tomó y cuándo.
+  outcome    PromotionOutcome @default(PENDING)
+  decision   String? // el acuerdo, redactado por el colegio
+  decidedById String?
+  decidedAt   DateTime?
+
+  // Autorización de excepción al 85% de asistencia (Art. 10.2): la dirección y
+  // la UTP pueden autorizar la promoción cuando la asistencia es menor, con
+  // fundamento. Queda quién la autorizó y por qué.
+  attendanceException        Boolean   @default(false)
+  attendanceExceptionReason  String?
+  attendanceExceptionById    String?
+  attendanceExceptionAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, year])
+  @@index([schoolId, year])
+}
+
+enum PromotionOutcome {
+  PENDING // el caso está abierto: falta la deliberación
+  PROMOTED // se resolvió promover
+  NOT_PROMOTED // se resolvió no promover
 }
 
 // ---------------------------------------------------------------------------

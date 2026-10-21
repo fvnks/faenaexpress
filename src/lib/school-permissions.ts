@@ -22,6 +22,7 @@ export const schoolSections = [
   "asistencia",
   "calificaciones",
   "promocion",
+  "art11",
   "libro",
   "convivencia",
   "comunicacion",
@@ -44,8 +45,12 @@ const ACCESS: Record<SchoolSection, readonly SchoolRole[]> = {
   // Decreto 67/2018): la ve la dirección y la jefatura de estudios, no el
   // docente.
   promocion: ["DIRECTOR", "UTP", "VIEWER"],
+  // El análisis del Art. 11 lo resuelven la dirección y la UTP: es una decisión
+  // del establecimiento, no del sistema. El docente no entra acá.
+  art11: ["DIRECTOR", "UTP", "VIEWER"],
   libro: ["DIRECTOR", "UTP", "TEACHER", "VIEWER"],
-  convivencia: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "VIEWER"],  comunicacion: ["DIRECTOR", "UTP", "ADMIN", "STAFF", "VIEWER"],
+  convivencia: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "VIEWER"],
+  comunicacion: ["DIRECTOR", "UTP", "ADMIN", "STAFF", "VIEWER"],
   cobranza: ["DIRECTOR", "ADMIN", "VIEWER"],
   administracion: ["DIRECTOR", "ADMIN"],
 };
@@ -60,6 +65,8 @@ const WRITE: Record<SchoolSection, readonly SchoolRole[]> = {
   calificaciones: ["DIRECTOR", "UTP", "TEACHER"],
   // El acta se arma sola: nadie la escribe a mano en el sistema.
   promocion: [],
+  // Acá sí se escribe: es la deliberación y la decisión del Art. 11.
+  art11: ["DIRECTOR", "UTP"],
   libro: ["DIRECTOR", "UTP", "TEACHER"],
   convivencia: ["DIRECTOR", "UTP", "ADMIN"],
   comunicacion: ["DIRECTOR", "UTP", "ADMIN"],

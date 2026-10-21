@@ -202,7 +202,17 @@ export default async function PromocionPage({
             el director del establecimiento (Art. 20). Esta pantalla es el trabajo previo: deja
             constancia de por qué cada alumno quedó como quedó.
           </p>
-          <PrintButton label="Imprimir acta" />
+          <div className="flex flex-wrap items-center gap-3">
+            {enAnalisis > 0 ? (
+              <Link
+                href={`/colegios/promocion/art11?curso=${cursoId}`}
+                className="rounded-control border border-primary bg-transparent px-3 py-1.5 text-sm font-semibold text-primary"
+              >
+                Resolver los casos del Art. 11 ({enAnalisis})
+              </Link>
+            ) : null}
+            <PrintButton label="Imprimir acta" />
+          </div>
         </div>
       </section>
 
