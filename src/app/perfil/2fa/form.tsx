@@ -101,7 +101,7 @@ export function TwoFactorForm({
             <input type="hidden" name="paso" value="generar" />
             <p className="text-sm text-muted-foreground">
               {pendiente
-                ? "Tu cuenta administra una organización: necesita un segundo factor. Conectá tu app de autenticación (Google Authenticator, 1Password, Authy…) para entrar."
+                ? "Conectá tu app de autenticación (Google Authenticator, 1Password, Authy…) para confirmar tu cuenta y entrar."
                 : "Podés activar un segundo factor para proteger tu cuenta: te pedirán un código además de la contraseña."}
             </p>
             <SubmitButton

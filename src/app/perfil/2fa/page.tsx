@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getCurrentUser } from "@/lib/auth";
-import { hasTwoFactor, requiresTwoFactor } from "@/lib/two-factor";
+import { hasTwoFactor, recomiendaTwoFactor } from "@/lib/two-factor";
 
 import { TwoFactorForm } from "./form";
 
@@ -22,14 +22,12 @@ export default async function TwoFactorPage() {
 
   const pendiente = user.totpPending === true;
   const yaActivo = await hasTwoFactor(user.id);
-  const obligatorio = await requiresTwoFactor(user.id);
+  const recomendado = await recomiendaTwoFactor(user.id);
 
-  // Si no hay nada que hacer acá (no está pendiente, no tiene 2FA y no lo
-  // necesita), se vuelve a la app. Con 2FA activo la persona puede estar
-  // aquí a propósito (ver o reimprimir los códigos de recuperación).
-  if (!pendiente && !yaActivo && !obligatorio) {
-    redirect("/facturas");
-  }
+  // OJO: esta página NO redirige nunca. Es la pantalla donde se gestiona el
+  // segundo factor (activarlo, ver los códigos de recuperación, desactivarlo), y
+  // el perfil la enlaza: si redirigiera cuando no hay 2FA, el "actívalo aquí"
+  // del perfil volvería acá y no llevaría a ninguna parte.
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
@@ -52,11 +50,21 @@ export default async function TwoFactorPage() {
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {pendiente && yaActivo
-              ? "Tu cuenta necesita un segundo factor. Poné el código para entrar."
+              ? "Tu cuenta pide un segundo factor. Poné el código para entrar."
               : pendiente
-                ? "Tu cuenta administra una organización: necesita un segundo factor para entrar."
-                : "Podés activar un segundo factor para proteger tu cuenta."}
+                ? "Tu cuenta tiene un segundo factor pendiente de confirmar."
+                : "Un segundo factor pide, además de tu contraseña, un código de tu teléfono. Es opcional y lo activas cuando quieras."}
           </p>
+
+          {recomendado && !yaActivo ? (
+            <p
+              role="status"
+              className="mt-6 rounded-[10px] border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-foreground"
+            >
+              Tu rol puede ver todas las cuentas de la organización. Te recomendamos activar el
+              segundo factor.
+            </p>
+          ) : null}
 
           <TwoFactorForm yaActivo={yaActivo} pendiente={pendiente} />
 

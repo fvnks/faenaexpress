@@ -1,8 +1,11 @@
-// Segundo factor (2FA) para los que manejan la cuenta.
+// Segundo factor (2FA) para proteger la cuenta.
 //
 // Quién lo necesita: el dueño de una organización y el personal de la
 // plataforma. Son las dos personas que pueden tocar todas las empresas de
 // alguien, así que una contraseña sola no alcanza.
+//
+// **Activarlo es decisión de cada persona**, no una obligación: se hace desde
+// su perfil. Acá solo se marca a quién se le *recomienda*.
 //
 // El flujo tiene dos estados:
 //   - La sesión queda «pendiente» (`Session.totpPending`): la contraseña está
@@ -22,8 +25,13 @@ import { generateTotpSecret, verifyTotp } from "@/lib/totp";
 
 const RECOVERY_CODES = 8;
 
-/** ¿Esta persona debe tener 2FA? Dueño de organización o personal de plataforma. */
-export async function requiresTwoFactor(userId: string): Promise<boolean> {
+/**
+ * ¿A esta persona se le *recomienda* un segundo factor?
+ *
+ * No es una obligación: activar el 2FA es decisión de cada quien, y se hace
+ * desde su perfil. Esto solo sirve para que la interfaz se lo diga.
+ */
+export async function recomiendaTwoFactor(userId: string): Promise<boolean> {
   const [staff, owner] = await Promise.all([
     db.platformStaff.findFirst({ where: { userId, active: true }, select: { id: true } }),
     db.orgMember.findFirst({

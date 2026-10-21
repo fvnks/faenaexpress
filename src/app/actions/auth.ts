@@ -9,7 +9,7 @@ import { enabledModules, MODULE_COOKIE, postLoginDestination } from "@/lib/modul
 import { verifyPassword } from "@/lib/password";
 import { RateLimiter } from "@/lib/rate-limit";
 import { createSession, deleteSession } from "@/lib/session";
-import { requiresTwoFactor } from "@/lib/two-factor";
+import { hasTwoFactor } from "@/lib/two-factor";
 import { loginSchema } from "@/lib/validation";
 
 export type LoginState = { error?: string; needsCode?: boolean } | undefined;
@@ -83,10 +83,10 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   // Sin marcar, la sesión vive mientras el navegador esté abierto.
   const remember = formData.get("remember") === "on" || formData.get("remember") === "true";
 
-  // Dueño de organización y personal de plataforma necesitan segundo factor. La
-  // sesión nace «pendiente»: con ella no se puede usar la app, solo confirmar
-  // el 2FA (ver `requireUser`).
-  if (await requiresTwoFactor(user.id)) {
+  // Si la persona ya activó el segundo factor, se le pide el código: la
+  // contraseña sola no basta. Activarlo es decisión de cada uno y se hace desde
+  // su perfil (`/perfil`).
+  if (await hasTwoFactor(user.id)) {
     await createSession(user.id, remember, { totpPending: true });
     await recordAccess({
       userId: user.id,

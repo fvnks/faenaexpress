@@ -465,6 +465,24 @@ personal de plataforma **van a tener que activar el 2FA en su próximo login**. 
 queda pendiente hasta que lo activen. Si alguien pierde el teléfono y no tiene códigos de recuperación,
 el restablecimiento se hace desde la consola (OWNER de plataforma) o, en el peor caso, por SQL.
 
+### Cambio del 21-10-2026: el segundo factor es opcional
+
+Decisión del dueño: **activar el 2FA es decisión de cada persona**, no una exigencia. Lo que cambió:
+
+- El login ya **no** fuerza el segundo factor a nadie. La sesión nace «pendiente» solo si la persona
+  **ya lo tiene activado** (en ese caso el código sigue siendo obligatorio, que es el sentido de la
+  herramienta).
+- La gestión del 2FA vive en **la página de perfil de cada uno** (`/perfil`): activarlo, regenerar los
+  códigos de recuperación y desactivarlo (pide la contraseña, para que nadie pueda dejar la cuenta
+  desprotegida con el celular en la mano).
+- A quien tiene un rol con mucho poder (el dueño de una organización y el personal de plataforma) la
+  interfaz le **recomienda** activarlo, pero no lo exige.
+- `requiresTwoFactor` pasó a ser `recomiendaTwoFactor`: la función ya no obliga, solo informa.
+- `/perfil/2fa` dejó de redirigir: es la pantalla donde se gestiona el factor y el perfil la enlaza.
+
+El perfil además quedó con la **sección de sesiones** (cuántas hay abiertas aparte de esta, un
+botón para cerrarlas y el registro de los últimos accesos de la cuenta).
+
 **Dependencias:** B necesita A (si A no cierra, el operador administra sobre reglas ambiguas). C es
 independiente de B pero se apoya en su UI de organización. D necesita C (los límites de «módulos» del
 plan son los de C). B2 y E son decisiones de riesgo, no bloquean vender.

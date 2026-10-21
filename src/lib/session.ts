@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import type { SessionUser } from "@/lib/types";
 
 const COOKIE_NAME = "facturas_session";
+/** El nombre de la cookie de sesión, para poder compararla con las de la base. */
+export const SESSION_COOKIE = COOKIE_NAME;
 // Cookie de la sesión de impersonación (Fase B2). Es SEPARADA de la del
 // operador: su sesión propia no se toca, así que salir de la impersonación es
 // siempre un clic y nunca un "volver a mi cuenta" que se puede perder.
@@ -20,7 +22,8 @@ const RENEW_THRESHOLD_MS = DAY_MS * 30;
 // más que confirmar el 2FA, así que no tiene sentido que dure meses.
 const PENDING_TTL_MS = 30 * 60_000;
 
-function hashToken(token: string): string {
+/** El hash del token de sesión. Se exporta para poder comparar sesiones. */
+export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 

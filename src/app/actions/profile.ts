@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -10,8 +11,10 @@ import { IMPERSONATION_FORBIDDEN, impersonationBlock } from "@/lib/impersonation
 import { postLoginDestination } from "@/lib/modules";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { RateLimiter } from "@/lib/rate-limit";
+import { SESSION_COOKIE, hashToken } from "@/lib/session";
 import {
   confirmTwoFactorSetup,
+  disableTwoFactor as disableTwoFactorFor,
   regenerateRecoveryCodes as regenerateRecoveryCodesFor,
   startTwoFactorSetup,
   verifyTwoFactor,
@@ -120,6 +123,67 @@ export async function regenerateRecoveryCodes(
   const user = await requireUser();
   const codes = await regenerateRecoveryCodesFor(user.id);
   return { ok: true, recoveryCodes: codes };
+}
+
+/**
+ * Desactiva el segundo factor de la cuenta.
+ *
+ * Pide la contraseña: sin eso, cualquiera que se quedara con el celular
+ * desbloqueado podría dejar la cuenta sin 2FA. Si la persona perdió el
+ * teléfono, el equipo de plataforma le restablece el acceso desde la consola.
+ */
+export async function disableMyTwoFactor(
+  _prev: TwoFactorState,
+  formData: FormData,
+): Promise<TwoFactorState> {
+  const user = await requireUser();
+
+  const bloqueado = await impersonationBlock(IMPERSONATION_FORBIDDEN.changePassword);
+  if (bloqueado) return { error: bloqueado };
+
+  const password = String(formData.get("password") ?? "");
+  const ok = await verifyPassword(password, user.passwordHash);
+  if (!ok) return { error: "La contraseña no es correcta." };
+
+  await disableTwoFactorFor(user.id);
+  await setFlash("success", "Segundo factor desactivado", "Tu cuenta ya no pide un código.");
+  revalidatePath("/perfil");
+  revalidatePath("/perfil/2fa");
+  return { ok: true };
+}
+
+/**
+ * Cierra las otras sesiones abiertas de esta cuenta.
+ *
+ * Sirve para lo de siempre: entraste en un computador ajeno y te quedaste
+ * con la sesión abierta.
+ */
+export async function closeOtherSessions(
+  _prev: TwoFactorState,
+  formData: FormData,
+): Promise<TwoFactorState> {
+  // El botón manda qué se pide: evita que un POST a ciegas cierre sesiones.
+  if (String(formData.get("accion") ?? "") !== "cerrar-sesiones") {
+    return { error: "Solicitud incompleta." };
+  }
+
+  const user = await requireUser();
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+
+  const sesiones = await db.session.findMany({
+    where: { userId: user.id },
+    select: { id: true, tokenHash: true },
+  });
+  const mias = sesiones.filter((s) => s.tokenHash === hashToken(token ?? ""));
+
+  await db.session.deleteMany({
+    where: { userId: user.id, id: { notIn: mias.map((s) => s.id) } },
+  });
+
+  await setFlash("success", "Sesiones cerradas", "Se cerraron las otras sesiones de tu cuenta.");
+  revalidatePath("/perfil");
+  return { ok: true };
 }
 
 /**
