@@ -1,5 +1,6 @@
 import type { DocumentType, PaymentStatus, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { calcularTotales } from "@/lib/ledger";
 import { toISODate, todayDate } from "@/lib/money";
 import { paginate, parsePage } from "@/lib/pagination";
 import { rutSearchPatterns } from "@/lib/rut";
@@ -113,16 +114,17 @@ function buildWhere(companyId: string, filters: PurchaseFilters): Prisma.Purchas
 async function loadPurchases(companyId: string, filters: PurchaseFilters) {
   const where = buildWhere(companyId, filters);
 
-  const [rawItems, grouped] = await Promise.all([
+  const [rawItems] = await Promise.all([
     db.purchase.findMany({
       where,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { partner: true, category: true, area: true },
-    }),
-    db.purchase.groupBy({
-      by: ["status"],
-      where,
-      _sum: { totalAmount: true },
+      include: {
+        partner: true,
+        category: true,
+        area: true,
+        // Los abonos: sin ellos el saldo real no se puede calcular.
+        payments: { select: { amount: true } },
+      },
     }),
   ]);
 
@@ -154,16 +156,26 @@ async function loadPurchases(companyId: string, filters: PurchaseFilters) {
     return result * sign;
   });
 
-  return { rows, grouped };
+  return { rows };
 }
 
 export type PurchaseListItem = Awaited<ReturnType<typeof loadPurchases>>["rows"][number];
 
 export async function listPurchases(companyId: string, filters: PurchaseFilters) {
-  const { rows, grouped } = await loadPurchases(companyId, filters);
+  const { rows } = await loadPurchases(companyId, filters);
 
-  const paid = Number(grouped.find((group) => group.status === "PAID")?._sum.totalAmount ?? 0);
-  const pending = Number(grouped.find((group) => group.status === "PENDING")?._sum.totalAmount ?? 0);
+  // Una compra no se anula (el estado es PENDING, PARTIAL o PAID), así que acá
+  // no hay documentos anulados que quedar fuera. Lo que sí importa es que la
+  // nota de crédito RESTA: es un abono del proveedor, no una compra.
+  const totales = calcularTotales(
+    rows.map((purchase) => ({
+      documentType: purchase.documentType,
+      documentNumber: purchase.documentNumber,
+      status: purchase.status,
+      totalAmount: purchase.totalAmount,
+      abonado: purchase.payments.reduce((acc, payment) => acc + payment.amount, 0),
+    })),
+  );
 
   // Vencido: lo pendiente de pago con la fecha de vencimiento ya pasada.
   const today = todayDate();
@@ -179,7 +191,15 @@ export async function listPurchases(companyId: string, filters: PurchaseFilters)
     items,
     page,
     pageCount,
-    totals: { count: rows.length, total: paid + pending, paid, pending, overdue },
+    totals: {
+      count: rows.length,
+      total: totales.total,
+      paid: totales.movido,
+      pending: totales.pendiente,
+      overdue,
+      notasCredito: totales.notasCredito,
+      notasCreditoCantidad: totales.notasCreditoCantidad,
+    },
   };
 }
 

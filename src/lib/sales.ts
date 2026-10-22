@@ -1,5 +1,6 @@
 import type { DocumentType, SaleStatus, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { calcularTotales } from "@/lib/ledger";
 import { toISODate } from "@/lib/money";
 import { paginate, parsePage } from "@/lib/pagination";
 import { rutSearchPatterns } from "@/lib/rut";
@@ -151,7 +152,12 @@ async function loadSales(companyId: string, filters: SaleFilters) {
     db.sale.findMany({
       where,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { partner: true, salesperson: true },
+      include: {
+        partner: true,
+        salesperson: true,
+        // Los abonos: sin ellos el saldo real no se puede calcular.
+        payments: { select: { amount: true } },
+      },
     }),
     db.sale.groupBy({
       by: ["status"],
@@ -206,33 +212,36 @@ export type SaleListItem = Awaited<ReturnType<typeof loadSales>>["rows"][number]
 export async function listSales(companyId: string, filters: SaleFilters) {
   const { rows, grouped } = await loadSales(companyId, filters);
 
-  const paid = Number(grouped.find((group) => group.status === "PAID")?._sum.totalAmount ?? 0);
   const partial = Number(grouped.find((group) => group.status === "PARTIAL")?._sum.totalAmount ?? 0);
   const overdue = Number(grouped.find((group) => group.status === "OVERDUE")?._sum.totalAmount ?? 0);
   const cancelled = Number(grouped.find((group) => group.status === "CANCELLED")?._sum.totalAmount ?? 0);
 
-  // Confirming: la empresa de confirming adelanta el dinero antes que el
-  // cliente deposite, así que la venta ya se cobró. Se cuenta como cobrada
-  // (no como por cobrar) aunque su estado siga siendo "pendiente".
-  const confirming = rows
-    .filter((sale) => sale.confirmingAt !== null && sale.status !== "PAID" && sale.status !== "CANCELLED")
-    .reduce((acc, sale) => acc + sale.totalAmount, 0);
-
-  // Por cobrar: solo facturas (INVOICE), no NC. Las NC no representan
-  // dinero por cobrar, son abonos. Se calculan separando por tipo de documento.
-  // Se excluyen las que están en confirming: esas ya se cobraron.
-  const facturasPendientes = rows.filter(
-    (sale) =>
-      sale.documentType === "INVOICE" &&
-      sale.confirmingAt === null &&
-      (sale.status === "PENDING" || sale.status === "PARTIAL" || sale.status === "OVERDUE"),
+  // Las notas de crédito que dejaron sin efecto a una factura anulada son la
+  // otra cara de esa anulación: la factura ya no cuenta y la nota tampoco, o
+  // el mismo hecho se contaría dos veces con signo contrario.
+  const anuladasConNota = await db.sale.findMany({
+    where: { companyId, status: "CANCELLED", cancellationNoteNumber: { not: null } },
+    select: { cancellationNoteNumber: true },
+  });
+  const notasContrapartida = new Set(
+    anuladasConNota.map((row) => row.cancellationNoteNumber!).filter(Boolean),
   );
-  const porCobrar = facturasPendientes.reduce((acc, sale) => acc + sale.totalAmount, 0);
 
-  // Total facturado: solo facturas (INVOICE), no NC.
-  const totalFacturas = rows
-    .filter((sale) => sale.documentType === "INVOICE")
-    .reduce((acc, sale) => acc + sale.totalAmount, 0);
+  const totales = calcularTotales(
+    rows.map((sale) => ({
+      documentType: sale.documentType,
+      documentNumber: sale.documentNumber,
+      status: sale.status,
+      totalAmount: sale.totalAmount,
+      retentionAmount: sale.retentionAmount,
+      abonado: sale.payments.reduce((acc, payment) => acc + payment.amount, 0),
+      confirming: sale.confirmingAt !== null,
+      contrapartidaAnulada:
+        sale.documentType === "CREDIT_NOTE" &&
+        sale.documentNumber !== null &&
+        notasContrapartida.has(sale.documentNumber),
+    })),
+  );
 
   // La lista se ordena completa y recién ahí se corta en páginas: los
   // comparadores son propios y no se pueden traducir a un `orderBy`.
@@ -244,13 +253,18 @@ export async function listSales(companyId: string, filters: SaleFilters) {
     pageCount,
     totals: {
       count: rows.length,
-      total: totalFacturas,
-      paid: paid + confirming,
-      confirming,
-      pending: porCobrar,
+      total: totales.total,
+      paid: totales.movido,
+      confirming: totales.confirming,
+      pending: totales.pendiente,
       partial,
       overdue,
       cancelled,
+      notasCredito: totales.notasCredito,
+      notasCreditoCantidad: totales.notasCreditoCantidad,
+      retenciones: totales.retenciones,
+      anulados: totales.anulados,
+      anuladosMonto: totales.anuladosMonto,
     },
   };
 }

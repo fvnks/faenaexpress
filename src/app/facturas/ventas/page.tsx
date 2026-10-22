@@ -162,6 +162,18 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
           <p className="mt-0.5 text-xs text-muted-foreground">
             {totals.count} {totals.count === 1 ? "documento" : "documentos"}
           </p>
+          {totals.notasCreditoCantidad > 0 ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {totals.notasCreditoCantidad}{" "}
+              {totals.notasCreditoCantidad === 1 ? "nota de crédito" : "notas de crédito"}:{" "}
+              {formatCLP(totals.notasCredito)}
+            </p>
+          ) : null}
+          {totals.anulados > 0 ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {totals.anulados} anuladas no se cuentan
+            </p>
+          ) : null}
         </div>
         <div className="border-l border-border p-4 sm:border-l-0">
           <div className="flex items-center gap-2">
@@ -185,6 +197,10 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
             <p className="text-xs text-muted-foreground">Por cobrar</p>
           </div>
           <p className="tabular mt-1 text-2xl font-bold text-accent">{formatCLP(totals.pending)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Cobrado {formatCLP(totals.paid)} + por cobrar {formatCLP(totals.pending)} ={" "}
+            {formatCLP(totals.paid + totals.pending)}
+          </p>
         </div>
       </div>
 

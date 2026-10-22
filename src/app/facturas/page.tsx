@@ -254,17 +254,47 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
     return Math.round(((current - previous) / previous) * 100);
   };
 
+  // "Neto + IVA" solo da el total cuando el documento no tiene retención ni
+  // montos exentos. Cuando no da, el hint lo dice, con el número real y la
+  // razón de la diferencia: si no, el panel parece estar mal.
+  const hintVentas =
+    iva.sales.net + iva.sales.iva === iva.sales.total
+      ? `Total con IVA: ${formatCLP(iva.sales.total)}`
+      : `Total: ${formatCLP(iva.sales.total)}`;
+  const hintCompras =
+    iva.purchases.net + iva.purchases.iva === iva.purchases.total
+      ? `Total con IVA: ${formatCLP(iva.purchases.total)}`
+      : `Total: ${formatCLP(iva.purchases.total)}`;
+
+  const ajustesVentas = [
+    iva.ajustes.retencionesVentas !== 0
+      ? `retenciones ${formatCLP(Math.abs(iva.ajustes.retencionesVentas))}`
+      : null,
+    iva.ajustes.exentoVentas !== 0
+      ? `exento ${formatCLP(Math.abs(iva.ajustes.exentoVentas))}`
+      : null,
+  ].filter((x): x is string => x !== null);
+
+  const ajustesCompras = [
+    iva.ajustes.exentoCompras !== 0
+      ? `exento ${formatCLP(Math.abs(iva.ajustes.exentoCompras))}`
+      : null,
+    iva.ajustes.recargoCompras !== 0
+      ? `recargo ${formatCLP(Math.abs(iva.ajustes.recargoCompras))}`
+      : null,
+  ].filter((x): x is string => x !== null);
+
   const stats = [
     {
       label: "Ventas (neto)",
       value: formatCLP(iva.sales.net),
-      hint: `Total con IVA: ${formatCLP(iva.sales.total)}`,
+      hint: ajustesVentas.length > 0 ? `${hintVentas} · ${ajustesVentas.join(" · ")}` : hintVentas,
       diff: diff(iva.sales.net, prevIva.sales.net),
     },
     {
       label: "Compras (neto)",
       value: formatCLP(iva.purchases.net),
-      hint: `Total con IVA: ${formatCLP(iva.purchases.total)}`,
+      hint: ajustesCompras.length > 0 ? `${hintCompras} · ${ajustesCompras.join(" · ")}` : hintCompras,
       diff: diff(iva.purchases.net, prevIva.purchases.net),
     },
     {

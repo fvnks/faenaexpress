@@ -172,6 +172,13 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
           <p className="mt-0.5 text-xs text-muted-foreground">
             {totals.count} {totals.count === 1 ? "documento" : "documentos"}
           </p>
+          {totals.notasCreditoCantidad > 0 ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {totals.notasCreditoCantidad}{" "}
+              {totals.notasCreditoCantidad === 1 ? "nota de crédito" : "notas de crédito"}:{" "}
+              {formatCLP(totals.notasCredito)}
+            </p>
+          ) : null}
         </div>
         <div className="border-l border-border p-4 sm:border-l-0">
           <div className="flex items-center gap-2">
@@ -195,6 +202,10 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
               Incluye {formatCLP(totals.overdue)} vencido
             </p>
           ) : null}
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Pagado {formatCLP(totals.paid)} + pendiente {formatCLP(totals.pending)} ={" "}
+            {formatCLP(totals.paid + totals.pending)}
+          </p>
         </div>
       </div>
 
