@@ -21,6 +21,7 @@ import {
   saveDefontanaCredentials,
   withDefontanaSession,
 } from "@/lib/defontana/credentials";
+import { traerGuiasDefontana, type GuiasDefontanaResultado } from "@/lib/defontana/guides";
 import { createPurchaseItems, createSaleItems, loadProductIndex, prepareDocItems } from "@/lib/doc-items";
 import { decodeDteXml, dteDate, parseDteXml } from "@/lib/dte";
 import { setFlash } from "@/lib/flash";
@@ -534,3 +535,78 @@ export async function fetchSaleXmlAction(
 }
 
 export type FetchSaleXmlState = { error?: string; ok?: boolean; message?: string } | undefined;
+
+// ── Guías de despacho desde Defontana ────────────────────────────────────────
+// Las guías no están en el RCV del SII: el Registro de Compras y Ventas es el
+// libro del IVA y la guía no genera IVA, así que vive en un libro aparte que no
+// se puede leer. Como la empresa emite sus DTE en Defontana, ahí están.
+// (Ver src/lib/defontana/guides.ts.)
+
+export type FetchGuidesState = { error?: string; ok?: boolean; message?: string } | undefined;
+
+export async function fetchDefontanaGuidesAction(
+  _prev: FetchGuidesState,
+  formData: FormData,
+): Promise<FetchGuidesState> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) {
+    return { error: "Solo contabilidad o administración puede traer las guías." };
+  }
+
+  const desde = String(formData.get("desde") ?? "").trim();
+  const hasta = String(formData.get("hasta") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde) || !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
+    return { error: "El período no es válido." };
+  }
+
+  let resultado: GuiasDefontanaResultado;
+  try {
+    resultado = await traerGuiasDefontana({
+      companyId: ctx.company.id,
+      userId: ctx.user.id,
+      desde,
+      hasta,
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+
+  const { periodo, guiasEncontradas, importadas, yaRegistradas, fallos, pendientes } = resultado;
+
+  if (importadas > 0) {
+    await recordAudit(ctx, {
+      action: "CREATE",
+      entityId: `defontana-guias-${periodo}`,
+      entityType: "DispatchGuide",
+      summary: `Trajo ${importadas} guías de Defontana (período ${periodo}).`,
+    });
+  }
+
+  revalidatePath("/facturas/ventas/guias");
+  revalidatePath("/facturas/comisiones");
+
+  // El diagnóstico no se pierde aunque no entre nada: si el ERP no trae guías,
+  // se ve cuánto trajo y de qué tipo, para no achacarle al Defontana un "0" que
+  // viene de otro lado.
+  const diagnostico =
+    `Defontana devolvió ${resultado.documentosEnPeriodo} ${
+      resultado.documentosEnPeriodo === 1 ? "documento" : "documentos"
+    } del período (${resultado.desglose}); ` +
+    `${guiasEncontradas} ${guiasEncontradas === 1 ? "es guía" : "son guías"} de despacho. ` +
+    `${importadas} importadas, ${yaRegistradas} ya registradas, ${fallos.length} con problemas.` +
+    (pendientes > 0 ? ` Quedan ${pendientes} para la próxima corrida.` : "");
+
+  if (importadas === 0) {
+    const titulo =
+      guiasEncontradas === 0
+        ? `Defontana no registra guías en ${periodo}`
+        : "No se importó ninguna guía";
+    return { ok: true, message: `${titulo}. ${diagnostico}` };
+  }
+
+  const aviso = fallos.length > 0 ? ` Revisa: ${fallos.slice(0, 5).join(" ")}` : "";
+  return {
+    ok: true,
+    message: `${importadas} ${importadas === 1 ? "guía importada" : "guías importadas"}. ${diagnostico}${aviso}`,
+  };
+}

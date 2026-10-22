@@ -2,10 +2,11 @@ import Link from "next/link";
 
 import { FilterBar, type FilterField } from "@/components/filter-bar";
 import { Pagination } from "@/components/pagination";
-import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { GuideSaleLink } from "@/app/facturas/ventas/guias/guide-sale-link";
+import { DefontanaGuidesButton } from "@/app/facturas/ventas/guias/defontana-guides-button";
 import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasStoredDefontanaCredentials } from "@/lib/defontana/credentials";
 import { listCustomers } from "@/lib/partners";
 import { listSalespeople } from "@/lib/catalogs";
 import { listGuides, listGuidePeriods, parseGuideFilters } from "@/lib/dispatch-guides";
@@ -40,6 +41,9 @@ export default async function GuiasPage(props: PageProps<"/facturas/ventas/guias
 
   const hasFilters = Boolean(raw.q || raw.cliente || raw.vendedor || raw.mes || raw.asignacion);
   const writable = canWrite(ctx, "ventas");
+  // Las guías no están en el RCV del SII sino en Defontana, donde la empresa
+  // emite sus DTE: el botón solo aparece si la cuenta está configurada.
+  const conDefontana = await hasStoredDefontanaCredentials(ctx.company.id);
 
   // Las facturas candidatas para relacionar cada guía: las del mismo cliente.
   const ventasPorCliente = await Promise.all(
@@ -123,15 +127,7 @@ export default async function GuiasPage(props: PageProps<"/facturas/ventas/guias
         <div className="flex flex-wrap gap-2">
           {writable ? (
             <>
-              {canWrite(ctx, "importar") ? (
-                <SyncSiiMenu
-                  side="VENTA"
-                  buttonClass={secondaryButtonClass}
-                  tipos="50"
-                  destino="/facturas/ventas/guias"
-                  etiqueta="Sincronizar SII"
-                />
-              ) : null}
+              {conDefontana ? <DefontanaGuidesButton mes={raw.mes} /> : null}
               <Link href="/facturas/ventas/guias/nueva" className={primaryButtonClass}>
                 Nueva guía
               </Link>
@@ -179,19 +175,11 @@ export default async function GuiasPage(props: PageProps<"/facturas/ventas/guias
           <p className="mt-1 text-sm text-muted-foreground">
             {hasFilters
               ? "Prueba con otro cliente, vendedor, mes o búsqueda."
-              : "Las guías se traen del SII con la sincronización, o se registran a mano."}
+              : "Las guías se traen de Defontana, donde la empresa emite sus DTE, o se registran a mano."}
           </p>
           {!hasFilters && writable ? (
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {canWrite(ctx, "importar") ? (
-                <SyncSiiMenu
-                  side="VENTA"
-                  buttonClass={secondaryButtonClass}
-                  tipos="50"
-                  destino="/facturas/ventas/guias"
-                  etiqueta="Sincronizar SII"
-                />
-              ) : null}
+              {conDefontana ? <DefontanaGuidesButton mes={raw.mes} /> : null}
               <Link href="/facturas/ventas/guias/nueva" className={primaryButtonClass}>
                 Nueva guía
               </Link>
