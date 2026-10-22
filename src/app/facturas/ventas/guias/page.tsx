@@ -1,47 +1,114 @@
 import Link from "next/link";
 
+import { FilterBar, type FilterField } from "@/components/filter-bar";
+import { Pagination } from "@/components/pagination";
+import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { GuideSaleLink } from "@/app/facturas/ventas/guias/guide-sale-link";
-import { requireContext, canWrite } from "@/lib/auth";
+import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatCLP, formatDate } from "@/lib/money";
-import { cardClass, primaryButtonClass } from "@/lib/ui";
+import { listCustomers } from "@/lib/partners";
+import { listSalespeople } from "@/lib/catalogs";
+import { listGuides, listGuidePeriods, parseGuideFilters } from "@/lib/dispatch-guides";
+import { formatCLP, formatDate, formatPeriod } from "@/lib/money";
+import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 
-export default async function GuiasPage() {
+const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+
+export default async function GuiasPage(props: PageProps<"/facturas/ventas/guias">) {
   const ctx = await requireContext("ventas");
-  const { company } = ctx;
-  const items = await db.dispatchGuide.findMany({
-    where: { companyId: company.id },
-    include: {
-      partner: true,
-      salesperson: true,
-      sale: { select: { id: true, documentNumber: true, date: true } },
-    },
-    orderBy: { date: "desc" },
-  });
+  const searchParams = await props.searchParams;
 
-  // Las facturas candidatas para cada guía: las del mismo cliente. Se ofrecen
-  // las más recientes, que son las que se están despachando ahora.
-  const ventasPorCliente = await db.sale.findMany({
-    where: {
-      companyId: company.id,
-      documentType: { in: ["INVOICE", "RECEIPT"] },
-    },
-    select: { id: true, partnerId: true, documentNumber: true, date: true },
-    orderBy: { date: "desc" },
-  });
-  const candidatas = new Map<string, { id: string; etiqueta: string }[]>();
-  for (const venta of ventasPorCliente) {
-    const lista = candidatas.get(venta.partnerId) ?? [];
-    if (lista.length >= 25) continue;
-    lista.push({
-      id: venta.id,
-      etiqueta: `N° ${venta.documentNumber ?? "—"} · ${formatDate(venta.date)}`,
-    });
-    candidatas.set(venta.partnerId, lista);
-  }
+  const raw = {
+    q: one(searchParams.q),
+    cliente: one(searchParams.cliente),
+    vendedor: one(searchParams.vendedor),
+    mes: one(searchParams.mes),
+    asignacion: one(searchParams.asignacion),
+    orden: one(searchParams.orden),
+    dir: one(searchParams.dir),
+    pagina: one(searchParams.pagina),
+  };
+  const filters = parseGuideFilters(raw);
 
+  const [customers, salespeople, periodos, listado] = await Promise.all([
+    listCustomers(ctx.company.id),
+    listSalespeople(ctx.company.id),
+    listGuidePeriods(ctx.company.id),
+    listGuides(ctx.company.id, filters),
+  ]);
+  const { items, totals, page, pageCount } = listado;
+
+  const hasFilters = Boolean(raw.q || raw.cliente || raw.vendedor || raw.mes || raw.asignacion);
   const writable = canWrite(ctx, "ventas");
-  const conFactura = items.filter((g) => g.saleId).length;
+
+  // Las facturas candidatas para relacionar cada guía: las del mismo cliente.
+  const ventasPorCliente = await Promise.all(
+    [...new Set(items.map((g) => g.partnerId))].map(async (partnerId) => {
+      const ventas = await db.sale.findMany({
+        where: {
+          companyId: ctx.company.id,
+          partnerId,
+          documentType: { in: ["INVOICE", "RECEIPT"] },
+        },
+        select: { id: true, documentNumber: true, date: true },
+        orderBy: { date: "desc" },
+        take: 25,
+      });
+      return [
+        partnerId,
+        ventas.map((v: { id: string; documentNumber: string | null; date: Date }) => ({
+          id: v.id,
+          etiqueta: `N° ${v.documentNumber ?? "—"} · ${formatDate(v.date)}`,
+        })),
+      ] as const;
+    }),
+  );
+  const candidatas = new Map(ventasPorCliente);
+
+  const filterFields: FilterField[] = [
+    {
+      kind: "text",
+      name: "q",
+      label: "Buscar",
+      placeholder: "N° guía, cliente, RUT, N° factura…",
+      grow: true,
+    },
+    {
+      kind: "select",
+      name: "cliente",
+      label: "Cliente",
+      emptyLabel: "Todos",
+      width: "w-full sm:w-52",
+      options: customers.map((c) => ({ value: c.id, label: c.name })),
+    },
+    {
+      kind: "select",
+      name: "vendedor",
+      label: "Vendedor",
+      emptyLabel: "Todos",
+      width: "w-full sm:w-48",
+      options: salespeople.map((s) => ({ value: s.id, label: s.name })),
+    },
+    {
+      kind: "select",
+      name: "mes",
+      label: "Mes",
+      emptyLabel: "Todos los meses",
+      width: "w-full sm:w-44",
+      options: periodos.map((p) => ({ value: p, label: formatPeriod(p) })),
+    },
+    {
+      kind: "select",
+      name: "asignacion",
+      label: "Comisión",
+      emptyLabel: "Todas",
+      width: "w-full sm:w-48",
+      options: [
+        { value: "asignadas", label: "Con mes de comisión" },
+        { value: "sin_asignar", label: "Sin mes de comisión" },
+      ],
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,23 +116,87 @@ export default async function GuiasPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Guías de Despacho</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Guías de despacho electrónicas. Total: {items.length}{" "}
-            {items.length === 1 ? "guía" : "guías"}
-            {conFactura > 0 ? ` · ${conFactura} relacionadas con una factura de venta` : ""}.
+            Guías de despacho electrónicas, con la factura de venta que despachan.
+            {raw.mes ? ` Mes de ${formatPeriod(raw.mes)}.` : ""}
           </p>
         </div>
-        <Link href="/facturas/ventas/guias/nueva" className={primaryButtonClass}>
-          Nueva guía
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {writable ? (
+            <>
+              {canWrite(ctx, "importar") ? (
+                <SyncSiiMenu
+                  side="VENTA"
+                  buttonClass={secondaryButtonClass}
+                  tipos="50"
+                  destino="/facturas/ventas/guias"
+                  etiqueta="Sincronizar SII"
+                />
+              ) : null}
+              <Link href="/facturas/ventas/guias/nueva" className={primaryButtonClass}>
+                Nueva guía
+              </Link>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      <FilterBar fields={filterFields} />
+
+      <div className={cardClass + " grid grid-cols-2 divide-border sm:grid-cols-4 sm:divide-x"}>
+        <div className="p-4">
+          <p className="text-xs text-muted-foreground">Neto despachado</p>
+          <p className="tabular mt-1 text-2xl font-bold">{formatCLP(totals.total)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {totals.count} {totals.count === 1 ? "guía" : "guías"}
+          </p>
+        </div>
+        <div className="border-l border-border p-4 sm:border-l-0">
+          <p className="text-xs text-muted-foreground">Con factura</p>
+          <p className="tabular mt-1 text-2xl font-bold text-success">{totals.conFactura}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {totals.sinFactura} sin factura relacionada
+          </p>
+        </div>
+        <div className="border-l border-border p-4 sm:border-l-0">
+          <p className="text-xs text-muted-foreground">Sin factura</p>
+          <p className="tabular mt-1 text-2xl font-bold text-accent">{totals.sinFactura}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">sin relacionar todavía</p>
+        </div>
+        <div className="col-span-2 border-t border-border p-4 sm:col-span-1 sm:border-t-0">
+          <p className="text-xs text-muted-foreground">Con vendedor</p>
+          <p className="tabular mt-1 text-2xl font-bold">{totals.conVendedor}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            las demás no comisionan por fecha
+          </p>
+        </div>
       </div>
 
       {items.length === 0 ? (
         <div className={cardClass + " px-4 py-10 text-center"}>
-          <p className="font-medium">Aún no registra guías de despacho.</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Las guías se traen del SII con la sincronización del RCV, o se registran a mano
-            desde Inventario → Movimientos.
+          <p className="font-medium">
+            {hasFilters ? "No hay guías que coincidan con el filtro." : "Aún no registra guías de despacho."}
           </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {hasFilters
+              ? "Prueba con otro cliente, vendedor, mes o búsqueda."
+              : "Las guías se traen del SII con la sincronización, o se registran a mano."}
+          </p>
+          {!hasFilters && writable ? (
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {canWrite(ctx, "importar") ? (
+                <SyncSiiMenu
+                  side="VENTA"
+                  buttonClass={secondaryButtonClass}
+                  tipos="50"
+                  destino="/facturas/ventas/guias"
+                  etiqueta="Sincronizar SII"
+                />
+              ) : null}
+              <Link href="/facturas/ventas/guias/nueva" className={primaryButtonClass}>
+                Nueva guía
+              </Link>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className={cardClass + " overflow-x-auto"}>
@@ -102,15 +233,15 @@ export default async function GuiasPage() {
                     {formatDate(g.date)}
                   </td>
                   <td className="tabular px-3 py-2 align-top">{g.guideNumber}</td>
-                  <td className="px-3 py-2 align-top">{g.partner.name}</td>
-                  <td className="px-3 py-2 align-top">{g.salesperson?.name ?? "—"}</td>
+                  <td className="px-3 py-2 align-top">{g.partnerName}</td>
+                  <td className="px-3 py-2 align-top">{g.salespersonName ?? "—"}</td>
                   <td className="px-3 py-2 align-top">
-                    {g.sale ? (
+                    {g.saleId ? (
                       <Link
-                        href={`/facturas/ventas/${g.sale.id}`}
+                        href={`/facturas/ventas/${g.saleId}`}
                         className="text-primary underline underline-offset-2 hover:text-primary/80"
                       >
-                        N° {g.sale.documentNumber ?? "—"}
+                        N° {g.saleNumber ?? "—"}
                       </Link>
                     ) : null}
                     <GuideSaleLink
@@ -129,6 +260,14 @@ export default async function GuiasPage() {
           </table>
         </div>
       )}
+
+      <Pagination
+        pathname="/facturas/ventas/guias"
+        params={searchParams}
+        page={page}
+        pageCount={pageCount}
+        total={totals.count}
+      />
     </div>
   );
 }

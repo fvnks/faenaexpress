@@ -10,8 +10,24 @@ import { currentPeriod, formatPeriod, shiftPeriod } from "@/lib/money";
  * Botón "Sincronizar SII" con dropdown de meses: el usuario elige qué
  * período sincronizar antes de disparar la acción. Muestra los últimos
  * 12 meses (el actual primero).
+ *
+ * `tipos` limita qué se importa: desde la pantalla de Guías se pide solo el
+ * tipo 50 (guía de despacho), para no volver a traer las facturas del mes.
+ * `destino` es a dónde vuelve el usuario.
  */
-export function SyncSiiMenu({ side, buttonClass }: { side: "COMPRA" | "VENTA"; buttonClass: string }) {
+export function SyncSiiMenu({
+  side,
+  buttonClass,
+  tipos,
+  destino,
+  etiqueta = "Sincronizar SII",
+}: {
+  side: "COMPRA" | "VENTA";
+  buttonClass: string;
+  tipos?: string;
+  destino?: string;
+  etiqueta?: string;
+}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +60,7 @@ export function SyncSiiMenu({ side, buttonClass }: { side: "COMPRA" | "VENTA"; b
         onClick={() => setOpen((v) => !v)}
         className={buttonClass + " flex items-center gap-1"}
       >
-        <span>Sincronizar SII</span>
+        <span>{etiqueta}</span>
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -70,6 +86,8 @@ export function SyncSiiMenu({ side, buttonClass }: { side: "COMPRA" | "VENTA"; b
                 <form action={quickSyncRcv}>
                   <input type="hidden" name="side" value={side} />
                   <input type="hidden" name="periodo" value={periodo} />
+                  {tipos ? <input type="hidden" name="tipos" value={tipos} /> : null}
+                  {destino ? <input type="hidden" name="destino" value={destino} /> : null}
                   <SubmitButton
                     pendingLabel="…"
                     className={

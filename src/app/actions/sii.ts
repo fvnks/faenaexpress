@@ -496,8 +496,16 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
   const side = parseSide(formData.get("side"));
   const periodo = parsePeriodo(formData.get("periodo"));
   const companyRut = ctx.company.rut;
-  const destino = side === "VENTA" ? "/facturas/ventas" : "/facturas/compras";
-  const etiqueta = side === "VENTA" ? "ventas" : "compras";
+  // A dónde vuelve el usuario: la pantalla de la que salió la sincronización.
+  const destinoPedido = String(formData.get("destino") ?? "");
+  const destino =
+    destinoPedido === "/facturas/ventas/guias"
+      ? destinoPedido
+      : side === "VENTA"
+        ? "/facturas/ventas"
+        : "/facturas/compras";
+  const etiqueta =
+    destino === "/facturas/ventas/guias" ? "guías" : side === "VENTA" ? "ventas" : "compras";
 
   if (!side || !periodo) {
     await setFlash("error", "Indica el lado y el período.", "Vuelve a intentar.");
@@ -519,6 +527,17 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     await setFlash("error", "No se pudo leer el RCV del SII", message);
     redirect(destino);
+  }
+
+  // Tipos a importar: desde la pantalla de Guías se piden solo las guías
+  // (tipo 50), para no meter en la lista las facturas del mes: esas ya se
+  // importan desde Ventas.
+  const tiposPedidos = String(formData.get("tipos") ?? "")
+    .split(",")
+    .map((t) => Number(t.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (tiposPedidos.length > 0) {
+    rows = rows.filter((row) => tiposPedidos.includes(row.tipoDoc));
   }
 
   // 2. Clasificar (mismo criterio que la vista previa)
