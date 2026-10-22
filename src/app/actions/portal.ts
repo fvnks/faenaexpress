@@ -7,6 +7,7 @@
 // que hace queda en el registro de accesos.
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { recordAccess, requestContext } from "@/lib/access-log";
 import { db } from "@/lib/db";
@@ -124,11 +125,15 @@ export async function portalLogin(
     userAgent,
   });
 
-  revalidatePath("/apoderado");
-  return { ok: true };
+  // Sin este redirect la familia quedaba en el formulario con la sesión ya
+  // creada: el botón volvía a "Entrar" y no pasaba nada.
+  redirect("/apoderado");
 }
 
 /** Sale del portal. */
 export async function portalLogout(): Promise<void> {
   await cerrarSesionPortal();
+  // Sin esto la pantalla quedaba mostrando los datos de la familia con la
+  // sesión ya cerrada, hasta que se recargara a mano.
+  redirect("/apoderado");
 }
