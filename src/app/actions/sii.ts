@@ -15,7 +15,7 @@ import { setFlash } from "@/lib/flash";
 import { dteTipoLabel } from "@/lib/labels";
 import { ensurePartnerRole } from "@/lib/partners";
 import { formatRut, isValidRut, normalizeRut } from "@/lib/rut";
-import { fetchRcvRows, type RcvRow } from "@/lib/sii/rcv";
+import { fetchRcvRows, type RcvCotejo, type RcvRow } from "@/lib/sii/rcv";
 import { importarGuiaSii, type PartnerInfo } from "@/lib/sii/import-guides";
 import { createAppRuntime } from "@/lib/sii/runtime";
 import { vincularNotasConDocumentos } from "@/lib/sale-notes";
@@ -140,11 +140,29 @@ function fechaDocumento(row: { tipoDoc: number; fecha: string }, periodo: string
   return TIPOS_IMPORTABLES[row.tipoDoc] === "GUIDE" ? `${periodo}-01` : null;
 }
 
+/**
+ * Índice de lo que ya está registrado, para no duplicar documentos.
+ *
+ * Ojo con lo que es "ya registrado": **el folio solo no alcanza**. Cada emisor
+ * numera por su cuenta (dos proveedores distintos pueden tener folio 1182) y
+ * cada tipo de documento tiene su propia secuencia (una nota de crédito y una
+ * factura del mismo emisor pueden repetir número). Antes se comparaba solo el
+ * folio, así que una factura legítima de un proveedor se marcaba "duplicada" y
+ * se saltaba en silencio porque otro proveedor ya tenía ese número.
+ *
+ * Por eso el índice se guarda por `(tipoDeDocumento|folio)` → conjunto de RUTs
+ * de los emisores que ya lo usan. En compras el emisor es el proveedor; en
+ * ventas y guías es siempre la empresa, así que basta el folio.
+ */
 type FoliosExistentes = {
-  compras: Set<string>; // folio del documento de compra
-  ventas: Set<string>; // folio del documento de venta (el emisor es la empresa)
-  guias: Set<string>; // número de guía
+  /** `${tipoDeDocumento}|${folio}` → RUTs de los emisores. `""` = sin RUT registrado. */
+  compras: Map<string, Set<string>>;
+  ventas: Map<string, Set<string>>;
+  /** número de guía: las emite la empresa, el folio basta. */
+  guias: Set<string>;
 };
+
+const claveFolio = (documentType: string, folio: string) => `${documentType}|${folio}`;
 
 async function cargarFoliosExistentes(
   companyId: string,
@@ -153,11 +171,11 @@ async function cargarFoliosExistentes(
   const [compras, ventas, guias] = await Promise.all([
     db.purchase.findMany({
       where: { companyId, documentNumber: { in: folios } },
-      select: { documentNumber: true },
+      select: { documentNumber: true, documentType: true, partner: { select: { rut: true } } },
     }),
     db.sale.findMany({
       where: { companyId, documentNumber: { in: folios } },
-      select: { documentNumber: true },
+      select: { documentNumber: true, documentType: true },
     }),
     db.dispatchGuide.findMany({
       where: { companyId, guideNumber: { in: folios } },
@@ -165,32 +183,71 @@ async function cargarFoliosExistentes(
     }),
   ]);
 
+  const mapaCompras = new Map<string, Set<string>>();
+  const mapaVentas = new Map<string, Set<string>>();
+  const apuntar = (
+    mapa: Map<string, Set<string>>,
+    clave: string,
+    rut: string | null | undefined,
+  ) => {
+    const ruts = mapa.get(clave) ?? new Set<string>();
+    ruts.add(rut ? normalizeRut(rut) : "");
+    mapa.set(clave, ruts);
+  };
+
+  for (const row of compras) {
+    if (!row.documentNumber) continue;
+    apuntar(mapaCompras, claveFolio(row.documentType, row.documentNumber), row.partner.rut);
+  }
+  for (const row of ventas) {
+    if (!row.documentNumber) continue;
+    // En ventas el emisor es la empresa: el RUT del cliente no identifica al
+    // emisor, así que no entra a la clave.
+    apuntar(mapaVentas, claveFolio(row.documentType, row.documentNumber), null);
+  }
+
   return {
-    compras: new Set(compras.map((row) => row.documentNumber).filter(Boolean) as string[]),
-    ventas: new Set(ventas.map((row) => row.documentNumber).filter(Boolean) as string[]),
+    compras: mapaCompras,
+    ventas: mapaVentas,
     guias: new Set(guias.map((row) => row.guideNumber)),
   };
 }
 
 function esFolioExistente(
-  row: { tipoDoc: number; folio: string },
+  row: { tipoDoc: number; folio: string; rut: string },
   side: RcvSide,
   sets: FoliosExistentes,
 ): boolean {
   const importable = TIPOS_IMPORTABLES[row.tipoDoc];
   if (importable === "GUIDE") return sets.guias.has(row.folio);
-  return side === "COMPRA" ? sets.compras.has(row.folio) : sets.ventas.has(row.folio);
+
+  const mapa = side === "COMPRA" ? sets.compras : sets.ventas;
+  const ruts = mapa.get(claveFolio(importable, row.folio));
+  if (!ruts) return false;
+
+  // El folio ya existe, pero ¿del mismo emisor? Si lo que hay registrado no
+  // trae RUT, no se puede descartar que sea el mismo documento: se conserva el
+  // comportamiento de antes y se trata como duplicado.
+  const rut = row.rut ? normalizeRut(row.rut) : "";
+  if (!rut || ruts.has(rut) || ruts.has("")) return true;
+  return false;
 }
 
 function registrarFolio(
   sets: FoliosExistentes,
-  row: { tipoDoc: number; folio: string },
+  row: { tipoDoc: number; folio: string; rut: string },
   side: RcvSide,
 ): void {
   const importable = TIPOS_IMPORTABLES[row.tipoDoc];
-  if (importable === "GUIDE") sets.guias.add(row.folio);
-  else if (side === "COMPRA") sets.compras.add(row.folio);
-  else sets.ventas.add(row.folio);
+  if (importable === "GUIDE") {
+    sets.guias.add(row.folio);
+    return;
+  }
+  const mapa = side === "COMPRA" ? sets.compras : sets.ventas;
+  const clave = claveFolio(importable, row.folio);
+  const ruts = mapa.get(clave) ?? new Set<string>();
+  ruts.add(row.rut ? normalizeRut(row.rut) : "");
+  mapa.set(clave, ruts);
 }
 
 // Aviso legible cuando el SII no entregó el detalle de uno o más tipos.
@@ -198,6 +255,30 @@ function avisoIncompleto(rejectedTypes: readonly string[]): string | null {
   if (rejectedTypes.length === 0) return null;
   const tipos = rejectedTypes.map(Number).filter((n) => Number.isFinite(n)).join(", ");
   return `El SII no devolvió el detalle de ${rejectedTypes.length} tipo(s) de documento (${tipos}). Esos folios pueden faltar; reintenta la sincronización o revisa el RCV en el portal.`;
+}
+
+/**
+ * Aviso cuando el resumen del SII declara más documentos de los que trajo el
+ * detalle.
+ *
+ * El resumen es el agregado propio del SII del período; el detalle son las
+ * filas fila por fila. Si el primero dice 150 facturas y el segundo devuelve
+ * 148, hay dos que no llegaron — y ningún filtro de la app las cuenta como
+ * perdidas. Sin este cotejo, "no me trajo ciertas facturas" es indistinguible
+ * de "ya estaba todo al día".
+ */
+function avisoCotejo(cotejo: RcvCotejo | undefined): string | null {
+  if (!cotejo) return null;
+  if (cotejo.error) return `No se pudo cotejar con el resumen del SII: ${cotejo.error}`;
+
+  const faltantes = cotejo.tipos.filter((tipo) => tipo.recibido < tipo.declarado);
+  if (faltantes.length === 0) return null;
+
+  const detalle = faltantes
+    .map((tipo) => `${dteTipoLabel(tipo.tipoDoc)} (${tipo.tipoDoc}): declara ${tipo.declarado}, llegaron ${tipo.recibido}`)
+    .join("; ");
+  const total = faltantes.reduce((suma, tipo) => suma + (tipo.declarado - tipo.recibido), 0);
+  return `El resumen del SII declara ${total} documento(s) que no llegaron en el detalle: ${detalle}. Reintenta la sincronización; si sigue igual, revisa el RCV en el portal.`;
 }
 
 // --- Sesión (login desde la web) ------------------------------------------------
@@ -454,7 +535,10 @@ export async function previewRcvSync(_prev: RcvSyncState, formData: FormData): P
   try {
     const result = await fetchRcvRows({ companyId: ctx.company.id, companyRut, periodo, side });
     rows = result.rows;
-    advertencia = result.incomplete ? avisoIncompleto(result.rejectedTypes) ?? undefined : undefined;
+    advertencia =
+      [result.incomplete ? avisoIncompleto(result.rejectedTypes) : null, avisoCotejo(result.cotejo)]
+        .filter(Boolean)
+        .join(" ") || undefined;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -580,9 +664,11 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
   // 1. Consultar el RCV
   let rows: RcvRow[];
   let advertenciaRcv: string | undefined;
+  let cotejo: RcvCotejo | undefined;
   try {
     const result = await fetchRcvRows({ companyId: ctx.company.id, companyRut, periodo, side });
     rows = result.rows;
+    cotejo = result.cotejo;
     advertenciaRcv = result.incomplete ? avisoIncompleto(result.rejectedTypes) ?? undefined : undefined;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -631,12 +717,25 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     (row) => TIPOS_IMPORTABLES[row.tipoDoc] && esFolioExistente(row, side, foliosExistentes),
   ).length;
 
+  const faltanDelSii = avisoCotejo(cotejo);
+
   const diagnosticoBase =
     (tiposPedidos.length > 0
       ? `El SII devolvió ${rowsDelRcv.length} ${rowsDelRcv.length === 1 ? "documento" : "documentos"} del período (${desglosePorTipo(rowsDelRcv)}); de esos, ${rows.length} ${rows.length === 1 ? "corresponde" : "corresponden"} a los tipos pedidos. `
       : `SII devolvió ${rows.length} ${rows.length === 1 ? "documento" : "documentos"} (${desglosePorTipo(rows)}). `) +
     `${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con problemas.` +
-    (advertenciaRcv ? ` ${advertenciaRcv}` : "");
+    (advertenciaRcv ? ` ${advertenciaRcv}` : "") +
+    (faltanDelSii ? ` ${faltanDelSii}` : "");
+
+  // El diagnóstico se guarda SIEMPRE, no solo cuando entra algo: sin esto no se
+  // puede responder después por qué cierto folio no apareció (el mensaje de la
+  // pantalla se pierde al recargar y el resumen del SII tampoco queda).
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityId: `rcv-quick-${side.toLowerCase()}-${periodo}`,
+    entityType: side === "COMPRA" ? "Purchase" : "Sale",
+    summary: `${nuevas.length} nuevas. ${diagnosticoBase}`,
+  });
 
   if (nuevas.length === 0) {
     // Con filtro de tipos (la pantalla de Guías pide solo el 50), "0 nuevas"
@@ -649,6 +748,13 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
       titulo = `El SII no devolvió documentos para ${periodo}`;
     } else if (tiposPedidos.length > 0 && rows.length === 0) {
       titulo = `El RCV de ${periodo} no registra ${etiqueta}`;
+    }
+
+    // Si el resumen del SII declara documentos que no llegaron, no es "al día":
+    // hay folios faltando, y decir lo contrario esconde el problema.
+    if (faltanDelSii) {
+      await setFlash("error", `Faltan documentos del SII en ${periodo}`, diagnosticoBase);
+      redirect(destino);
     }
 
     await setFlash(
@@ -790,17 +896,14 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     }
   }
 
-  const diagnostico = `SII devolvió ${rows.length} documentos: ${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con problemas.` +
+  const diagnostico = `SII devolvió ${rows.length} ${rows.length === 1 ? "documento" : "documentos"} (${desglosePorTipo(rows)}): ${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con problemas.` +
     (notasVinculadas > 0 ? ` ${notasVinculadas} ${notasVinculadas === 1 ? "nota quedó vinculada" : "notas quedaron vinculadas"} a su factura o guía.` : "") +
-    (advertenciaRcv ? ` ${advertenciaRcv}` : "");
+    (advertenciaRcv ? ` ${advertenciaRcv}` : "") +
+    (faltanDelSii ? ` ${faltanDelSii}` : "");
 
+  // El registro del sync ya se escribió arriba con el diagnóstico completo
+  // (entra o no entre algo): aquí solo se refresca la pantalla y se avisa.
   if (imported > 0) {
-    await recordAudit(ctx, {
-      action: "CREATE",
-      entityId: `rcv-quick-${(side ?? "compra").toLowerCase()}`,
-      entityType: side === "COMPRA" ? "Purchase" : "Sale",
-      summary: `Sincronizó ${imported} ${etiqueta} del RCV del SII (período ${periodo}).`,
-    });
     revalidatePath(destino);
     revalidatePath("/facturas");
     await setFlash(

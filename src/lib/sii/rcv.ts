@@ -1,6 +1,7 @@
 import {
   authStatus,
   rcvListAll,
+  rcvSummary,
   type RcvDetalleAllDoc,
   type RcvSide,
 } from "@albertomarturelo/sii-core";
@@ -223,12 +224,36 @@ function projectDoc(doc: RcvDetalleAllDoc): RcvRow {
  * a nombre de otra") aunque sea su propio RUT. El override solo se usa con
  * cuentas persona que representan a varias empresas.
  */
+/**
+ * Cotejo entre lo que el SII DECLARA para un período (el resumen, que es su
+ * propio agregado) y lo que devolvió el detalle fila por fila.
+ *
+ * Es la única forma de detectar que faltan documentos: si el resumen dice que
+ * hay 150 facturas del mes y el detalle devuelve 148, hay dos que no llegaron,
+ * y ningún filtro de la app lo cuenta. Sin esto, una factura ausente es
+ * indistinguible de una bien importada.
+ */
+export type RcvCotejo = {
+  /** Por tipo de documento: cuántos declara el SII y cuántos trajo el detalle. */
+  tipos: { tipoDoc: number; declarado: number; recibido: number }[];
+  /** Totales del período que declara el SII, sumados sobre esos tipos. */
+  declarado: { neto: number; iva: number; total: number };
+  /** Si el resumen no se pudo leer, se avisa y el cotejo queda vacío. */
+  error: string | null;
+};
+
 export async function fetchRcvRows(input: {
   companyId: string;
   companyRut: string;
   periodo: string; // AAAA-MM
   side: RcvSide;
-}): Promise<{ rows: RcvRow[]; sessionRut: string; incomplete: boolean; rejectedTypes: readonly string[] }> {
+}): Promise<{
+  rows: RcvRow[];
+  sessionRut: string;
+  incomplete: boolean;
+  rejectedTypes: readonly string[];
+  cotejo: RcvCotejo;
+}> {
   const runtime = createAppRuntime(input.companyId);
 
   // ¿La sesión es la propia empresa o una persona que la representa?
@@ -236,18 +261,54 @@ export async function fetchRcvRows(input: {
   const sessionRut = status.rut ?? "";
   const mismaEmpresa =
     sessionRut !== "" && normalizeRut(sessionRut) === normalizeRut(input.companyRut);
+  const overrideRut = mismaEmpresa ? {} : { rut: input.companyRut };
 
   const result = await rcvListAll(runtime, {
     periodo: input.periodo,
     side: input.side,
-    ...(mismaEmpresa ? {} : { rut: input.companyRut }),
+    ...overrideRut,
   });
+
+  const rows = result.docs.map(projectDoc).filter((row) => row.folio !== "");
+
+  // El resumen se pide aparte: rcvListAll lo usa por dentro pero no lo expone.
+  // Es una sola petición más y da los conteos oficiales del SII.
+  let cotejo: RcvCotejo;
+  try {
+    const resumen = await rcvSummary(runtime, {
+      periodo: input.periodo,
+      side: input.side,
+      ...overrideRut,
+    });
+    const recibidos = new Map<number, number>();
+    for (const row of rows) recibidos.set(row.tipoDoc, (recibidos.get(row.tipoDoc) ?? 0) + 1);
+
+    const tipos: RcvCotejo["tipos"] = [];
+    const declarado = { neto: 0, iva: 0, total: 0 };
+    for (const fila of resumen.rows) {
+      const tipoDoc = Number(fila.codigoTipoDoc);
+      if (!Number.isFinite(tipoDoc)) continue;
+      tipos.push({ tipoDoc, declarado: fila.totalDocumentos ?? 0, recibido: recibidos.get(tipoDoc) ?? 0 });
+      declarado.neto += fila.montoNeto ?? 0;
+      declarado.iva += fila.montoIva ?? 0;
+      declarado.total += fila.montoTotal ?? 0;
+    }
+    cotejo = { tipos, declarado, error: null };
+  } catch (error) {
+    cotejo = {
+      tipos: [],
+      declarado: { neto: 0, iva: 0, total: 0 },
+      error: error instanceof Error ? error.message.split("\n")[0] : String(error),
+    };
+  }
+
   return {
-    rows: result.docs.map(projectDoc).filter((row) => row.folio !== ""),
+    rows,
     sessionRut: result.rut,
     // El SII puede rechazar el detalle de un tipo de documento (p. ej. exentas)
     // mientras devuelve el resto. Sin esto, esos folios desaparecían en silencio.
     incomplete: result.incomplete,
     rejectedTypes: result.rejectedTypes ?? [],
+    cotejo,
   };
 }
