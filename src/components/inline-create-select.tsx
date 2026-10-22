@@ -122,7 +122,7 @@ export function InlineCreateSelect({
               onClick={handleCreate}
               className="rounded-control bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {creating ? "Creando…" : "urar"}
+              {creating ? "Creando…" : "Crear"}
             </button>
           </div>
         </div>

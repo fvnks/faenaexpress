@@ -10,6 +10,7 @@ import {
   removeAssignment,
   type AttendanceFormState,
 } from "@/app/actions/schools";
+import { Disclosure } from "@/components/disclosure";
 import { SubmitButton } from "@/components/submit-button";
 import { controlClass, fieldClass, labelClass } from "@/lib/ui";
 
@@ -37,9 +38,7 @@ export function CourseForm({ anio }: { anio: number }) {
   }, [state]);
 
   return (
-    <details ref={panel} className="w-full max-w-md">
-      <summary className="cursor-pointer text-sm font-semibold text-primary">Nuevo curso</summary>
-
+    <Disclosure label="Nuevo curso" panelRef={panel} className="w-full max-w-md">
       <form ref={form} action={action} className="mt-3">
         <div className="flex flex-col gap-3">
           <div className={fieldClass}>
@@ -101,7 +100,7 @@ export function CourseForm({ anio }: { anio: number }) {
           </SubmitButton>
         </div>
       </form>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -119,11 +118,7 @@ export function SubjectForm() {
   }, [state]);
 
   return (
-    <details ref={panel} className="w-full max-w-md">
-      <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
-        Nueva asignatura
-      </summary>
-
+    <Disclosure label="Nueva asignatura" panelRef={panel} className="w-full max-w-md">
       <form ref={form} action={action} className="mt-3">
         <div className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-3">
@@ -165,7 +160,7 @@ export function SubjectForm() {
           </SubmitButton>
         </div>
       </form>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -209,11 +204,7 @@ export function AssignmentForm({
   }
 
   return (
-    <details ref={panel} className="w-full">
-      <summary className="cursor-pointer text-sm font-semibold text-primary">
-        Asignar asignatura
-      </summary>
-
+    <Disclosure label="Asignar asignatura" panelRef={panel} className="w-full">
       <form ref={form} action={action} className="mt-3">
         <input type="hidden" name="courseId" value={courseId} />
         <div className="flex flex-col gap-3">
@@ -280,7 +271,7 @@ export function AssignmentForm({
           </SubmitButton>
         </div>
       </form>
-    </details>
+    </Disclosure>
   );
 }
 

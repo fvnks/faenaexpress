@@ -10,6 +10,7 @@ import {
   withdrawStudent,
   type EnrollmentFormState,
 } from "@/app/actions/school-enrollment";
+import { Disclosure } from "@/components/disclosure";
 import { SubmitButton } from "@/components/submit-button";
 import { controlClass, fieldClass, labelClass } from "@/lib/ui";
 
@@ -46,9 +47,7 @@ export function EnrollForm({ cursos }: { cursos: Opcion[] }) {
   }
 
   return (
-    <details ref={panel} className="w-full max-w-md">
-      <summary className="cursor-pointer text-sm font-semibold text-primary">Matricular alumno</summary>
-
+    <Disclosure label="Matricular alumno" panelRef={panel} className="w-full max-w-md">
       <form ref={form} action={action} className="mt-3">
         <div className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -113,7 +112,7 @@ export function EnrollForm({ cursos }: { cursos: Opcion[] }) {
           </SubmitButton>
         </div>
       </form>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -147,11 +146,7 @@ export function MoveStudentForm({
   if (!cursoActual || cursos.length < 2) return null;
 
   return (
-    <details ref={panel} className="w-full max-w-md">
-      <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
-        Trasladar de curso
-      </summary>
-
+    <Disclosure label="Trasladar de curso" panelRef={panel} tone="secondary" className="w-full max-w-md">
       <form action={action} className="mt-3">
         <input type="hidden" name="studentId" value={studentId} />
         <input type="hidden" name="fromCourseId" value={cursoActual} />
@@ -204,7 +199,7 @@ export function MoveStudentForm({
           </SubmitButton>
         </div>
       </form>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -236,11 +231,7 @@ export function WithdrawStudentForm({
   if (!cursoActual) return null;
 
   return (
-    <details ref={panel} className="w-full max-w-md">
-      <summary className="cursor-pointer text-sm font-semibold text-danger">
-        Retirar del curso
-      </summary>
-
+    <Disclosure label="Retirar del curso" panelRef={panel} tone="danger" className="w-full max-w-md">
       <form action={action} className="mt-3">
         <input type="hidden" name="studentId" value={studentId} />
         <input type="hidden" name="courseId" value={cursoActual} />
@@ -272,7 +263,7 @@ export function WithdrawStudentForm({
           </SubmitButton>
         </div>
       </form>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -301,11 +292,12 @@ export function EnrollExistingForm({
   if (alumnos.length === 0 || cursos.length === 0) return null;
 
   return (
-    <details ref={panel} className="w-full max-w-md">
-      <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
-        Matricular un alumno que ya está aquí
-      </summary>
-
+    <Disclosure
+      label="Matricular un alumno que ya está aquí"
+      panelRef={panel}
+      tone="secondary"
+      className="w-full max-w-md"
+    >
       <form ref={form} action={action} className="mt-3">
         <div className="flex flex-col gap-3">
           <div className={fieldClass}>
@@ -346,6 +338,6 @@ export function EnrollExistingForm({
           </SubmitButton>
         </div>
       </form>
-    </details>
+    </Disclosure>
   );
 }
