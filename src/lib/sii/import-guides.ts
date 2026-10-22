@@ -69,16 +69,14 @@ export async function importarGuiaSii(params: {
     } else {
       // El mapa de terceros se armó al empezar la importación: un cliente
       // creado en otra parte (o en otro proceso) puede no estar. Se pregunta
-      // antes de crear, porque el RUT es único por empresa.
+      // antes de crear, porque el RUT es único por empresa. La consulta va por
+      // el RUT formateado, que es como se guarda: (companyId, rut) es único,
+      // así que a lo más hay una fila.
       const existente = rutNormalizado
         ? await db.partner.findFirst({
-            where: { companyId: params.companyId, rut: { not: null } },
-            select: { id: true, rut: true, name: true, type: true, salespersonId: true },
-          }).then(async (p) =>
-            p && normalizeRut(p.rut!) === rutNormalizado
-              ? ({ id: p.id, type: p.type, salespersonId: p.salespersonId } as PartnerInfo)
-              : null,
-          )
+            where: { companyId: params.companyId, rut: formatRut(rutNormalizado) },
+            select: { id: true, type: true, salespersonId: true },
+          })
         : null;
 
       if (existente) {

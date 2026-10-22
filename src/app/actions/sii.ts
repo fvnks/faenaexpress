@@ -125,6 +125,21 @@ function fechaDteISO(value: unknown): string | null {
   return match ? match[1] : null;
 }
 
+/**
+ * Fecha con la que se registra un documento del RCV.
+ *
+ * Para facturas y notas la fecha es obligatoria: sin ella no se puede determinar
+ * el período fiscal. Para las guías de despacho no: lo que importa es saber qué
+ * se despachó y a quién, y el SII puede traerles la fecha bajo un alias distinto
+ * (despacho en lugar de emisión). Perder una guía entera por eso sería peor que
+ * dejarla con el primer día del período y poder corregirla a mano después.
+ */
+function fechaDocumento(row: { tipoDoc: number; fecha: string }, periodo: string): string | null {
+  const propia = fechaDteISO(row.fecha);
+  if (propia) return propia;
+  return TIPOS_IMPORTABLES[row.tipoDoc] === "GUIDE" ? `${periodo}-01` : null;
+}
+
 type FoliosExistentes = {
   compras: Set<string>; // folio del documento de compra
   ventas: Set<string>; // folio del documento de venta (el emisor es la empresa)
@@ -605,7 +620,7 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
   const nuevas = rows.filter((row) => {
     if (!TIPOS_IMPORTABLES[row.tipoDoc]) return false;
     if (row.rut && rutsTrabajadores.has(normalizeRut(row.rut))) return false;
-    if (!fechaDteISO(row.fecha)) {
+    if (!fechaDocumento(row, periodo)) {
       fallos.push(`Folio ${row.folio}: fecha de emisión inválida (${row.fecha || "vacía"}).`);
       return false;
     }
@@ -663,7 +678,7 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     try {
       const importable = TIPOS_IMPORTABLES[row.tipoDoc];
       if (!importable) continue;
-      const fechaIso = fechaDteISO(row.fecha);
+      const fechaIso = fechaDocumento(row, periodo);
       if (!fechaIso) {
         fallos.push(`Folio ${folio}: fecha de emisión inválida (${row.fecha || "vacía"}).`);
         continue;
@@ -754,9 +769,13 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
 
       registrarFolio(foliosExistentes, row, side);
       imported += 1;
-    } catch {
-      // El resto sigue importándose; el conteo final refleja lo logrado.
-      fallos.push(`Folio ${folio}: no se pudo guardar.`);
+    } catch (error) {
+      // El resto sigue importándose; el conteo final refleja lo logrado. El
+      // error se muestra completo: sin él, un documento que no entra por una
+      // restricción (RUT duplicado, folio repetido…) es indistinguible de uno
+      // que el SII trajo mal, y no hay forma de saber qué arreglar.
+      const detalle = error instanceof Error ? error.message.split("\n")[0] : String(error);
+      fallos.push(`Folio ${folio}: no se pudo guardar. ${detalle}`);
     }
   }
 
@@ -842,7 +861,7 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
         errores.push(`Folio ${folio}: tipo ${dteTipoLabel(Number(row.tipoDoc))} no importable.`);
         continue;
       }
-      const fechaIso = fechaDteISO(row.fecha);
+      const fechaIso = fechaDocumento(row, periodo);
       if (!fechaIso) {
         errores.push(`Folio ${folio}: fecha de emisión inválida (${row.fecha || "vacía"}).`);
         continue;
