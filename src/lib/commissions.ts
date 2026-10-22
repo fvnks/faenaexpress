@@ -594,6 +594,8 @@ export async function computeCommission(
     return a.date.getTime() - b.date.getTime();
   });
 
+  ajustarRedondeoPorVendedor(lines);
+
   const totals = summarize(people, lines);
   const pending = await listPendingAssignments(companyId, period);
 
@@ -607,6 +609,37 @@ export async function computeCommission(
     pending: pending.rows,
     pendingTotal: pending.total,
   };
+}
+
+/**
+ * La comisión de un vendedor es sobre su base TOTAL: base × tasa, una sola
+ * vez. Es lo que hace el Excel del usuario (`=L2*0,02` sobre la base
+ * sumada).
+ *
+ * Si se redondea documento por documento y después se suman los redondeos, el
+ * total difiere en uno o dos pesos del que dice el Excel. Acá se redondea el
+ * total y la diferencia se le asigna al último documento, para que el detalle
+ * sume exactamente lo mismo que el resumen.
+ */
+function ajustarRedondeoPorVendedor(lines: CommissionLine[]): void {
+  const porVendedor = new Map<string, CommissionLine[]>();
+  for (const line of lines) {
+    const lista = porVendedor.get(line.salespersonId);
+    if (lista) lista.push(line);
+    else porVendedor.set(line.salespersonId, [line]);
+  }
+
+  for (const lista of porVendedor.values()) {
+    if (lista.length === 0) continue;
+    const base = lista.reduce((acc, line) => acc + line.base, 0);
+    const suma = lista.reduce((acc, line) => acc + line.commission, 0);
+    const tasa = lista[0].rateBps;
+    const objetivo = Math.round((base * tasa) / 10_000);
+    const diferencia = objetivo - suma;
+    if (diferencia !== 0) {
+      lista[lista.length - 1].commission += diferencia;
+    }
+  }
 }
 
 function summarize(

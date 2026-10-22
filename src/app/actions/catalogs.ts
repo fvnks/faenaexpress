@@ -175,7 +175,13 @@ export async function updateSalesperson(
   });
   if (clash && clash.id !== id) return { error: "Ya existe un vendedor con ese nombre." };
 
-  await db.salesperson.update({ where: { id, companyId: ctx.company.id }, data: parsed.data });
+  // La tasa NO se toca acá: es de Comisiones → Vendedores. Si se actualizara con
+  // el valor por omisión del schema, cada edición en Catálogos dejaría al
+  // vendedor sin comisión.
+  await db.salesperson.update({
+    where: { id, companyId: ctx.company.id },
+    data: { name: parsed.data.name, active: parsed.data.active },
+  });
   await recordAudit(ctx, {
     action: "UPDATE",
     entityType: "Salesperson",

@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { canWrite, requireContext } from "@/lib/auth";
+import { computeCommission } from "@/lib/commissions";
 import { db } from "@/lib/db";
+import { currentPeriod } from "@/lib/money";
 import { cardClass } from "@/lib/ui";
 import { RatesEditor, type RateRow } from "../commission-actions";
 import { CommissionNav } from "../commission-shell";
@@ -28,6 +30,12 @@ export default async function SalespeoplePage() {
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
 
+  // La base neta del mes en curso de cada vendedor: permite ver, al cambiar la
+  // tasa, cuánto sale con ella. Es lo que evita confundir 2% con 0,02%.
+  const periodo = currentPeriod();
+  const reporte = await computeCommission(ctx.company.id, periodo);
+  const baseDe = new Map(reporte.totals.map((row) => [row.salespersonId, row.base]));
+
   const rows: RateRow[] = people.map((person) => ({
     id: person.id,
     name: person.name,
@@ -36,6 +44,7 @@ export default async function SalespeoplePage() {
       maximumFractionDigits: 2,
     }),
     rule: person.commissionRule,
+    base: baseDe.get(person.id) ?? 0,
   }));
 
   return (

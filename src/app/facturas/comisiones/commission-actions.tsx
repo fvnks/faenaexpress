@@ -465,6 +465,8 @@ export type RateRow = {
   active: boolean;
   ratePercent: string; // "2,5"
   rule: "INVOICE" | "GUIDE";
+  /** La base neta del período en curso, para ver cuánto sale con esa tasa. */
+  base: number;
 };
 
 export function RatesEditor({ rows }: { rows: RateRow[] }) {
@@ -505,6 +507,9 @@ function RateRowForm({ row, onSaved }: { row: RateRow; onSaved: () => void }) {
     saveSalespersonCommission,
     undefined,
   );
+  // Lo que el usuario escribe, para ver al tiro cuánto sale con esa tasa: es
+  // la forma de que nadie confunda 2% con 0,02%.
+  const [porcentaje, setPorcentaje] = useState(row.ratePercent);
 
   useEffect(() => {
     if (!state) return;
@@ -518,6 +523,17 @@ function RateRowForm({ row, onSaved }: { row: RateRow; onSaved: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
+  const tasa = Number(String(porcentaje).replace(/\s/g, "").replace(",", "."));
+  const vistaPrevia =
+    Number.isFinite(tasa) && tasa > 0 && row.base > 0
+      ? Math.round((row.base * tasa) / 100)
+      : null;
+  // Una tasa de 0,02% sobre una base grande da una comisión ridícula. Casi
+  // siempre es que se quiso escribir 2 (2%) y no 0,02 (0,02%): el Excel del
+  // usuario multiplica por la fracción, no por el porcentaje.
+  const tasaSospechosa =
+    vistaPrevia !== null && tasa > 0 && tasa < 0.1 && row.base >= 1_000_000;
+
   return (
     <form
       action={formAction}
@@ -529,17 +545,29 @@ function RateRowForm({ row, onSaved }: { row: RateRow; onSaved: () => void }) {
         {!row.active && <div className="text-xs text-muted-foreground">Inactivo</div>}
       </div>
 
-      <div className={fieldClass + " w-32"}>
+      <div className={fieldClass + " w-36"}>
         <label htmlFor={`rate-${row.id}`} className={labelClass}>
           Porcentaje
         </label>
-        <input
-          id={`rate-${row.id}`}
-          name="commissionRate"
-          inputMode="decimal"
-          defaultValue={row.ratePercent}
-          className={controlClass + " tabular"}
-        />
+        <div className="relative">
+          <input
+            id={`rate-${row.id}`}
+            name="commissionRate"
+            inputMode="decimal"
+            value={porcentaje}
+            onChange={(e) => setPorcentaje(e.target.value)}
+            className={controlClass + " tabular pr-8"}
+          />
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+            %
+          </span>
+        </div>
+        {vistaPrevia !== null ? (
+          <p className={tasaSospechosa ? "text-xs text-danger" : "text-xs text-muted-foreground"}>
+            Sobre {formatCLP(row.base)} de base son {formatCLP(vistaPrevia)}
+            {tasaSospechosa ? " · si querías 2%, escribe 2" : ""}
+          </p>
+        ) : null}
       </div>
 
       <div className={fieldClass + " w-52"}>
