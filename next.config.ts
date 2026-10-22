@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "25mb",
     },
+    // Aplica solo los upgrades de seguridad de Next.js, sin los de función.
+    agentUpgrade: "security",
   },
   turbopack: {
     rules: {
