@@ -60,7 +60,12 @@ export async function issueGuardianCode(
   // es el mismo secreto, y si cambió es porque hay que cortar el acceso.
   await db.guardianSession.deleteMany({ where: { guardianId } });
 
-  revalidatePath(`/colegios/estudiantes/${String(formData.get("studentId") ?? "")}`);
+  // Se emite desde la ficha del alumno o desde la pantalla de apoderados del
+  // colegio: hay que refrescar las dos, porque el código se ve en las dos.
+  const studentId = String(formData.get("studentId") ?? "").trim();
+  if (studentId) revalidatePath(`/colegios/estudiantes/${studentId}`);
+  revalidatePath("/colegios/apoderados");
+
   return { ok: true, codigo };
 }
 

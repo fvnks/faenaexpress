@@ -205,7 +205,7 @@ export default async function EstudiantePage({
               id: g.guardian.id,
               nombre: g.guardian.name,
               tipo: g.type,
-              tieneCodigo: g.guardian.accessCode !== null,
+              codigo: g.guardian.accessCode,
             }))}
             disponibles={apoderadosDelColegio
               .filter((g) => !vinculadas.has(g.id))

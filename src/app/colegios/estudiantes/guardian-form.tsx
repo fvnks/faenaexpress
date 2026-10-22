@@ -17,8 +17,8 @@ type Apoderado = {
   id: string;
   nombre: string;
   tipo: string;
-  /** Si ya tiene un código de acceso al portal. */
-  tieneCodigo: boolean;
+  /** El código de acceso al portal, si ya se emitió. */
+  codigo: string | null;
 };
 
 /**
@@ -68,7 +68,7 @@ export function GuardianForms({
                     studentId={studentId}
                     guardianId={a.id}
                     nombre={a.nombre}
-                    tieneCodigo={a.tieneCodigo}
+                    codigo={a.codigo}
                   />
                 ) : null}
                 {puedeEditar ? (
@@ -252,19 +252,19 @@ function LinkGuardianForm({
  * Emite (o rota) el código de acceso al portal de un apoderado.
  *
  * El código se lo lleva la familia a la casa: el colegio se lo entrega en
- * persona. Por eso el código se muestra en pantalla apenas se genera, para
- * anotarlo, y no se guarda en texto plano en ninguna parte.
+ * persona. Por eso el código vigente se muestra en pantalla, para anotarlo o
+ * dictarlo por teléfono, y no solo el que se acaba de generar.
  */
 function IssueCodeButton({
   studentId,
   guardianId,
   nombre,
-  tieneCodigo,
+  codigo,
 }: {
   studentId: string;
   guardianId: string;
   nombre: string;
-  tieneCodigo: boolean;
+  codigo: string | null;
 }) {
   const [state, action] = useActionState<PortalFormState, FormData>(
     issueGuardianCode,
@@ -275,12 +275,14 @@ function IssueCodeButton({
     if (state?.ok) toast.success(`Código generado para ${nombre}`);
   }, [state, nombre]);
 
+  const vigente = state?.codigo ?? codigo;
+
   return (
     <span className="inline-flex items-center gap-2">
-      {state?.codigo ? (
-        <span className="rounded-control border border-primary bg-primary-soft px-2 py-0.5 font-mono text-xs font-semibold tracking-widest text-primary">
-          {state.codigo}
-        </span>
+      {vigente ? (
+        <code className="tabular rounded-control border border-primary bg-primary-soft px-2 py-0.5 font-mono text-xs font-semibold tracking-widest text-primary">
+          {vigente}
+        </code>
       ) : null}
       <form action={action} className="inline">
         <input type="hidden" name="guardianId" value={guardianId} />
@@ -289,12 +291,12 @@ function IssueCodeButton({
           type="submit"
           className="text-xs text-muted-foreground underline underline-offset-2 hover:text-primary"
           title={
-            tieneCodigo
+            vigente
               ? "Genera un código nuevo y corta el acceso del anterior"
               : "Genera el código de acceso al portal para esta familia"
           }
         >
-          {tieneCodigo ? "Rotar código" : "Dar acceso al portal"}
+          {vigente ? "Rotar código" : "Dar acceso al portal"}
         </button>
       </form>
     </span>

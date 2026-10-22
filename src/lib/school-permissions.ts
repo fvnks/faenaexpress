@@ -17,6 +17,7 @@ import type { SchoolLevel, SchoolRole } from "@/generated/prisma/client";
 export const schoolSections = [
   "panel",
   "estudiantes",
+  "apoderados",
   "cursos",
   "docentes",
   "asistencia",
@@ -36,6 +37,8 @@ export type SchoolSection = (typeof schoolSections)[number];
 const ACCESS: Record<SchoolSection, readonly SchoolRole[]> = {
   panel: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "STAFF", "VIEWER"],
   estudiantes: ["DIRECTOR", "UTP", "ADMIN", "VIEWER"],
+  // El acceso de las familias: el código del portal se ve y se emite acá.
+  apoderados: ["DIRECTOR", "UTP", "ADMIN", "VIEWER"],
   cursos: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "VIEWER"],
   docentes: ["DIRECTOR", "UTP", "ADMIN", "VIEWER"],
   // La asistencia la registra el docente; el resto la ve pero no la escribe.
@@ -59,6 +62,8 @@ const ACCESS: Record<SchoolSection, readonly SchoolRole[]> = {
 const WRITE: Record<SchoolSection, readonly SchoolRole[]> = {
   panel: [],
   estudiantes: ["DIRECTOR", "UTP", "ADMIN"],
+  // Emitir y rotar el código de acceso es de la secretaría y la dirección.
+  apoderados: ["DIRECTOR", "UTP", "ADMIN"],
   cursos: ["DIRECTOR", "UTP", "ADMIN"],
   docentes: ["DIRECTOR", "UTP", "ADMIN"],
   asistencia: ["DIRECTOR", "UTP", "TEACHER", "STAFF"],
