@@ -48,7 +48,8 @@ export function dteTipoLabel(tipo: number): string {
     case 34: return "Factura exenta";
     case 39: return "Boleta electrónica";
     case 41: return "Boleta exenta";
-    case 52: return "Guía de despacho";
+    case 50: return "Guía de despacho";
+    case 52: return "Nota de débito";
     case 56: return "Nota de débito";
     case 61: return "Nota de crédito";
     default: return `Tipo ${tipo}`;
@@ -60,7 +61,8 @@ const TIPOS_OMITIDOS: Record<number, string> = {
   61: "Nota de crédito (se omite según configuración)",
   39: "Boleta electrónica",
   41: "Boleta exenta",
-  52: "Guía de despacho",
+  50: "Guía de despacho",
+  52: "Nota de débito",
 };
 
 // null = el tipo se importa; string = motivo por el que se omite.

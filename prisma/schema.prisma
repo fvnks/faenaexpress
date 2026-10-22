@@ -1532,6 +1532,9 @@ model Sale {
   createdBy   User         @relation("SaleCreatedBy", fields: [createdById], references: [id])
   items       SaleItem[]
 
+  // Las guías de despacho que despachan esta venta.
+  dispatchGuides DispatchGuide[]
+
   bankReconciliations  Reconciliation[]
   payments             Payment[]
 
@@ -1711,6 +1714,10 @@ model DispatchGuide {
   salespersonId  String? // vendedor que cobra por esta guía; null si se trajo del RCV de compra (el emisor es el proveedor)
   netAmount      Int      // neto de la guía, en pesos
   note           String?  // observación opcional (ej: motivo del arrastre)
+  // La factura de venta que esta guía despacha. Una factura puede tener varias
+  // guías (despachos parciales) y una guía puede no tener factura (aún no se
+  // emitió, o el despacho no se relacionó).
+  saleId         String?
 
   createdById String
   createdAt   DateTime @default(now())
@@ -1722,10 +1729,14 @@ model DispatchGuide {
   createdBy     User                  @relation("DispatchGuideCreatedBy", fields: [createdById], references: [id])
   assignment    CommissionAssignment?
   entries       CommissionEntry[]
+  // La venta que la guía despacha (cuando se trajo del SII y se pudo
+  // relacionar con su factura).
+  sale          Sale?                 @relation(fields: [saleId], references: [id], onDelete: SetNull)
 
   @@unique([companyId, guideNumber])
   @@index([companyId, date])
   @@index([companyId, salespersonId])
+  @@index([saleId])
 }
 
 model Expense {

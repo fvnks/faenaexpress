@@ -16,6 +16,7 @@ import { dteTipoLabel } from "@/lib/labels";
 import { ensurePartnerRole } from "@/lib/partners";
 import { formatRut, isValidRut, normalizeRut } from "@/lib/rut";
 import { fetchRcvRows, type RcvRow } from "@/lib/sii/rcv";
+import { importarGuiaSii, type PartnerInfo } from "@/lib/sii/import-guides";
 import { createAppRuntime } from "@/lib/sii/runtime";
 import {
   encryptSiiClave,
@@ -51,8 +52,8 @@ export type RcvConfirmState = {
 const TIPOS_IMPORTABLES: Record<number, "INVOICE" | "DEBIT_NOTE" | "CREDIT_NOTE" | "GUIDE"> = {
   33: "INVOICE", // factura electrónica
   34: "INVOICE", // factura exenta
-  52: "GUIDE", // guía de despacho
-  56: "DEBIT_NOTE", // nota de débito
+  50: "GUIDE", // guía de despacho
+  52: "DEBIT_NOTE", // nota de débito
   61: "CREDIT_NOTE", // nota de crédito
 };
 
@@ -562,7 +563,6 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     where: { companyId: ctx.company.id },
     select: { id: true, name: true, rut: true, type: true, salespersonId: true },
   });
-  type PartnerInfo = { id: string; type: PartnerType; salespersonId: string | null };
   const partnerPorRut = new Map<string, PartnerInfo>();
   const partnerPorNombre = new Map<string, PartnerInfo>();
   for (const partner of partners) {
@@ -613,19 +613,19 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
       const fecha = new Date(`${fechaIso}T00:00:00.000Z`);
 
       // Las guías de despacho no son facturas ni compras: se guardan como
-      // DispatchGuide, sin vendedor (el RCV no indica quién despachó). Después
-      // se asignan a un mes de comisión en Comisiones → Asignaciones.
+      // DispatchGuide, sin vendedor (el RCV no indica quién despachó), y se
+      // enlazan con la factura de venta que despachan. Después se asignan a un
+      // mes de comisión en Comisiones → Asignaciones.
       if (importable === "GUIDE") {
-        await db.dispatchGuide.create({
-          data: {
-            companyId: ctx.company.id,
-            guideNumber: folio,
-            date: fecha,
-            partnerId,
-            netAmount: Math.max(0, Math.round(Number(row.neto) || 0)),
-            note: row.evento ? `RCV SII: ${row.evento}` : `RCV SII ${periodo}`,
-            createdById: ctx.user.id,
-          },
+        await importarGuiaSii({
+          companyId: ctx.company.id,
+          userId: ctx.user.id,
+          row,
+          folio,
+          fecha,
+          periodo,
+          partnerPorRut,
+          partnerPorNombre,
         });
       } else {
         const base = {
@@ -717,7 +717,6 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
     where: { companyId: ctx.company.id },
     select: { id: true, name: true, rut: true, type: true, salespersonId: true },
   });
-  type PartnerInfo = { id: string; type: PartnerType; salespersonId: string | null };
   const partnerPorRut = new Map<string, PartnerInfo>();
   const partnerPorNombre = new Map<string, PartnerInfo>();
   for (const partner of partners) {
@@ -780,19 +779,19 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
       const fecha = new Date(`${fechaIso}T00:00:00.000Z`);
 
       // Las guías de despacho no son facturas ni compras: se guardan como
-      // DispatchGuide, sin vendedor (el RCV no indica quién despachó). Después
-      // se asignan a un mes de comisión en Comisiones → Asignaciones.
+      // DispatchGuide, sin vendedor (el RCV no indica quién despachó), y se
+      // enlazan con la factura de venta que despachan. Después se asignan a un
+      // mes de comisión en Comisiones → Asignaciones.
       if (importable === "GUIDE") {
-        await db.dispatchGuide.create({
-          data: {
-            companyId: ctx.company.id,
-            guideNumber: folio,
-            date: fecha,
-            partnerId,
-            netAmount: Math.max(0, Math.round(Number(row.neto) || 0)),
-            note: row.evento ? `RCV SII: ${row.evento}` : `RCV SII ${periodo}`,
-            createdById: ctx.user.id,
-          },
+        await importarGuiaSii({
+          companyId: ctx.company.id,
+          userId: ctx.user.id,
+          row,
+          folio,
+          fecha,
+          periodo,
+          partnerPorRut,
+          partnerPorNombre,
         });
       } else {
         const base = {

@@ -44,11 +44,110 @@ export type RcvRow = {
   evento: string | null;
   purchaseOrder: string | null; // OC (Orden de Compra) extraída del raw
   hesNumber: string | null; // HES (Orden de Servicio) extraída del raw
+  /** Con quién se despacha (una guía la emite la empresa y la recibe el cliente). */
+  receptorRut: string | null;
+  receptorNombre: string | null;
+  /** El documento que la guía despacha: su tipo y su folio. */
+  documentoRelacionadoTipo: number | null;
+  documentoRelacionadoFolio: string | null;
   raw?: Record<string, unknown>; // para depuración: todos los campos del SII
 };
 
 function toInt(value: number | null): number {
   return value ?? 0;
+}
+
+/** Busca el primer valor presente entre varios nombres de campo del SII. */
+function primeroDe(raw: Record<string, unknown>, claves: string[]): unknown {
+  for (const clave of claves) {
+    const valor = raw[clave];
+    if (valor !== null && valor !== undefined && valor !== "") return valor;
+  }
+  return undefined;
+}
+
+function aTexto(valor: unknown): string | null {
+  if (valor === null || valor === undefined || valor === "") return null;
+  return String(valor).trim() || null;
+}
+
+function aNumero(valor: unknown): number | null {
+  if (valor === null || valor === undefined || valor === "") return null;
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * El receptor del documento: con quién se despacha.
+ *
+ * En una factura de venta es el cliente, y el SII lo trae en los mismos
+ * campos que el resto. En una guía de despacho el emisor es la empresa y el
+ * receptor es el cliente: por eso se busca con alias propios de guía y, si no
+ * aparecen, se cae al emisor de la fila.
+ */
+function extractReceptor(raw: Record<string, unknown>, fallbackRut: string, fallbackNombre: string) {
+  const rut = aTexto(
+    primeroDe(raw, [
+      "detRutRec",
+      "detRutReceptor",
+      "detRutRecDoc",
+      "rutReceptor",
+      "rutRec",
+      "detRutDoc",
+      "detRutEmisor",
+    ]),
+  );
+  const nombre = aTexto(
+    primeroDe(raw, [
+      "detRznSocRec",
+      "detRznSocReceptor",
+      "detRznSocRecDoc",
+      "razonSocialReceptor",
+      "rznSocRec",
+      "detRznSoc",
+    ]),
+  );
+  return {
+    receptorRut: rut ?? (fallbackRut ? fallbackRut : null),
+    receptorNombre: nombre ?? (fallbackNombre ? fallbackNombre : null),
+  };
+}
+
+/**
+ * El documento que la guía despacha.
+ *
+ * La guía de despacho (tipo 50) viene en el RCV con el tipo y el folio del
+ * documento que se está despachando. Con eso se puede enlazar la guía con su
+ * factura de venta.
+ */
+function extractDocumentoRelacionado(raw: Record<string, unknown>) {
+  const tipo = aNumero(
+    primeroDe(raw, [
+      "detTipoDocAso",
+      "detTipoDocRel",
+      "detTipoDocumentoAsociado",
+      "tipoDocAsociado",
+      "tipoDocumentoAsociado",
+      "detTipoDTE",
+      "detCodTipoDoc",
+      "codTipoDoc",
+      "tipoDocAso",
+    ]),
+  );
+  const folio = aTexto(
+    primeroDe(raw, [
+      "detNroDocAso",
+      "detNroDocRel",
+      "detNroDocumentoAsociado",
+      "nroDocAsociado",
+      "nroDocumentoAsociado",
+      "detFolioAso",
+      "folioDoc",
+      "detFolioDoc",
+      "nroDocAso",
+    ]),
+  );
+  return { documentoRelacionadoTipo: tipo, documentoRelacionadoFolio: folio };
 }
 
 /**
@@ -92,11 +191,15 @@ function soloFecha(value: string): string {
 
 function projectDoc(doc: RcvDetalleAllDoc): RcvRow {
   const raw = doc.raw as Record<string, unknown>;
+  const rut = doc.rutEmisor ?? "";
+  const nombre = doc.razonSocial ?? "(sin razón social)";
+  const receptor = extractReceptor(raw, rut, nombre);
+  const relacionado = extractDocumentoRelacionado(raw);
   return {
     tipoDoc: Number(doc.codigoTipoDoc) || 0,
     folio: doc.folio !== null ? String(doc.folio) : "",
-    rut: doc.rutEmisor ?? "",
-    nombre: doc.razonSocial ?? "(sin razón social)",
+    rut,
+    nombre,
     fecha: soloFecha(doc.fechaEmision ?? ""),
     // El exento entra al neto: no da crédito fiscal pero es parte del costo/venta.
     neto: toInt(doc.montoNeto) + toInt(doc.montoExento),
@@ -105,6 +208,8 @@ function projectDoc(doc: RcvDetalleAllDoc): RcvRow {
     evento: doc.eventoReceptorLeyenda ?? doc.eventoReceptor,
     purchaseOrder: extractPurchaseOrder(raw),
     hesNumber: extractHesNumber(raw),
+    ...receptor,
+    ...relacionado,
     raw,
   };
 }

@@ -347,7 +347,18 @@ export function RcvImportForm({
                     <td className="tabular whitespace-nowrap px-3 py-2 align-top font-medium">{row.folio}</td>
                     <td className="tabular whitespace-nowrap px-3 py-2 align-top">{formatDate(new Date(row.fecha + "T00:00:00.000Z"))}</td>
                     <td className="max-w-[16rem] px-3 py-2 align-top">
-                      <span className="block truncate font-medium">{row.nombre}</span>
+                      <span className="block truncate font-medium">
+                        {/* En una guía la empresa emite y el cliente recibe: el
+                            tercero es el receptor, no el emisor. */}
+                        {row.tipoDoc === 50
+                          ? (row.receptorNombre ?? row.nombre)
+                          : row.nombre}
+                      </span>
+                      {row.tipoDoc === 50 && row.documentoRelacionadoFolio ? (
+                        <span className="block text-xs text-muted-foreground">
+                          Despacha la factura N° {row.documentoRelacionadoFolio}
+                        </span>
+                      ) : null}
                       {row.mensaje ? (
                         <span className="block text-xs text-muted-foreground">{row.mensaje}</span>
                       ) : null}

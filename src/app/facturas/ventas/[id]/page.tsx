@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { deleteSale, markSalePaid, markSalePending } from "@/app/actions/sales";
 import { backfillSaleItemsFromXml } from "@/app/actions/dte";
@@ -201,6 +202,35 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
               <dd>{sale.createdBy.name}</dd>
             </div>
           </dl>
+        </section>
+
+        <section className={cardClass + " flex flex-col gap-3 p-5"}>
+          <h2 className="font-semibold">Guías de despacho</h2>
+          {sale.dispatchGuides.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Esta venta todavía no tiene ninguna guía de despacho relacionada. Se relacionan
+              desde{" "}
+              <Link
+                href="/facturas/ventas/guias"
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                Ventas → Guías de Despacho
+              </Link>
+              .
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {sale.dispatchGuides.map((guia) => (
+                <li key={guia.id} className="flex items-center justify-between gap-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium">N° {guia.guideNumber}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(guia.date)}</p>
+                  </div>
+                  <p className="tabular text-sm font-semibold">{formatCLP(guia.netAmount)}</p>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className={cardClass + " flex flex-col gap-3 p-5"}>

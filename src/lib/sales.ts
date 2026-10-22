@@ -291,6 +291,12 @@ export async function getSale(companyId: string, id: string) {
         include: { movement: { include: { account: { select: { label: true, bankId: true } } } } },
       },
       items: { orderBy: { position: "asc" }, include: { product: { select: { id: true, name: true, sku: true } } } },
+      // Las guías de despacho que despachan esta venta (traídas del SII o
+      // relacionadas a mano).
+      dispatchGuides: {
+        orderBy: { date: "asc" },
+        select: { id: true, guideNumber: true, date: true, netAmount: true },
+      },
     },
   });
 }
