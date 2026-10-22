@@ -5,6 +5,7 @@ import {
   ResolveJustificationButton,
 } from "@/app/colegios/comunicacion/communication-forms";
 import { db } from "@/lib/db";
+import { todayISO } from "@/lib/money";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { bandejaPendientes, circularesConAcuses } from "@/lib/school-communication";
 import { cardClass } from "@/lib/ui";
@@ -67,6 +68,7 @@ export default async function ComunicacionPage() {
                 nombre: `${a.firstName} ${a.lastName}`,
               }))}
               familias={familias.map((g) => ({ id: g.id, nombre: g.name }))}
+              hoy={todayISO()}
             />
           </div>
         </section>
@@ -135,6 +137,7 @@ export default async function ComunicacionPage() {
                             month: "2-digit",
                             hour: "2-digit",
                             minute: "2-digit",
+                            timeZone: "UTC",
                           })}
                           {c.guardian ? ` · ${c.guardian.name}` : ""}
                         </p>

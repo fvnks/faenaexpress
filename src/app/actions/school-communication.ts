@@ -170,13 +170,15 @@ export async function createAppointment(
   const guardianId = texto(formData, "guardianId") || null;
   const title = texto(formData, "title");
   const reason = texto(formData, "reason");
-  const scheduledAt = texto(formData, "scheduledAt");
+  const fechaTexto = texto(formData, "date");
+  const horaTexto = texto(formData, "time");
   const durationMin = Number(formData.get("durationMin") ?? 30);
   const place = texto(formData, "place");
 
   if (!studentId) return { error: "Elige el alumno." };
   if (title.length < 3) return { error: "El motivo de la citación es obligatorio." };
-  if (!scheduledAt) return { error: "Elige la fecha y hora." };
+  if (!fechaTexto) return { error: "Elige la fecha." };
+  if (!horaTexto) return { error: "Elige la hora." };
   if (!Number.isFinite(durationMin) || durationMin < 10 || durationMin > 240) {
     return { error: "La duración va de 10 a 240 minutos." };
   }
@@ -195,8 +197,17 @@ export async function createAppointment(
     if (!apoderado) return { error: "Esa familia no es de este colegio." };
   }
 
-  const fecha = new Date(`${scheduledAt.length === 10 ? scheduledAt : scheduledAt.replace(" ", "T")}:00`);
-  if (Number.isNaN(fecha.getTime())) return { error: "La fecha no es válida." };
+  // La fecha llega como AAAA-MM-DD (el normalizador de fechas la convierte de
+  // DD-MM-AAAA) y la hora como HH:MM. Se guardan en UTC, igual que el resto
+  // de las fechas del dominio, para que la hora que ve la secretaría sea
+  // siempre la que escribió.
+  const fecha = new Date(`${fechaTexto}T${horaTexto}:00.000Z`);
+  if (Number.isNaN(fecha.getTime())) {
+    return { error: "La fecha o la hora no son válidas." };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaTexto) || !/^\d{2}:\d{2}$/.test(horaTexto)) {
+    return { error: "La fecha o la hora no son válidas." };
+  }
 
   await db.appointment.create({
     data: {

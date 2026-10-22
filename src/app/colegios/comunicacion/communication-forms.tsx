@@ -233,9 +233,12 @@ export function DeleteCircularButton({ circularId }: { circularId: string }) {
 export function AppointmentForm({
   alumnos,
   familias,
+  hoy,
 }: {
   alumnos: Opcion[];
   familias: Opcion[];
+  /** El día de hoy, para que la fecha venga puesta. */
+  hoy: string;
 }) {
   const [state, action] = useActionState<CommunicationFormState, FormData>(
     createAppointment,
@@ -301,18 +304,34 @@ export function AppointmentForm({
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={fieldClass}>
-            <label htmlFor="apptWhen" className={labelClass}>
-              Cuándo
+            <label htmlFor="apptDate" className={labelClass}>
+              Fecha
             </label>
             <input
-              id="apptWhen"
-              name="scheduledAt"
+              id="apptDate"
+              name="date"
               type="text"
+              data-date="1"
+              pattern="^\d{2}-\d{2}-\d{4}$"
+              placeholder="DD-MM-AAAA"
               required
-              placeholder="DD-MM-AAAA HH:MM"
+              defaultValue={hoy}
               className={controlClass}
+            />
+          </div>
+          <div className={fieldClass}>
+            <label htmlFor="apptTime" className={labelClass}>
+              Hora
+            </label>
+            <input
+              id="apptTime"
+              name="time"
+              type="time"
+              required
+              defaultValue="09:00"
+              className={controlClass + " tabular"}
             />
           </div>
           <div className={fieldClass}>

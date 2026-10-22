@@ -218,6 +218,7 @@ export function PortalAppointments({ citas }: { citas: Cita[] }) {
               month: "2-digit",
               hour: "2-digit",
               minute: "2-digit",
+              timeZone: "UTC",
             })}{" "}
             · {c.durationMin} min
             {c.place ? ` · ${c.place}` : ""}
