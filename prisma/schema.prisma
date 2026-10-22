@@ -1488,6 +1488,13 @@ model Sale {
   documentType         DocumentType   @default(INVOICE)
   documentNumber       String?
   referenceDocumentNumber String? // folio del documento original en notas de crédito/débito
+
+  // El documento real que esta nota ajusta: una factura/guía nuestra.
+  // `referenceDocumentNumber` guarda el folio tal como vino del SII (texto);
+  // estos campos guardan el vínculo a nuestro registro, que es lo que permite
+  // saber qué factura o guía devuelve o complementa cada nota.
+  relatedSaleId        String?
+  relatedGuideId       String?
   purchaseOrder        String?
   dispatchGuide        String?
   hesNumber            String?
@@ -1542,8 +1549,17 @@ model Sale {
   commissionAssignment CommissionAssignment?
   commissionEntries    CommissionEntry[]
 
+  // Notas de crédito/débito: cada nota apunta al documento que ajusta (una
+  // factura o una guía), y el documento sabe qué notas lo afectan (así la
+  // ficha de la factura muestra sus NC/ND y sus guías).
+  relatedSale    Sale? @relation("SaleRelatedSale", fields: [relatedSaleId], references: [id], onDelete: SetNull)
+  relatedNotes   Sale[] @relation("SaleRelatedSale")
+  relatedGuide   DispatchGuide? @relation("GuideRelatedNotes", fields: [relatedGuideId], references: [id], onDelete: SetNull)
+
   @@unique([companyId, documentNumber])
   @@index([companyId, date])
+  @@index([companyId, relatedSaleId])
+  @@index([companyId, relatedGuideId])
   @@index([companyId, partnerId])
   @@index([companyId, status])
   @@index([companyId, categoryId])
@@ -1732,6 +1748,8 @@ model DispatchGuide {
   // La venta que la guía despacha (cuando se trajo del SII y se pudo
   // relacionar con su factura).
   sale          Sale?                 @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  // Las notas de crédito/débito que ajustan esta guía.
+  relatedNotes  Sale[]                @relation("GuideRelatedNotes")
 
   @@unique([companyId, guideNumber])
   @@index([companyId, date])

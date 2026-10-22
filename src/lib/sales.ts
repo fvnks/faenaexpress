@@ -297,6 +297,17 @@ export async function getSale(companyId: string, id: string) {
         orderBy: { date: "asc" },
         select: { id: true, guideNumber: true, date: true, netAmount: true },
       },
+      // Las notas de crédito/débito que ajustan este documento.
+      relatedNotes: {
+        orderBy: { date: "asc" },
+        select: {
+          id: true,
+          documentNumber: true,
+          documentType: true,
+          date: true,
+          totalAmount: true,
+        },
+      },
     },
   });
 }

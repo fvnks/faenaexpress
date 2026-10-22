@@ -233,6 +233,26 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
           )}
         </section>
 
+        {sale.relatedNotes.length > 0 ? (
+          <section className={cardClass + " flex flex-col gap-3 p-5"}>
+            <h2 className="font-semibold">Notas que ajustan este documento</h2>
+            <ul className="divide-y divide-border">
+              {sale.relatedNotes.map((nota) => (
+                <li key={nota.id} className="flex items-center justify-between gap-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {nota.documentType === "CREDIT_NOTE" ? "Nota de crédito" : "Nota de débito"}{" "}
+                      N° {nota.documentNumber ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{formatDate(nota.date)}</p>
+                  </div>
+                  <p className="tabular text-sm font-semibold">{formatCLP(nota.totalAmount)}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         <section className={cardClass + " flex flex-col gap-3 p-5"}>
           <h2 className="font-semibold">Cobro</h2>
 

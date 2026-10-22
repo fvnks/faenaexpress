@@ -18,6 +18,24 @@ import { formatRut, isValidRut, normalizeRut } from "@/lib/rut";
 import { fetchRcvRows, type RcvRow } from "@/lib/sii/rcv";
 import { importarGuiaSii, type PartnerInfo } from "@/lib/sii/import-guides";
 import { createAppRuntime } from "@/lib/sii/runtime";
+import { vincularNotasConDocumentos } from "@/lib/sale-notes";
+
+/**
+ * Pantallas desde las que se puede sincronizar; `quickSyncRcv` vuelve a la
+ * que disparó la acción (en vez de siempre a Ventas o Compras).
+ */
+const DESTINOS_SYNC = [
+  "/facturas/ventas/guias",
+  "/facturas/ventas/nota-credito",
+  "/facturas/ventas/nota-debito",
+];
+
+function tituloDeDestino(destino: string): string {
+  if (destino === "/facturas/ventas/guias") return "Guías de despacho";
+  if (destino === "/facturas/ventas/nota-credito") return "Notas de crédito";
+  if (destino === "/facturas/ventas/nota-debito") return "Notas de débito";
+  return destino === "/facturas/ventas" ? "Ventas" : "Compras";
+}
 import {
   encryptSiiClave,
   getStoredSiiCredentials,
@@ -498,14 +516,19 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
   const companyRut = ctx.company.rut;
   // A dónde vuelve el usuario: la pantalla de la que salió la sincronización.
   const destinoPedido = String(formData.get("destino") ?? "");
-  const destino =
-    destinoPedido === "/facturas/ventas/guias"
-      ? destinoPedido
-      : side === "VENTA"
-        ? "/facturas/ventas"
-        : "/facturas/compras";
+  const destino = DESTINOS_SYNC.includes(destinoPedido)
+    ? destinoPedido
+    : side === "VENTA"
+      ? "/facturas/ventas"
+      : "/facturas/compras";
   const etiqueta =
-    destino === "/facturas/ventas/guias" ? "guías" : side === "VENTA" ? "ventas" : "compras";
+    destino === "/facturas/ventas/guias"
+      ? "guías"
+      : destino.startsWith("/facturas/ventas/nota-")
+        ? "notas"
+        : side === "VENTA"
+          ? "ventas"
+          : "compras";
 
   if (!side || !periodo) {
     await setFlash("error", "Indica el lado y el período.", "Vuelve a intentar.");
@@ -672,6 +695,10 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
               salespersonId: partner?.salespersonId ?? null,
               purchaseOrder: row.purchaseOrder,
               dispatchGuide: null,
+              // Folio del documento original: es lo que permite vincular la
+              // nota con la factura o la guía que ajusta (ver
+              // `vincularNotasConDocumentos`).
+              referenceDocumentNumber: row.documentoRelacionadoFolio ?? null,
               hesNumber: row.hesNumber,
               retentionAmount: 0,
               paymentMethod: null,
@@ -689,7 +716,19 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     }
   }
 
+  // Las notas que acaban de entrar quedan vinculadas a la factura o la guía
+  // que ajustan (por el folio del documento original del RCV).
+  let notasVinculadas = 0;
+  if (side === "VENTA") {
+    notasVinculadas = await vincularNotasConDocumentos(ctx.company.id);
+    if (notasVinculadas > 0) {
+      revalidatePath("/facturas/ventas/nota-credito");
+      revalidatePath("/facturas/ventas/nota-debito");
+    }
+  }
+
   const diagnostico = `SII devolvió ${rows.length} documentos: ${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con problemas.` +
+    (notasVinculadas > 0 ? ` ${notasVinculadas} ${notasVinculadas === 1 ? "nota quedó vinculada" : "notas quedaron vinculadas"} a su factura o guía.` : "") +
     (advertenciaRcv ? ` ${advertenciaRcv}` : "");
 
   if (imported > 0) {
@@ -704,7 +743,7 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     await setFlash(
       "success",
       `${imported} ${imported === 1 ? (side === "COMPRA" ? "compra importada" : "venta importada") : `${etiqueta} importadas`}`,
-      `${destino === "/facturas/ventas" ? "Ventas" : "Compras"} · ${periodo} · ${diagnostico}`,
+      `${tituloDeDestino(destino)} · ${periodo} · ${diagnostico}`,
     );
   } else {
     await setFlash("error", "No se importó ningún documento nuevo del RCV.", diagnostico);
@@ -838,6 +877,10 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
               salespersonId: partner?.salespersonId ?? null,
               purchaseOrder: row.purchaseOrder,
               dispatchGuide: null,
+              // Folio del documento original: es lo que permite vincular la
+              // nota con la factura o la guía que ajusta (ver
+              // `vincularNotasConDocumentos`).
+              referenceDocumentNumber: row.documentoRelacionadoFolio ?? null,
               hesNumber: row.hesNumber,
               retentionAmount: 0,
               paymentMethod: null,
@@ -852,6 +895,14 @@ export async function confirmRcvSync(_prev: RcvConfirmState, formData: FormData)
     } catch {
       errores.push(`Folio ${folio}: no se pudo guardar (¿folio repetido por otro tipo de documento?).`);
     }
+  }
+
+  // Las notas recién importadas quedan vinculadas a la factura o la guía que
+  // ajustan (por el folio del documento original del RCV).
+  if (side === "VENTA" && imported > 0) {
+    await vincularNotasConDocumentos(ctx.company.id);
+    revalidatePath("/facturas/ventas/nota-credito");
+    revalidatePath("/facturas/ventas/nota-debito");
   }
 
   if (imported > 0) {
