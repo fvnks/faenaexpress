@@ -330,6 +330,7 @@ model School {
   protocols     ConductProtocol[]
   plans         ConvivenciaPlan[]
   promotions    PromotionResolution[]
+  signatures    SchoolSignature[]
 
   @@index([organizationId])
 }
@@ -597,6 +598,7 @@ model ClassSession {
   teacher     Teacher            @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   attendances AttendanceRecord[]
   justifications JustificationRequest[]
+  signature   SchoolSignature?
 
   @@unique([courseId, subjectId, date, period])
   @@index([schoolId, date])
@@ -623,6 +625,41 @@ model AttendanceRecord {
 
   @@unique([sessionId, studentId])
   @@index([studentId])
+}
+
+// La firma del verificador de identidad del MINEDUC sobre una sesión de clase.
+//
+// Un código del verificador caduca a los 30 segundos, así que no puede firmar
+// alumno por alumno: firma la sesión entera (curso × asignatura × fecha). Todas
+// las filas de asistencia de esa sesión quedan con la misma `digitalRandomKey`.
+//
+// El OTP es la clave aleatoria digital del EDE: MINEDUC valida el par
+// (RUN del firmante, código) contra su API, y por eso el RUN queda guardado.
+// Se guarda el código tal como se presentó porque el EDE lo exige en cada fila
+// de asistencia; no es un secreto reutilizable (caducó al validarse).
+model SchoolSignature {
+  id         String   @id @default(cuid())
+  schoolId   String
+  // Una firma por sesión: si se vuelve a firmar, se reemplaza.
+  sessionId  String   @unique
+  // Quién firmó (la cuenta que presentó el código), y el RUN con el que se
+  // validó. Puede no ser el docente de la clase: la dirección y la UTP firman
+  // lo que quedó pendiente, y el libro tiene que poder decir quién firmó.
+  signedById String
+  signerName String
+  signerRut  String
+  // El código verificado por el MINEDUC: es la `digitalRandomKey` del EDE.
+  otp        String
+  verifiedAt DateTime
+  // Cuántas asistencias cubrió la firma. Si la sesión cambia después, la firma
+  // deja de cuadrar y se invalida: nadie firma lo que no vio.
+  attendances Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  school  School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, verifiedAt])
 }
 
 // Permisos, licencias y retiradas anticipadas: días en que el alumno no asiste
@@ -672,6 +709,10 @@ model User {
   active       Boolean  @default(true)
   // Los usuarios invitados entran con una contraseña provisional: obligatorio cambiarla.
   mustChangePassword Boolean @default(false)
+  // RUN de la persona. No es obligatorio: se necesita para firmar el libro de
+  // clases con el verificador de identidad del MINEDUC, que valida el par
+  // (RUN, código). Se guarda en la primera firma, ya validado por el MINEDUC.
+  rut          String?
   // Segundo factor (TOTP). El secreto va cifrado con la misma llave que el SII
   // y Defontana: nunca en claro, ni siquiera en la base.
   totpSecretEnc  String?

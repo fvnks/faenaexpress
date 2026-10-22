@@ -1,6 +1,8 @@
 ﻿import { createHash } from "node:crypto";
 
 import { db } from "@/lib/db";
+import { normalizeRut } from "@/lib/rut";
+import type { FirmaExportable } from "@/lib/school-sign-rules";
 import {
   ABSENT_CATEGORY,
   ATTENDANCE_EVENT_TYPE,
@@ -337,7 +339,7 @@ function categoriaDeAusencia(justificativo: string | null): number {
  *     calendario escolar.
  */
 export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
-  const [colegio, cursos, alumnos, apoderados, docentes, asignaturas, asignaciones, sesiones, matriculas] =
+  const [colegio, cursos, alumnos, apoderados, docentes, asignaturas, asignaciones, sesiones, matriculas, firmas] =
     await Promise.all([
       db.school.findUnique({
         where: { id: schoolId },
@@ -438,6 +440,7 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
           endedAt: true,
         },
       }),
+      db.schoolSignature.findMany({ where: { schoolId } }),
     ]);
 
   if (!colegio) throw new Error("El colegio no existe.");
@@ -614,6 +617,12 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
   const personaDeDocente = new Map<string, number>();
   const personaDeApoderado = new Map<string, number>();
 
+  // Quién ratifica tiene que llegar al archivo como persona con su RUN: el EDE
+  // no lleva el RUN del ratificador, sino el id de la persona que ratifica. Se
+  // arma de los docentes que ya están en el libro, que son la mayoría de los
+  // firmantes.
+  const personaPorRut = new Map<string, number>();
+
   function agregarPersona(
     id: number,
     nombre: string,
@@ -693,14 +702,16 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
     agregarPersona(id, nombre, paterno, materno, null, SEX.notSelected);
 
     if (docente.rut?.trim()) {
+      const rut = docente.rut.trim();
       identificadoresPersona.push({
         PersonIdentifierId: idIdentificadorPersona.siguiente(),
         PersonId: id,
         RefPersonIdentificationSystemId: PERSON_IDENTIFICATION_SYSTEM.run,
-        Identifier: docente.rut.trim(),
+        Identifier: rut,
         RecordStartDateTime: inicio,
         RecordEndDateTime: null,
       });
+      personaPorRut.set(rut, id);
     }
     if (docente.email?.trim()) {
       emailsPersona.push({
@@ -1023,7 +1034,26 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
   const ausenciasPorAlumno = new Map<string, number>();
   const diasPorAsignatura = new Map<string, Set<string>>();
 
+  // Las firmas por sesión: el OTP real de cada clase. La clave de verificación
+  // que el EDE pide en cada fila de asistencia es ese código, no un hash.
+  const firmasPorSesion = new Map<string, FirmaExportable>(
+    firmas.map((f) => [
+      f.sessionId,
+      {
+        sessionId: f.sessionId,
+        otp: f.otp,
+        verificadoEn: f.verifiedAt,
+        firmadoPorId: f.signedById,
+        firmadoPor: f.signerName,
+        runFirmante: f.signerRut,
+        asistencias: f.attendances,
+      },
+    ]),
+  );
+
   for (const sesion of sesiones) {
+    const firma = firmasPorSesion.get(sesion.id);
+    const tieneFirma = firma !== undefined;
     const orgAsignatura = orgDeAsignatura.get(`${sesion.courseId}|${sesion.subjectId}`);
     const orgCurso = orgDeCurso.get(sesion.courseId);
     if (orgAsignatura === undefined || orgCurso === undefined) continue;
@@ -1035,6 +1065,7 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
     const finMomento = momentoChile(fecha, finClase);
     const dia = diaDeSemana(fecha);
     const minutos = duracionMinutos(inicioClase, finClase);
+
 
     // El horario de la asignatura.
     horariosEde.push({
@@ -1122,6 +1153,23 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
       orgRolAlumnoEnClase.set(`${sesion.id}|${asistencia.studentId}`, idRolAlumno);
 
       const estado = estadoDeAsistencia(asistencia.status, asistencia.justificationType);
+
+      // El ratificador: el rol de quien firmó, si su RUN está en el archivo.
+      // Si no, se cae al docente de la clase, que es el que registra.
+      let oprIdRatificador = idRolDocente ?? null;
+      if (tieneFirma) {
+        const personaFirmante = personaPorRut.get(normalizeRut(firma.runFirmante));
+        if (personaFirmante !== undefined) {
+          oprIdRatificador = agregarRol(
+            orgAsignatura,
+            personaFirmante,
+            ROLE.administrative,
+            momento,
+            finMomento,
+          );
+        }
+      }
+
       eventos.push({
         RoleAttendanceEventId: idEvento.siguiente(),
         OrganizationPersonRoleId: idRolAlumno,
@@ -1131,14 +1179,16 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
         RefPresentAttendanceCategoryId: estado.presente,
         RefAbsentAttendanceCategoryId: estado.ausente,
         VirtualIndicator: false,
-        digitalRandomKey: claveDeVerificacion(`${sesion.id}:${asistencia.id}`),
-        digitalRandomKeyDate: momentoChile(fechaLocal(asistencia.recordedAt), "00:00:00"),
+        digitalRandomKey: tieneFirma ? firma.otp : "",
+        digitalRandomKeyDate: tieneFirma
+          ? momentoChile(fechaLocal(firma.verificadoEn), "00:00:00")
+          : null,
         observaciones: [asistencia.justificationNote, asistencia.justificationType]
           .filter(Boolean)
           .join(" - ")
           .slice(0, 2000),
-        oprIdRatificador: idRolDocente ?? null,
-        fechaRatificador: momentoChile(fechaLocal(sesion.recordedAt), inicioClase),
+        oprIdRatificador,
+        fechaRatificador: tieneFirma ? momentoChile(fechaLocal(firma.verificadoEn), inicioClase) : null,
         RecordStartDateTime: inicio,
         RecordEndDateTime: null,
       });

@@ -1,5 +1,6 @@
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { db } from "@/lib/db";
+import { estadoDeFirmas } from "@/lib/school-signatures";
 import { cardClass } from "@/lib/ui";
 
 // La pantalla de exportación: de aquí baja el colegio el archivo que entrega al
@@ -10,7 +11,7 @@ export default async function LibroPage() {
   const ctx = await requireSchoolContext("libro");
   const schoolId = ctx.school.id;
 
-  const [sesiones, alumnos, ultimoRegistro] = await Promise.all([
+  const [sesiones, alumnos, ultimoRegistro, firmas] = await Promise.all([
     db.classSession.count({ where: { schoolId } }),
     db.student.count({ where: { schoolId } }),
     db.classSession.findFirst({
@@ -18,6 +19,7 @@ export default async function LibroPage() {
       orderBy: { recordedAt: "desc" },
       select: { recordedAt: true, recordedById: true },
     }),
+    estadoDeFirmas(schoolId),
   ]);
 
   const puedeExportar = schoolCanWrite(ctx, "libro");
@@ -34,7 +36,7 @@ export default async function LibroPage() {
 
       <section className={cardClass + " p-5"}>
         <h2 className="font-semibold">Lo que hay registrado</h2>
-        <ul className="mt-3 grid gap-3 sm:grid-cols-3">
+        <ul className="mt-3 grid gap-3 sm:grid-cols-4">
           <li>
             <p className="text-xs text-muted-foreground">Clases dictadas</p>
             <p className="tabular mt-1 text-2xl font-semibold">{sesiones}</p>
@@ -44,6 +46,14 @@ export default async function LibroPage() {
             <p className="tabular mt-1 text-2xl font-semibold">{alumnos}</p>
           </li>
           <li>
+            <p className="text-xs text-muted-foreground">Sesiones firmadas</p>
+            <p className="tabular mt-1 text-2xl font-semibold">{firmas.firmadas}</p>
+          </li>
+          <li>
+            <p className="text-xs text-muted-foreground">Pendientes de firma</p>
+            <p className="tabular mt-1 text-2xl font-semibold text-danger">{firmas.pendientes}</p>
+          </li>
+          <li className="sm:col-span-4">
             <p className="text-xs text-muted-foreground">Último registro</p>
             <p className="mt-1 text-sm font-medium">
               {ultimoRegistro
@@ -51,6 +61,14 @@ export default async function LibroPage() {
                 : "sin registro"}
             </p>
           </li>
+          {firmas.ultimaFirma && (
+            <li className="sm:col-span-4">
+              <p className="text-xs text-muted-foreground">Última firma</p>
+              <p className="mt-1 text-sm font-medium">
+                {firmas.ultimaFirma.toLocaleString("es-CL")}
+              </p>
+            </li>
+          )}
         </ul>
       </section>
 
@@ -79,6 +97,11 @@ export default async function LibroPage() {
       <section className={cardClass + " p-5"}>
         <h2 className="font-semibold">Qué falta para la fiscalización</h2>
         <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
+          <li className="line-through text-muted-foreground/60">
+            <span className="text-foreground">Firma con el verificador de identidad</span>: el
+            docente firma la sesión con su código dinámico del MINEDUC; el OTP queda en
+            <code>digitalRandomKey</code> y el ratificador en <code>oprIdRatificador</code>.
+          </li>
           <li>
             <span className="text-foreground">Calificaciones y actas</span> (vienen en la C3) y
             Assessments con sus ponderaciones.
@@ -89,11 +112,6 @@ export default async function LibroPage() {
           </li>
           <li>
             <span className="text-foreground">Libro PIE</span>: Planes de apoyo de los NEEP/NEET.
-          </li>
-          <li>
-            <span className="text-foreground">Firma con el verificador de identidad</span>: el
-            docente valida cada registro con su código dinámico y queda en{" "}
-            <code>firmaRatificador</code>.
           </li>
           <li>
             <span className="text-foreground">Calendario escolar</span>: la Circular N°30 exige que

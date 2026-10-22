@@ -3,9 +3,12 @@ import { redirect } from "next/navigation";
 
 import { AttendanceSheet } from "@/app/colegios/asistencia/attendance-sheet";
 import { ClassForm } from "@/app/colegios/asistencia/class-form";
+import { SessionSignature } from "@/app/colegios/asistencia/sign-session";
 import { FaltaEsto } from "@/app/colegios/falta-esto";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
+import { firmaDeSesion } from "@/lib/school-signatures";
+import { puedeFirmarSesion } from "@/lib/school-sign-rules";
 import { classSheet, enrolledStudents, listSessions } from "@/lib/school-attendance";
 import { todayISO } from "@/lib/money";
 import { cardClass } from "@/lib/ui";
@@ -144,6 +147,12 @@ export default async function AsistenciaPage({
 
   const puedeEditar = schoolCanWrite(ctx, "asistencia");
 
+  // La firma es del libro, no de la asistencia: escribe quien puede escribir el
+  // libro, y dentro de eso, quien registró (o la dirección/UTP en pendientes).
+  const autorizadoFirma = puedeFirmarSesion(ctx.role, ctx.user.id, sesion.recordedById);
+  const puedeAnularFirma = schoolCanWrite(ctx, "libro") && (ctx.role === "DIRECTOR" || ctx.role === "UTP");
+  const firma = await firmaDeSesion(sesion.id, sesion.attendances.length);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -193,6 +202,23 @@ export default async function AsistenciaPage({
             sessionId={sesion.id}
             alumnos={alumnos}
             puedeEditar={puedeEditar}
+          />
+        </div>
+      </section>
+
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Firma del libro de clases</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          La firma reemplaza la rúbrica de puño y letra: el MINEDUC la valida contra el RUN de
+          quien firma.
+        </p>
+        <div className="mt-4">
+          <SessionSignature
+            sessionId={sesion.id}
+            rut={ctx.user.rut ?? ""}
+            firma={firma ? { ...firma, verificadoEn: firma.verificadoEn.toISOString() } : null}
+            puedeFirmar={autorizadoFirma.ok && schoolCanWrite(ctx, "libro")}
+            puedeAnular={puedeAnularFirma && firma !== null}
           />
         </div>
       </section>

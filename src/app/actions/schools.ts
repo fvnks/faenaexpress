@@ -8,6 +8,7 @@ import type { EvaluationType, GradeStatus, GradingPeriodType } from "@/generated
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite, SCHOOL_COOKIE } from "@/lib/school-auth";
+import { invalidarFirmas } from "@/lib/school-signatures";
 
 export type AttendanceFormState = { error?: string; ok?: boolean } | undefined;
 
@@ -101,6 +102,10 @@ export async function saveAttendance(
     });
   }
 
+  // Si la asistencia cambia, la firma deja de ser cierta: nadie firma un
+  // registro que no vio. Se borra antes de revalidar la pantalla.
+  await invalidarFirmas([sessionId]);
+
   revalidatePath("/colegios/asistencia");
   revalidatePath("/colegios/estudiantes");
   return { ok: true };
@@ -142,7 +147,7 @@ export async function saveClassSession(
   const date = new Date(`${fecha}T12:00:00Z`);
   if (Number.isNaN(date.getTime())) return { error: "La fecha no es válida." };
 
-  await db.classSession.upsert({
+  const guardada = await db.classSession.upsert({
     where: {
       courseId_subjectId_date_period: {
         courseId,
@@ -175,7 +180,11 @@ export async function saveClassSession(
       objectives: String(formData.get("objectives") ?? "").trim() || null,
       recordedById: ctx.user.id,
     },
+    select: { id: true },
   });
+
+  // El registro de la clase cambió: la firma que tuviera deja de ser cierta.
+  await invalidarFirmas([guardada.id]);
 
   revalidatePath("/colegios/asistencia");
   return { ok: true };
