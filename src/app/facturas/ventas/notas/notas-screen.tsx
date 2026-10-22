@@ -19,8 +19,15 @@ import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
-/** Tipos SII que trae una sincronización de notas: NC (41, 46) y ND (56). */
-const TIPOS_NOTAS = "41,46,56";
+/**
+ * Tipos SII que trae una sincronización de notas: notas de crédito (46
+ * electrónica, 61 genérica) y notas de débito (52 electrónica, 56 genérica).
+ *
+ * Deben coincidir con los que `TIPOS_IMPORTABLES` clasifica como CREDIT_NOTE o
+ * DEBIT_NOTE: si se pide un tipo que no está ahí, la sincronización lo cuenta
+ * como omitido y no trae nada.
+ */
+const TIPOS_NOTAS = "46,61,52,56";
 
 const TITULOS: Record<NoteKind, { titulo: string; detalle: string }> = {
   CREDIT_NOTE: {

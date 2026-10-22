@@ -48,8 +48,10 @@ export function dteTipoLabel(tipo: number): string {
     case 34: return "Factura exenta";
     case 39: return "Boleta electrónica";
     case 41: return "Boleta exenta";
+    case 43: return "Liquidación-factura";
+    case 46: return "Nota de crédito electrónica";
     case 50: return "Guía de despacho";
-    case 52: return "Nota de débito";
+    case 52: return "Nota de débito electrónica";
     case 56: return "Nota de débito";
     case 61: return "Nota de crédito";
     default: return `Tipo ${tipo}`;

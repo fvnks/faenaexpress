@@ -65,20 +65,43 @@ export type RcvConfirmState = {
 } | undefined;
 
 // Tipos que se importan como compras/ventas/guías; el resto se informa como omitido.
-// Las notas de crédito (61) y las guías de despacho (52) ya no se omiten: se
-// guardan como CREDIT_NOTE o como DispatchGuide, respectivamente.
+//
+// Códigos del SII (IdDoc/TipoDTE). Ojo con los pares: las ELECTRÓNICAS tienen
+// su propio código y la genérica otro — 46/61 son notas de crédito y 52/56
+// notas de débito. Antes solo estaba el 61, así que una nota de crédito
+// electrónica (46), que es la habitual, quedaba siempre en "omitidas".
 const TIPOS_IMPORTABLES: Record<number, "INVOICE" | "DEBIT_NOTE" | "CREDIT_NOTE" | "GUIDE"> = {
   33: "INVOICE", // factura electrónica
   34: "INVOICE", // factura exenta
-  50: "GUIDE", // guía de despacho
-  52: "DEBIT_NOTE", // nota de débito
-  61: "CREDIT_NOTE", // nota de crédito
+  50: "GUIDE", // guía de despacho electrónica
+  52: "DEBIT_NOTE", // nota de débito electrónica
+  56: "DEBIT_NOTE", // nota de débito (genérica)
+  46: "CREDIT_NOTE", // nota de crédito electrónica
+  61: "CREDIT_NOTE", // nota de crédito (genérica)
 };
 
 const MOTIVOS_OMISION: Record<number, string> = {
   39: "Boleta electrónica",
   41: "Boleta exenta",
 };
+
+/**
+ * "2 nota de crédito (61), 30 factura electrónica (33)": qué tipos de
+ * documento devolvió el RCV, con su cantidad.
+ *
+ * Sirve para no achacar al SII un "0" que en realidad es nuestro filtro. Si la
+ * pantalla de Guías pide solo el tipo 50 y el período trae 30 facturas, la
+ * persona tiene que leer "30 facturas, 0 guías", no "SII devolvió 0".
+ */
+function desglosePorTipo(rows: RcvRow[]): string {
+  if (rows.length === 0) return "ninguno";
+  const cuenta = new Map<number, number>();
+  for (const row of rows) cuenta.set(row.tipoDoc, (cuenta.get(row.tipoDoc) ?? 0) + 1);
+  return [...cuenta.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([tipo, n]) => `${n} ${dteTipoLabel(tipo)} (${tipo})`)
+    .join(", ");
+}
 
 function parsePeriodo(raw: unknown): string | null {
   const text = String(raw ?? "").trim();
@@ -555,6 +578,11 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
   // Tipos a importar: desde la pantalla de Guías se piden solo las guías
   // (tipo 50), para no meter en la lista las facturas del mes: esas ya se
   // importan desde Ventas.
+  //
+  // Ojo: el filtro NO debe perder el conteo de lo que el SII devolvió. El
+  // diagnóstico se arma con `rowsDelRcv` (todo el período) y se aclara cuánto
+  // quedó después de pedir solo ciertos tipos.
+  const rowsDelRcv = rows;
   const tiposPedidos = String(formData.get("tipos") ?? "")
     .split(",")
     .map((t) => Number(t.trim()))
@@ -588,13 +616,29 @@ export async function quickSyncRcv(formData: FormData): Promise<void> {
     (row) => TIPOS_IMPORTABLES[row.tipoDoc] && esFolioExistente(row, side, foliosExistentes),
   ).length;
 
-  const diagnosticoBase = `SII devolvió ${rows.length} documentos: ${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con problemas.` +
+  const diagnosticoBase =
+    (tiposPedidos.length > 0
+      ? `El SII devolvió ${rowsDelRcv.length} ${rowsDelRcv.length === 1 ? "documento" : "documentos"} del período (${desglosePorTipo(rowsDelRcv)}); de esos, ${rows.length} ${rows.length === 1 ? "corresponde" : "corresponden"} a los tipos pedidos. `
+      : `SII devolvió ${rows.length} ${rows.length === 1 ? "documento" : "documentos"} (${desglosePorTipo(rows)}). `) +
+    `${nuevas.length} nuevas, ${duplicadas} ya registradas, ${omitidas} omitidas, ${fallos.length} con problemas.` +
     (advertenciaRcv ? ` ${advertenciaRcv}` : "");
 
   if (nuevas.length === 0) {
+    // Con filtro de tipos (la pantalla de Guías pide solo el 50), "0 nuevas"
+    // puede significar dos cosas muy distintas: que el SII no devolvió NINGÚN
+    // documento de ese tipo, o que los devolvió pero ya estaban todos
+    // importados. Decir "Todo al día" sin distinguir lleva a creer que la
+    // sincronización no funciona.
+    let titulo = "Todo al día";
+    if (rowsDelRcv.length === 0) {
+      titulo = `El SII no devolvió documentos para ${periodo}`;
+    } else if (tiposPedidos.length > 0 && rows.length === 0) {
+      titulo = `El RCV de ${periodo} no registra ${etiqueta}`;
+    }
+
     await setFlash(
       "success",
-      "Todo al día",
+      titulo,
       `El RCV del período ${periodo} no trae ${etiqueta} nuevas. ${diagnosticoBase}`,
     );
     redirect(destino);
