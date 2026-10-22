@@ -3,6 +3,7 @@ import Link from "next/link";
 import { EvaluationForm } from "@/app/colegios/calificaciones/evaluation-form";
 import { GradeSheet } from "@/app/colegios/calificaciones/grade-sheet";
 import { PeriodForm } from "@/app/colegios/calificaciones/period-form";
+import { FaltaEsto } from "@/app/colegios/falta-esto";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { courseReport, courseSubjects, listPeriods } from "@/lib/school-grades";
@@ -153,9 +154,9 @@ export default async function CalificacionesPage({
           </p>
         </div>
         <section className={cardClass + " p-5"}>
-          <p className="text-sm text-muted-foreground">
+          <FaltaEsto href="/colegios/cursos" accion="Ir a Cursos">
             Todavía no hay cursos en este colegio. Las calificaciones se registran por curso.
-          </p>
+          </FaltaEsto>
         </section>
       </div>
     );

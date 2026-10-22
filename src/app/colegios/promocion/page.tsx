@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { FaltaEsto } from "@/app/colegios/falta-esto";
 import { PrintButton } from "@/components/print-button";
 import { db } from "@/lib/db";
 import { requireSchoolContext } from "@/lib/school-auth";
@@ -51,7 +52,9 @@ export default async function PromocionPage({
           </p>
         </div>
         <section className={cardClass + " p-5"}>
-          <p className="text-sm text-muted-foreground">Todavía no hay cursos en este colegio.</p>
+          <FaltaEsto href="/colegios/cursos" accion="Ir a Cursos">
+            Todavía no hay cursos en este colegio.
+          </FaltaEsto>
         </section>
       </div>
     );

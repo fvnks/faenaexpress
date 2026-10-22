@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { GuardianAccess } from "@/app/colegios/apoderados/guardian-access";
 import { CopyLink } from "@/app/colegios/apoderados/copy-link";
+import { FaltaEsto } from "@/app/colegios/falta-esto";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { cardClass } from "@/lib/ui";
@@ -85,15 +86,9 @@ export default async function ApoderadosPage() {
 
       {apoderados.length === 0 ? (
         <section className={cardClass + " p-5"}>
-          <p className="text-sm text-muted-foreground">
+          <FaltaEsto href="/colegios/estudiantes" accion="Ir a Alumnos">
             Todavía no hay apoderados registrados. Se crean desde la ficha de cada alumno.
-          </p>
-          <Link
-            href="/colegios/estudiantes"
-            className="mt-3 inline-block rounded-control border border-primary bg-transparent px-3 py-1.5 text-sm font-semibold text-primary"
-          >
-            Ir a Alumnos
-          </Link>
+          </FaltaEsto>
         </section>
       ) : (
         <section className={cardClass + " p-5"}>

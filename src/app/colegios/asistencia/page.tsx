@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AttendanceSheet } from "@/app/colegios/asistencia/attendance-sheet";
 import { ClassForm } from "@/app/colegios/asistencia/class-form";
+import { FaltaEsto } from "@/app/colegios/falta-esto";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { classSheet, enrolledStudents, listSessions } from "@/lib/school-attendance";
@@ -69,9 +70,11 @@ export default async function AsistenciaPage({
         <section className={cardClass + " p-5"}>
           <h2 className="font-semibold">Clases registradas</h2>
           {courses.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Todavía no hay cursos en este colegio.
-            </p>
+            <div className="mt-3">
+              <FaltaEsto href="/colegios/cursos" accion="Ir a Cursos">
+                Todavía no hay cursos en este colegio.
+              </FaltaEsto>
+            </div>
           ) : (
             <>
               <ul className="mt-3 flex flex-wrap gap-2">

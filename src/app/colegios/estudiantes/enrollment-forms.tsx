@@ -10,6 +10,7 @@ import {
   withdrawStudent,
   type EnrollmentFormState,
 } from "@/app/actions/school-enrollment";
+import { FaltaEsto } from "@/app/colegios/falta-esto";
 import { Disclosure } from "@/components/disclosure";
 import { SubmitButton } from "@/components/submit-button";
 import { controlClass, fieldClass, labelClass } from "@/lib/ui";
@@ -40,9 +41,9 @@ export function EnrollForm({ cursos }: { cursos: Opcion[] }) {
 
   if (cursos.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <FaltaEsto href="/colegios/cursos" accion="Ir a Cursos">
         Primero hay que crear los cursos del colegio.
-      </p>
+      </FaltaEsto>
     );
   }
 
@@ -289,7 +290,15 @@ export function EnrollExistingForm({
     form.current?.reset();
   }, [state]);
 
-  if (alumnos.length === 0 || cursos.length === 0) return null;
+  if (alumnos.length === 0 || cursos.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {alumnos.length === 0
+          ? "No hay alumnos todavía: primero se matricula a alguien."
+          : "No hay cursos todavía: primero hay que crearlos."}
+      </p>
+    );
+  }
 
   return (
     <Disclosure

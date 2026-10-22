@@ -10,6 +10,7 @@ import {
   removeAssignment,
   type AttendanceFormState,
 } from "@/app/actions/schools";
+import { FaltaEsto } from "@/app/colegios/falta-esto";
 import { Disclosure } from "@/components/disclosure";
 import { SubmitButton } from "@/components/submit-button";
 import { controlClass, fieldClass, labelClass } from "@/lib/ui";
@@ -194,12 +195,14 @@ export function AssignmentForm({
   }, [state]);
 
   if (asignaturas.length === 0 || docentes.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground">
-        {asignaturas.length === 0
-          ? "Primero hay que crear las asignaturas del plan."
-          : "Primero hay que registrar a los docentes."}
-      </p>
+    return asignaturas.length === 0 ? (
+      <FaltaEsto href="/colegios/cursos" accion="Crear las asignaturas del plan">
+        Primero hay que crear las asignaturas del plan.
+      </FaltaEsto>
+    ) : (
+      <FaltaEsto href="/colegios/docentes" accion="Registrar a los docentes">
+        Primero hay que registrar a los docentes.
+      </FaltaEsto>
     );
   }
 
