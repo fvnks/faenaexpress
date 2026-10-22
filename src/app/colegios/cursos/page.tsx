@@ -4,6 +4,7 @@ import {
   RemoveAssignmentButton,
   SubjectForm,
 } from "@/app/colegios/cursos/course-forms";
+import { SubjectRow } from "@/app/colegios/cursos/subject-row";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { schoolLevelLabel } from "@/lib/school-permissions";
@@ -32,7 +33,7 @@ export default async function CursosPage() {
     db.subject.findMany({
       where: { schoolId },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, code: true, countsForPromotion: true },
     }),
     db.teacher.findMany({
       where: { schoolId },
@@ -60,6 +61,37 @@ export default async function CursosPage() {
           </div>
         </section>
       ) : null}
+
+      <section className={cardClass + " p-5"}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-semibold">Plan de estudios</h2>
+          <p className="text-xs text-muted-foreground">
+            {asignaturas.length} {asignaturas.length === 1 ? "asignatura" : "asignaturas"}
+          </p>
+        </div>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Las asignaturas del colegio. Después se reparten entre los cursos, cada una con su
+          docente.
+        </p>
+
+        {asignaturas.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Todavía no hay asignaturas. Se crean con el formulario de arriba.
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-border">
+            {asignaturas.map((a) => (
+              <SubjectRow
+                key={a.id}
+                subjectId={a.id}
+                code={a.code}
+                name={a.name}
+                incide={a.countsForPromotion}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
 
       {cursos.length === 0 ? (
         <p className={cardClass + " px-4 py-6 text-sm text-muted-foreground"}>

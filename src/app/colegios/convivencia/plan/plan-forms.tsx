@@ -206,16 +206,19 @@ export function CompletePlanActivityButton({
   }, [state]);
 
   return (
-    <form action={action} className="inline">
-      <input type="hidden" name="activityId" value={activityId} />
-      <input type="hidden" name="planId" value={planId} />
-      <button
-        type="submit"
-        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-primary"
-      >
-        Marcar como hecha
-      </button>
-    </form>
+    <span className="inline-flex flex-col items-end gap-1">
+      <form action={action} className="inline">
+        <input type="hidden" name="activityId" value={activityId} />
+        <input type="hidden" name="planId" value={planId} />
+        <button
+          type="submit"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-primary"
+        >
+          Marcar como hecha
+        </button>
+      </form>
+      {state?.error ? <span className="text-xs text-danger">{state.error}</span> : null}
+    </span>
   );
 }
 
@@ -231,18 +234,21 @@ export function ApprovePlanButton({ planId }: { planId: string }) {
   }, [state]);
 
   return (
-    <form action={action} className="flex flex-wrap items-center gap-3">
-      <input type="hidden" name="planId" value={planId} />
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="delivered" defaultChecked className="h-4 w-4 accent-primary" />
-        Ya se entregó copia a las familias
-      </label>
-      <SubmitButton
-        className="rounded-control border border-primary bg-transparent px-3 py-1.5 text-sm font-semibold text-primary"
-        pendingLabel="Aprobando..."
-      >
-        Aprobar el plan
-      </SubmitButton>
-    </form>
+    <div className="flex flex-col gap-1">
+      <form action={action} className="flex flex-wrap items-center gap-3">
+        <input type="hidden" name="planId" value={planId} />
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="delivered" defaultChecked className="h-4 w-4 accent-primary" />
+          Ya se entregó copia a las familias
+        </label>
+        <SubmitButton
+          className="rounded-control border border-primary bg-transparent px-3 py-1.5 text-sm font-semibold text-primary"
+          pendingLabel="Aprobando..."
+        >
+          Aprobar el plan
+        </SubmitButton>
+      </form>
+      {state?.error ? <p className="text-xs text-danger">{state.error}</p> : null}
+    </div>
   );
 }

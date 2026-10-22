@@ -296,15 +296,18 @@ export function RemoveAssignmentButton({
   }, [state]);
 
   return (
-    <form action={action} className="inline">
-      <input type="hidden" name="assignmentId" value={assignmentId} />
-      <button
-        type="submit"
-        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-danger"
-        title={`Quitar ${nombre} del curso`}
-      >
-        Quitar
-      </button>
-    </form>
+    <span className="inline-flex flex-col items-end gap-1">
+      <form action={action} className="inline">
+        <input type="hidden" name="assignmentId" value={assignmentId} />
+        <button
+          type="submit"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-danger"
+          title={`Quitar ${nombre} del curso`}
+        >
+          Quitar
+        </button>
+      </form>
+      {state?.error ? <span className="text-xs text-danger">{state.error}</span> : null}
+    </span>
   );
 }

@@ -96,6 +96,8 @@ export function GuardianAccess({
           ) : null}
         </form>
       ) : null}
+
+      {state?.error ? <p className="text-xs text-danger">{state.error}</p> : null}
     </div>
   );
 }

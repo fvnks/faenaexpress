@@ -254,16 +254,19 @@ export function CompleteActionButton({
   }, [state]);
 
   return (
-    <form action={action} className="inline">
-      <input type="hidden" name="actionId" value={actionId} />
-      <input type="hidden" name="caseId" value={caseId} />
-      <button
-        type="submit"
-        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-primary"
-      >
-        Marcar como hecha
-      </button>
-    </form>
+    <span className="inline-flex flex-col items-end gap-1">
+      <form action={action} className="inline">
+        <input type="hidden" name="actionId" value={actionId} />
+        <input type="hidden" name="caseId" value={caseId} />
+        <button
+          type="submit"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-primary"
+        >
+          Marcar como hecha
+        </button>
+      </form>
+      {state?.error ? <span className="text-xs text-danger">{state.error}</span> : null}
+    </span>
   );
 }
 

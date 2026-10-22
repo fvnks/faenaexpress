@@ -217,15 +217,18 @@ export function DeleteCircularButton({ circularId }: { circularId: string }) {
   }, [state]);
 
   return (
-    <form action={action} className="inline">
-      <input type="hidden" name="circularId" value={circularId} />
-      <button
-        type="submit"
-        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-danger"
-      >
-        Eliminar
-      </button>
-    </form>
+    <span className="inline-flex flex-col items-end gap-1">
+      <form action={action} className="inline">
+        <input type="hidden" name="circularId" value={circularId} />
+        <button
+          type="submit"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-danger"
+        >
+          Eliminar
+        </button>
+      </form>
+      {state?.error ? <span className="text-xs text-danger">{state.error}</span> : null}
+    </span>
   );
 }
 

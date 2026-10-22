@@ -299,6 +299,7 @@ function IssueCodeButton({
           {vigente ? "Rotar código" : "Dar acceso al portal"}
         </button>
       </form>
+      {state?.error ? <span className="text-xs text-danger">{state.error}</span> : null}
     </span>
   );
 }
@@ -323,15 +324,18 @@ function UnlinkButton({
   }, [state, nombre]);
 
   return (
-    <form action={action} className="inline">
-      <input type="hidden" name="studentId" value={studentId} />
-      <input type="hidden" name="guardianId" value={guardianId} />
-      <button
-        type="submit"
-        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-danger"
-      >
-        Quitar
-      </button>
-    </form>
+    <span className="inline-flex flex-col items-end gap-1">
+      <form action={action} className="inline">
+        <input type="hidden" name="studentId" value={studentId} />
+        <input type="hidden" name="guardianId" value={guardianId} />
+        <button
+          type="submit"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-danger"
+        >
+          Quitar
+        </button>
+      </form>
+      {state?.error ? <span className="text-xs text-danger">{state.error}</span> : null}
+    </span>
   );
 }
