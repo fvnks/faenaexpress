@@ -1,5 +1,6 @@
 import { portalLogout } from "@/app/actions/portal";
 import { PortalForm } from "@/app/apoderado/portal-form";
+import { RequestTeacherAppointment } from "@/app/apoderado/RequestTeacherAppointment";
 import {
   PortalAppointments,
   PortalCirculars,
@@ -140,6 +141,13 @@ export default async function PortalPage() {
           <div className="mt-4">
             <PortalAppointments citas={citas} />
           </div>
+        </section>
+
+        <section className={cardClass + " p-5"}>
+          <RequestTeacherAppointment
+            hijos={hijos.map((h) => ({ id: h.id, nombre: `${h.firstName} ${h.lastName}` }))}
+            citas={citas}
+          />
         </section>
 
         {hijos.length === 0 ? (

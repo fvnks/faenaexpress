@@ -19,14 +19,6 @@ const nextConfig: NextConfig = {
     // Aplica solo los upgrades de seguridad de Next.js, sin los de función.
     agentUpgrade: "security",
   },
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
-  },
 };
 
 export default nextConfig;
