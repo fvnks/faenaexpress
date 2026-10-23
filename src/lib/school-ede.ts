@@ -5,8 +5,12 @@ import { normalizeRut } from "@/lib/rut";
 import type { FirmaExportable } from "@/lib/school-sign-rules";
 import {
   ABSENT_CATEGORY,
+  ASSESSMENT_REPORTING_METHOD,
+  ASSESSMENT_TYPE,
   ATTENDANCE_EVENT_TYPE,
   ATTENDANCE_STATUS,
+  CHILE_REPORTING_METHOD,
+  CHILE_SCORE_METRIC,
   DELIVERY_MODE,
   DIAS_SEMANA,
   EMAIL_TYPE,
@@ -26,8 +30,10 @@ import {
   PERSON_TELEPHONE_TYPE,
   PRESENT_CATEGORY,
   ROLE,
+  SCORE_METRIC_TYPE,
   SEX,
   SINGLE_SEX_STATUS,
+  assessmentTypeDe,
 } from "@/lib/school-ede-codes";
 import type { SchoolLevel } from "@/generated/prisma/client";
 
@@ -339,7 +345,7 @@ function categoriaDeAusencia(justificativo: string | null): number {
  *     calendario escolar.
  */
 export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
-  const [colegio, cursos, alumnos, apoderados, docentes, asignaturas, asignaciones, sesiones, matriculas, firmas] =
+  const [colegio, cursos, alumnos, apoderados, docentes, asignaturas, asignaciones, sesiones, matriculas, evaluacionesPrisma, periodos, firmas] =
     await Promise.all([
       db.school.findUnique({
         where: { id: schoolId },
@@ -440,6 +446,38 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
           endedAt: true,
         },
       }),
+      db.evaluation.findMany({
+        where: { schoolId },
+        orderBy: [{ date: "asc" }, { name: "asc" }],
+        select: {
+          id: true,
+          schoolId: true,
+          courseId: true,
+          subjectId: true,
+          periodId: true,
+          name: true,
+          type: true,
+          date: true,
+          weight: true,
+          isFinal: true,
+          grades: {
+            select: {
+              id: true,
+              studentId: true,
+              value: true,
+              status: true,
+              note: true,
+              recordedById: true,
+              recordedAt: true,
+            },
+          },
+        },
+      }),
+      db.gradingPeriod.findMany({
+        where: { schoolId },
+        orderBy: { order: "asc" },
+        select: { id: true, name: true, startDate: true, endDate: true, weight: true },
+      }),
       db.schoolSignature.findMany({ where: { schoolId } }),
     ]);
 
@@ -465,6 +503,10 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
   const idRol = new Contador();
   const idEvento = new Contador();
   const idAsistencia = new Contador();
+  const idEvaluacion = new Contador();
+  const idPuntaje = new Contador();
+  const idPeriodoEval = new Contador();
+  const idSubPuntaje = new Contador();
   const idHorario = new Contador();
   const idCalendario = new Contador();
   const idSesionCalendario = new Contador();
@@ -488,6 +530,10 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
   const roles: EdeFila[] = [];
   const eventos: EdeFila[] = [];
   const asistencias: EdeFila[] = [];
+  const evaluaciones: EdeFila[] = [];
+  const puntajes: EdeFila[] = [];
+  const periodosEvaluacion: EdeFila[] = [];
+  const subPuntajes: EdeFila[] = [];
   const matriculasEde: EdeFila[] = [];
   const cursosEde: EdeFila[] = [];
   const seccionesEde: EdeFila[] = [];
@@ -1234,6 +1280,101 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
     });
   }
 
+  // --- Evaluaciones y calificaciones (para el EDE del MINEDUC) ---
+  //
+  // Tablas: RoleAssessment (la evaluación), AssessmentScore (la nota del alumno),
+  // AssessmentReportingPeriod (vincula evaluación con período), AssessmentSubScore (sub-notas).
+
+  // Mapea: evaluación -> id de RoleAssessment
+  const evaluacionIdMap = new Map<string, number>();
+
+  // Mapea: evaluación -> período (para AssessmentReportingPeriod)
+  const evaluacionPeriodoMap = new Map<string, string>();
+
+  // Mapea: (evaluación, alumno) -> id de AssessmentScore
+  const puntajeIdMap = new Map<string, number>();
+
+  // Primero creamos las evaluaciones (RoleAssessment)
+  for (const ev of evaluacionesPrisma) {
+    const orgAsignatura = orgDeAsignatura.get(`${ev.courseId}|${ev.subjectId}`);
+    const orgPeriodo = periodos.find((p) => p.id === ev.periodId);
+    if (!orgAsignatura || !orgPeriodo) continue;
+
+    const idRoleAssessment = idEvaluacion.siguiente();
+    evaluacionIdMap.set(ev.id, idRoleAssessment);
+    evaluacionPeriodoMap.set(ev.id, orgPeriodo.id);
+
+    const fechaEval = fechaLocal(ev.date);
+    const inicioEval = momentoChile(fechaEval, "00:00:00");
+
+    // Tipo de evaluación según NDS
+    const assessmentType = assessmentTypeDe(ev.type);
+    const reportingMethod = CHILE_REPORTING_METHOD;
+    const scoreMetric = CHILE_SCORE_METRIC;
+
+    evaluaciones.push({
+      RoleAssessmentId: idRoleAssessment,
+      OrganizationId: orgAsignatura,
+      AssessmentTitle: ev.name.slice(0, 60),
+      AssessmentDescription: ev.name.slice(0, 255),
+      RefAssessmentTypeId: assessmentType,
+      RefAssessmentReportingMethodId: reportingMethod,
+      RefScoreMetricTypeId: scoreMetric,
+      MaxRawScore: 7.0,
+      AssessmentDate: fechaEval,
+      AssessmentPeriod: orgPeriodo.name,
+      AssessmentStartDateTime: inicioEval,
+      AssessmentEndDateTime: inicioEval,
+      Weight: ev.weight > 0 ? ev.weight : 100,
+      IsFinal: ev.isFinal ? 1 : 0,
+      RecordStartDateTime: inicio,
+      RecordEndDateTime: null,
+    });
+
+    // Período de reporte de la evaluación
+    periodosEvaluacion.push({
+      AssessmentReportingPeriodId: idPeriodoEval.siguiente(),
+      RoleAssessmentId: idRoleAssessment,
+      OrganizationCalendarId: orgPeriodo.id,
+      RecordStartDateTime: inicio,
+      RecordEndDateTime: null,
+    });
+  }
+
+  // Luego creamos las notas (AssessmentScore)
+  for (const ev of evaluacionesPrisma) {
+    const roleAssessmentId = evaluacionIdMap.get(ev.id);
+    if (!roleAssessmentId) continue;
+
+    for (const grade of ev.grades) {
+      if (grade.status !== "GRADED" || grade.value === null) continue;
+
+      const personaAlumno = personaDeAlumno.get(grade.studentId);
+      if (!personaAlumno) continue;
+
+      // Busca el rol del alumno en esta asignatura
+      const idRolAlumno = orgRolAlumnoEnClase.get(`${ev.courseId}|${grade.studentId}`);
+      if (!idRolAlumno) continue;
+
+      const idAssessmentScore = idPuntaje.siguiente();
+      puntajeIdMap.set(`${ev.id}|${grade.studentId}`, idAssessmentScore);
+
+      const fechaNota = fechaLocal(grade.recordedAt);
+      const momentoNota = momentoChile(fechaNota, "00:00:00");
+
+      puntajes.push({
+        AssessmentScoreId: idAssessmentScore,
+        RoleAssessmentId: roleAssessmentId,
+        OrganizationPersonRoleId: idRolAlumno,
+        Score: Number(grade.value.toFixed(1)),
+        ScoreDateTime: fechaNota,
+        RefScoreMetricTypeId: CHILE_SCORE_METRIC,
+        RecordStartDateTime: inicio,
+        RecordEndDateTime: null,
+      });
+    }
+  }
+
   // --- El JSON ---
   return {
     _Organizaciones: [
@@ -1278,6 +1419,14 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
         OrganizationCalendar: calendarios,
         OrganizationCalendarSession: sesionesCalendario,
         OrganizationCalendarDay: diasCalendario,
+      },
+    ],
+    _Calificaciones: [
+      {
+        RoleAssessment: evaluaciones,
+        AssessmentScore: puntajes,
+        AssessmentReportingPeriod: periodosEvaluacion,
+        AssessmentSubScore: subPuntajes,
       },
     ],
   };

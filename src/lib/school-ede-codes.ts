@@ -307,3 +307,69 @@ export const DIAS_SEMANA = [
   "Viernes",
   "Sabado",
 ] as const;
+
+// ---------------------------------------------------------------------------
+// Códigos de CALIFICACIONES (Assessment / Evaluation)
+// ---------------------------------------------------------------------------
+//
+// Basados en el NDS Reference v7.1 y la plantilla oficial del MINEDUC.
+// El MINEDUC usa estas tablas: RoleAssessment, AssessmentScore,
+// AssessmentReportingPeriod, AssessmentSubScore.
+
+/** `RefAssessmentType`: tipo de evaluación. */
+export const ASSESSMENT_TYPE = {
+  /** 1 (Diagnostic): evaluación diagnóstica. */
+  diagnostic: 1,
+  /** 2 (Formative): evaluación formativa / de proceso. */
+  formative: 2,
+  /** 3 (Summative): evaluación sumativa / de resultado. */
+  summative: 3,
+  /** 4 (Benchmark): evaluación de referencia / comparativa. */
+  benchmark: 4,
+  /** 5 (Other): otro tipo. */
+  other: 5,
+} as const;
+
+/** `RefAssessmentReportingMethod`: cómo se reporta la calificación. */
+export const ASSESSMENT_REPORTING_METHOD = {
+  /** 1 (Numeric): nota numérica (1.0–7.0 en Chile). */
+  numeric: 1,
+  /** 2 (Letter): nota con letras (A, B, C...). */
+  letter: 2,
+  /** 3 (Pass/Fail): aprobado/reprobado. */
+  passFail: 3,
+  /** 4 (Other): otro método. */
+  other: 4,
+} as const;
+
+/** `RefScoreMetricType`: métrica de la nota. */
+export const SCORE_METRIC_TYPE = {
+  /** 1 (Points): puntos (0–100 o similar). */
+  points: 1,
+  /** 2 (Percent): porcentaje (0–100%). */
+  percent: 2,
+  /** 3 (ScaleScore): escala (1.0–7.0 con un decimal, Art. 8 Decreto 67). */
+  scaleScore: 3,
+  /** 4 (RawScore): puntaje bruto. */
+  rawScore: 4,
+} as const;
+
+/** Mapea `EvaluationType` de Prisma a `ASSESSMENT_TYPE` del MINEDUC. */
+export function assessmentTypeDe(evalType: string): number {
+  switch (evalType) {
+    case "DIAGNOSTICA":
+      return ASSESSMENT_TYPE.diagnostic;
+    case "PRUEBA":
+    case "EXAMEN":
+      return ASSESSMENT_TYPE.summative;
+    case "TRABAJO":
+    case "EXPOSICION":
+      return ASSESSMENT_TYPE.formative;
+    default:
+      return ASSESSMENT_TYPE.other;
+  }
+}
+
+/** En Chile la nota se reporta en escala 1.0–7.0 (Art. 8 D.67). */
+export const CHILE_REPORTING_METHOD = ASSESSMENT_REPORTING_METHOD.numeric;
+export const CHILE_SCORE_METRIC = SCORE_METRIC_TYPE.scaleScore;
