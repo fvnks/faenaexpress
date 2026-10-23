@@ -9,6 +9,7 @@ import {
   ASSESSMENT_TYPE,
   ATTENDANCE_EVENT_TYPE,
   ATTENDANCE_STATUS,
+  CALENDAR_EVENT_TYPE,
   CHILE_REPORTING_METHOD,
   CHILE_SCORE_METRIC,
   DELIVERY_MODE,
@@ -34,6 +35,7 @@ import {
   SEX,
   SINGLE_SEX_STATUS,
   assessmentTypeDe,
+  calendarEventTypeDe,
 } from "@/lib/school-ede-codes";
 import type { SchoolLevel } from "@/generated/prisma/client";
 
@@ -345,7 +347,7 @@ function categoriaDeAusencia(justificativo: string | null): number {
  *     calendario escolar.
  */
 export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
-  const [colegio, cursos, alumnos, apoderados, docentes, asignaturas, asignaciones, sesiones, matriculas, evaluacionesPrisma, periodos, firmas] =
+  const [colegio, cursos, alumnos, apoderados, docentes, asignaturas, asignaciones, sesiones, matriculas, evaluacionesPrisma, periodos, firmas, eventosCalendario] =
     await Promise.all([
       db.school.findUnique({
         where: { id: schoolId },
@@ -479,6 +481,11 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
         select: { id: true, name: true, startDate: true, endDate: true, weight: true },
       }),
       db.schoolSignature.findMany({ where: { schoolId } }),
+      db.schoolCalendarEvent.findMany({
+        where: { schoolId },
+        orderBy: { date: "asc" },
+        select: { id: true, date: true, type: true, name: true, description: true, isNonInstructional: true },
+      }),
     ]);
 
   if (!colegio) throw new Error("El colegio no existe.");
@@ -1258,6 +1265,29 @@ export async function buildEdePayload(schoolId: string): Promise<EdePayload> {
         OrganizationCalendarId: orgCalendario,
         DayName: dia,
         AlternateDayName: dia.slice(0, 1),
+        RecordStartDateTime: inicio,
+        RecordEndDateTime: null,
+      });
+    }
+  }
+
+  // Eventos del calendario escolar (feriados, vacaciones, días no lectivos).
+  // Se agregan a TODOS los calendarios del colegio, ya que son días que
+  // afectan a toda la comunidad educativa.
+  for (const ev of eventosCalendario) {
+    const fecha = fechaLocal(ev.date);
+    const tipoCalendario = calendarEventTypeDe(ev.type);
+    const esNoLectivo = ev.isNonInstructional;
+
+    for (const orgCalendario of calendarios.map((c) => c.OrganizationCalendarId)) {
+      diasCalendario.push({
+        OrganizationCalendarDayId: idDiaCalendario.siguiente(),
+        OrganizationCalendarId: orgCalendario,
+        DayName: ev.name,
+        AlternateDayName: ev.name.slice(0, 1),
+        RefCalendarEventTypeId: tipoCalendario,
+        IsNonInstructional: esNoLectivo ? 1 : 0,
+        Description: ev.description ?? null,
         RecordStartDateTime: inicio,
         RecordEndDateTime: null,
       });

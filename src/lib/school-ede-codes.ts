@@ -373,3 +373,46 @@ export function assessmentTypeDe(evalType: string): number {
 /** En Chile la nota se reporta en escala 1.0–7.0 (Art. 8 D.67). */
 export const CHILE_REPORTING_METHOD = ASSESSMENT_REPORTING_METHOD.numeric;
 export const CHILE_SCORE_METRIC = SCORE_METRIC_TYPE.scaleScore;
+
+// ---------------------------------------------------------------------------
+// Códigos de CALENDARIO ESCOLAR
+// ---------------------------------------------------------------------------
+//
+// `RefCalendarEventType`: tipo de evento en el calendario escolar.
+// Basado en la Circular N°30 y el estándar NDS para _Calendarios.
+
+/** `RefCalendarEventType`: tipo de día en el calendario escolar. */
+export const CALENDAR_EVENT_TYPE = {
+  /** 1 (Instructional): día lectivo normal. */
+  instructional: 1,
+  /** 2 (Holiday): feriado nacional/regional. */
+  holiday: 2,
+  /** 3 (Vacation): vacaciones (invierno, verano, semana santa). */
+  vacation: 3,
+  /** 4 (NonInstructional): día no lectivo (consejo de curso, día del profesor). */
+  nonInstructional: 4,
+  /** 5 (EarlyDismissal): salida anticipada (medio día). */
+  earlyDismissal: 5,
+  /** 6 (MakeupDay): día de recuperación de clases. */
+  makeupDay: 6,
+  /** 7 (Other): otro tipo. */
+  other: 7,
+} as const;
+
+/** Mapea `CalendarEventType` de Prisma a `CALENDAR_EVENT_TYPE` del MINEDUC. */
+export function calendarEventTypeDe(tipo: string): number {
+  switch (tipo) {
+    case "HOLIDAY":
+      return CALENDAR_EVENT_TYPE.holiday;
+    case "VACATION":
+      return CALENDAR_EVENT_TYPE.vacation;
+    case "NON_INSTRUCTIONAL":
+      return CALENDAR_EVENT_TYPE.nonInstructional;
+    case "EARLY_DISMISSAL":
+      return CALENDAR_EVENT_TYPE.earlyDismissal;
+    case "MAKEUP_DAY":
+      return CALENDAR_EVENT_TYPE.makeupDay;
+    default:
+      return CALENDAR_EVENT_TYPE.other;
+  }
+}

@@ -331,6 +331,7 @@ model School {
   plans         ConvivenciaPlan[]
   promotions    PromotionResolution[]
   signatures    SchoolSignature[]
+  calendarEvents SchoolCalendarEvent[]
 
   @@index([organizationId])
 }
@@ -603,6 +604,37 @@ model ClassSession {
   @@unique([courseId, subjectId, date, period])
   @@index([schoolId, date])
   @@index([teacherId, date])
+}
+
+// Un día del calendario escolar: feriado, vacaciones, día no lectivo, o
+// jornada especial. La Circular N°30 exige que el registro esté al día
+// durante todo el año, y el EDE exporta la tabla _Calendarios con cada
+// día del año escolar y su tipo.
+model SchoolCalendarEvent {
+  id          String   @id @default(cuid())
+  schoolId    String
+  date        DateTime // Día completo (mediodía UTC para evitar problemas de zona horaria)
+  type        CalendarEventType
+  name        String   // "Feriado", "Vacaciones de Invierno", "Consejo de Curso", etc.
+  description String?
+  // Si es un día no lectivo, la asistencia no se cuenta para el 85%
+  isNonInstructional Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, date])
+  @@index([schoolId])
+}
+
+enum CalendarEventType {
+  HOLIDAY       // Feriado nacional/regional
+  VACATION      // Vacaciones (invierno, verano, semana santa)
+  NON_INSTRUCTIONAL // Día no lectivo (consejo de curso, día del profesor, etc.)
+  EARLY_DISMISSAL   // Salida anticipada (medio día)
+  MAKEUP_DAY      // Día de recuperación de clases
+  OTHER
 }
 
 // La asistencia de un alumno en una clase. El estado lleva el justificativo
