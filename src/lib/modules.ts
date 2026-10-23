@@ -24,6 +24,7 @@ import { enabledModuleCodes } from "@/lib/org-module-state";
 import { pendingTotals } from "@/lib/reports";
 import { hasPlatformLevel } from "@/lib/platform";
 import { resolveActiveSchool } from "@/lib/school-auth";
+import { subscriptionState } from "@/lib/plans";
 import type { SessionUser } from "@/lib/types";
 
 // Estado real de un módulo: números que ya existen, no adorno de tarjeta.
@@ -118,11 +119,55 @@ const colegios: AppModule = {
     ];
   },
 };
-
+ 
+const billing: AppModule = {
+  code: "billing",
+  name: "Facturación SaaS",
+  description: "Tus facturas, planes y métodos de pago de la plataforma.",
+  href: "/billing",
+  core: true,
+  hasAccess: async (userId) => {
+    const user = await getCurrentUser();
+    if (!user || user.id !== userId) return false;
+    // OWNER y ADMIN de la organización ven la facturación SaaS
+    const { getActiveMembership } = await import("@/lib/auth");
+    const active = await getActiveMembership();
+    return active !== null && ["OWNER", "ADMIN"].includes(active.role);
+  },
+  pendings: async (userId) => {
+    const user = await getCurrentUser();
+    if (!user || user.id !== userId) return [];
+ 
+    const { getActiveMembership } = await import("@/lib/auth");
+    const active = await getActiveMembership();
+    if (!active || !active.company.organizationId) return [];
+ 
+    const orgId = active.company.organizationId!;
+    const state = await subscriptionState(orgId);
+    if (!state.plan) return [];
+ 
+    const result: { label: string; value: string }[] = [];
+    if (state.warning) result.push({ label: "Aviso", value: state.warning });
+ 
+    const { db } = await import("@/lib/db");
+    const overdue = await db.platformInvoice.count({
+      where: { organizationId: orgId, status: "OVERDUE" },
+    });
+    if (overdue > 0) result.push({ label: "Facturas vencidas", value: String(overdue) });
+ 
+    const pending = await db.platformInvoice.count({
+      where: { organizationId: orgId, status: "PENDING" },
+    });
+    if (pending > 0) result.push({ label: "Pendientes de pago", value: String(pending) });
+ 
+    return result;
+  },
+};
+ 
 // Cookie con el último módulo usado (se marca como sugerencia en /modulos).
 export const MODULE_COOKIE = "facturas_module";
-
-const ALL_MODULES: AppModule[] = [facturas, colegios];
+ 
+const ALL_MODULES: AppModule[] = [facturas, colegios, billing];
 
 /**
  * Módulos a los que el usuario puede entrar: los del registry a los que tiene
@@ -196,6 +241,7 @@ export type ProductoPublico = {
 const TAGLINES: Record<string, string> = {
   facturas: "Compras, ventas, gastos y conciliación bancaria.",
   colegios: "Libro de clases, asistencia, notas y convivencia.",
+  billing: "Facturas de la plataforma, planes y métodos de pago.",
 };
 
 export const PRODUCTOS_PUBLICOS: ProductoPublico[] = ALL_MODULES.map((m) => ({

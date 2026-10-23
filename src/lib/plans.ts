@@ -15,6 +15,7 @@
 
 import { db } from "@/lib/db";
 import { currentPeriod } from "@/lib/money";
+import { isOrganizationMorosa } from "@/lib/saas-billing/invoice-generation";
 
 export type PlanLimits = {
   maxCompanies: number | null;
@@ -143,6 +144,12 @@ export async function checkPlanLimit(
   kind: LimitKind,
 ): Promise<string | null> {
   if (!organizationId) return null;
+
+  // Morosidad: si hay facturas vencidas o suscripción PAST_DUE, se bloquea todo
+  const morosa = await isOrganizationMorosa(organizationId);
+  if (morosa) {
+    return "Tu organización tiene facturas vencidas. Regulariza el pago para seguir usando la plataforma.";
+  }
 
   const subscription = await subscriptionFor(organizationId);
   if (!subscription) return null;

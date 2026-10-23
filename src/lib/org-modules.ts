@@ -78,6 +78,13 @@ export const CORE_MODULES: OrgModule[] = [
     sections: ["panel", "compras", "ventas", "gastos", "clientes", "proveedores", "catalogos", "reportes", "auditoria", "importar", "configuracion", "organizacion"],
     core: true,
   },
+  {
+    code: "billing",
+    name: "Facturación SaaS",
+    description: "Facturas de la plataforma, planes y métodos de pago.",
+    sections: [],
+    core: true,
+  },
 ];
 
 /** Todos los módulos, nucleus y contratables. */
