@@ -2507,7 +2507,8 @@ model ConductCase {
   // La Ley 21.809 fija que la investigación de un caso de alumno no puede
   // pasar de 2 meses. El colegio no lo acorta: lo acorta la ley.
   investigationDueAt DateTime
-  reportedById       String
+  // Quién reportó. Null = denuncia anónima por canal confidencial.
+  reportedById       String?
   reportedAt         DateTime        @default(now())
   closedAt           DateTime?
   resolution         String?
