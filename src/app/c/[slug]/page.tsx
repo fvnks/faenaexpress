@@ -19,8 +19,8 @@ import { colegioPorSlug } from "@/lib/school-slug-store";
  */
 export default async function ColegioPortalPage({
   params,
-}: PageProps<"/c/[colegio]">) {
-  const { colegio: slug } = await params;
+}: PageProps<"/c/[slug]">) {
+  const { slug } = await params;
   const colegio = await colegioPorSlug(slug);
   if (!colegio) notFound();
 
