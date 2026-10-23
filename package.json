@@ -16,7 +16,9 @@
     "db:backfill-orgs": "tsx scripts/backfill-organizations.ts",
     "db:studio": "node scripts/prisma-run.mjs studio",
     "check:tenant": "node scripts/check-tenant-scope.mjs",
-    "db:bridge": "node scripts/pg-tls-bridge.mjs"
+    "db:bridge": "node scripts/pg-tls-bridge.mjs",
+    "ede:generate": "tsx scripts/generate-test-ede.ts",
+    "ede:validate": "docker run -it --rm --name etl -v ${PWD}/test-ede:/usr/src/ede -w /usr/src/ede edemineduc/etl python3 parseCSVtoEDE.py check"
   },
   "dependencies": {
     "@albertomarturelo/sii-core": "^0.10.0",
