@@ -27,48 +27,41 @@ export async function requestTeacherAppointment(
   const reason = texto(formData, "reason");
   const fechaTexto = texto(formData, "date");
   const horaTexto = texto(formData, "time");
-  const durationMin = Number(formData.get("durationMin") ?? 30);
   const place = texto(formData, "place");
 
   if (!studentId) return { error: "Elige al alumno." };
   if (!teacherId) return { error: "Elige al profesor." };
-  if (reason.length < 3) return { error: "El motivo es obligatorio." };
-  if (!fechaTexto) return { error: "Elige la fecha." };
-  if (!horaTexto) return { error: "Elige la hora." };
-  if (!Number.isFinite(durationMin) || durationMin < 10 || durationMin > 240) {
-    return { error: "La duración va de 10 a 240 minutos." };
-  }
+  if (reason.length < 5) return { error: "Explica brevemente el motivo de la reunión." };
+  if (!fechaTexto || !horaTexto) return { error: "Elige fecha y hora." };
 
-  // El alumno tiene que ser de esta familia
-  const alumno = await db.student.findFirst({
-    where: { id: studentId, guardianships: { some: { guardianId: apoderado.id } } },
-    select: { id: true, schoolId: true },
-  });
-  if (!alumno) return { error: "Ese alumno no es de tu familia." };
-
-  // El profesor tiene que dar clases en el colegio
-  const docente = await db.teacher.findFirst({
-    where: { id: teacherId, schoolId: apoderado.schoolId },
+  // Verifica que el alumno sea de esta familia
+  const vinculo = await db.guardianship.findFirst({
+    where: { guardianId: apoderado.id, studentId },
     select: { id: true },
   });
-  if (!docente) return { error: "Ese profesor no es de este colegio." };
+  if (!vinculo) return { error: "Ese alumno no es de tu familia." };
+
+  // Verifica que el profesor exista y sea del colegio
+  const profesor = await db.teacher.findFirst({
+    where: { id: teacherId, schoolId: apoderado.schoolId },
+    select: { id: true, name: true },
+  });
+  if (!profesor) return { error: "Ese profesor no es de este colegio." };
 
   const fecha = new Date(`${fechaTexto}T${horaTexto}:00.000Z`);
-  if (Number.isNaN(fecha.getTime()) || !/^\d{4}-\d{2}-\d{2}$/.test(fechaTexto) || !/^\d{2}:\d{2}$/.test(horaTexto)) {
-    return { error: "La fecha o la hora no son válidas." };
-  }
+  if (Number.isNaN(fecha.getTime())) return { error: "La fecha o la hora no son válidas." };
 
   await db.appointment.create({
     data: {
       schoolId: apoderado.schoolId,
       studentId,
       guardianId: apoderado.id,
-      title: `Solicitud de reunión: ${reason}`,
+      title: `Solicitud de reunión: ${apoderado.name} con ${profesor.name}`,
       reason,
       scheduledAt: fecha,
-      durationMin: Math.round(durationMin),
+      durationMin: 30,
       place: place || null,
-      createdById: apoderado.id,
+      createdById: apoderado.id, // Usamos el ID del apoderado como creador temporal
     },
   });
 
@@ -77,7 +70,7 @@ export async function requestTeacherAppointment(
   return { ok: true };
 }
 
-/** Cancela una cita propia (solo si está pendiente). */
+/** Cancela una cita propia pendiente. */
 export async function cancelMyAppointment(
   _prev: PortalAppointmentState,
   formData: FormData,
@@ -85,14 +78,14 @@ export async function cancelMyAppointment(
   const sesion = await apoderadoActual();
   if (!sesion) return { error: "Tu sesión expiró. Entra de nuevo." };
 
-  const apoderado = sesion.guardian;
   const id = texto(formData, "appointmentId");
   if (!id) return { error: "Falta la cita." };
 
   const cita = await db.appointment.findFirst({
-    where: { id, schoolId: apoderado.schoolId, guardianId: apoderado.id },
+    where: { id, schoolId: sesion.guardian.schoolId, guardianId: sesion.guardian.id },
     select: { id: true, status: true },
   });
+
   if (!cita) return { error: "Esa cita no existe o no es tuya." };
   if (cita.status !== "PENDIENTE") return { error: "Solo puedes cancelar citas pendientes." };
 
