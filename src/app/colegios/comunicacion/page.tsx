@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { todayISO } from "@/lib/money";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { bandejaPendientes, circularesConAcuses } from "@/lib/school-communication";
+import { detectarAlertasInasistencia, type AlertaInasistencia } from "@/lib/school-alerts";
 import { cardClass } from "@/lib/ui";
 
 /**
@@ -23,7 +24,7 @@ export default async function ComunicacionPage() {
   const schoolId = ctx.school.id;
   const puedeEditar = schoolCanWrite(ctx, "comunicacion");
 
-  const [circulares, bandeja, cursos, familias, alumnos] = await Promise.all([
+  const [circulares, bandeja, cursos, familias, alumnos, alertas] = await Promise.all([
     circularesConAcuses(schoolId),
     bandejaPendientes(schoolId),
     db.course.findMany({
@@ -41,10 +42,11 @@ export default async function ComunicacionPage() {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true },
     }),
+    detectarAlertasInasistencia(schoolId, 5), // umbral por defecto: 5 inasistencias sin justificar
   ]);
 
   const pendientesTotal =
-    bandeja.justificaciones.length + bandeja.citas.length;
+    bandeja.justificaciones.length + bandeja.citas.length + alertas.length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -142,6 +144,43 @@ export default async function ComunicacionPage() {
                           {c.guardian ? ` · ${c.guardian.name}` : ""}
                         </p>
                       </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {alertas.length > 0 ? (
+              <div>
+                <h3 className="text-sm font-medium text-accent">
+                  Alertas de inasistencia ({alertas.length})
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Alumnos con 5+ inasistencias sin justificar. La Ley 21.809 exige seguimiento.
+                </p>
+                <ul className="mt-2 divide-y divide-border">
+                  {alertas.map((a) => (
+                    <li key={a.studentId} className="flex flex-wrap items-start justify-between gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">
+                          {a.studentName} · {a.courseName}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {a.inasistenciasSinJustificar} inasistencias sin justificar ·{" "}
+                          {a.porcentajeAsistencia}% asistencia
+                          {a.ultimaFalta
+                            ? ` · última falta: ${a.ultimaFalta.toLocaleDateString("es-CL")}`
+                            : ""}
+                        </p>
+                      </div>
+                      {puedeEditar ? (
+                        <button
+                          className="rounded-control border border-primary bg-transparent px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+                          onClick={() => alert(`Crear citación para ${a.studentName} (pendiente de implementar)`)}
+                        >
+                          Citar a apoderado
+                        </button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
