@@ -316,6 +316,7 @@ model School {
   students    Student[]
   guardians   Guardian[]
   teachers    Teacher[]
+  staff       Staff[]
   subjects    Subject[]
   sessions    ClassSession[]
   evaluations Evaluation[]
@@ -483,6 +484,46 @@ model Teacher {
   sessions     ClassSession[]
 
   @@index([schoolId, name])
+}
+
+// Personal no docente del colegio: porteros, asistentes de la educación,
+// administrativos, psicólogos, trabajadores sociales, etc.
+// Es distinto de Teacher (que tiene asignaturas) y de Worker (que es de Facturas/empresas).
+model Staff {
+  id        String   @id @default(cuid())
+  schoolId  String
+  rut       String?
+  name      String
+  email     String?
+  phone     String?
+  // Tipo de cargo: PORTERO, ASISTENTE_EDUCACION, ADMINISTRATIVO, PSICOLOGO,
+  // TRABAJADOR_SOCIAL, INSPECTOR, OTRO
+  role      StaffRole @default(OTRO)
+  // Jornada: COMPLETA, MEDIA, HORAS (si es por horas)
+  journey   StaffJourney @default(COMPLETA)
+  hireDate  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  school    School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, name])
+}
+
+enum StaffRole {
+  PORTERO
+  ASISTENTE_EDUCACION
+  ADMINISTRATIVO
+  PSICOLOGO
+  TRABAJADOR_SOCIAL
+  INSPECTOR
+  OTRO
+}
+
+enum StaffJourney {
+  COMPLETA
+  MEDIA
+  HORAS
 }
 
 model Subject {
