@@ -19,6 +19,7 @@ const SESSION_COOKIE = "facturas_session";
 // la sesión se crea al aceptar.
 const PROTEGIDAS = [
   "/facturas",
+  "/pos",
   "/admin",
   "/perfil",
   "/modulos",

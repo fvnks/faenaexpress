@@ -4,11 +4,10 @@ import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { changeOrganizationPlan, type PlatformActionState } from "@/app/actions/platform";
-import { subscriptionState } from "@/lib/plans";
 import { SubmitButton } from "@/components/submit-button";
-import { cardClass, controlClass, labelClass } from "@/lib/ui";
+import { cardClass } from "@/lib/ui";
 
-type Plan = {
+export type Plan = {
   id: string;
   name: string;
   priceCLP: number;
@@ -18,90 +17,111 @@ type Plan = {
   maxDocsPerMonth: number | null;
 };
 
-// Retorno de subscriptionState (definido localmente para evitar importar tipos)
-type SubscriptionState = {
+export type SubscriptionState = {
   status: "ACTIVE" | "TRIAL" | "PAST_DUE" | "CANCELED";
   plan: Plan | null;
   warning: string | null;
 };
 
-type BillingPlanProps = {
-  subscription: SubscriptionState;
-  plans?: { id: string; name: string; priceCLP: number }[];
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  ACTIVE: { label: "Activo", color: "bg-green-100 text-green-700 border-green-200" },
+  TRIAL: { label: "En prueba", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  PAST_DUE: { label: "Vencido", color: "bg-red-100 text-red-700 border-red-200" },
+  CANCELED: { label: "Cancelado", color: "bg-gray-100 text-gray-700 border-gray-200" },
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "Al día",
-  TRIAL: "En prueba",
-  PAST_DUE: "Pago pendiente",
-  CANCELED: "Cancelado",
-};
-
-export function BillingPlan({ subscription, plans = [] }: BillingPlanProps) {
-  const [state, action, pending] = useActionState<PlatformActionState, FormData>(
-    async (_prev, formData) => {
-      const { changeOrganizationPlan } = await import("@/app/actions/platform");
-      return changeOrganizationPlan(undefined, formData);
-    },
+export function BillingPlan({ submission }: { submission: SubscriptionState }) {
+  const [state, formAction, pending] = useActionState<PlatformActionState, FormData>(
+    changeOrganizationPlan,
     undefined,
   );
 
   useEffect(() => {
-    if (state?.ok) toast.success("Plan actualizado");
+    if (state?.ok) toast.success("Plan actualizado correctamente");
     if (state?.error) toast.error(state.error);
   }, [state]);
 
-  return (
-    <div className="grid gap-4 sm:grid-cols-3">
-      <div className={cardClass + " p-5"}>
-        <p className="text-xs text-muted-foreground">Plan</p>
-        <p className="mt-1 text-xl font-semibold">
-          {subscription.plan?.name ?? "Sin plan"}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {subscription.plan ? `${subscription.plan.priceCLP.toLocaleString("es-CL")} CLP / ${subscription.plan.period === "YEARLY" ? "año" : "mes"}` : "—"}
-        </p>
-      </div>
+  const plan = submission.plan;
+  const plans: Plan[] = [];
 
-      <div className={cardClass + " p-5"}>
-        <p className="text-xs text-muted-foreground">Estado</p>
-        <p className="mt-1 text-lg font-semibold">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-            subscription.status === "ACTIVE" ? "bg-green-100 text-green-800" :
-            subscription.status === "TRIAL" ? "bg-blue-100 text-blue-800" :
-            subscription.status === "PAST_DUE" ? "bg-red-100 text-red-800" :
-            "bg-gray-100 text-gray-800"
-          }`}>
-            {STATUS_LABEL[subscription.status] ?? subscription.status}
+  return (
+    <div className="grid gap-6 sm:grid-cols-3">
+      {/* Plan actual */}
+      <div className={cardClass + " p-6"}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-semibold">Plan actual</h2>
+          <span className={`flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${STATUS_CONFIG[submission.status]?.color ?? "bg-gray-100 text-gray-700"}`}>
+            {STATUS_CONFIG[submission.status]?.label ?? submission.status}
           </span>
-        </p>
-        {subscription.warning && (
-          <p className="mt-2 text-sm text-red-600">{subscription.warning}</p>
+        </div>
+
+        <div className="mt-6">
+          <p className="text-xs font-medium text-muted-foreground">Plan actual</p>
+          <h2 className="text-3xl font-bold tracking-tight">{plan?.name ?? "Sin plan"}</h2>
+          <p className="mt-2 text-lg font-medium">
+            {plan?.priceCLP ? `$${plan.priceCLP.toLocaleString("es-CL")}` : "Gratis"} / {plan?.period === "YEARLY" ? "año" : "mes"}
+          </p>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Empresas</span>
+            <span className="font-medium tabular">{plan?.maxCompanies ?? "∞"}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Usuarios</span>
+            <span className="font-medium tabular">{plan?.maxUsers ?? "∞"}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Documentos/mes</span>
+            <span className="font-medium tabular">{plan?.maxDocsPerMonth ?? "∞"}</span>
+          </div>
+        </div>
+
+        {submission.warning && (
+          <div className="mt-6 p-3 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm">
+            {submission.warning}
+          </div>
         )}
       </div>
 
-      <div className={cardClass + " p-5"}>
-        <p className="text-xs text-muted-foreground">Límites del plan</p>
-        <dl className="mt-3 space-y-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Empresas</dt>
-            <dd className="font-medium tabular">
-              {subscription.plan?.maxCompanies ?? "∞"}
-            </dd>
+      {/* Selector de nuevo plan */}
+      <div className={cardClass + " p-6"}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-semibold">Cambiar plan</h3>
+          <SubmitButton
+            className="rounded-control border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary"
+            pendingLabel="Actualizando..."
+            disabled={pending || !plans.length || submission.status === "CANCELED"}
+          >
+            Cambiar
+          </SubmitButton>
+        </div>
+
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No hay planes disponibles para cambiar.
+        </p>
+      </div>
+
+      {/* Información adicional */}
+      <div className={cardClass + " p-6 mt-6"}>
+        <h3 className="font-semibold mb-4">Información del plan</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Plan actual</span>
+            <span className="font-medium">{submission.plan?.name ?? "Sin plan"}</span>
           </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Usuarios</dt>
-            <dd className="font-medium tabular">
-              {subscription.plan?.maxUsers ?? "∞"}
-            </dd>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Estado</span>
+            <span className="font-medium">
+              {submission.status === "ACTIVE" ? "Activo" : submission.status === "PAST_DUE" ? "Vencido" : submission.status === "TRIAL" ? "En prueba" : submission.status}
+            </span>
           </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Documentos/mes</dt>
-            <dd className="font-medium tabular">
-              {subscription.plan?.maxDocsPerMonth ?? "∞"}
-            </dd>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Documentos este mes</span>
+            <span className="font-medium tabular">{submission.plan?.maxDocsPerMonth ?? "Sin límite"}</span>
           </div>
-        </dl>
+        </div>
       </div>
     </div>
   );

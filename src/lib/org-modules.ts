@@ -30,6 +30,17 @@ export type OrgModule = {
 /** Módulos contratables. Todo lo que no esté aquí es núcleo. */
 export const ORG_MODULES: OrgModule[] = [
   {
+    code: "facturas",
+    name: "Facturas",
+    description: "Compras, ventas, gastos, terceros, catálogos y reportes.",
+    // Facturas ya no es núcleo: se contrata. Quien solo tiene Punto de Venta
+    // gestiona su catálogo desde /pos/productos y no ve nada de /facturas.
+    // El inventario avanzado (bodegas, costos, conteos) vive en el módulo
+    // Inventario; los datos son compartidos con el POS.
+    sections: ["panel", "compras", "ventas", "gastos", "clientes", "proveedores", "catalogos", "reportes", "auditoria", "importar", "configuracion", "organizacion"],
+    core: false,
+  },
+  {
     code: "rrhh",
     name: "RRHH y nómina",
     description: "Trabajadores, remuneraciones, liquidaciones y ausencias.",
@@ -67,17 +78,20 @@ export const ORG_MODULES: OrgModule[] = [
     sections: [],
     core: false,
   },
+  {
+    code: "pos",
+    name: "Punto de Venta",
+    description: "Ventas rápidas, control de caja e impresión de tickets.",
+    // POS también es un producto aparte: tiene sus propias rutas y su propio
+    // permiso de escritura (ventas). Acá solo se declara para que la
+    // organización lo pueda contratar y habilitar.
+    sections: [],
+    core: false,
+  },
 ];
 
 /** Módulos del núcleo: siempre están, no se tocan. */
 export const CORE_MODULES: OrgModule[] = [
-  {
-    code: "facturas",
-    name: "Facturas",
-    description: "Compras, ventas, gastos, terceros, catálogos y reportes.",
-    sections: ["panel", "compras", "ventas", "gastos", "clientes", "proveedores", "catalogos", "reportes", "auditoria", "importar", "configuracion", "organizacion"],
-    core: true,
-  },
   {
     code: "billing",
     name: "Facturación SaaS",

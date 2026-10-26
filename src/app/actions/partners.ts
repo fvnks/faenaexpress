@@ -109,7 +109,7 @@ async function applySalespersonToSales(
   return { count: result.count, salespersonName: salesperson.name };
 }
 
-async function checkRut(
+export async function checkRut(
   companyId: string,
   rut: string | undefined,
   ignoreId?: string,

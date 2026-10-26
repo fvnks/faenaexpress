@@ -1,0 +1,250 @@
+/* Thermal printer CSS for 80mm receipt paper */
+/* This file is imported in the POS ticket page for thermal printing */
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Hide everything except the ticket article */
+  body > *:not(.thermal-ticket) {
+    display: none !important;
+  }
+
+  .thermal-ticket {
+    display: block !important;
+    width: 80mm;
+    max-width: 80mm;
+    margin: 0;
+    padding: 2mm 3mm;
+    font-size: 11px;
+    line-height: 1.3;
+    font-family: 'IBM Plex Sans', 'DejaVu Sans Mono', monospace;
+  }
+
+  /* Compact header */
+  .thermal-ticket header {
+    border-bottom: 1px dashed #000;
+    padding-bottom: 2mm;
+    margin-bottom: 2mm;
+  }
+
+  .thermal-ticket header h1 {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0 0 1mm;
+  }
+
+  .thermal-ticket header p {
+    font-size: 9px;
+    margin: 0.5mm 0;
+    color: #333;
+  }
+
+  /* Ticket number and date */
+  .thermal-ticket .ticket-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2mm;
+    font-size: 10px;
+  }
+
+  .thermal-ticket .ticket-meta .label {
+    text-transform: uppercase;
+    color: #666;
+    font-size: 8px;
+  }
+
+  .thermal-ticket .ticket-meta .value {
+    font-family: monospace;
+    font-weight: 600;
+    font-size: 11px;
+  }
+
+  /* Client info */
+  .thermal-ticket .client-info {
+    border: 1px dashed #999;
+    padding: 1.5mm 2mm;
+    margin-bottom: 2mm;
+    font-size: 9px;
+  }
+
+  .thermal-ticket .client-info .label {
+    text-transform: uppercase;
+    color: #666;
+    font-size: 7px;
+  }
+
+  .thermal-ticket .client-info .value {
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  /* Items table - compact */
+  .thermal-ticket table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9px;
+    margin-bottom: 2mm;
+  }
+
+  .thermal-ticket th {
+    text-align: left;
+    padding: 0.5mm 1mm;
+    border-bottom: 1px solid #000;
+    font-size: 8px;
+    text-transform: uppercase;
+    color: #333;
+  }
+
+  .thermal-ticket td {
+    padding: 0.5mm 1mm;
+    vertical-align: top;
+  }
+
+  .thermal-ticket td.qty {
+    text-align: right;
+    width: 12mm;
+    font-family: monospace;
+  }
+
+  .thermal-ticket td.desc {
+    width: calc(100% - 42mm);
+  }
+
+  .thermal-ticket td.price,
+  .thermal-ticket td.total {
+    text-align: right;
+    width: 15mm;
+    font-family: monospace;
+  }
+
+  .thermal-ticket .item-name {
+    font-size: 9px;
+    line-height: 1.2;
+  }
+
+  .thermal-ticket .item-discount {
+    font-size: 7px;
+    color: #666;
+    margin-top: 0.5mm;
+  }
+
+  /* Totals - right aligned */
+  .thermal-ticket .totals {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5mm;
+    margin-top: 1mm;
+    padding-top: 1mm;
+    border-top: 1px solid #000;
+  }
+
+  .thermal-ticket .total-row {
+    display: flex;
+    justify-content: space-between;
+    width: 50mm;
+    font-size: 9px;
+  }
+
+  .thermal-ticket .total-row .label {
+    color: #666;
+  }
+
+  .thermal-ticket .total-row .value {
+    font-family: monospace;
+    font-weight: 600;
+  }
+
+  .thermal-ticket .total-row.grand-total {
+    font-weight: 700;
+    font-size: 11px;
+    border-top: 1px solid #000;
+    padding-top: 0.5mm;
+  }
+
+  /* Payments */
+  .thermal-ticket .payments {
+    margin-top: 1.5mm;
+    padding-top: 1mm;
+    border-top: 1px dashed #999;
+    font-size: 9px;
+  }
+
+  .thermal-ticket .payments .label {
+    text-transform: uppercase;
+    color: #666;
+    font-size: 7px;
+  }
+
+  .thermal-ticket .payment-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.3mm 0;
+    font-size: 9px;
+  }
+
+  .thermal-ticket .payment-row .method {
+    color: #333;
+  }
+
+  .thermal-ticket .payment-row .reference {
+    color: #999;
+    font-size: 8px;
+    margin-left: 2mm;
+  }
+
+  .thermal-ticket .payment-row .amount {
+    font-family: monospace;
+    font-weight: 600;
+  }
+
+  /* Notes */
+  .thermal-ticket .notes {
+    margin-top: 1.5mm;
+    padding-top: 1mm;
+    border-top: 1px dashed #999;
+    font-size: 8px;
+    color: #666;
+  }
+
+  /* Footer */
+  .thermal-ticket footer {
+    margin-top: 2mm;
+    padding-top: 1mm;
+    border-top: 1px solid #000;
+    text-align: center;
+    font-size: 8px;
+    color: #666;
+    line-height: 1.4;
+  }
+
+  /* Hide elements not needed for thermal print */
+  .thermal-ticket .no-print,
+  .thermal-ticket [class*="print:hidden"] {
+    display: none !important;
+  }
+
+  /* Devolution badge */
+  .thermal-ticket .devolution-badge {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #856404;
+    padding: 1mm 2mm;
+    border-radius: 2mm;
+    font-size: 8px;
+    text-align: center;
+    margin-bottom: 2mm;
+    text-transform: uppercase;
+  }
+}
+
+/* Screen styles - hide thermal-specific elements on screen */
+@media screen {
+  .thermal-ticket {
+    display: none !important;
+  }
+}

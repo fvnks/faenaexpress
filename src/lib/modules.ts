@@ -19,7 +19,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { countPendingMovements } from "@/lib/banco";
 import { db } from "@/lib/db";
-import { formatCLP } from "@/lib/money";
+import { dayStartUtc, formatCLP, todayISO } from "@/lib/money";
 import { enabledModuleCodes } from "@/lib/org-module-state";
 import { pendingTotals } from "@/lib/reports";
 import { hasPlatformLevel } from "@/lib/platform";
@@ -58,7 +58,10 @@ const facturas: AppModule = {
   name: "Facturas",
   description: "Compras, ventas, gastos, conciliación bancaria e IVA.",
   href: "/facturas",
-  core: true,
+  // Ya no es núcleo: se contrata. enabledModules lo intersecta con los
+  // módulos habilitados de la organización, así que un plan que solo trae
+  // Punto de Venta no muestra Facturas en el selector.
+  core: false,
   hasAccess: async (userId) => {
     const user = await getCurrentUser();
     if (!user || user.id !== userId) return false;
@@ -137,37 +140,80 @@ const billing: AppModule = {
   pendings: async (userId) => {
     const user = await getCurrentUser();
     if (!user || user.id !== userId) return [];
- 
+  
     const { getActiveMembership } = await import("@/lib/auth");
     const active = await getActiveMembership();
     if (!active || !active.company.organizationId) return [];
- 
+  
     const orgId = active.company.organizationId!;
     const state = await subscriptionState(orgId);
     if (!state.plan) return [];
- 
+  
     const result: { label: string; value: string }[] = [];
     if (state.warning) result.push({ label: "Aviso", value: state.warning });
- 
+  
     const { db } = await import("@/lib/db");
     const overdue = await db.platformInvoice.count({
       where: { organizationId: orgId, status: "OVERDUE" },
     });
     if (overdue > 0) result.push({ label: "Facturas vencidas", value: String(overdue) });
- 
+  
     const pending = await db.platformInvoice.count({
       where: { organizationId: orgId, status: "PENDING" },
     });
     if (pending > 0) result.push({ label: "Pendientes de pago", value: String(pending) });
- 
+  
     return result;
+  },
+};
+
+const pos: AppModule = {
+  code: "pos",
+  name: "Punto de Venta",
+  description: "Ventas rápidas, control de caja e impresión de tickets.",
+  href: "/pos",
+  hasAccess: async (userId) => {
+    const user = await getCurrentUser();
+    if (!user || user.id !== userId) return false;
+    const { getActiveMembership } = await import("@/lib/auth");
+    return (await getActiveMembership()) !== null;
+  },
+  pendings: async (userId) => {
+    const user = await getCurrentUser();
+    if (!user || user.id !== userId) return [];
+    
+    const { getActiveMembership } = await import("@/lib/auth");
+    const active = await getActiveMembership();
+    if (!active) return [];
+    
+    const { db } = await import("@/lib/db");
+    const [salesToday, openSessions] = await Promise.all([
+      db.posSale.count({
+        where: {
+          companyId: active.company.id,
+          createdAt: { gte: dayStartUtc(todayISO()) },
+          status: "COMPLETED",
+        },
+      }),
+      db.posSession.count({
+        where: {
+          companyId: active.company.id,
+          status: "OPEN",
+        },
+      }),
+    ]);
+    
+    return [
+      { label: "Ventas hoy", value: `${salesToday}` },
+      { label: "Cajas abiertas", value: `${openSessions}` },
+    ];
   },
 };
  
 // Cookie con el último módulo usado (se marca como sugerencia en /modulos).
 export const MODULE_COOKIE = "facturas_module";
  
-const ALL_MODULES: AppModule[] = [facturas, colegios, billing];
+const ALL_MODULES: AppModule[] = [facturas, colegios, billing, pos];
 
 /**
  * Módulos a los que el usuario puede entrar: los del registry a los que tiene
@@ -242,6 +288,7 @@ const TAGLINES: Record<string, string> = {
   facturas: "Compras, ventas, gastos y conciliación bancaria.",
   colegios: "Libro de clases, asistencia, notas y convivencia.",
   billing: "Facturas de la plataforma, planes y métodos de pago.",
+  pos: "Ventas rápidas, control de caja e impresión de tickets.",
 };
 
 export const PRODUCTOS_PUBLICOS: ProductoPublico[] = ALL_MODULES.map((m) => ({

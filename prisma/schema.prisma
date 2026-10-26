@@ -936,6 +936,8 @@ model User {
   platformStaff                PlatformStaff? @relation("PlatformStaffUser")
   recoveryCodes                RecoveryCode[]
   accessLogs                   AccessLog[]
+  posSessionsOpened            PosSession[] @relation("PosSessionOpenedBy")
+  posSales                     PosSale[]   @relation("PosSaleUser")
 }
 
 // Códigos de recuperación: por si el cliente pierde su teléfono. Se muestran
@@ -1108,6 +1110,9 @@ model Company {
   bankReconciliations  Reconciliation[]
   payments             Payment[]
   invites              Invitation[]
+  posSessions           PosSession[]
+  posSales              PosSale[]
+  posSiiConfig          PosSiiConfig?
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
@@ -1148,6 +1153,7 @@ model Partner {
   sales     Sale[]
   dispatchGuides DispatchGuide[]
   products  Product[]  @relation("ProductSupplier")
+  posSales  PosSale[]
 
   @@unique([companyId, rut])
   @@index([companyId, name])
@@ -1516,6 +1522,7 @@ model Product {
   purchaseItems PurchaseItem[] @relation("PurchaseItemProduct")
   saleItems     SaleItem[]     @relation("SaleItemProduct")
   lots          ProductLot[]
+  posSaleItems PosSaleItem[]
 
   @@unique([companyId, sku])
   @@index([companyId, name])
@@ -2791,4 +2798,176 @@ model PlanActivity {
   plan ConvivenciaPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   @@index([planId, dueAt])
+}
+
+// ---------------------------------------------------------------------------
+// POS - Punto de Venta
+// 
+// Ventas rápidas, control de caja e impresión de tickets.
+// Reutiliza Product, Client, PaymentMethodCatalog del módulo Facturas.
+// ---------------------------------------------------------------------------
+
+enum PosSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum PosSaleStatus {
+  DRAFT
+  COMPLETED
+  VOIDED
+}
+
+model PosSession {
+  id              String           @id @default(cuid())
+  companyId       String
+  openedById      String
+  openedAt        DateTime         @default(now())
+  closedAt        DateTime?
+  openingAmount   Int              // monto inicial en CLP
+  closingAmount   Int?
+  status          PosSessionStatus @default(OPEN)
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  company Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  openedBy User     @relation("PosSessionOpenedBy", fields: [openedById], references: [id])
+  sales   PosSale[]
+
+  @@index([companyId, status])
+  @@index([companyId, openedAt])
+}
+
+model PosSale {
+  id          String        @id @default(cuid())
+  companyId   String
+  sessionId   String
+  saleNumber  String        // secuencial por caja
+  partnerId   String?
+  subtotal    Int
+  tax         Int
+  discount    Int           @default(0)
+  total       Int
+  status      PosSaleStatus @default(COMPLETED)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  userId      String
+  // Devolución: la venta que esta devuelve. Una devolución es una PosSale
+  // con los montos en negativo, ligada al ticket original.
+  relatedSaleId String?
+
+  company      Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  session      PosSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  partner      Partner?    @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  user         User        @relation("PosSaleUser", fields: [userId], references: [id])
+  items        PosSaleItem[]
+  payments     PosPayment[]
+  relatedSale  PosSale?    @relation("PosDevolucion", fields: [relatedSaleId], references: [id], onDelete: SetNull)
+  relatedReturns PosSale[] @relation("PosDevolucion")
+  dtes PosDte[]
+
+  @@unique([companyId, saleNumber])
+  @@index([companyId, createdAt])
+  @@index([sessionId])
+  @@index([relatedSaleId])
+}
+
+model PosSaleItem {
+  id         String  @id @default(cuid())
+  saleId     String
+  productId  String?
+  name       String  // nombre del producto al momento de la venta
+  quantity   Decimal @db.Decimal(12, 4)
+  unitPrice  Int
+  discount   Int     @default(0)
+  lineTotal  Int
+
+  sale    PosSale  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
+}
+
+model PosPayment {
+  id       String  @id @default(cuid())
+  saleId   String
+  method   String  // nombre del medio de pago desde PaymentMethodCatalog
+  amount   Int
+  reference String? // autorización de tarjeta, etc.
+  createdAt DateTime @default(now())
+
+  sale PosSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+}
+
+model PosSiiConfig {
+  id               String   @id @default(cuid())
+  companyId        String   @unique
+  // Certificado digital (encriptado con SII_SECRET_KEY, guardado en base64)
+  certificadoPfx   String?  // base64 del .pfx encriptado con AES-256-GCM
+  certificadoPass  String?  // encriptado con SII_SECRET_KEY
+  certificadoVence DateTime?
+  // Datos emisor (complementan Company)
+  resolucionSii    String?
+  resolucionFecha  DateTime?
+  acteco           String?  // código actividad económica SII
+  // Estado
+  habilitado       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  cafs PosCaf[]
+  dtes PosDte[]
+
+  @@index([companyId])
+}
+
+model PosCaf {
+  id           String   @id @default(cuid())
+  companyId    String
+  configId     String
+  tipoDte      Int      // 33=Factura, 39=Boleta, 61=NC, 56=ND
+  folioInicio  Int
+  folioFinal   Int
+  folioActual  Int      @default(0)
+  vigenteDesde DateTime
+  vigenteHasta DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  config PosSiiConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([configId, tipoDte])
+  @@index([companyId])
+  @@index([configId])
+}
+
+model PosDte {
+  id              String   @id @default(cuid())
+  companyId       String
+  configId        String
+  saleId          String?  @unique // venta POS que originó el DTE
+  tipoDte         Int      // 33, 39, 61, 56
+  folio           Int
+  estado          String   @default("BORRADOR") // BORRADOR, EMITIDO, ANULADO, RECHAZADO
+  trackId         String?  // TrackID del SII
+  xmlEnviado      String?  @db.Text
+  xmlRespuesta    String?  @db.Text
+  pdfPath         String?
+  enviadoEmail    Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  emitidoAt       DateTime?
+  anuladoAt       DateTime?
+
+  config PosSiiConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  sale   PosSale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([configId])
+  @@index([saleId])
 }

@@ -1,4 +1,7 @@
 -- CreateEnum
+CREATE TYPE "PlatformInvoiceStatus" AS ENUM ('DRAFT', 'PENDING', 'PARTIAL', 'PAID', 'VOID', 'OVERDUE');
+
+-- CreateEnum
 CREATE TYPE "PlatformPaymentStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'REFUNDED', 'CANCELED');
 
 -- CreateEnum

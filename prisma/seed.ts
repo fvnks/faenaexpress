@@ -91,7 +91,10 @@ async function main() {
         maxCompanies: null,
         maxUsers: null,
         maxDocsPerMonth: null,
-        modules: ["rrhh", "inventario", "comisiones", "banco"],
+        // Facturas se contrata (ya no es núcleo): el plan Free la incluye para
+        // que las cuentas nuevas no se queden sin el ERP. Sin fila u origen
+        // «defecto», lo habilitado por defecto cubre igualmente.
+        modules: ["facturas", "rrhh", "inventario", "comisiones", "banco"],
         active: true,
       },
     }));

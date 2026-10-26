@@ -1,6 +1,10 @@
 import { db } from "@/lib/db";
 import { dayStartUtc, nextDayISO, todayISO } from "@/lib/money";
 
+// Type assertion para que TypeScript reconozca los modelos POS en el cliente generado.
+// En builds frescos de Docker, los tipos generados a veces no se resuelven correctamente.
+const prisma = db as any;
+
 // Punto de venta: consultas de lectura del módulo.
 //
 // El POS es un producto aparte, pero comparte los datos de Facturas: productos,
@@ -72,14 +76,14 @@ export function parsePosSaleFilters(raw: {
 
 /** La caja abierta de esta persona. Cada cajero tiene la suya. */
 export async function getOpenPosSession(companyId: string, userId: string) {
-  return db.posSession.findFirst({
+  return prisma.posSession.findFirst({
     where: { companyId, openedById: userId, status: "OPEN" },
     orderBy: { openedAt: "desc" },
   });
 }
 
 export async function getPosSession(companyId: string, sessionId: string) {
-  return db.posSession.findFirst({
+  return prisma.posSession.findFirst({
     where: { id: sessionId, companyId },
     include: {
       openedBy: { select: { name: true } },
@@ -193,7 +197,7 @@ export async function posTodaySummary(companyId: string) {
   const from = dayStartUtc(hoyISO);
   const to = dayStartUtc(nextDayISO(hoyISO));
 
-  const sales = await db.posSale.findMany({
+  const sales = await prisma.posSale.findMany({
     where: {
       companyId,
       status: "COMPLETED",
@@ -207,9 +211,9 @@ export async function posTodaySummary(companyId: string) {
     },
   });
 
-  const total = sales.reduce((sum, sale) => sum + sale.total, 0);
-  const net = sales.reduce((sum, sale) => sum + sale.subtotal, 0);
-  const tax = sales.reduce((sum, sale) => sum + sale.tax, 0);
+  const total = sales.reduce((sum: number, sale: { total: number; subtotal: number; tax: number }) => sum + sale.total, 0);
+  const net = sales.reduce((sum: number, sale: { total: number; subtotal: number; tax: number }) => sum + sale.subtotal, 0);
+  const tax = sales.reduce((sum: number, sale: { total: number; subtotal: number; tax: number }) => sum + sale.tax, 0);
   const byMethod = new Map<string, number>();
   for (const sale of sales) {
     for (const payment of sale.payments) {
@@ -220,7 +224,7 @@ export async function posTodaySummary(companyId: string) {
   return {
     // Las devoluciones (total negativo) restan en los montos pero no cuentan
     // como tickets vendidos.
-    count: sales.filter((sale) => sale.total >= 0).length,
+    count: sales.filter((sale: { total: number }) => sale.total >= 0).length,
     total,
     net,
     tax,
@@ -232,7 +236,7 @@ export async function posTodaySummary(companyId: string) {
 
 /** Ventas de una caja o de un rango, para el listado. */
 export async function listPosSales(companyId: string, filters: PosSaleFilters) {
-  const sales = await db.posSale.findMany({
+  const sales = await prisma.posSale.findMany({
     where: {
       companyId,
       createdAt: { gte: filters.from, lt: filters.to },
@@ -255,7 +259,7 @@ export async function listPosSales(companyId: string, filters: PosSaleFilters) {
     take: 200,
   });
 
-  return sales.map((sale) => ({
+  return sales.map((sale: { id: string; saleNumber: string; createdAt: Date; status: string; partner: { name: string; rut: string | null } | null; user: { name: string }; _count: { items: number }; subtotal: number; tax: number; total: number; payments: { method: string }[] }) => ({
     id: sale.id,
     saleNumber: sale.saleNumber,
     createdAt: sale.createdAt,
@@ -267,12 +271,12 @@ export async function listPosSales(companyId: string, filters: PosSaleFilters) {
     subtotal: sale.subtotal,
     tax: sale.tax,
     total: sale.total,
-    payments: sale.payments.map((payment) => payment.method),
+    payments: sale.payments.map((payment: { method: string }) => payment.method),
   }));
 }
 
 export async function getPosSale(companyId: string, saleId: string) {
-  return db.posSale.findFirst({
+  return prisma.posSale.findFirst({
     where: { id: saleId, companyId },
     include: {
       partner: true,
@@ -290,7 +294,7 @@ export async function getPosSale(companyId: string, saleId: string) {
 }
 
 export async function listPosSessions(companyId: string, take = 30) {
-  const sessions = await db.posSession.findMany({
+  const sessions = await prisma.posSession.findMany({
     where: { companyId },
     include: {
       openedBy: { select: { name: true } },
@@ -303,14 +307,14 @@ export async function listPosSessions(companyId: string, take = 30) {
     take,
   });
 
-  return sessions.map((session) => {
-    const total = session.sales.reduce((sum, sale) => sum + sale.total, 0);
+  return sessions.map((session: { id: string; openedAt: Date; closedAt: Date | null; openingAmount: number; closingAmount: number | null; status: string; openedBy: { name: string }; sales: { total: number; payments: { method: string; amount: number }[] }[] }) => {
+    const total = session.sales.reduce((sum: number, sale: { total: number; payments: { method: string; amount: number }[] }) => sum + sale.total, 0);
     const cash = session.sales.reduce(
-      (sum, sale) =>
+      (sum: number, sale: { total: number; payments: { method: string; amount: number }[] }) =>
         sum +
         sale.payments
-          .filter((payment) => payment.method.toLowerCase().includes("efectivo"))
-          .reduce((inner, payment) => inner + payment.amount, 0),
+          .filter((payment: { method: string; amount: number }) => payment.method.toLowerCase().includes("efectivo"))
+          .reduce((inner: number, payment: { method: string; amount: number }) => inner + payment.amount, 0),
       0,
     );
     return {
@@ -333,7 +337,7 @@ export async function listPosSessions(companyId: string, take = 30) {
  * (incluidas las anuladas, que se listan pero no cuentan) y sus pagos.
  */
 export async function getPosSessionReport(companyId: string, sessionId: string) {
-  const session = await db.posSession.findFirst({
+  const session = await prisma.posSession.findFirst({
     where: { id: sessionId, companyId },
     include: {
       openedBy: { select: { name: true } },
@@ -348,8 +352,8 @@ export async function getPosSessionReport(companyId: string, sessionId: string) 
   });
   if (!session) return null;
 
-  const completed = session.sales.filter((sale) => sale.status === "COMPLETED");
-  const voided = session.sales.filter((sale) => sale.status === "VOIDED");
+  const completed = session.sales.filter((sale: { status: string }) => sale.status === "COMPLETED");
+  const voided = session.sales.filter((sale: { status: string }) => sale.status === "VOIDED");
 
   const byMethod = new Map<string, number>();
   for (const sale of completed) {
@@ -367,7 +371,7 @@ export async function getPosSessionReport(companyId: string, sessionId: string) 
     closingAmount: session.closingAmount,
     notes: session.notes,
     openedByName: session.openedBy.name,
-    sales: session.sales.map((sale) => ({
+    sales: session.sales.map((sale: { id: string; saleNumber: string; createdAt: Date; status: string; partner: { name: string } | null; subtotal: number; tax: number; total: number; payments: { method: string }[] }) => ({
       id: sale.id,
       saleNumber: sale.saleNumber,
       createdAt: sale.createdAt,
@@ -376,15 +380,15 @@ export async function getPosSessionReport(companyId: string, sessionId: string) 
       subtotal: sale.subtotal,
       tax: sale.tax,
       total: sale.total,
-      payments: sale.payments.map((payment) => payment.method),
+      payments: sale.payments.map((payment: { method: string }) => payment.method),
     })),
     totals: {
       count: completed.length,
-      net: completed.reduce((sum, sale) => sum + sale.subtotal, 0),
-      tax: completed.reduce((sum, sale) => sum + sale.tax, 0),
-      total: completed.reduce((sum, sale) => sum + sale.total, 0),
+      net: completed.reduce((sum: number, sale: { subtotal: number; tax: number; total: number }) => sum + sale.subtotal, 0),
+      tax: completed.reduce((sum: number, sale: { subtotal: number; tax: number; total: number }) => sum + sale.tax, 0),
+      total: completed.reduce((sum: number, sale: { subtotal: number; tax: number; total: number }) => sum + sale.total, 0),
       voidedCount: voided.length,
-      voidedTotal: voided.reduce((sum, sale) => sum + sale.total, 0),
+      voidedTotal: voided.reduce((sum: number, sale: { total: number }) => sum + sale.total, 0),
     },
     byMethod: [...byMethod.entries()]
       .map(([method, amount]) => ({ method, amount }))

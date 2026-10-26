@@ -12,9 +12,7 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-// Tipado explícito para que TypeScript resuelva los delegados (PosSession, PosSale, etc.)
-// incluso en builds frescos sin cache incremental.
-export const db: PrismaClient = globalForPrisma.prisma ?? createPrismaClient();
+export const db = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = db;

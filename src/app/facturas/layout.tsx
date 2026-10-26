@@ -30,6 +30,15 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
     redirect("/perfil");
   }
   const active = await getActiveMembership();
+  // Facturas ya se contrata: si la organización no la tiene habilitada, no se
+  // renderiza nada de /facturas. Igual que el gate del layout del POS.
+  if (active) {
+    const organizationId = user.orgMembership?.organizationId ?? null;
+    const { enabledModuleCodes } = await import("@/lib/org-module-state");
+    if (!(await enabledModuleCodes(organizationId)).includes("facturas")) {
+      redirect("/modulos");
+    }
+  }
   // Companies visibles: usa `visibleCompanies` para respetar el permiso
   // `canSwitchCompanies` de la organización. Sin él, solo se ven las memberships
   // activas del usuario (comportamiento actual).
