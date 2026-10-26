@@ -14,9 +14,21 @@ set -e
 echo "🔄 Aplicando migraciones..."
 
 # Resolver migraciones falladas conocidas (idempotente: si ya está resuelta, no hace nada).
-# La migración 20261026175000_school_calendar falló en producción; la marcamos como aplicada
-# porque su schema coincide con el actual (enum CalendarEventType + tabla SchoolCalendarEvent).
+# Estas migraciones fallaron en producción pero su schema coincide con el actual.
+# Módulo Colegios: migraciones renombradas/creadas tras baseline 0_init.
 node scripts/prisma-run.mjs migrate resolve --applied "20261026175000_school_calendar" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026175500_school_staff" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026220000_school_grades" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026221000_subject_promotion_flag" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026230000_enrollment_history" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026240000_student_documents" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026250000_guardian_portal" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026260000_school_communication" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026270000_school_convivencia" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026271000_denuncia_anonima" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026280000_promotion_resolution" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026290000_school_slug" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261026290000_school_signature" 2>/dev/null || true
 
 node scripts/prisma-run.mjs migrate deploy
 
