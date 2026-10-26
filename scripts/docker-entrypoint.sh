@@ -12,6 +12,12 @@
 set -e
 
 echo "🔄 Aplicando migraciones..."
+
+# Resolver migraciones falladas conocidas (idempotente: si ya está resuelta, no hace nada).
+# La migración 20261026175000_school_calendar falló en producción; la marcamos como aplicada
+# porque su schema coincide con el actual (enum CalendarEventType + tabla SchoolCalendarEvent).
+node scripts/prisma-run.mjs migrate resolve --applied "20261026175000_school_calendar" 2>/dev/null || true
+
 node scripts/prisma-run.mjs migrate deploy
 
 # Crear empresa y admin si no existen (seed idempotente).
