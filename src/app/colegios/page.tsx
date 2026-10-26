@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Kpi04 } from "@/components/ui/studio-blocks";
 import { db } from "@/lib/db";
 import { schoolLevelLabel, canAccessSchool, type SchoolSection } from "@/lib/school-permissions";
 import { requireSchoolContext } from "@/lib/school-auth";
@@ -142,13 +143,20 @@ export default async function ColegiosPage() {
             ))}
           </ul>
         </section>
-      ) : null}
+      ) : (
+        <section className="rounded-card border border-success/50 bg-success-soft p-5">
+          <h2 className="font-semibold text-success">Colegio listo</h2>
+          <p className="mt-1 text-sm text-success/80">
+            Todos los pasos de configuración están completos: el colegio ya puede tomar asistencia y
+            registrar notas.
+          </p>
+        </section>
+      )}
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {metricas.map((m) => (
-          <li key={m.label} className={cardClass + " px-4 py-3"}>
-            <p className="text-xs text-muted-foreground">{m.label}</p>
-            <p className="tabular mt-1 text-2xl font-semibold">{m.valor}</p>
+          <li key={m.label}>
+            <Kpi04 title={m.label} value={m.valor} format="number" />
           </li>
         ))}
       </ul>

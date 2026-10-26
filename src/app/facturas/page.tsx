@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Percent, Receipt, ShoppingBag, TrendingUp } from "lucide-react";
 
 import { Alert, type AlertVariant } from "@/components/alert";
 import { MonthlyBarsChart, RankBars } from "@/components/charts";
+import { Kpi01, Kpi04 } from "@/components/ui/studio-blocks";
 import { requireContext } from "@/lib/auth";
 import { formatCLP, formatPeriod, currentPeriod, monthRange, shiftPeriod } from "@/lib/money";
 import { listNotifications } from "@/lib/notifications";
@@ -76,135 +78,6 @@ const modules: Module[] = [
   },
 ];
 
-function ArrowUp({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d="M7 17L17 7" /><path d="M7 7h10v10" />
-    </svg>
-  );
-}
-
-function ArrowDown({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d="M7 7l10 10" /><path d="M17 7v10H7" />
-    </svg>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-  diff,
-  tone,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  diff: number | null;
-  tone?: "default" | "success" | "warning" | "danger";
-}) {
-  const hasDiff = diff !== null;
-  const positive = hasDiff && diff >= 0;
-  const iconColor = !hasDiff
-    ? tone === "warning" ? "text-accent" : tone === "danger" ? "text-danger" : "text-muted-foreground"
-    : positive ? "text-success" : "text-danger";
-  const badgeBg = !hasDiff
-    ? tone === "warning" ? "bg-accent-soft" : tone === "danger" ? "bg-danger-soft" : "bg-background"
-    : positive ? "bg-success-soft" : "bg-danger-soft";
-
-  return (
-    <div className={cardClass + " p-6"}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            {label}
-          </div>
-          <div className="tabular mt-2 text-xl font-bold tracking-tight">{value}</div>
-        </div>
-        <div className={"flex h-12 w-12 shrink-0 items-center justify-center rounded-card " + badgeBg}>
-          {hasDiff ? (
-            positive ? <ArrowUp className={"h-6 w-6 " + iconColor} /> : <ArrowDown className={"h-6 w-6 " + iconColor} />
-          ) : (
-            <span className={"h-3 w-3 rounded-full " + (tone === "warning" ? "bg-accent" : tone === "danger" ? "bg-danger" : "bg-muted-foreground")} aria-hidden="true" />
-          )}
-        </div>
-      </div>
-      <div className="mt-4 border-t border-border pt-3 text-sm">
-        {hasDiff ? (
-          <span className="text-muted-foreground">
-            <span className={"font-bold " + iconColor}>
-              {positive ? "+" : ""}{diff}%
-            </span>{" "}
-            vs mes anterior
-          </span>
-        ) : hint ? (
-          <span className="text-muted-foreground">{hint}</span>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function ModuleIcon({ name }: { name: Module["icon"] }) {
-  const cls = "h-6 w-6 text-primary";
-  switch (name) {
-    case "compras":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
-          <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-        </svg>
-      );
-    case "ventas":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
-          <path d="M12 1v22" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-        </svg>
-      );
-    case "gastos":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
-          <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
-          <path d="M8 7h8" /><path d="M8 11h8" /><path d="M8 15h5" />
-        </svg>
-      );
-    case "reportes":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
-          <path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" />
-        </svg>
-      );
-    case "clientes":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      );
-    case "proveedores":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
-          <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
-          <path d="M17 18h1" /><path d="M12 18h1" /><path d="M7 18h1" />
-        </svg>
-      );
-    case "catalogos":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
-          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-        </svg>
-      );
-    case "auditoria":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
-      );
-  }
-}
-
 export default async function DashboardPage(props: PageProps<"/facturas">) {
   const ctx = await requireContext();
   const visible = modules.filter((module) => canAccess(ctx.role, module.section));
@@ -254,6 +127,15 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
     return Math.round(((current - previous) / previous) * 100);
   };
 
+  // Tendencia para las tarjetas KPI: el porcentaje con su signo, o nada si no
+  // hay mes anterior contra el cual comparar.
+  const trend = (current: number, previous: number) => {
+    const d = diff(current, previous);
+    return d === null
+      ? undefined
+      : { value: `${d >= 0 ? "+" : ""}${d}%`, label: "vs mes anterior", positive: d >= 0 };
+  };
+
   // "Neto + IVA" solo da el total cuando el documento no tiene retención ni
   // montos exentos. Cuando no da, el hint lo dice, con el número real y la
   // razón de la diferencia: si no, el panel parece estar mal.
@@ -284,47 +166,10 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
       : null,
   ].filter((x): x is string => x !== null);
 
-  const stats = [
-    {
-      label: "Ventas (neto)",
-      value: formatCLP(iva.sales.net),
-      hint: ajustesVentas.length > 0 ? `${hintVentas} · ${ajustesVentas.join(" · ")}` : hintVentas,
-      diff: diff(iva.sales.net, prevIva.sales.net),
-    },
-    {
-      label: "Compras (neto)",
-      value: formatCLP(iva.purchases.net),
-      hint: ajustesCompras.length > 0 ? `${hintCompras} · ${ajustesCompras.join(" · ")}` : hintCompras,
-      diff: diff(iva.purchases.net, prevIva.purchases.net),
-    },
-    {
-      label: "Gastos",
-      value: formatCLP(iva.expenses.total),
-      hint: "Incluye IVA",
-      diff: diff(iva.expenses.total, prevIva.expenses.total),
-    },
-    {
-      label: iva.ivaResultado >= 0 ? "IVA a pagar" : "Remanente de IVA",
-      value: formatCLP(Math.abs(iva.ivaResultado)),
-      hint:
-        iva.ivaResultado >= 0
-          ? `Débito: ${formatCLP(iva.debitoFiscal)}`
-          : `Crédito: ${formatCLP(iva.creditoFiscal)}`,
-      diff: diff(Math.abs(iva.ivaResultado), Math.abs(prevIva.ivaResultado)),
-    },
-    {
-      label: "Por cobrar",
-      value: formatCLP(pending.porCobrar),
-      hint: "Ventas pendientes de cobro",
-      diff: null,
-    },
-    {
-      label: "Por pagar",
-      value: formatCLP(pending.porPagar),
-      hint: "Compras pendientes de pago",
-      diff: null,
-    },
-  ];
+  const footerVentas =
+    ajustesVentas.length > 0 ? `${hintVentas} · ${ajustesVentas.join(" · ")}` : hintVentas;
+  const footerCompras =
+    ajustesCompras.length > 0 ? `${hintCompras} · ${ajustesCompras.join(" · ")}` : hintCompras;
 
   return (
     <div>
@@ -383,9 +228,48 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
           Indicadores de {mes}
         </h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {stats.map((stat) => (
-            <StatCard key={stat.label} label={stat.label} value={stat.value} hint={stat.hint} diff={stat.diff} tone={stat.label === "Por cobrar" ? "warning" : stat.label === "Por pagar" ? "danger" : undefined} />
-          ))}
+          <Kpi01
+            title="Ventas (neto)"
+            value={iva.sales.net}
+            icon={<TrendingUp aria-hidden="true" className="size-4" />}
+            trend={trend(iva.sales.net, prevIva.sales.net)}
+            footer={footerVentas}
+          />
+          <Kpi01
+            title="Compras (neto)"
+            value={iva.purchases.net}
+            icon={<ShoppingBag aria-hidden="true" className="size-4" />}
+            trend={trend(iva.purchases.net, prevIva.purchases.net)}
+            footer={footerCompras}
+          />
+          <Kpi01
+            title="Gastos"
+            value={iva.expenses.total}
+            icon={<Receipt aria-hidden="true" className="size-4" />}
+            trend={trend(iva.expenses.total, prevIva.expenses.total)}
+            footer="Incluye IVA"
+          />
+          <Kpi01
+            title={iva.ivaResultado >= 0 ? "IVA a pagar" : "Remanente de IVA"}
+            value={Math.abs(iva.ivaResultado)}
+            icon={<Percent aria-hidden="true" className="size-4" />}
+            trend={trend(Math.abs(iva.ivaResultado), Math.abs(prevIva.ivaResultado))}
+            footer={
+              iva.ivaResultado >= 0
+                ? `Débito: ${formatCLP(iva.debitoFiscal)}`
+                : `Crédito: ${formatCLP(iva.creditoFiscal)}`
+            }
+          />
+          <Kpi04
+            title="Por cobrar"
+            value={pending.porCobrar}
+            footer="Ventas pendientes de cobro"
+          />
+          <Kpi04
+            title="Por pagar"
+            value={pending.porPagar}
+            footer="Compras pendientes de pago"
+          />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Reembolsos pendientes a pagadores: {formatCLP(pending.reembolsosPendientes)}.{" "}
@@ -492,4 +376,62 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
       </ul>
     </div>
   );
+}
+
+function ModuleIcon({ name }: { name: Module["icon"] }) {
+  const cls = "h-6 w-6 text-primary";
+  switch (name) {
+    case "compras":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
+          <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+        </svg>
+      );
+    case "ventas":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
+          <path d="M12 1v22" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+        </svg>
+      );
+    case "gastos":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
+          <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+          <path d="M8 7h8" /><path d="M8 11h8" /><path d="M8 15h5" />
+        </svg>
+      );
+    case "reportes":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
+          <path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" />
+        </svg>
+      );
+    case "clientes":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case "proveedores":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
+          <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+          <path d="M17 18h1" /><path d="M12 18h1" /><path d="M7 18h1" />
+        </svg>
+      );
+    case "catalogos":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+        </svg>
+      );
+    case "auditoria":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      );
+  }
 }
