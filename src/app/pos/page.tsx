@@ -24,8 +24,8 @@ export default async function PosHomePage() {
 
   // Ventas por medio de pago, para el gráfico del día.
   const chartItems = summary.byMethod
-    .filter((row) => row.amount > 0)
-    .map((row) => ({
+    .filter((row: { method: string; amount: number }) => row.amount > 0)
+    .map((row: { method: string; amount: number }) => ({
       label: row.method,
       amount: row.amount,
       color: ["violet", "blue", "emerald", "amber", "rose", "rose"][
@@ -119,7 +119,7 @@ export default async function PosHomePage() {
             <p className="mt-2 text-sm text-muted-foreground">Todavía no hay pagos registrados hoy.</p>
           ) : (
             <dl className="mt-3 space-y-2">
-              {summary.byMethod.map((row) => (
+              {summary.byMethod.map((row: { method: string; amount: number }) => (
                 <div key={row.method} className="flex items-baseline justify-between gap-4 text-sm">
                   <dt className="text-muted-foreground">{row.method}</dt>
                   <dd className="tabular font-medium">{formatCLP(row.amount)}</dd>
@@ -154,7 +154,7 @@ export default async function PosHomePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {recent.slice(0, 8).map((sale) => (
+              {recent.slice(0, 8).map((sale: { id: string; saleNumber: string; partnerName: string; items: number; total: number }) => (
                 <tr key={sale.id} className="tabular">
                   <td className="px-4 py-2 font-mono text-xs">{sale.saleNumber}</td>
                   <td className="px-4 py-2">{sale.partnerName}</td>
