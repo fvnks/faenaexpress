@@ -114,3 +114,57 @@ export function daysBetween(from: Date, to: Date): number {
 export function todayDate(timeZone = "America/Santiago"): Date {
   return new Date(`${todayISO(timeZone)}T00:00:00.000Z`);
 }
+
+/**
+ * La medianoche del día `iso` (formato YYYY-MM-DD) en `timeZone`, expresada
+ * en UTC.
+ *
+ * Es la frontera correcta para ventanas sobre TIMESTAMPS reales (createdAt,
+ * openedAt): una venta de las 23:12 en Santiago es 02:12 UTC del día
+ * siguiente, y con la medianoche UTC quedaría fuera de "hoy". No sirve para
+ * campos de solo-fecha (esos viven a medianoche UTC; para eso es
+ * `toDateOnly`).
+ *
+ * El offset de la zona cambia con el horario de verano, así que se corrige con
+ * el offset real de esa fecha; dos pasadas alcanzan incluso cruzando DST.
+ */
+export function dayStartUtc(iso: string, timeZone = "America/Santiago"): Date {
+  let guess = new Date(`${iso}T00:00:00.000Z`);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  for (let i = 0; i < 2; i += 1) {
+    const porTipo = new Map(
+      parts.formatToParts(guess).map((part) => [part.type, part.value] as const),
+    );
+    const comoUtc = Date.UTC(
+      Number(porTipo.get("year")),
+      Number(porTipo.get("month")) - 1,
+      Number(porTipo.get("day")),
+      Number(porTipo.get("hour")) % 24,
+      Number(porTipo.get("minute")),
+      Number(porTipo.get("second")),
+    );
+    const diff = comoUtc - guess.getTime();
+    if (diff === 0) break;
+    guess = new Date(guess.getTime() - diff);
+  }
+  return guess;
+}
+
+/** El YYYY-MM-DD del día siguiente al que trae el iso. */
+export function nextDayISO(iso: string): string {
+  return new Date(Date.parse(`${iso}T00:00:00.000Z`) + 86_400_000).toISOString().slice(0, 10);
+}
+
+/** El inicio del día de hoy en Chile, en UTC. Para ventanas sobre timestamps. */
+export function todayStart(timeZone = "America/Santiago"): Date {
+  return dayStartUtc(todayISO(timeZone), timeZone);
+}
