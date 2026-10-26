@@ -29,6 +29,9 @@ node scripts/prisma-run.mjs migrate resolve --applied "20261026271000_denuncia_a
 node scripts/prisma-run.mjs migrate resolve --applied "20261026280000_promotion_resolution" 2>/dev/null || true
 node scripts/prisma-run.mjs migrate resolve --applied "20261026290000_school_slug" 2>/dev/null || true
 node scripts/prisma-run.mjs migrate resolve --applied "20261026290000_school_signature" 2>/dev/null || true
+# Módulo POS: migraciones SII
+node scripts/prisma-run.mjs migrate resolve --applied "20261102000000_pos_sii_config" 2>/dev/null || true
+node scripts/prisma-run.mjs migrate resolve --applied "20261103000000_pos_sii_indexes" 2>/dev/null || true
 
 node scripts/prisma-run.mjs migrate deploy
 
