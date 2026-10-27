@@ -472,9 +472,11 @@ CAF con folios disponibles).
 6. Vincula el `PosDte` con la `PosSale` para que el ticket muestre el folio real.
 7. Incrementa `folioActual` del CAF solo si el SII aceptó el documento.
 
-**Entorno SII:** se configura con la variable de entorno `SII_ENVIRONMENT`
-(`pruebas` o `produccion`). Por defecto usa `pruebas` (`maullin.sii.cl`). Se muestra
-en la UI de configuración SII.
+**Entorno SII:** configurable desde la UI en `/pos/sii` (selector "Entorno del SII"):
+`pruebas` (`maullin.sii.cl`) por defecto, o `produccion` (`palena.sii.cl`).
+Se guarda en la tabla `PosSiiConfig` (campo `siiEnvironment`) y se puede cambiar
+en cualquier momento sin editar variables de entorno ni reiniciar el servidor.
+Como fallback, se lee de la variable de entorno `SII_ENVIRONMENT` del servidor.
 
 **Desde el ticket de venta** (`/pos/ventas/[id]`):
 - Si el DTE está **EMITIDO**: muestra "Factura Electrónica N° XXX" o
