@@ -9,6 +9,8 @@ const LINKS = [
   { href: "/pos/ventas", label: "Ventas" },
   { href: "/pos/productos", label: "Productos" },
   { href: "/pos/caja", label: "Caja" },
+  { href: "/pos/terminales", label: "Terminales" },
+  { href: "/pos/reportes", label: "Reportes" },
 ];
 
 export function PosNav() {

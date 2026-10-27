@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { Prisma } from "@/generated/prisma/client";
 import { recordAudit } from "@/lib/audit";
-import { canWrite, requireContext } from "@/lib/auth";
+import { canWrite, isAdmin, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { getOrCreateDefaultWarehouse, registerMovement } from "@/lib/inventory";
@@ -62,6 +62,18 @@ async function requirePosWrite() {
   return { ctx, error: null };
 }
 
+async function requirePosSupervisor() {
+  const { ctx, error } = await requirePosWrite();
+  if (error) return { ctx, error };
+  // Supervisor del POS: ADMIN o ACCOUNTANT de la organización. Un cajero
+  // (SALES/VIEWER) puede vender, abrir su propia caja y crear clientes,
+  // pero no cerrar caja, anular ventas, devolver ni ajustar stock.
+  if (!isAdmin(ctx) && ctx.role !== "ACCOUNTANT") {
+    return { ctx, error: "Solo un supervisor (administrador o contabilidad) puede hacer esta operación." };
+  }
+  return { ctx, error: null };
+}
+
 function parseInteger(value: FormDataEntryValue | null) {
   const parsed = Number(String(value ?? "").replace(/\./g, "").replace(/,/g, "."));
   return Number.isFinite(parsed) ? Math.round(parsed) : 0;
@@ -86,13 +98,24 @@ export async function openPosSession(
   if (error) return { error };
 
   const openingAmount = Math.max(0, parseInteger(formData.get("openingAmount")));
+  const terminalId = String(formData.get("terminalId") ?? "").trim() || null;
   const existing = await getOpenPosSession(ctx.company.id, ctx.user.id);
   if (existing) return { error: "Ya tienes una caja abierta. Ciérrala antes de abrir otra." };
+
+  // Si se elige una terminal, verificar que exista y pertenezca a la empresa.
+  if (terminalId) {
+    const terminal = await db.posTerminal.findFirst({
+      where: { id: terminalId, companyId: ctx.company.id, active: true },
+      select: { id: true },
+    });
+    if (!terminal) return { error: "La terminal seleccionada no existe o no está activa." };
+  }
 
   const session = await db.posSession.create({
     data: {
       companyId: ctx.company.id,
       openedById: ctx.user.id,
+      terminalId,
       openingAmount,
       notes: String(formData.get("notes") ?? "").trim() || null,
     },
@@ -115,7 +138,7 @@ export async function closePosSession(
   _prev: PosActionState,
   formData: FormData,
 ): Promise<PosActionState> {
-  const { ctx, error } = await requirePosWrite();
+  const { ctx, error } = await requirePosSupervisor();
   if (error) return { error };
 
   const sessionId = String(formData.get("sessionId") ?? "");
@@ -389,7 +412,7 @@ export async function voidPosSale(
   _prev: PosActionState,
   formData: FormData,
 ): Promise<PosActionState> {
-  const { ctx, error } = await requirePosWrite();
+  const { ctx, error } = await requirePosSupervisor();
   if (error) return { error };
 
   const saleId = String(formData.get("saleId") ?? "");
@@ -714,7 +737,7 @@ export async function adjustPosStock(input: {
   newQuantity: number;
   reason?: string;
 }): Promise<PosProductResult> {
-  const { ctx, error } = await requirePosWrite();
+  const { ctx, error } = await requirePosSupervisor();
   if (error) return { error };
 
   const product = await db.product.findFirst({
@@ -781,7 +804,7 @@ export async function createPosReturn(
   _prev: PosActionState,
   formData: FormData,
 ): Promise<PosActionState> {
-  const { ctx, error } = await requirePosWrite();
+  const { ctx, error } = await requirePosSupervisor();
   if (error) return { error };
 
   const saleId = String(formData.get("saleId") ?? "");
@@ -924,4 +947,118 @@ export async function createPosReturn(
   revalidatePath(`/pos/ventas/${returnId}`);
   revalidatePath("/pos/caja");
   redirect(`/pos/ventas/${returnId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Terminales del POS: punto de venta físico desde el que se opera cada turno.
+// La gestión de terminales es de supervisor (ADMIN / ACCOUNTANT).
+// ---------------------------------------------------------------------------
+
+export type PosTerminalInput = {
+  id?: string;
+  name: string;
+  active?: boolean;
+};
+
+export type PosTerminalResult = { error?: string; ok?: boolean };
+
+export async function createPosTerminal(input: PosTerminalInput): Promise<PosTerminalResult> {
+  const { ctx, error } = await requirePosSupervisor();
+  if (error) return { error };
+
+  const name = String(input.name ?? "").trim().slice(0, 100);
+  if (!name) return { error: "Ingresa el nombre de la terminal." };
+
+  const existing = await db.posTerminal.findFirst({
+    where: { companyId: ctx.company.id, name },
+    select: { id: true },
+  });
+  if (existing) return { error: `Ya existe una terminal llamada «${name}».` };
+
+  const terminal = await db.posTerminal.create({
+    data: {
+      companyId: ctx.company.id,
+      name,
+      active: input.active === undefined ? true : Boolean(input.active),
+    },
+  });
+
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "PosTerminal",
+    entityId: terminal.id,
+    summary: `Creó la terminal POS «${terminal.name}».`,
+  });
+
+  revalidatePath("/pos/terminales");
+  return { ok: true };
+}
+
+export async function updatePosTerminal(input: PosTerminalInput): Promise<PosTerminalResult> {
+  const { ctx, error } = await requirePosSupervisor();
+  if (error) return { error };
+
+  const terminalId = String(input.id ?? "");
+  const terminal = await db.posTerminal.findFirst({
+    where: { id: terminalId, companyId: ctx.company.id },
+    select: { id: true, name: true },
+  });
+  if (!terminal) return { error: "La terminal no existe." };
+
+  const name = String(input.name ?? "").trim().slice(0, 100);
+  if (!name) return { error: "Ingresa el nombre de la terminal." };
+
+  const nameTaken = await db.posTerminal.findFirst({
+    where: { companyId: ctx.company.id, name, id: { not: terminalId } },
+    select: { id: true },
+  });
+  if (nameTaken) return { error: `Ya existe una terminal llamada «${name}».` };
+
+  await db.posTerminal.update({
+    where: { id: terminalId },
+    data: {
+      name,
+      active: input.active === undefined ? true : Boolean(input.active),
+    },
+  });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "PosTerminal",
+    entityId: terminalId,
+    summary: `Editó la terminal POS «${name}».`,
+  });
+
+  revalidatePath("/pos/terminales");
+  return { ok: true };
+}
+
+export async function deletePosTerminal(input: {
+  id: string;
+}): Promise<PosTerminalResult> {
+  const { ctx, error } = await requirePosSupervisor();
+  if (error) return { error };
+
+  const terminalId = String(input.id ?? "");
+  const terminal = await db.posTerminal.findFirst({
+    where: { id: terminalId, companyId: ctx.company.id },
+    select: { id: true, name: true },
+  });
+  if (!terminal) return { error: "La terminal no existe." };
+
+  // No se borra físicamente: se desactiva para no perder el historial de cajas.
+  await db.posTerminal.update({
+    where: { id: terminalId },
+    data: { active: false },
+  });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "PosTerminal",
+    entityId: terminalId,
+    summary: `Desactivó la terminal POS «${terminal.name}».`,
+  });
+
+  revalidatePath("/pos/terminales");
+  return { ok: true };
 }

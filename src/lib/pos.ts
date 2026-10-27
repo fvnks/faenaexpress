@@ -396,3 +396,165 @@ export async function getPosSessionReport(companyId: string, sessionId: string) 
       .sort((a, b) => b.amount - a.amount),
   };
 }
+
+/** Terminales de la empresa, para el selector de caja y la gestión de terminales. */
+export async function listPosTerminals(companyId: string) {
+  return db.posTerminal.findMany({
+    where: { companyId },
+    select: {
+      id: true,
+      name: true,
+      active: true,
+      createdAt: true,
+      _count: { select: { sessions: true } },
+    },
+    orderBy: [{ name: "asc" }],
+  });
+}
+
+/** Ventas del POS con detalle completo para reportes: agrupable por producto,
+ * cajero y medio de pago. Solo ventas COMPLETED (las anuladas no cuentan). */
+export type PosSalesReportSale = {
+  id: string;
+  saleNumber: string;
+  createdAt: Date;
+  userId: string;
+  userName: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  payments: { method: string; amount: number }[];
+  items: { productId: string | null; name: string; quantity: number; lineTotal: number }[];
+};
+
+export type PosSalesReport = {
+  sales: PosSalesReportSale[];
+  totals: {
+    count: number;
+    net: number;
+    tax: number;
+    total: number;
+  };
+  byProduct: {
+    productId: string | null;
+    name: string;
+    quantity: number;
+    total: number;
+  }[];
+  byCashier: {
+    userId: string;
+    userName: string;
+    count: number;
+    total: number;
+  }[];
+  byMethod: {
+    method: string;
+    count: number;
+    total: number;
+  }[];
+};
+
+export async function posSalesReport(
+  companyId: string,
+  filters: { from: Date; to: Date; q?: string },
+): Promise<PosSalesReport> {
+  const sales = await db.posSale.findMany({
+    where: {
+      companyId,
+      status: "COMPLETED",
+      createdAt: { gte: filters.from, lt: filters.to },
+      ...(filters.q
+        ? {
+            OR: [
+              { saleNumber: { contains: filters.q, mode: "insensitive" as const } },
+              { partner: { name: { contains: filters.q, mode: "insensitive" as const } } },
+              { user: { name: { contains: filters.q, mode: "insensitive" as const } } },
+            ],
+          }
+        : {}),
+    },
+    include: {
+      user: { select: { id: true, name: true } },
+      payments: { select: { method: true, amount: true } },
+      items: { select: { productId: true, name: true, quantity: true, lineTotal: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const reportSales: PosSalesReportSale[] = sales.map((sale) => ({
+    id: sale.id,
+    saleNumber: sale.saleNumber,
+    createdAt: sale.createdAt,
+    userId: sale.user.id,
+    userName: sale.user.name,
+    subtotal: Number(sale.subtotal),
+    tax: Number(sale.tax),
+    total: Number(sale.total),
+    payments: sale.payments.map((p) => ({ method: p.method, amount: Number(p.amount) })),
+    items: sale.items.map((i) => ({
+      productId: i.productId,
+      name: i.name,
+      quantity: Number(i.quantity.toString()),
+      lineTotal: Number(i.lineTotal),
+    })),
+  }));
+
+  const totals = {
+    count: reportSales.length,
+    net: reportSales.reduce((sum, s) => sum + s.subtotal, 0),
+    tax: reportSales.reduce((sum, s) => sum + s.tax, 0),
+    total: reportSales.reduce((sum, s) => sum + s.total, 0),
+  };
+
+  // Agrupación por producto: suma cantidades y totales de cada producto.
+  const productMap = new Map<string | null, { name: string; quantity: number; total: number }>();
+  for (const sale of reportSales) {
+    for (const item of sale.items) {
+      const key = item.productId;
+      const existing = productMap.get(key);
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.total += item.lineTotal;
+      } else {
+        productMap.set(key, { name: item.name, quantity: item.quantity, total: item.lineTotal });
+      }
+    }
+  }
+  const byProduct = Array.from(productMap.entries())
+    .map(([productId, data]) => ({ productId, ...data }))
+    .sort((a, b) => b.total - a.total);
+
+  // Agrupación por cajero.
+  const cashierMap = new Map<string, { userId: string; userName: string; count: number; total: number }>();
+  for (const sale of reportSales) {
+    const key = sale.userId;
+    const existing = cashierMap.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.total += sale.total;
+    } else {
+      cashierMap.set(key, { userId: key, userName: sale.userName, count: 1, total: sale.total });
+    }
+  }
+  const byCashier = Array.from(cashierMap.values()).sort((a, b) => b.total - a.total);
+
+  // Agrupación por medio de pago.
+  const methodMap = new Map<string, { count: number; total: number }>();
+  for (const sale of reportSales) {
+    for (const payment of sale.payments) {
+      const key = payment.method;
+      const existing = methodMap.get(key);
+      if (existing) {
+        existing.count += 1;
+        existing.total += payment.amount;
+      } else {
+        methodMap.set(key, { count: 1, total: payment.amount });
+      }
+    }
+  }
+  const byMethod = Array.from(methodMap.entries())
+    .map(([method, data]) => ({ method, ...data }))
+    .sort((a, b) => b.total - a.total);
+
+  return { sales: reportSales, totals, byProduct, byCashier, byMethod };
+}

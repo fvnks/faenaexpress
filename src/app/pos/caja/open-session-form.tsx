@@ -6,11 +6,32 @@ import { openPosSession, type PosActionState } from "@/app/actions/pos";
 import { SubmitButton } from "@/components/submit-button";
 import { controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
 
-export function OpenSessionForm() {
+export function OpenSessionForm({
+  terminals,
+}: {
+  terminals: { id: string; name: string }[];
+}) {
   const [state, formAction] = useActionState<PosActionState, FormData>(openPosSession, undefined);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      <div className={fieldClass}>
+        <label htmlFor="pos-terminal" className={labelClass}>
+          Terminal (opcional)
+        </label>
+        <select id="pos-terminal" name="terminalId" className={controlClass}>
+          <option value="">Ninguna</option>
+          {terminals.map((terminal) => (
+            <option key={terminal.id} value={terminal.id}>
+              {terminal.name}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-muted-foreground">
+          Desde qué punto de venta físico se opera esta caja.
+        </p>
+      </div>
+
       <div className={fieldClass}>
         <label htmlFor="pos-opening-amount" className={labelClass}>
           Monto inicial en efectivo

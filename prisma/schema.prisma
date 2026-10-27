@@ -1113,6 +1113,7 @@ model Company {
   posSessions           PosSession[]
   posSales              PosSale[]
   posSiiConfig          PosSiiConfig?
+  posTerminals          PosTerminal[]
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
@@ -2822,6 +2823,7 @@ model PosSession {
   id              String           @id @default(cuid())
   companyId       String
   openedById      String
+  terminalId      String?          // terminal desde la que se opera este turno
   openedAt        DateTime         @default(now())
   closedAt        DateTime?
   openingAmount   Int              // monto inicial en CLP
@@ -2833,6 +2835,7 @@ model PosSession {
 
   company Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   openedBy User     @relation("PosSessionOpenedBy", fields: [openedById], references: [id])
+  terminal PosTerminal? @relation("PosSessionTerminal", fields: [terminalId], references: [id], onDelete: SetNull)
   sales   PosSale[]
 
   @@index([companyId, status])
@@ -2972,4 +2975,24 @@ model PosDte {
   @@index([companyId])
   @@index([configId])
   @@index([saleId])
+}
+
+// ---------------------------------------------------------------------------
+// PosTerminal: punto de venta físico (caja registradora) de la empresa.
+// Una caja puede abrirse en una terminal, para saber desde qué dispositivo
+// se operó cada turno. El nombre es configurable desde la UI del POS.
+// ---------------------------------------------------------------------------
+model PosTerminal {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String   // "Caja 1", "Mostrador", etc.
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sessions PosSession[] @relation("PosSessionTerminal")
+
+  @@index([companyId])
+  @@index([companyId, active])
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { requireContext } from "@/lib/auth";
 import { formatCLP, formatDate } from "@/lib/money";
-import { getOpenPosSession, getPosSession, listPosSessions } from "@/lib/pos";
+import { getOpenPosSession, getPosSession, listPosSessions, listPosTerminals } from "@/lib/pos";
 import { cardClass, secondaryButtonClass } from "@/lib/ui";
 import { CloseSessionForm } from "@/app/pos/caja/close-session-form";
 import { OpenSessionForm } from "@/app/pos/caja/open-session-form";
@@ -20,6 +20,7 @@ export default async function PosCajaPage() {
   const open = await getOpenPosSession(ctx.company.id, ctx.user.id);
   const session = open ? await getPosSession(ctx.company.id, open.id) : null;
   const history = await listPosSessions(ctx.company.id);
+  const terminals = await listPosTerminals(ctx.company.id);
 
   const sales = session?.sales ?? [];
   const cashSales = sales.reduce(
@@ -98,7 +99,7 @@ export default async function PosCajaPage() {
                 Necesitas una caja abierta para registrar ventas.
               </p>
               <div className="mt-4">
-                <OpenSessionForm />
+                <OpenSessionForm terminals={terminals} />
               </div>
             </>
           )}
