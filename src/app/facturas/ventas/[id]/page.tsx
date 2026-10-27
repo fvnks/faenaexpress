@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 
 import { deleteSale, markSalePaid, markSalePending } from "@/app/actions/sales";
-import { backfillSaleItemsFromXml } from "@/app/actions/dte";
+import { backfillSaleItemsFromXmlFormAction } from "@/app/actions/dte";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BankReconciliationNote } from "@/components/bank-reconciliation-note";
 import { Breadcrumb } from "@/components/breadcrumb";
@@ -382,9 +382,10 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
 
       {sale.items.length === 0 && sale.xmlContent ? (
         <form
-          action={backfillSaleItemsFromXml.bind(null, sale.id)}
+          action={backfillSaleItemsFromXmlFormAction}
           className="max-w-md rounded-card border border-border bg-surface p-4"
         >
+          <input type="hidden" name="saleId" value={sale.id} />
           <p className="text-sm text-muted-foreground">
             Esta factura quedó sin detalle de productos (importación parcial).
           </p>
