@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { logout } from "@/app/actions/auth";
+import { ModuleSwitcher } from "@/components/module-switcher";
 import { SchoolSwitcher } from "@/components/school-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ToasterFlash } from "@/components/toaster-flash";
@@ -9,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getFlash } from "@/lib/flash";
 import { canAccessSchool, schoolRoleLabel, type SchoolSection } from "@/lib/school-permissions";
 import { getActiveSchool, visibleSchools } from "@/lib/school-auth";
+import { enabledModules } from "@/lib/modules";
 
 // Secciones del módulo Colegios. Cada una tiene su propio permiso: un docente
 // ve el libro y la asistencia, no la cobranza.
@@ -39,6 +41,9 @@ export default async function ColegiosLayout({ children }: LayoutProps<"/colegio
     getFlash(),
   ]);
 
+  // Módulos habilitados del usuario: el switcher solo aparece si hay más de uno.
+  const modules = await enabledModules(user.id);
+
   // Sin colegio al que entrar: el personal de plataforma va a la consola de colegios,
   // el resto vuelve al selector de módulos.
   if (!ctx) {
@@ -68,6 +73,10 @@ export default async function ColegiosLayout({ children }: LayoutProps<"/colegio
             <span className="text-xs text-muted-foreground">
               {user.name} · {schoolRoleLabel(ctx.role)}
             </span>
+            <ModuleSwitcher
+              modules={modules.map((module) => ({ code: module.code, name: module.name }))}
+              activeCode="colegios"
+            />
             <Link
               href="/perfil"
               className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
