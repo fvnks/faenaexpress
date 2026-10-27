@@ -48,6 +48,7 @@ type Props = {
   sortKey: string;
   sortDir: SortDir;
   fetchSaleXmlAction: (prev: any, formData: FormData) => Promise<any>;
+  hasDefontanaCredentials?: boolean;
 };
 
 /**
@@ -75,7 +76,7 @@ function parseShortDate(input: string | null): string | null {
   return date.toISOString().slice(0, 10) === wire ? wire : null;
 }
 
-export function SalesTable({ items, writable, salespeople, canManageSalespeople, params, sortKey, sortDir }: Props) {
+export function SalesTable({ items, writable, salespeople, canManageSalespeople, params, sortKey, sortDir, hasDefontanaCredentials }: Props) {
   const [cancelModalSaleId, setCancelModalSaleId] = useState<string | null>(null);
   const [assignModalSaleId, setAssignModalSaleId] = useState<string | null>(null);
   const [assignSalespersonId, setAssignSalespersonId] = useState<string>("");
@@ -354,6 +355,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                             ? "XML ya cargado"
                             : "Traer XML de Defontana",
                         }}
+                        hasDefontanaCredentials={hasDefontanaCredentials}
                         onMarkPaid={() => {
                           setActionError(null);
                           setActionModal({ saleId: sale.id, kind: "PAID", date: "" });

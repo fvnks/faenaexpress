@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { bulkSetPurchaseStatus, deletePurchase } from "@/app/actions/purchases";
 import { fetchPurchaseXmlAction } from "@/app/actions/defontana";
+import { hasStoredDefontanaCredentials } from "@/lib/defontana/credentials";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { FilterBar, type FilterField } from "@/components/filter-bar";
@@ -66,6 +67,7 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
     raw.estado || raw.q || raw.proveedor || raw.categoria || raw.tipo || raw.desde || raw.hasta,
   );
   const writable = canWrite(ctx, "compras");
+  const hasDefontanaCredentials = await hasStoredDefontanaCredentials(ctx.company.id);
   const today = todayDate();
 
   // Volver a la misma lista (con filtros y orden) tras una acción masiva.
@@ -343,6 +345,7 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
                               ? "XML ya cargado"
                               : "Traer XML de Defontana",
                           }}
+                          hasDefontanaCredentials={hasDefontanaCredentials}
                         />
                       </td>
                     ) : null}

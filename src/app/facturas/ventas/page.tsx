@@ -8,6 +8,7 @@ import { listCategories, listSalespeople } from "@/lib/catalogs";
 import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
 import { listCustomers } from "@/lib/partners";
+import { hasStoredDefontanaCredentials } from "@/lib/defontana/credentials";
 import { canAccess } from "@/lib/permissions";
 import { listSales, parseSaleFilters } from "@/lib/sales";
 import { parseSortDir } from "@/lib/sort";
@@ -49,6 +50,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
     raw.estado || raw.q || raw.cliente || raw.categoria || raw.vendedor || raw.tipo || raw.desde || raw.hasta,
   );
   const writable = canWrite(ctx, "ventas");
+  const hasDefontanaCredentials = await hasStoredDefontanaCredentials(ctx.company.id);
   // Quien no administra catálogos no puede crear vendedores: el aviso lo manda
   // a pedírselos a administración en vez de a una pantalla que lo rebotaría.
   const canManageSalespeople = canAccess(ctx.role, "catalogos");
@@ -231,6 +233,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
           sortKey={sortKey}
           sortDir={sortDir}
           fetchSaleXmlAction={fetchSaleXmlAction}
+          hasDefontanaCredentials={hasDefontanaCredentials}
         />
       )}
       <Pagination

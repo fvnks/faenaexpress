@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { dangerButtonClass } from "@/lib/ui";
@@ -100,6 +101,7 @@ export function ActionsDropdown({
   onAssignSalesperson,
   onCancel,
   fetchDefontana,
+  hasDefontanaCredentials,
 }: {
   editHref: string;
   pdfHref?: string;
@@ -119,6 +121,7 @@ export function ActionsDropdown({
     action: (prev: any, formData: FormData) => Promise<any>;
     label?: string;
   };
+  hasDefontanaCredentials?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -126,6 +129,7 @@ export function ActionsDropdown({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [fetchingDefontana, setFetchingDefontana] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const MENU_HEIGHT = 220;
 
@@ -297,27 +301,41 @@ export function ActionsDropdown({
             ) : null}
             {fetchDefontana ? (
               <li>
-                <button
-                  type="button"
-                  disabled={fetchingDefontana}
-                  onClick={() => {
-                    setOpen(false);
-                    setFetchingDefontana(true);
-                    const formData = new FormData();
-                    formData.set(fetchDefontana.fieldName, fetchDefontana.id);
-                    startTransition(async () => {
-                      try {
-                        await fetchDefontana.action(undefined, formData);
-                      } finally {
-                        setFetchingDefontana(false);
-                      }
-                    });
-                  }}
-                  className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-primary transition-colors hover:bg-primary-soft disabled:opacity-60"
-                >
-                  <XmlIcon />
-                  {fetchDefontana.label ?? "Traer XML de Defontana"}
-                </button>
+                {hasDefontanaCredentials === false ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      router.push("/facturas/configuracion");
+                    }}
+                    className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-accent transition-colors hover:bg-accent-soft"
+                  >
+                    <XmlIcon />
+                    Configurar Defontana
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={fetchingDefontana}
+                    onClick={() => {
+                      setOpen(false);
+                      setFetchingDefontana(true);
+                      const formData = new FormData();
+                      formData.set(fetchDefontana.fieldName, fetchDefontana.id);
+                      startTransition(async () => {
+                        try {
+                          await fetchDefontana.action(undefined, formData);
+                        } finally {
+                          setFetchingDefontana(false);
+                        }
+                      });
+                    }}
+                    className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-primary transition-colors hover:bg-primary-soft disabled:opacity-60"
+                  >
+                    <XmlIcon />
+                    {fetchDefontana.label ?? "Traer XML de Defontana"}
+                  </button>
+                )}
               </li>
             ) : null}
           </ul>
