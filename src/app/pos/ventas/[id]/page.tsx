@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PrintTicketButton } from "@/app/pos/ventas/[id]/print-ticket-button";
 import { ReturnSaleForm } from "@/app/pos/ventas/[id]/return-form";
 import { DteInfo } from "@/app/pos/ventas/[id]/dte-info";
+import { DteDownloadButton } from "@/app/pos/ventas/[id]/dte-download";
 import { VoidSaleForm } from "@/app/pos/ventas/[id]/void-sale-form";
 import { formatPosDateTime } from "@/app/pos/fecha";
 import { requireContext } from "@/lib/auth";
@@ -178,6 +179,7 @@ export default async function PosTicketPage(props: PageProps<"/pos/ventas/[id]">
 
         <footer className="mt-6 border-t border-border pt-3 text-center text-xs text-muted-foreground">
           <DteInfo saleId={sale.id} dtes={sale.dtes as any} />
+          <DteDownloadButton dtes={sale.dtes as any} />
           <p className="mt-1">Gracias por su compra.</p>
         </footer>
       </article>

@@ -193,13 +193,11 @@ export async function consultarEstadoDteSii(
 }
 
 /**
- * Determina el entorno del SII según si se usa el certificado de pruebas o
- * producción. Por defecto usa pruebas para no romper en desarrollo.
+ * Determina el entorno del SII según la variable de entorno SII_ENVIRONMENT.
+ * Valores válidos: "pruebas" o "produccion". Por defecto usa "pruebas".
  */
-export function detectarSiiEnvironment(
-  habilitado: boolean,
-  forzarProduccion = false,
-): SiiEnvironment {
-  if (!habilitado) return "pruebas";
-  return forzarProduccion ? "produccion" : "pruebas";
+export function detectarSiiEnvironment(): SiiEnvironment {
+  const env = process.env.SII_ENVIRONMENT;
+  if (env === "produccion" || env === "production") return "produccion";
+  return "pruebas";
 }

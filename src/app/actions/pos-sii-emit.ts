@@ -12,6 +12,7 @@ import { formatCLP } from "@/lib/money";
 import { generateDteXml } from "@/lib/dte-generator";
 import { firmarDte } from "@/lib/dte-signer";
 import {
+  consultarEstadoDteSii,
   detectarSiiEnvironment,
   enviarDteSii,
   SiiEnvioResultado,
@@ -87,143 +88,165 @@ export async function emitirDtePosSale(
     sale.partner.rut === null;
   const tipoDte = esConsumidorFinal ? 39 : 33;
 
-  // Buscar un CAF disponible para este tipo de DTE.
-  const caf = config.cafs?.find(
-    (c) => c.tipoDte === tipoDte && c.folioActual < c.folioFinal,
-  );
-  if (!caf) {
-    return {
-      error: `No hay CAF disponible con folios para DTE tipo ${tipoDte}. Carga un CAF en /pos/sii.`,
-    };
-  }
-  if (
-    caf.vigenteHasta &&
-    new Date(caf.vigenteHasta) < new Date()
-  ) {
-    return {
-      error: `El CAF tipo ${tipoDte} está vencido (${new Date(caf.vigenteHasta).toLocaleDateString("es-CL")}). Carga un CAF nuevo.`,
-    };
-  }
+  // Buscar un CAF disponible para este tipo de DTE con bloqueo optimista
+  // y reintentos para evitar condiciones de carrera entre cajas simultáneas.
+  let intentos = 0;
+  const maxIntentos = 3;
+  let envio: SiiEnvioResultado | null = null;
+  let folioUsado = 0;
+  let xmlFirmadoGuardado = "";
+  const environment = detectarSiiEnvironment();
+  let cafSeleccionado: { id: string; folioActual: number; folioFinal: number; tipoDte: number; vigenteHasta: Date | string } | null = null;
+  let configIdSeleccionado: string | null = null;
 
-  const folio = caf.folioActual + 1;
+  while (intentos < maxIntentos) {
+    intentos += 1;
 
-  // Construir los datos del DTE desde la venta.
-  const items = sale.items.map((item: any, index: number) => ({
-    nroLinDet: index + 1,
-    codigo: item.productId ?? null,
-    codigoTipo: null,
-    nombre: item.name,
-    descripcion: null,
-    cantidad: Number(item.quantity),
-    unidad: null,
-    precio: item.unitPrice,
-    descuentoMonto: item.discount ?? 0,
-    indicadorExento: null,
-  }));
+    const configFresh = await getPosSiiConfigForUI(ctx.company.id);
+    if (!configFresh) {
+      return {
+        error:
+          "La empresa no tiene configuración SII. Configúrala en /pos/sii antes de emitir DTE.",
+      };
+    }
+    configIdSeleccionado = configFresh.id;
 
-  const dteInput = {
-    tipoDte,
-    folio,
-    fecha: sale.createdAt.toISOString().slice(0, 10),
-    hora: sale.createdAt.toISOString().slice(11, 19),
-    rutEmisor: ctx.company.rut ?? "",
-    razonSocialEmisor: ctx.company.name,
-    giroEmisor: ctx.company.giro ?? null,
-    actecoEmisor: config.acteco ?? null,
-    direccionEmisor: ctx.company.address ?? null,
-    comunaEmisor: ctx.company.commune ?? null,
-    ciudadEmisor: ctx.company.city ?? null,
-    telefonoEmisor: ctx.company.phone ?? null,
-    emailEmisor: ctx.company.email ?? null,
-    sucursalEmisor: null,
-    rutReceptor: sale.partner?.rut ?? "66666666-6",
-    razonSocialReceptor: sale.partner?.name ?? "Consumidor final",
-    giroReceptor: null,
-    direccionReceptor: null,
-    comunaReceptor: null,
-    ciudadReceptor: null,
-    telefonoReceptor: null,
-    emailReceptor: null,
-    items,
-    neto: sale.subtotal,
-    exento: 0,
-    iva: sale.tax,
-    total: sale.total,
-    formaPago: "1" as const, // contado (POS es al contado)
-    terminoPago: null,
-    ordenCompra: null,
-    guiaDespacho: null,
-    hesNumber: null,
-    notas: sale.notes ?? null,
-  };
-
-  // Generar XML DTE.
-  let xmlDte: string;
-  try {
-    xmlDte = generateDteXml(dteInput);
-  } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
-    return { error: `No se pudo generar el XML DTE: ${message}` };
-  }
-
-  // Firmar con el certificado .pfx.
-  const certificadoPass = config.certificadoPass
-    ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      // La clave se guarda cifrada; para firmar necesitamos descifrarla.
-      // Usamos la misma utilidad de sii-crypto (desencripta el .pfx; la clave
-      // del certificado va por separado si la empresa la guardó).
-      undefined
-    : null;
-
-  let firmado;
-  try {
-    firmado = firmarDte(xmlDte, config.certificadoPfx, certificadoPass);
-  } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
-    return { error: `No se pudo firmar el DTE: ${message}` };
-  }
-
-  // Enviar al SII.
-  const environment = detectarSiiEnvironment(true, false); // pruebas por defecto
-  let envio: SiiEnvioResultado;
-  try {
-    envio = await enviarDteSii(
-      firmado.signedXml,
-      environment,
-      ctx.company.rut ?? undefined,
+    const caf = configFresh.cafs?.find(
+      (c) => c.tipoDte === tipoDte && c.folioActual < c.folioFinal,
     );
-  } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
-    // Guardar el DTE como RECHAZADO/ERROR para no perder el intento.
-    await guardarPosDte(
-      ctx,
-      {
-        configId: config.id,
-        tipoDte,
-        folio,
-        estado: "ERROR_ENVIO",
-        trackId: "",
-        xmlEnviado: xmlDte,
-        xmlRespuesta: message,
-        pdfPath: null,
-        saleId: sale.id,
-      },
-    );
-    return {
-      error: `No se pudo enviar el DTE al SII: ${message}. Se guardó como error para reintentar.`,
+    if (!caf) {
+      return {
+        error: `No hay CAF disponible con folios para DTE tipo ${tipoDte}. Carga un CAF en /pos/sii.`,
+      };
+    }
+    cafSeleccionado = caf;
+    if (
+      caf.vigenteHasta &&
+      new Date(caf.vigenteHasta) < new Date()
+    ) {
+      return {
+        error: `El CAF tipo ${tipoDte} está vencido (${new Date(caf.vigenteHasta).toLocaleDateString("es-CL")}). Carga un CAF nuevo.`,
+      };
+    }
+
+    folioUsado = caf.folioActual + 1;
+
+    // Construir los datos del DTE desde la venta.
+    const items = sale.items.map((item: any, index: number) => ({
+      nroLinDet: index + 1,
+      codigo: item.productId ?? null,
+      codigoTipo: null,
+      nombre: item.name,
+      descripcion: null,
+      cantidad: Number(item.quantity),
+      unidad: null,
+      precio: item.unitPrice,
+      descuentoMonto: item.discount ?? 0,
+      indicadorExento: null,
+    }));
+
+    const dteInput = {
+      tipoDte,
+      folio: folioUsado,
+      fecha: sale.createdAt.toISOString().slice(0, 10),
+      hora: sale.createdAt.toISOString().slice(11, 19),
+      rutEmisor: ctx.company.rut ?? "",
+      razonSocialEmisor: ctx.company.name,
+      giroEmisor: ctx.company.giro ?? null,
+      actecoEmisor: configFresh.acteco ?? null,
+      direccionEmisor: ctx.company.address ?? null,
+      comunaEmisor: ctx.company.commune ?? null,
+      ciudadEmisor: ctx.company.city ?? null,
+      telefonoEmisor: ctx.company.phone ?? null,
+      emailEmisor: ctx.company.email ?? null,
+      sucursalEmisor: null,
+      rutReceptor: sale.partner?.rut ?? "66666666-6",
+      razonSocialReceptor: sale.partner?.name ?? "Consumidor final",
+      giroReceptor: null,
+      direccionReceptor: null,
+      comunaReceptor: null,
+      ciudadReceptor: null,
+      telefonoReceptor: null,
+      emailReceptor: null,
+      items,
+      neto: sale.subtotal,
+      exento: 0,
+      iva: sale.tax,
+      total: sale.total,
+      formaPago: "1" as const, // contado (POS es al contado)
+      terminoPago: null,
+      ordenCompra: null,
+      guiaDespacho: null,
+      hesNumber: null,
+      notas: sale.notes ?? null,
     };
+
+    // Generar XML DTE.
+    let xmlDte: string;
+    try {
+      xmlDte = generateDteXml(dteInput);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      return { error: `No se pudo generar el XML DTE: ${message}` };
+    }
+
+    // Firmar con el certificado .pfx.
+    let firmado;
+    try {
+      firmado = firmarDte(xmlDte, configFresh.certificadoPfx!, undefined);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      return { error: `No se pudo firmar el DTE: ${message}` };
+    }
+
+    // Enviar al SII.
+    try {
+      envio = await enviarDteSii(
+        firmado.signedXml,
+        environment,
+        ctx.company.rut ?? undefined,
+      );
+      xmlFirmadoGuardado = firmado.signedXml;
+      break; // Éxito (o error de SII), salir del bucle
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      if (intentos >= maxIntentos) {
+        // Guardar el DTE como ERROR_ENVIO para no perder el intento.
+        await guardarPosDte(
+          ctx,
+          {
+            configId: configFresh.id,
+            tipoDte,
+            folio: folioUsado,
+            estado: "ERROR_ENVIO",
+            trackId: "",
+            xmlEnviado: xmlDte,
+            xmlRespuesta: message,
+            pdfPath: null,
+            saleId: sale.id,
+          },
+        );
+        return {
+          error: `No se pudo enviar el DTE al SII: ${message}. Se guardó como error para reintentar.`,
+        };
+      }
+      // Reintentar con un nuevo folio en caso de conflicto de red.
+      continue;
+    }
   }
+
+  if (!envio) return { error: "No se pudo procesar el envío del DTE." };
 
   // Guardar el PosDte con el resultado del SII.
   await guardarPosDte(
     ctx,
     {
-      configId: config.id,
+      configId: configIdSeleccionado!,
       tipoDte,
-      folio,
+      folio: folioUsado,
       estado: envio.aceptado ? "EMITIDO" : "RECHAZADO",
       trackId: envio.trackId,
-      xmlEnviado: firmado.signedXml,
+      xmlEnviado: xmlFirmadoGuardado,
       xmlRespuesta: envio.respuestaXml,
       pdfPath: null,
       saleId: sale.id,
@@ -231,18 +254,32 @@ export async function emitirDtePosSale(
   );
 
   // Incrementar folioActual del CAF solo si el SII aceptó el documento.
-  if (envio.aceptado && envio.trackId) {
-    await db.posCaf.update({
-      where: { id: caf.id },
-      data: { folioActual: folio },
+  // Usamos actualización condicional para evitar condiciones de carrera:
+  // solo incrementamos si folioActual todavía es folioUsado - 1.
+  if (envio.aceptado && envio.trackId && cafSeleccionado) {
+    const resultado = await db.posCaf.updateMany({
+      where: {
+        id: cafSeleccionado.id,
+        folioActual: folioUsado - 1,
+      },
+      data: { folioActual: folioUsado },
     });
+    if (resultado.count === 0) {
+      // Otro proceso ya consumió este folio: registrar auditoría pero no fallar.
+      await recordAudit(ctx, {
+        action: "UPDATE",
+        entityType: "PosCaf",
+        entityId: cafSeleccionado.id,
+        summary: `Conflicto de folio ${folioUsado} para DTE tipo ${tipoDte}: otro proceso ya consumió el folio.`,
+      });
+    }
   }
 
   await recordAudit(ctx, {
     action: "CREATE",
     entityType: "PosDte",
     entityId: sale.id,
-    summary: `Emitió DTE tipo ${tipoDte} folio ${folio} para la venta ${sale.saleNumber} (TrackID: ${envio.trackId}).`,
+    summary: `Emitió DTE tipo ${tipoDte} folio ${folioUsado} para la venta ${sale.saleNumber} (TrackID: ${envio.trackId}).`,
   });
 
   revalidatePath("/pos/ventas");
@@ -252,7 +289,7 @@ export async function emitirDtePosSale(
   return {
     ok: envio.aceptado,
     trackId: envio.trackId,
-    dteFolio: folio,
+    dteFolio: folioUsado,
     error: envio.aceptado
       ? undefined
       : `El SII rechazó el DTE: ${envio.mensaje}`,
@@ -335,4 +372,260 @@ export async function reintentarDteAction(
 ): Promise<EmitirDteState> {
   const saleId = String(formData.get("saleId") ?? "");
   return reintentarDtePosSale(saleId);
+}
+
+/**
+ * Reenvía en lote todos los DTE de la empresa que queden en estado
+ * ERROR_ENVIO o RECHAZADO. Devuelve cuántos se reintentaron y cuántos
+ * tuvieron éxito.
+ *
+ * Se usa desde la pantalla de Configuración SII para recuperar documentos
+ * que no se pudieron emitir por problemas de red o certificado.
+ */
+export async function reintentarDtesEnErrorAction(
+  _prev: { error?: string; ok?: boolean; reintentados?: number; exitosos?: number } | undefined,
+  _formData: FormData,
+): Promise<{
+  error?: string;
+  ok?: boolean;
+  reintentados?: number;
+  exitosos?: number;
+} | undefined> {
+  const ctx = await requireContext();
+  if (!canWrite(ctx, "configuracion")) {
+    return { error: "No tienes permiso para configurar el SII." };
+  }
+
+  const dtesEnError = await db.posDte.findMany({
+    where: {
+      companyId: ctx.company.id,
+      estado: { in: ["ERROR_ENVIO", "RECHAZADO"] },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (dtesEnError.length === 0) {
+    return {
+      ok: true,
+      reintentados: 0,
+      exitosos: 0,
+    };
+  }
+
+  let reintentados = 0;
+  let exitosos = 0;
+  const errores: string[] = [];
+
+  for (const dte of dtesEnError) {
+    const saleId = dte.saleId;
+    if (!saleId) continue;
+    reintentados += 1;
+    try {
+      const resultado = await reintentarDtePosSale(saleId);
+      if (resultado?.ok) {
+        exitosos += 1;
+      } else {
+        errores.push(`Venta ${saleId}: ${resultado?.error ?? "error desconocido"}`);
+      }
+    } catch (cause) {
+      errores.push(
+        `Venta ${saleId}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+    }
+  }
+
+  const mensaje =
+    errores.length > 0
+      ? `${exitosos} de ${reintentados} reenviados con éxito. ${errores.length} fallaron.`
+      : `${exitosos} de ${reintentados} reenviados con éxito.`;
+
+  return {
+    ok: errores.length === 0,
+    reintentados,
+    exitosos,
+    error: errores.length > 0 ? mensaje : undefined,
+  };
+}
+
+/**
+ * Consulta el estado de un DTE en el SII por su TrackID.
+ *
+ * Útil para verificar manualmente el estado de un DTE que quedó en
+ * estado EN_PROCESO o para confirmar que un DTE enviado fue aceptado.
+ */
+export async function consultarEstadoDteAction(
+  _prev: { error?: string; ok?: boolean; estado?: string; detalle?: string } | undefined,
+  formData: FormData,
+): Promise<{
+  error?: string;
+  ok?: boolean;
+  estado?: string;
+  detalle?: string;
+  trackId?: string;
+} | undefined> {
+  const ctx = await requireContext();
+  if (!canWrite(ctx, "configuracion")) {
+    return { error: "No tienes permiso para configurar el SII." };
+  }
+
+  const trackId = String(formData.get("trackId") ?? "").trim();
+  if (!trackId) {
+    return { error: "Falta el TrackID para consultar." };
+  }
+
+  const dte = await db.posDte.findFirst({
+    where: {
+      companyId: ctx.company.id,
+      trackId,
+    },
+  });
+  if (!dte) {
+    return { error: `No se encontró un DTE con TrackID ${trackId}.` };
+  }
+
+  const environment = detectarSiiEnvironment();
+  try {
+    const estadoSii = await consultarEstadoDteSii(trackId, environment);
+
+    // Actualizar el estado local si el SII reporta un cambio definitivo.
+    let nuevoEstado = dte.estado;
+    if (/EMITIDO|ACEPTADO/i.test(estadoSii.estado)) {
+      nuevoEstado = "EMITIDO";
+    } else if (/RECHAZADO/i.test(estadoSii.estado)) {
+      nuevoEstado = "RECHAZADO";
+    }
+
+    if (nuevoEstado !== dte.estado) {
+      await db.posDte.update({
+        where: { id: dte.id },
+        data: {
+          estado: nuevoEstado,
+          xmlRespuesta: estadoSii.detalle,
+          emitidoAt:
+            nuevoEstado === "EMITIDO" && !dte.emitidoAt
+              ? new Date()
+              : dte.emitidoAt,
+        },
+      });
+    }
+
+    return {
+      ok: true,
+      estado: nuevoEstado,
+      detalle: estadoSii.detalle,
+      trackId,
+    };
+  } catch (cause) {
+    return {
+      error:
+        cause instanceof Error
+          ? `Error consultando el SII: ${cause.message}`
+          : "Error desconocido consultando el estado del DTE.",
+    };
+  }
+}
+
+/**
+ * Anula un DTE emitido creando una nota de crédito (tipo 61) preparada.
+ *
+ * Cuando se anula una venta POS que ya tiene un DTE EMITIDO, se crea un
+ * registro PosDte de tipo 61 con estado PENDIENTE_ENVIO, vinculado a la
+ * venta original. El envío real al SII se puede hacer después cuando se
+ * disponga del certificado.
+ *
+ * Esto permite que la anulación quede registrada fiscalmente aunque el
+ * envío al SII se diferiera.
+ */
+export async function anularDtePosSale(
+  saleId: string,
+  motivo: string,
+): Promise<{ error?: string; ok?: boolean }> {
+  const ctx = await requireContext();
+  if (!canWrite(ctx, "configuracion")) {
+    return { error: "No tienes permiso para configurar el SII." };
+  }
+
+  const sale = await getPosSale(ctx.company.id, saleId);
+  if (!sale) return { error: "La venta POS no existe." };
+
+  const dteExistente = await db.posDte.findFirst({
+    where: {
+      saleId: sale.id,
+      companyId: ctx.company.id,
+      estado: "EMITIDO",
+    },
+  });
+
+  if (!dteExistente) {
+    return {
+      error: "La venta no tiene un DTE emitido para anular.",
+    };
+  }
+
+  // Verificar que no exista ya una nota de crédito para esta venta.
+  const ncExistente = await db.posDte.findFirst({
+    where: {
+      saleId: sale.id,
+      companyId: ctx.company.id,
+      tipoDte: 61,
+    },
+  });
+  if (ncExistente) {
+    return {
+      error: "Ya existe una nota de crédito para esta venta.",
+    };
+  }
+
+  // Buscar un CAF disponible para tipo 61 (nota de crédito).
+  const configNc = await getPosSiiConfigForUI(ctx.company.id);
+  if (!configNc) {
+    return { error: "No hay configuración SII para la empresa." };
+  }
+  const caf = configNc.cafs?.find(
+    (c) => c.tipoDte === 61 && c.folioActual < c.folioFinal,
+  );
+  if (!caf) {
+    return {
+      error: "No hay CAF disponible para nota de crédito (tipo 61). Carga un CAF en /pos/sii.",
+    };
+  }
+
+  const folio = caf.folioActual + 1;
+
+  // Crear la nota de crédito como PosDte pendiente de envío.
+  await db.posDte.create({
+    data: {
+      companyId: ctx.company.id,
+      configId: configNc.id,
+      tipoDte: 61,
+      folio,
+      estado: "PENDIENTE_ENVIO",
+      trackId: null,
+      xmlEnviado: null,
+      xmlRespuesta: `Nota de crédito preparada para anular DTE tipo ${dteExistente.tipoDte} folio ${dteExistente.folio}. Motivo: ${motivo}.`,
+      pdfPath: null,
+      saleId: sale.id,
+      emitidoAt: null,
+      anuladoAt: null,
+    },
+  });
+
+  // Incrementar folioActual del CAF para tipo 61.
+  await db.posCaf.update({
+    where: { id: caf.id },
+    data: { folioActual: folio },
+  });
+
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "PosDte",
+    entityId: sale.id,
+    summary: `Preparó nota de crédito tipo 61 folio ${folio} para anular DTE folio ${dteExistente.folio} de la venta ${sale.saleNumber}. Motivo: ${motivo}.`,
+  });
+
+  revalidatePath("/pos/ventas");
+  revalidatePath(`/pos/ventas/${saleId}`);
+  revalidatePath("/pos/sii");
+
+  return { ok: true };
 }

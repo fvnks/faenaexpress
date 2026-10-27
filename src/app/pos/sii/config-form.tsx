@@ -17,7 +17,7 @@ type Config = {
   updatedAt?: Date | string | null;
 } | null;
 
-export function PosSiiConfigForm({ config }: { config: Config }) {
+export function PosSiiConfigForm({ config, siiEnvironment }: { config: Config; siiEnvironment: string }) {
   const [state, formAction] = useActionState(upsertPosCaf, undefined);
   const [deleteState, deleteAction] = useActionState(deletePosCafAction, undefined);
   const [toggleState, toggleAction] = useActionState(togglePosSiiEnabledAction, undefined);
@@ -213,6 +213,26 @@ export function PosSiiConfigForm({ config }: { config: Config }) {
             {toggleState.error}
           </p>
         ) : null}
+      </div>
+
+      <div className="border-t border-border mt-5 pt-5">
+        <h2 className="text-sm font-semibold">Entorno del SII</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Define la variable de entorno `SII_ENVIRONMENT` (`pruebas` o `produccion`)
+          en el servidor para elegir a qué entorno se envían los DTE. Actualmente:
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <span className={`px-2 py-1 rounded text-xs font-medium ${
+            siiEnvironment === "produccion"
+              ? "bg-red-100 text-red-700"
+              : "bg-blue-100 text-blue-700"
+          }`}>
+            {siiEnvironment === "produccion" ? "🟡 Producción" : "🟢 Pruebas"}
+          </span>
+          <p className="text-xs text-muted-foreground ml-2">
+            Sin definir = pruebas. Cambia en .env y reinicia el servidor.
+          </p>
+        </div>
       </div>
     </div>
   );

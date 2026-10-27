@@ -16,6 +16,7 @@ import { checkPlanLimit, incrementUsage } from "@/lib/plans";
 import { formatRut, isValidRut, normalizeRut } from "@/lib/rut";
 import { getOpenPosSession } from "@/lib/pos";
 import { emitirDtePosSale } from "./pos-sii-emit";
+import { anularDtePosSale } from "./pos-sii-emit";
 
 export type PosActionState = { error?: string; ok?: boolean } | undefined;
 
@@ -394,7 +395,10 @@ export async function voidPosSale(
   const saleId = String(formData.get("saleId") ?? "");
   const sale = await db.posSale.findFirst({
     where: { id: saleId, companyId: ctx.company.id },
-    include: { session: { select: { status: true } } },
+    include: {
+      session: { select: { status: true } },
+      dtes: { where: { estado: "EMITIDO" } },
+    },
   });
   if (!sale) return { error: "La venta no existe." };
   if (sale.status !== "COMPLETED") return { error: "Esa venta ya está anulada." };
@@ -476,6 +480,17 @@ export async function voidPosSale(
   revalidatePath("/pos/ventas");
   revalidatePath(`/pos/ventas/${sale.id}`);
   revalidatePath("/pos/caja");
+
+  // Si la venta anulada tenía un DTE emitido, preparar nota de crédito (tipo 61)
+  // para anularlo fiscalmente. No bloqueamos la anulación si esto falla.
+  if (sale.dtes && sale.dtes.length > 0) {
+    try {
+      await anularDtePosSale(sale.id, motivo ?? "");
+    } catch {
+      // No bloquear la anulación si la nota de crédito no se puede preparar.
+    }
+  }
+
   return { ok: true };
 }
 
