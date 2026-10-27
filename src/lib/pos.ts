@@ -289,6 +289,7 @@ export async function getPosSale(companyId: string, saleId: string) {
       },
       items: { orderBy: { id: "asc" } },
       payments: { orderBy: { createdAt: "asc" } },
+      dtes: { orderBy: { createdAt: "desc" } },
     },
   });
 }

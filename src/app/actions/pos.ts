@@ -15,6 +15,7 @@ import { checkRut } from "@/app/actions/partners";
 import { checkPlanLimit, incrementUsage } from "@/lib/plans";
 import { formatRut, isValidRut, normalizeRut } from "@/lib/rut";
 import { getOpenPosSession } from "@/lib/pos";
+import { emitirDtePosSale } from "./pos-sii-emit";
 
 export type PosActionState = { error?: string; ok?: boolean } | undefined;
 
@@ -367,6 +368,15 @@ export async function createPosSale(
   });
 
   await setFlash("success", "Venta registrada", `Ticket ${formatCLP(total)}.`);
+
+  // Si el módulo SII está habilitado, emitir el DTE automáticamente para esta
+  // venta. No bloqueamos la venta si falla: se puede reintentar desde el ticket.
+  try {
+    await emitirDtePosSale(saleId);
+  } catch {
+    // Emisión falló silenciosamente; el usuario verá el estado en el ticket.
+  }
+
   revalidatePath("/pos");
   revalidatePath("/pos/venta");
   revalidatePath("/pos/ventas");
