@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { PrintButton } from "@/components/print-button";
 import { requireContext } from "@/lib/auth";
@@ -30,7 +31,9 @@ export default async function SalePrintPage(props: PageProps<"/facturas/ventas/[
           >
             Volver
           </button>
-          <PrintButton />
+          <Suspense fallback={<div>Cargando…</div>}>
+            <PrintButton />
+          </Suspense>
         </div>
       </div>
 
