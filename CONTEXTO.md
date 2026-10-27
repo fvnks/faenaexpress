@@ -28,16 +28,24 @@ Funcionalidades principales:
   viceversa (`workerRutExists`/`partnerRutExists` en `lib/rrhh.ts`, aplicadas en partners,
   RRHH y el importador XML: un DTE cuyo receptor sea trabajador se marca error).
 - **Terceros**: clientes y proveedores (un mismo registro puede ser ambos, `PartnerType.BOTH`).
+  Las listas de Clientes y Proveedores tienen **buscador por nombre o RUT**, filtro de estado
+  (Activos / Inactivos / Todos) y paginación.
 - **Catálogos por empresa**: categorías (gastos y/o compras), áreas, vendedores, pagadores y
   medios de pago (los trabajadores se gestionan en RRHH).
 - **Reportes fiscales**: IVA mensual (preparación del F29), libro de compras, libro de ventas,
   pagos y deudas, gastos por área, y **flujo de caja proyectado**.
 - **Importación**: planillas Excel/CSV con plantillas descargables, y **XML DTE del SII**
   (facturación electrónica chilena) tanto para ventas propias como base para compras.
+- **XML de Defontana desde la lista**: en Compras y Ventas, el menú de acciones (⋮) de cada
+  documento trae el XML de Defontana sin entrar al detalle. Si la empresa no tiene credenciales
+  de Defontana guardadas, el botón muestra "Configurar Defontana" y lleva a Configuración.
 - **Notificaciones** automáticas de vencimientos (compras y ventas por pagar/cobrar, vencidas).
 - **Auditoría** de quién creó, editó o eliminó cada registro.
 - **Multiempresa**: un usuario puede pertenecer a varias empresas, con un selector de empresa
   activa; al crear usuarios se elige si ven una empresa o todas donde el admin es administrador.
+- **Selector de módulos**: Facturas, Punto de Venta, Colegios y Facturación SaaS muestran el
+  `ModuleSwitcher` en el header cuando el usuario tiene más de un módulo activo, para cambiar
+  entre módulos sin volver al selector de `/modulos`.
 
 ---
 
@@ -107,7 +115,7 @@ src/
       compras/            # Lista + [id] + [id]/editar + nueva (+ purchase-form.tsx)
       ventas/             # Lista + [id] + [id]/editar + nueva (+ sale-form.tsx)
       gastos/             # Lista + [id] + [id]/editar + nueva (+ expense-form.tsx)
-      clientes/           # Lista + [id] (editar) + nuevo (+ partner-form, partner-list)
+      clientes/           # Lista con búsqueda y paginación + [id] (editar) + nuevo
       proveedores/        # Ídem clientes
       catalogos/          # Categorías, áreas, vendedores, pagadores, medios de pago
       reportes/           # page (resumen) + iva | libro-compras | libro-ventas | pagos |
@@ -117,6 +125,15 @@ src/
       configuracion/      # Empresa, usuarios y roles, mis empresas, crear empresa
       auditoria/          # Historial de cambios con filtros
     dashboard/[[...slug]]/page.tsx  # Redirect permanente 308 → /facturas/* (compatibilidad)
+    billing/              # Facturación SaaS (plan, facturas, métodos de pago)
+      layout.tsx          # Header con ModuleSwitcher y navegación común
+      page.tsx            # Resumen de plan, estado de suscripción
+      plan.tsx            # Cambiar plan
+      payment-methods.tsx # Métodos de pago guardados
+      pay-invoice.tsx     # Pagar facturas pendientes
+      invoices.tsx        # Listado de facturas
+    colegios/             # El módulo Colegios
+      layout.tsx          # Header con ModuleSwitcher, SchoolSwitcher y secciones
   actions/                # Server Actions (auth, companies, purchases, sales, expenses,
                           # partners, catalogs, import, dte, notifications, invitations,
                           # accept-invitation, profile, modules)
@@ -157,6 +174,8 @@ CONTEXTO.md               # Este documento
 | `notifications.ts` | `syncDueNotifications` (recalcula alertas al entrar al panel), `listNotifications`, contadores |
 | `catalogs.ts` / `partners.ts` / `purchases.ts` / `sales.ts` / `expenses.ts` | Consultas + serializadores para formularios (`serializeSale`, etc.) |
 | `dte.ts` | Parser del XML DTE del SII (ver §8) |
+| `defontana/client.ts` | Cliente HTTP del ERP Defontana (login, GraphQL de compras/ventas, descarga de XML) |
+| `defontana/credentials.ts` | Credenciales por empresa (cifradas): `getStoredDefontanaCredentials`, `hasStoredDefontanaCredentials`, `withDefontanaSession` |
 | `sii/runtime.ts` | Integración SII por **@albertomarturelo/sii-core**: lecturas por fetch (sin Chromium), login headless con Playwright desde la web (la Clave se usa una vez y se descarta), sesión en `~/.sii/session.json` |
 | `sii/rcv.ts` | Consultas RCV: `fetchRcvRows` (compras/ventas oficiales) + estado de sesión |
 | `import.ts` | Importador Excel/CSV (ver §9) |
@@ -293,6 +312,8 @@ saldo es 0.
 | --- | --- |
 | `auth.ts` | `login` (con remember), `logout` |
 | `companies.ts` | `switchCompany`, `createCompany`, `updateCompany`, `addMember`, `createMember`, `updateMemberRole`, `removeMember`, `deleteCompany` (borrado en cascada con confirmación por nombre) |
+| `defontana.ts` | `fetchPurchaseXmlAction` / `fetchSaleXmlAction` (trae el XML de un documento de Defontana desde la lista) |
+| `modules.ts` | `switchModule` (cambia de módulo activo) |
 | `purchases.ts` | CRUD + `markPurchasePaid`/`markPurchasePending` + `bulkSetPurchaseStatus` + `deletePurchase` |
 | `sales.ts` | CRUD + `bulkSetSaleStatus` + `deleteSale` |
 | `expenses.ts` | CRUD + toggle reembolso + delete |
@@ -391,6 +412,16 @@ en `/app/.sii`.
 2. **"Importar N facturas"** (`confirmDteImport`) → crea clientes que falten + ventas; errores por
    folio reportados. Queda en auditoría.
 
+### Traer XML de Defontana desde la lista de documentos
+
+En Compras y Ventas, el menú de acciones (⋮) de cada fila incluye "Traer XML de Defontana".
+Ejecuta `fetchPurchaseXmlAction` / `fetchSaleXmlAction` desde `src/app/actions/defontana.ts`:
+valida que la empresa tenga credenciales de Defontana (`hasStoredDefontanaCredentials`),
+busca el documento por folio + RUT del tercero en el Libro de Compras/Ventas de Defontana,
+descarga el XML, guarda `xmlContent`, montos, ítems y stock, y registra auditoría. Si el
+documento ya tiene XML, el ítem del menú dice "XML ya cargado". Si la empresa no tiene
+credenciales, el botón dice "Configurar Defontana" y lleva a `/facturas/configuracion`.
+
 ---
 
 ## 9. Reportes
@@ -436,8 +467,9 @@ Leer **`DESIGN.md`** antes de tocar UI. Puntos clave:
 | --- | --- |
 | `sidebar.tsx` | Navegación con buscador filtrante, grupos colapsables (chevron en el título) y sub-árbol bajo Reportes; badge de facturas por cobrar solo en Ventas; drawer móvil; **menú de usuario** (iniciales + nombre + rol) con Salir |
 | `company-switcher.tsx` | Selector de empresa (top-right) con patrón dropdown; llama `switchCompany` de forma **imperativa** (`useTransition`) |
+| `module-switcher.tsx` | Dropdown de módulos (⋮) para cambiar entre módulos activos; aparece solo si hay más de uno. Vive en los headers de Facturas, POS, Colegios y Billing |
 | `select-dropdown.tsx` | Reemplaza todos los `<select>` nativos: trigger + menú con check en el activo; soporta modo controlado (`onValueChange`), `allowEmpty`, valor en input oculto (sirve en forms GET y de server actions) |
-| `actions-dropdown.tsx` | Menú (⋮) Editar/Eliminar; posicionamiento **fixed** (tablas con scroll horizontal) con clamp al viewport; delete con confirm + acción imperativa |
+| `actions-dropdown.tsx` | Menú (⋮) Editar/Eliminar; en Compras y Ventas incluye "Traer XML de Defontana" (o "Configurar Defontana" si la empresa no tiene credenciales); posicionamiento **fixed** (tablas con scroll horizontal) con clamp al viewport; delete con confirm + acción imperativa |
 | `date-range-filter.tsx` / `period-picker.tsx` | Calendarios react-day-picker v9 en popovers `right-0` |
 | `autocomplete-partner.tsx` | Búsqueda de cliente/proveedor por RUT/nombre vía Server Action; muestra el nombre inicial en edición |
 | `bulk-select.tsx` | "Seleccionar todas" + contador para acciones masivas |
@@ -523,8 +555,12 @@ dropdown nuevo debe seguirlo.
 
 - CRUD completo de compras/ventas/gastos/clientes/proveedores/catálogos con filtros (búsqueda,
   selects patrón dropdown, rango de fechas con calendario), badges, KPIs y acciones masivas.
+- **Clientes y Proveedores**: buscador por nombre o RUT, filtro de estado (Activos / Inactivos /
+  Todos) y paginación en ambas listas.
 - **Abonos**: pagos/cobros parciales en compras y ventas con saldo pendiente y estado derivado
   (`Pendiente` / `Pago parcial` / `Pagada`), verificados en vivo (registrar, saldar, eliminar).
+- **XML de Defontana desde la lista**: en Compras y Ventas, el menú de acciones trae el XML de
+  Defontana sin entrar al detalle; si la empresa no tiene credenciales, lleva a Configuración.
 - Multiempresa completa (crear/cambiar/editar/borrar empresa con confirmación, usuarios con
   alcance de empresas y roles).
 - Importador Excel/CSV y **importador XML DTE del SII** probado con un EnvioDTE real
@@ -532,6 +568,9 @@ dropdown nuevo debe seguirlo.
 - Reportes con export CSV; flujo de caja proyectado; panel con gráficos propios.
 - Login split-screen con Recuérdame persistente (90 días + renovación automática).
 - Auditoría y notificaciones de vencimiento.
+- **Selector de módulos**: ModuleSwitcher en los headers de Facturas, Punto de Venta, Colegios
+  y Facturación SaaS; aparece cuando el usuario tiene más de un módulo activo.
+- **Facturación SaaS (Billing)**: layout propio con header, ModuleSwitcher y navegación común.
 
 ### Pendientes / ideas
 
@@ -551,4 +590,4 @@ dropdown nuevo debe seguirlo.
 
 ---
 
-*Última actualización: 2026-10-19.*
+*Última actualización: 2026-10-27.*
