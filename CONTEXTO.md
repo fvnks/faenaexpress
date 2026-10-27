@@ -693,13 +693,28 @@ dropdown nuevo debe seguirlo.
   - Página `/pos/reportes`: ventas por período, producto, cajero y medio de pago, con
     tarjetas de totales y filtros por fecha y búsqueda.
   - Export CSV en `/pos/ventas/export` (mismos filtros que reportes).
+  - **Stock por bodega**: `warehouseId` en `PosSession`, selector al abrir caja,
+    movimientos de stock usan la bodega de la caja (migración
+    `20261105000000_pos_warehouse_credit`).
+  - **Venta a crédito / cuenta corriente**: `amountPaid`, `balanceDue`,
+    `creditDueDate` en `PosSale`; estado `PENDING` en el enum `PosSaleStatus`.
+    Abonos a ventas con saldo pendiente (`recordPosCreditPayment`,
+    `recordPosCreditPaymentFormAction`), solo supervisor.
+  - **Página `/pos/credito`**: lista de ventas con saldo pendiente y total
+    por cobrar.
+  - **Historial de compras del cliente** en el detalle de venta POS
+    (consulta a tabla `Sale` de Facturas).
+  - **Alertas de stock mínimo** en catálogo de productos POS (columna "Mín.",
+    badge "Stock bajo" cuando stock ≤ minStock).
+  - Historial de cajas muestra terminal y bodega de cada turno.
 - **POS Fase 2+ (pendiente)**:
-  - Cortes de caja independientes por terminal (las sesiones son por usuario; el listado
-    histórico aún no filtra por terminal).
-  - Stock por bodega/sucursal (el POS usa la bodega por defecto).
-  - Alertas de stock mínimo.
-  - Historial de compras del cliente desde el POS.
-  - Venta a crédito / cuenta corriente.
+  - Cortes de caja independientes por terminal (las sesiones son por usuario;
+    el listado histórico aún no filtra por terminal).
+  - Stock por bodega/sucursal avanzado (el POS usa la bodega de la sesión;
+    faltan conteos y transferencias entre bodegas desde el POS).
+  - Alertas de stock mínimo con notificaciones.
+  - Venta a crédito con cobros parciales desde la lista de cuenta corriente
+    (solo se puede abonar desde el detalle de cada venta).
 - **POS Fase 3+ (diferenciación)**: modo offline con sincronización al volver, integración con
   terminales de pago (TPV), generación de etiquetas de código de barras, API para e-commerce,
   pantalla de cocina (KDS) para restaurantes.
