@@ -736,14 +736,22 @@ dropdown nuevo debe seguirlo.
     compras cuando el proveedor no emite electrónica. Emisor = empresa, receptor =
     proveedor. Guarda `PosDte` con `purchaseId`, consume folio del CAF tipo 46.
     Migración `20261106000000_pos_dte_purchase`.
+  - **Transferencia de stock entre bodegas — `transferPosStock`**: mueve stock de
+    una bodega a otra desde el catálogo de productos (solo supervisor). Usa
+    movimiento TRANSFER que conserva el costo promedio (PPP).
+  - **Filtro de terminal en historial de cajas** (`/pos/caja`): el listado de
+    cajas se puede filtrar por terminal para ver cortes independientes.
+  - **Abonos directos desde cuenta corriente** (`/pos/credito`): cada fila de
+    venta pendiente tiene un form inline para registrar un abono sin entrar al
+    detalle de la venta.
+  - **Alerta de stock bajo en catálogo** (`/pos/productos`): banner superior con
+    conteo de productos sin stock y con stock bajo el mínimo.
 - **POS Fase 2+ (pendiente)**:
-  - Cortes de caja independientes por terminal (las sesiones son por usuario;
-    el listado histórico aún no filtra por terminal).
-  - Stock por bodega/sucursal avanzado (el POS usa la bodega de la sesión;
-    faltan conteos y transferencias entre bodegas desde el POS).
-  - Alertas de stock mínimo con notificaciones.
-  - Venta a crédito con cobros parciales desde la lista de cuenta corriente
-    (solo se puede abonar desde el detalle de cada venta).
+  - Notificaciones push/email para alertas de stock mínimo (ahora solo hay banner
+    visual en el catálogo).
+  - Cortes de caja totalmente independientes por terminal (las sesiones siguen
+    siendo por usuario; el historial filtra por terminal pero no restringe por
+    usuario).
 - **POS Fase 3+ (diferenciación)**: modo offline con sincronización al volver, integración con
   terminales de pago (TPV), generación de etiquetas de código de barras, API para e-commerce,
   pantalla de cocina (KDS) para restaurantes.
