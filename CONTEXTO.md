@@ -30,6 +30,10 @@ Funcionalidades principales:
 - **Terceros**: clientes y proveedores (un mismo registro puede ser ambos, `PartnerType.BOTH`).
   Las listas de Clientes y Proveedores tienen **buscador por nombre o RUT**, filtro de estado
   (Activos / Inactivos / Todos) y paginación.
+- **Punto de Venta** (`/pos`): caja rápida con apertura/cierre de caja, arqueo, catálogo de
+  productos compartido con Facturas, ventas con múltiples medios de pago, devoluciones y
+  anulaciones, y **emisión de DTE al SII** (boleta 39 o factura 33) con certificado digital,
+  CAF y consulta de estado por TrackID.
 - **Catálogos por empresa**: categorías (gastos y/o compras), áreas, vendedores, pagadores y
   medios de pago (los trabajadores se gestionan en RRHH).
 - **Reportes fiscales**: IVA mensual (preparación del F29), libro de compras, libro de ventas,
@@ -134,6 +138,24 @@ src/
       invoices.tsx        # Listado de facturas
     colegios/             # El módulo Colegios
       layout.tsx          # Header con ModuleSwitcher, SchoolSwitcher y secciones
+    pos/                  # El módulo Punto de Venta
+      layout.tsx          # Header con ModuleSwitcher y PosNav
+      page.tsx            # Resumen del día, KPIs, últimas ventas, estado de caja
+      caja/               # Abrir / cerrar caja, arqueo, historial de cajas
+      venta/              # Formulario de venta (sale-form) con catálogo y pagos
+      ventas/             # Lista de tickets con filtros y [id] (detalle del ticket)
+      productos/          # Catálogo de productos del POS (alta, edición, ajuste de stock)
+      sii/                # Configuración SII: certificado .pfx, resolución, acteco, CAFs
+        page.tsx          # Configuración SII y CAFs
+        config-form.tsx
+        caf-form.tsx
+    [id]/                 # Detalle de ticket con DteInfo (estado del DTE, reintento)
+      page.tsx            # Ticket de venta con información del DTE (folio, estado)
+      dte-info.tsx        # Estado del DTE y botón de reintento de envío
+      print-ticket-button.tsx
+      thermal-ticket.css
+      void-sale-form.tsx
+      return-form.tsx
   actions/                # Server Actions (auth, companies, purchases, sales, expenses,
                           # partners, catalogs, import, dte, notifications, invitations,
                           # accept-invitation, profile, modules)
@@ -176,6 +198,9 @@ CONTEXTO.md               # Este documento
 | `dte.ts` | Parser del XML DTE del SII (ver §8) |
 | `defontana/client.ts` | Cliente HTTP del ERP Defontana (login, GraphQL de compras/ventas, descarga de XML) |
 | `defontana/credentials.ts` | Credenciales por empresa (cifradas): `getStoredDefontanaCredentials`, `hasStoredDefontanaCredentials`, `withDefontanaSession` |
+| `dte-generator.ts` | Generador de XML DTE tipo 33 (factura) y 39 (boleta) para el POS |
+| `dte-signer.ts` | Firmante de DTE con certificado .pfx (XML-DSIG RSA-SHA256) |
+| `sii-client.ts` | Cliente para enviar DTE al SII y consultar estado por TrackID |
 | `sii/runtime.ts` | Integración SII por **@albertomarturelo/sii-core**: lecturas por fetch (sin Chromium), login headless con Playwright desde la web (la Clave se usa una vez y se descarta), sesión en `~/.sii/session.json` |
 | `sii/rcv.ts` | Consultas RCV: `fetchRcvRows` (compras/ventas oficiales) + estado de sesión |
 | `import.ts` | Importador Excel/CSV (ver §9) |
@@ -322,6 +347,7 @@ saldo es 0.
 | `import.ts` | `importFile` (Excel/CSV de compras, ventas o gastos) |
 | `dte.ts` | `previewDteImport` + `confirmDteImport` (XML SII) |
 | `payments.ts` | `registerPayment` / `deletePayment` (abonos de compras y ventas, con recálculo del estado) |
+| `pos-sii-emit.ts` | `emitirDtePosSale` / `reintentarDtePosSale` (emite DTE al SII para ventas POS) |
 | `notifications.ts` | Marcar leída / todas leídas |
 
 **Reglas de seguridad (críticas)**: toda acción valida `requireContext` + `canWrite`/`isAdmin`
@@ -421,6 +447,37 @@ busca el documento por folio + RUT del tercero en el Libro de Compras/Ventas de 
 descarga el XML, guarda `xmlContent`, montos, ítems y stock, y registra auditoría. Si el
 documento ya tiene XML, el ítem del menú dice "XML ya cargado". Si la empresa no tiene
 credenciales, el botón dice "Configurar Defontana" y lleva a `/facturas/configuracion`.
+
+### Emisión de DTE del POS al SII (Fase 1)
+
+El punto de venta puede emitir documentos tributarios electrónicos (DTE) al SII
+directamente desde cada venta. Requiere que la empresa tenga configurado el módulo
+SII en `/pos/sii` (certificado digital .pfx, resolución SII, acteco y al menos un
+CAF con folios disponibles).
+
+**Flujo de emisión automática:**
+1. Al completar una venta POS (`createPosSale`), si SII está habilitado, se dispara
+   automáticamente `emitirDtePosSale`.
+2. El sistema determina el tipo de DTE: **boleta (39)** para consumidor final, o
+   **factura (33)** si el cliente tiene RUT distinto de consumidor final.
+3. Obtiene un folio disponible del CAF correspondiente (tipo 33 o 39) e incrementa
+   `folioActual` solo si el SII acepta el documento.
+4. Genera el XML DTE (`dte-generator.ts`), lo firma con el certificado .pfx de la
+   empresa (`dte-signer.ts`, XML-DSIG RSA-SHA256) y lo envía al SII
+   (`sii-client.ts`).
+5. Guarda el registro `PosDte` con el estado (EMITIDO / RECHAZADO / ERROR_ENVIO),
+   el TrackID del SII y el XML enviado/respuesta.
+6. Vincula el `PosDte` con la `PosSale` para que el ticket muestre el folio real.
+
+**Desde el ticket de venta** (`/pos/ventas/[id]`):
+- Si el DTE está **EMITIDO**: muestra "Factura Electrónica N° XXX" o
+  "Boleta Electrónica N° XXX" con el folio real y el TrackID.
+- Si está **RECHAZADO** o **ERROR_ENVIO**: muestra el error y un botón
+  "Reintentar envío al SII" para volver a intentar la emisión.
+- Si no hay DTE: indica que el documento es interno de control (SII no habilitado).
+
+**Entorno:** por defecto se envía al entorno de **pruebas** del SII
+(`maullin.sii.cl`). Para producción, se debe configurar el entorno adecuado.
 
 ---
 
@@ -571,6 +628,9 @@ dropdown nuevo debe seguirlo.
 - **Selector de módulos**: ModuleSwitcher en los headers de Facturas, Punto de Venta, Colegios
   y Facturación SaaS; aparece cuando el usuario tiene más de un módulo activo.
 - **Facturación SaaS (Billing)**: layout propio con header, ModuleSwitcher y navegación común.
+- **Emisión de DTE del POS al SII**: en Compras y Ventas del POS, cada venta puede emitir
+  su DTE (boleta 39 o factura 33) al SII con certificado digital, CAF y folio real. El
+  ticket muestra el estado del DTE y permite reintentar el envío si falló.
 
 ### Pendientes / ideas
 
@@ -581,6 +641,13 @@ dropdown nuevo debe seguirlo.
 - **Pagos parciales (abonos)**: implementados. El saldo de un documento es su total (en ventas,
   menos la retención) menos la suma de sus abonos; de ahí se deriva `PENDING`/`PARTIAL`/`PAID`.
   Los abonos viven en la tabla `Payment` y se administran en el detalle de compras y ventas.
+- **POS Fase 2+ (operaciones de caja)**: múltiples terminales/cajas simultáneas, roles cajero /
+  supervisor, cortes de caja independientes por terminal, stock por bodega/sucursal, alertas de
+  stock mínimo, historial de compras del cliente desde el POS, venta a crédito / cuenta corriente,
+  reportes de ventas por período/producto/cajero, exportación CSV/Excel de ventas POS.
+- **POS Fase 3+ (diferenciación)**: modo offline con sincronización al volver, integración con
+  terminales de pago (TPV), generación de etiquetas de código de barras, API para e-commerce,
+  pantalla de cocina (KDS) para restaurantes.
 - **XML de compras**: reutilizar el parser para DTEs recibidos de proveedores (emisor = proveedor).
 - Adjuntar XML/PDF a cada documento (requiere almacenamiento de archivos).
 - OAuth (Google/Microsoft) y recuperación de contraseña (requiere servicio de email) — hoy el
