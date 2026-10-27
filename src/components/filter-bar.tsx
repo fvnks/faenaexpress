@@ -29,7 +29,10 @@ const DATE_KEYS = ["desde", "hasta"];
  * No usa `<form>`: al ser inputs controlados por React, el componente global
  * `LiveSearchInputs` (que auto-envía formularios GET) no la toca.
  */
-export function FilterBar({ fields }: { fields: FilterField[] }) {
+export function FilterBar({
+  fields,
+  showDateRange = true,
+}: { fields: FilterField[]; showDateRange?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -106,10 +109,12 @@ export function FilterBar({ fields }: { fields: FilterField[] }) {
         ),
       )}
 
-      <DateRangeFilter
-        from={searchParams.get("desde") ?? undefined}
-        to={searchParams.get("hasta") ?? undefined}
-      />
+      {showDateRange && (
+        <DateRangeFilter
+          from={searchParams.get("desde") ?? undefined}
+          to={searchParams.get("hasta") ?? undefined}
+        />
+      )}
 
       {hasFilters ? (
         <div className="flex items-end">

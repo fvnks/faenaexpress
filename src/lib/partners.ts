@@ -19,14 +19,50 @@ export async function listCustomers(companyId: string) {
   });
 }
 
-// Lista de gestión para las secciones de Clientes y Proveedores.
-export async function listPartners(companyId: string, kind: "customers" | "suppliers") {
-  const types: PartnerType[] = kind === "customers" ? ["CUSTOMER", "BOTH"] : ["SUPPLIER", "BOTH"];
+// Lista de gestión para las secciones de Clientes y Proveedores, con búsqueda
+// y paginación. `q` filtra por nombre o RUT; `active` filtra por estado.
+export type PartnerListResult = {
+  partners: Partner[];
+  page: number;
+  pageCount: number;
+  total: number;
+};
 
-  return db.partner.findMany({
-    where: { companyId, type: { in: types } },
-    orderBy: [{ active: "desc" }, { name: "asc" }],
-  });
+export async function listPartners(
+  companyId: string,
+  kind: "customers" | "suppliers",
+  opts?: { q?: string; active?: boolean; page?: number; pageSize?: number },
+): Promise<PartnerListResult> {
+  const types: PartnerType[] = kind === "customers" ? ["CUSTOMER", "BOTH"] : ["SUPPLIER", "BOTH"];
+  const page = Math.max(1, opts?.page ?? 1);
+  const pageSize = Math.max(1, Math.min(100, opts?.pageSize ?? 50));
+  const skip = (page - 1) * pageSize;
+
+  const where: Record<string, unknown> = {
+    companyId,
+    type: { in: types },
+  };
+  if (opts?.active !== undefined) where.active = opts.active;
+  if (opts?.q?.trim()) {
+    where.OR = [{ rut: { contains: opts.q.trim() } }, { name: { contains: opts.q.trim() } }];
+  }
+
+  const [partners, total] = await Promise.all([
+    db.partner.findMany({
+      where,
+      orderBy: [{ active: "desc" }, { name: "asc" }],
+      skip,
+      take: pageSize,
+    }),
+    db.partner.count({ where }),
+  ]);
+
+  return {
+    partners,
+    page,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    total,
+  };
 }
 
 // Facturas del cliente que todavía no tienen vendedor: son las que heredan el

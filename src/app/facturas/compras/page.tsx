@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { bulkSetPurchaseStatus, deletePurchase } from "@/app/actions/purchases";
+import { fetchPurchaseXmlAction } from "@/app/actions/defontana";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { FilterBar, type FilterField } from "@/components/filter-bar";
@@ -334,6 +335,14 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
                           deleteAction={deletePurchase}
                           deleteId={purchase.id}
                           deleteMessage="¿Eliminar esta compra? Esta acción no se puede deshacer."
+                          fetchDefontana={{
+                            id: purchase.id,
+                            fieldName: "purchaseId",
+                            action: fetchPurchaseXmlAction,
+                            label: purchase.xmlContent
+                              ? "XML ya cargado"
+                              : "Traer XML de Defontana",
+                          }}
                         />
                       </td>
                     ) : null}

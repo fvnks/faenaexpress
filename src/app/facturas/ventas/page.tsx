@@ -14,6 +14,7 @@ import { parseSortDir } from "@/lib/sort";
 import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
 import { SalesTable } from "./sales-table";
+import { fetchSaleXmlAction } from "@/app/actions/defontana";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
@@ -229,6 +230,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
           params={searchParams}
           sortKey={sortKey}
           sortDir={sortDir}
+          fetchSaleXmlAction={fetchSaleXmlAction}
         />
       )}
       <Pagination

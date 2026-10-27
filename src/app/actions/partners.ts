@@ -228,7 +228,7 @@ export async function searchPartnersAction(
     let resultsMapped: { id: string; name: string; rut: string }[];
   if (q.trim() === "") {
     const all = await listPartners(ctx.company.id, kind === "customers" ? "customers" : "suppliers");
-    resultsMapped = all.map(p => ({ id: p.id, name: p.name, rut: p.rut ?? "" }));
+    resultsMapped = all.partners.map(p => ({ id: p.id, name: p.name, rut: p.rut ?? "" }));
   } else {
     const searched = await searchPartners(ctx.company.id, q, kind === "customers" ? "customers" : "suppliers");
     resultsMapped = searched.map(p => ({ id: p.id, name: p.name, rut: p.rut ?? "" }));

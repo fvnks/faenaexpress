@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
+import { fetchSaleXmlAction } from "@/app/actions/defontana";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
@@ -46,6 +47,7 @@ type Props = {
   params: Record<string, string | string[] | undefined>;
   sortKey: string;
   sortDir: SortDir;
+  fetchSaleXmlAction: (prev: any, formData: FormData) => Promise<any>;
 };
 
 /**
@@ -344,6 +346,14 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                         deleteAction={deleteSale}
                         deleteId={sale.id}
                         deleteMessage="¿Eliminar esta venta? Esta acción no se puede deshacer."
+                        fetchDefontana={{
+                          id: sale.id,
+                          fieldName: "saleId",
+                          action: fetchSaleXmlAction,
+                          label: sale.xmlContent
+                            ? "XML ya cargado"
+                            : "Traer XML de Defontana",
+                        }}
                         onMarkPaid={() => {
                           setActionError(null);
                           setActionModal({ saleId: sale.id, kind: "PAID", date: "" });

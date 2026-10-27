@@ -53,6 +53,17 @@ function PrintIcon() {
   );
 }
 
+function XmlIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
+      <path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+      <rect x="8" y="6" width="8" height="12" rx="1" ry="1" />
+      <line x1="8" y1="10" x2="16" y2="10" />
+      <line x1="12" y1="6" x2="12" y2="18" />
+    </svg>
+  );
+}
+
 function CheckIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={iconCls} aria-hidden="true">
@@ -88,6 +99,7 @@ export function ActionsDropdown({
   assignSalesperson,
   onAssignSalesperson,
   onCancel,
+  fetchDefontana,
 }: {
   editHref: string;
   pdfHref?: string;
@@ -101,11 +113,18 @@ export function ActionsDropdown({
   assignSalesperson?: boolean;
   onAssignSalesperson?: () => void;
   onCancel?: () => void;
+  fetchDefontana?: {
+    id: string;
+    fieldName: "purchaseId" | "saleId";
+    action: (prev: any, formData: FormData) => Promise<any>;
+    label?: string;
+  };
 }) {
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [fetchingDefontana, setFetchingDefontana] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const MENU_HEIGHT = 220;
@@ -273,6 +292,31 @@ export function ActionsDropdown({
                 >
                   <XIcon />
                   Anular
+                </button>
+              </li>
+            ) : null}
+            {fetchDefontana ? (
+              <li>
+                <button
+                  type="button"
+                  disabled={fetchingDefontana}
+                  onClick={() => {
+                    setOpen(false);
+                    setFetchingDefontana(true);
+                    const formData = new FormData();
+                    formData.set(fetchDefontana.fieldName, fetchDefontana.id);
+                    startTransition(async () => {
+                      try {
+                        await fetchDefontana.action(undefined, formData);
+                      } finally {
+                        setFetchingDefontana(false);
+                      }
+                    });
+                  }}
+                  className="flex w-full items-center gap-3 rounded-control px-2 py-1.5 text-left text-sm text-primary transition-colors hover:bg-primary-soft disabled:opacity-60"
+                >
+                  <XmlIcon />
+                  {fetchDefontana.label ?? "Traer XML de Defontana"}
                 </button>
               </li>
             ) : null}
