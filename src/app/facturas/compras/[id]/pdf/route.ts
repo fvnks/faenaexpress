@@ -1,110 +1,134 @@
-import { NextResponse } from "next/server";
+import { notFound } from "next/navigation";
 
-import { parseDteXml } from "@/lib/dte";
 import { requireContext } from "@/lib/auth";
+import {
+  construirDocumentoDTE,
+  construirRepresentacionImprimible,
+  DatosDteVenta,
+  emitirDteTypeDte,
+  generarPdfCartaDte,
+  normalizarRutSii,
+  nombreArchivoDte,
+} from "@/lib/dte-typedte";
 import { getPurchase } from "@/lib/purchases";
-import { generateFacturaPdf } from "@/lib/sii/pdf";
-
-function asDate(v: string | null): Date | null {
-  return v ? new Date(`${v}T00:00:00.000Z`) : null;
-}
+import { getPosSiiConfigForUI } from "@/app/actions/pos-sii-caf";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+): Promise<Response> {
   const ctx = await requireContext("compras");
   const { id } = await params;
-
   const purchase = await getPurchase(ctx.company.id, id);
+
   if (!purchase) {
-    return NextResponse.json({ error: "Compra no encontrada." }, { status: 404 });
+    notFound();
   }
 
-  // Si hay XML original guardado, extraemos TODO (emisor/receptor, montos,
-  // ítems, referencias, forma de pago) desde el DTE.
-  let parsedItems: { codigo?: string; nombre: string; cantidad: string; precio: number; monto: number }[] | null = null;
-  let parsedDoc: ReturnType<typeof parseDteXml>["documentos"][number] | null = null;
-  if (purchase.xmlContent) {
+  // Cargar configuración SII para acteco y resolución.
+  const configSii = await getPosSiiConfigForUI(ctx.company.id);
+  const acteco = configSii?.acteco ?? "471101";
+  const numeroResolucion = configSii?.resolucionSii
+    ? parseInt(configSii.resolucionSii.replace(/\D/g, "")) || 0
+    : 0;
+
+  // Tipo 46 = Factura de Compra Electrónica.
+  const tipoDte = 46;
+
+  // Usar documentNumber como folio si es numérico.
+  const folio =
+    purchase.documentNumber && /^\d+$/.test(purchase.documentNumber)
+      ? parseInt(purchase.documentNumber)
+      : 1;
+
+  const fechaEmision = purchase.date.toISOString().slice(0, 10);
+
+  // Para factura de compra (tipo 46):
+  // Emisor = la empresa (autofactura), Receptor = el proveedor.
+  const datos: DatosDteVenta = {
+    tipoDte,
+    folio,
+    fechaEmision,
+    rutEmisor: ctx.company.rut ?? "",
+    razonSocialEmisor: ctx.company.name,
+    giroEmisor: ctx.company.giro ?? "",
+    actividadesEconomicas: [Number(acteco)],
+    direccionEmisor: ctx.company.address ?? "",
+    comunaEmisor: ctx.company.commune ?? "",
+    ciudadEmisor: ctx.company.city ?? undefined,
+    telefonoEmisor: ctx.company.phone ?? undefined,
+    correoEmisor: ctx.company.email ?? undefined,
+    rutReceptor: normalizarRutSii(purchase.partner?.rut),
+    razonSocialReceptor: purchase.partner?.name ?? "Proveedor",
+    giroReceptor: undefined,
+    direccionReceptor: undefined,
+    comunaReceptor: undefined,
+    ciudadReceptor: undefined,
+    telefonoReceptor: undefined,
+    correoReceptor: undefined,
+    items: purchase.items.map((item: any) => ({
+      nombre: item.name,
+      cantidad: Number(item.quantity),
+      precioUnitario: item.unitPrice,
+      descuentoMonto: item.discount ?? 0,
+      exento: false,
+    })),
+    formaPago: "contado",
+    neto: Number(purchase.netAmount),
+    exento: Number(purchase.exento),
+    iva: Number(purchase.ivaAmount),
+    total: Number(purchase.totalAmount),
+    notas: purchase.notes ?? undefined,
+  };
+
+  // Generar el DTE con typeDte para obtener el TED (timbre) necesario para el PDF.
+  let dteGenerado: { xml: string; totales: any; ted: any } | null = null;
+  if (configSii?.certificadoPfx) {
     try {
-      const parsed = parseDteXml(purchase.xmlContent);
-      parsedDoc =
-        parsed.documentos.find((d) => d.folio === purchase.documentNumber) ??
-        parsed.documentos[0] ??
-        null;
-      if (parsedDoc?.itemsDetalle) {
-        parsedItems = parsedDoc.itemsDetalle.map((it) => ({
-          codigo: undefined,
-          nombre: it.nombre,
-          cantidad: it.cantidad,
-          precio: it.precio,
-          monto: it.monto,
-        }));
-      }
+      const certificadoPfx = Buffer.from(configSii.certificadoPfx, "base64");
+      const cafXml = `<?xml version="1.0" encoding="ISO-8859-1"?><CAF><DA><RE>00000000-0</RE><RS>CAF Temporal</RS><TD>${tipoDte}</TD><RNG><D>1</D><H>99999999</H><FA>2020-01-01</FA><FH>2030-12-31</FH></DA><FRMT></FRMT></CAF>`;
+      dteGenerado = emitirDteTypeDte(
+        construirDocumentoDTE(datos),
+        cafXml,
+        certificadoPfx,
+        configSii.certificadoPass ?? undefined,
+        `${fechaEmision}T00:00:00`,
+      );
     } catch {
-      /* sin XML válido: cae a los datos de la BD */
+      // Si falla la emisión, el PDF aún se genera con TED vacío.
     }
   }
 
-  const pdf = await generateFacturaPdf({
-    tipo: "compra",
-    empresa: {
-      name: parsedDoc?.razonSocialEmisor ?? purchase.partner.name,
-      rut: parsedDoc?.rutEmisor ?? purchase.partner.rut,
-      address: parsedDoc?.direccionEmisor ?? purchase.partner.address,
-      city: parsedDoc?.ciudadEmisor ?? purchase.partner.city,
-      commune: parsedDoc?.comunaEmisor ?? purchase.partner.commune,
-      email: parsedDoc?.emailEmisor ?? purchase.partner.email,
-      phone: parsedDoc?.telefonoEmisor ?? purchase.partner.phone,
-      giro: parsedDoc?.giroEmisor ?? purchase.partner.giro,
+  const representacion = construirRepresentacionImprimible(
+    datos,
+    {
+      neto: datos.neto,
+      exento: datos.exento,
+      iva: datos.iva,
+      total: datos.total,
     },
-    tercero: {
-      name: parsedDoc?.razonSocialReceptor ?? ctx.company.name,
-      rut: parsedDoc?.rutReceptor ?? ctx.company.rut,
-      address: parsedDoc?.direccionReceptor ?? ctx.company.address,
-      city: parsedDoc?.ciudadReceptor ?? ctx.company.city,
-      commune: parsedDoc?.comunaReceptor ?? ctx.company.commune,
-      giro: parsedDoc?.giroReceptor ?? ctx.company.giro,
-    },
-    documento: {
-      documentType: purchase.documentType,
-      documentNumber: parsedDoc?.folio ?? purchase.documentNumber,
-      date: asDate(parsedDoc?.fecha ?? null) ?? purchase.date,
-      dueDate: asDate(parsedDoc?.vencimiento ?? null) ?? purchase.dueDate,
-      status: purchase.status,
-      paymentDate: purchase.paymentDate,
-      notes: purchase.notes,
-      formaPago: parsedDoc?.formaPago ?? purchase.formaPago ?? null,
-    },
-    montos: {
-      netAmount: parsedDoc?.neto ?? purchase.netAmount,
-      ivaAmount: parsedDoc?.iva ?? purchase.ivaAmount,
-      totalAmount: parsedDoc?.total ?? purchase.totalAmount,
-      exento: parsedDoc?.exento ?? 0,
-      retentionAmount: 0,
-    },
-    extras: {
-      description: purchase.description,
-      purchaseOrder: parsedDoc?.ordenCompra ?? purchase.purchaseOrder,
-      dispatchGuide: parsedDoc?.guiaDespacho ?? purchase.dispatchGuide,
-      hesNumber: parsedDoc?.hesNumber ?? purchase.hesNumber,
-    },
-    items: parsedItems ?? (purchase.items?.length
-      ? purchase.items.map((it) => ({
-          codigo: it.product?.sku ?? undefined,
-          nombre: it.name ?? it.product?.name ?? "Ítem",
-          cantidad: String(Number(it.quantity ?? 1)),
-          precio: Number(it.unitPrice ?? 0),
-          monto: Number(it.amount ?? 0),
-        }))
-      : null),
-  });
+    dteGenerado ? dteGenerado.ted : {},
+    "SANTIAGO ORIENTE",
+    numeroResolucion,
+    new Date().getFullYear(),
+  );
 
-  const filename = `compra_${parsedDoc?.folio ?? purchase.documentNumber ?? id}.pdf`;
-  return new NextResponse(pdf as unknown as BodyInit, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
+  try {
+    const pdfBuffer = await generarPdfCartaDte(representacion);
+    const nombreArchivo = nombreArchivoDte(tipoDte, folio);
+
+    return new Response(pdfBuffer as any, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${nombreArchivo}"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    return new Response(
+      JSON.stringify({ error: `No se pudo generar el PDF: ${message}` }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
 }

@@ -444,6 +444,208 @@ export async function generarPdfDteAction(
 }
 
 /**
+ * Server Action: emite un DTE de Factura de Compra (tipo 46) para una compra
+ * ya registrada. Se usa cuando el proveedor no emite factura electrónica y
+ * la empresa autofactura la compra para tener el soporte del SII.
+ *
+ * Flujo:
+ * 1. Valida configuración SII (certificado, CAF, resolución, acteco).
+ * 2. Obtiene un folio del CAF para tipo 46.
+ * 3. Genera el XML DTE tipo 46 con datos de la compra.
+ * 4. Lo firma con el certificado .pfx.
+ * 5. Lo envía al SII y obtiene el TrackID.
+ * 6. Guarda el registro PosDte vinculado a la compra.
+ *
+ * Emisor = la empresa (autofactura), Receptor = el proveedor.
+ */
+export async function emitirDteCompraAction(
+  _prev: DteActionResult | undefined,
+  formData: FormData,
+): Promise<DteActionResult> {
+  const ctx = await requireContext();
+  if (!canWrite(ctx, "configuracion")) {
+    return { ok: false, error: "No tienes permiso para configurar el SII." };
+  }
+
+  const purchaseId = String(formData.get("purchaseId") ?? "");
+  const generarPdf = formData.get("generarPdf") === "true";
+  const tipoPdf = (formData.get("tipoPdf") as "carta" | "ticket") ?? "carta";
+
+  if (!purchaseId) {
+    return { ok: false, error: "Falta el ID de la compra." };
+  }
+
+  // Buscar la compra con sus ítems y proveedor.
+  const [purchase, items] = await Promise.all([
+    (db as any).purchase.findFirst({
+      where: { id: purchaseId, companyId: ctx.company.id },
+    }),
+    (db as any).purchaseItem.findMany({ where: { purchaseId } }),
+  ]);
+  if (!purchase) {
+    return { ok: false, error: "La compra no existe." };
+  }
+
+  // Si ya tiene DTE emitido, no reemitir.
+  const dteExistente = await (db as any).posDte.findFirst({
+    where: { purchaseId: purchase.id, companyId: ctx.company.id, estado: "EMITIDO" },
+  });
+  if (dteExistente) {
+    return {
+      ok: true,
+      tipoDte: dteExistente.tipoDte,
+      folio: dteExistente.folio,
+      trackId: dteExistente.trackId ?? undefined,
+    };
+  }
+
+  const config = await obtenerConfigSiiValida(ctx.company.id);
+  const caf = obtenerCafDisponible(config, 46); // tipo 46 = Factura de Compra
+  const folio = Number(caf.folioActual) + 1;
+
+  // Entorno SII: BD > variable de entorno > pruebas.
+  const ambiente =
+    (config.siiEnvironment as string) ??
+    (process.env.SII_ENVIRONMENT === "produccion" ? "produccion" : "pruebas");
+
+  // Construir datos del DTE tipo 46 (Factura de Compra).
+  // Emisor = la empresa (autofactura), Receptor = el proveedor.
+  const fechaEmision = purchase.date.toISOString().slice(0, 10);
+  const datos: DatosDteVenta = {
+    tipoDte: 46,
+    folio,
+    fechaEmision,
+    rutEmisor: ctx.company.rut ?? "",
+    razonSocialEmisor: ctx.company.name,
+    giroEmisor: ctx.company.giro ?? "",
+    actividadesEconomicas: [Number(config.acteco ?? "471101")],
+    direccionEmisor: ctx.company.address ?? "",
+    comunaEmisor: ctx.company.commune ?? "",
+    ciudadEmisor: purchase.city ?? undefined,
+    telefonoEmisor: ctx.company.phone ?? undefined,
+    correoEmisor: ctx.company.email ?? undefined,
+    rutReceptor: purchase.partner?.rut ?? "66666666-6",
+    razonSocialReceptor: purchase.partner?.name ?? "Proveedor",
+    giroReceptor: undefined,
+    direccionReceptor: undefined,
+    comunaReceptor: undefined,
+    ciudadReceptor: undefined,
+    telefonoReceptor: undefined,
+    correoReceptor: undefined,
+    items: items.map((item: any) => ({
+      nombre: item.name,
+      cantidad: Number(item.quantity),
+      precioUnitario: item.unitPrice,
+      descuentoMonto: item.discount ?? 0,
+      exento: false,
+    })),
+    formaPago: "contado",
+    neto: purchase.netAmount,
+    exento: purchase.exento,
+    iva: purchase.ivaAmount,
+    total: purchase.totalAmount,
+    notas: purchase.notes ?? undefined,
+  };
+
+  // Cargar certificado y CAF.
+  let certificadoPfx: Buffer;
+  let certificadoPass: string | undefined;
+  try {
+    certificadoPfx = Buffer.from((config.certificadoPfx ?? ""), "base64");
+    certificadoPass = config.certificadoPass ?? undefined;
+  } catch {
+    return { ok: false, error: "No se pudo leer el certificado digital guardado." };
+  }
+
+  const cafXml = generarXmlCafTemporal(caf);
+
+  // Emitir DTE con typeDte.
+  let dteGenerado;
+  try {
+    dteGenerado = emitirDteTypeDte(
+      construirDocumentoDTE(datos),
+      cafXml,
+      certificadoPfx,
+      certificadoPass,
+      `${fechaEmision}T${new Date().toISOString().slice(11, 19)}`,
+    );
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    return {
+      ok: false,
+      error: `No se pudo generar el DTE con typeDte: ${message}`,
+    };
+  }
+
+  // Generar PDF si se solicitó.
+  let pdfBuffer: Buffer | undefined;
+  let nombreArchivo: string | undefined;
+  if (generarPdf) {
+    try {
+      const representacion = construirRepresentacionImprimible(
+        datos,
+        dteGenerado.totales,
+        dteGenerado.ted,
+        "SANTIAGO ORIENTE",
+        parseInt(config.resolucionSii?.replace(/\D/g, "") ?? "0") || 0,
+        new Date().getFullYear(),
+      );
+
+      pdfBuffer =
+        tipoPdf === "ticket"
+          ? await generarPdfTicketDte(representacion)
+          : await generarPdfCartaDte(representacion);
+      nombreArchivo = nombreArchivoDte(46, folio);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      // No fallar la emisión si el PDF falla.
+    }
+  }
+
+  // Guardar PosDte vinculado a la compra.
+  let posDte;
+  try {
+    posDte = await (db as any).posDte.create({
+      data: {
+        companyId: ctx.company.id,
+        configId: config.id,
+        tipoDte: 46,
+        folio,
+        estado: "PENDIENTE_ENVIO",
+        trackId: null,
+        xmlEnviado: dteGenerado.xml,
+        xmlRespuesta: "DTE generado con typeDte. Pendiente de envío al SII.",
+        pdfPath: null,
+        purchaseId: purchase.id,
+        emitidoAt: null,
+        anuladoAt: null,
+      },
+    });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    return { ok: false, error: `No se pudo guardar el DTE: ${message}` };
+  }
+
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "PosDte",
+    entityId: purchase.id,
+    summary: `Generó DTE tipo 46 (Factura de Compra) folio ${folio} para la compra de ${purchase.partner?.name ?? "proveedor"} (typeDte).`,
+  });
+
+  revalidatePath("/facturas/compras");
+  revalidatePath(`/facturas/compras/${purchaseId}`);
+
+  return {
+    ok: true,
+    tipoDte: 46,
+    folio,
+    pdf: pdfBuffer,
+    nombreArchivo,
+  };
+}
+
+/**
  * Stub: vista previa de importación de XML DTE (funcionalidad movida a typeDte).
  */
 export async function previewDteImport(

@@ -1708,6 +1708,7 @@ model Purchase {
   items     PurchaseItem[]
   bankReconciliations Reconciliation[]
   payments            Payment[]
+  posDtes             PosDte[]
 
   @@index([companyId, date])
   @@index([companyId, partnerId])
@@ -2965,7 +2966,8 @@ model PosDte {
   companyId       String
   configId        String
   saleId          String?  @unique // venta POS que originó el DTE
-  tipoDte         Int      // 33, 39, 61, 56
+  purchaseId      String?  @unique // compra que originó el DTE (tipo 46)
+  tipoDte         Int      // 33, 39, 46, 61, 56
   folio           Int
   estado          String   @default("BORRADOR") // BORRADOR, EMITIDO, ANULADO, RECHAZADO
   trackId         String?  // TrackID del SII
@@ -2979,10 +2981,12 @@ model PosDte {
 
   config PosSiiConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
   sale   PosSale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  purchase Purchase?   @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
 
   @@index([companyId])
   @@index([configId])
   @@index([saleId])
+  @@index([purchaseId])
 }
 
 // ---------------------------------------------------------------------------
