@@ -20,7 +20,7 @@ export default async function BillingLayout({ children }: LayoutProps<"/billing"
 
   return (
     <div className="min-h-dvh">
-      <header className="border-b border-border bg-surface">
+      <header className="border-b border-border bg-surface print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-8">
           <div className="flex items-center gap-3">
             <Link
@@ -57,7 +57,7 @@ export default async function BillingLayout({ children }: LayoutProps<"/billing"
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 lg:px-8">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6 lg:px-8 print:max-w-none print:p-0">{children}</main>
 
       <ToasterFlash flash={flash} />
     </div>

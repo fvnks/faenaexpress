@@ -94,7 +94,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
       {suscripcion.warning ? (
         <div
           role="status"
-          className="border-b border-accent/40 bg-accent-soft px-4 py-2 text-sm text-foreground"
+          className="border-b border-accent/40 bg-accent-soft px-4 py-2 text-sm text-foreground print:hidden"
         >
           {suscripcion.warning}
         </div>
@@ -118,7 +118,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
         />
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Barra superior: período + empresa + tema + campana, en el flujo del layout */}
-        <div className="flex items-center justify-end gap-2 px-4 pt-4 lg:px-8 lg:pt-6">
+        <div className="flex items-center justify-end gap-2 px-4 pt-4 lg:px-8 lg:pt-6 print:hidden">
           <PeriodNav className="hidden md:flex" />
           <ModuleSwitcher modules={modules.map((m) => ({ code: m.code, name: m.name }))} activeCode="facturas" />
           <CompanySwitcher companies={companies} activeId={active?.company.id ?? null} orgName={orgName} canManageOrganization={isOrgManager(user)} />
@@ -161,7 +161,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
             ) : null}
           </Link>
         </div>
-        <main className="min-w-0 flex-1 px-4 py-4 lg:px-10 lg:py-6">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-4 lg:px-10 lg:py-6 print:p-0">{children}</main>
       </div>
       </div>
       <LiveSearchInputs />

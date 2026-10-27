@@ -17,7 +17,6 @@ export default async function LiquidacionPage(props: PageProps<"/facturas/rrhh/n
 
   return (
     <div className="mx-auto max-w-3xl p-8 print:p-0">
-      <style>{`@media print { .no-print { display: none !important; } }`}</style>
       <h1 className="text-2xl font-bold">Liquidacion de Sueldo</h1>
       <div className="no-print mt-2 flex items-center gap-2">
         <p className="text-xs text-muted-foreground">Imprime con Ctrl+P o el boton.</p>

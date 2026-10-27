@@ -1138,7 +1138,7 @@ export function Sidebar(props: SidebarProps) {
     <>
       {/* Barra superior móvil: identidad y acceso al menú; las acciones quedan
           en la barra del layout (cambiar empresa, tema, notificaciones). */}
-      <header className="sticky top-0 z-40 flex items-center gap-2 border-b border-border bg-surface px-4 py-2.5 lg:hidden">
+      <header className="sticky top-0 z-40 flex items-center gap-2 border-b border-border bg-surface px-4 py-2.5 lg:hidden print:hidden">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
@@ -1163,7 +1163,7 @@ export function Sidebar(props: SidebarProps) {
 
       {/* Drawer móvil */}
       {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden print:hidden">
           <button
             type="button"
             aria-label="Cerrar menú"
@@ -1186,7 +1186,7 @@ export function Sidebar(props: SidebarProps) {
       {/* Sidebar escritorio: colapsable con transición de ancho */}
       <aside
         className={
-          "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-[180ms] ease-out lg:flex " +
+          "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-[180ms] ease-out lg:flex print:hidden " +
           (collapsed ? "w-18" : "w-64")
         }
       >

@@ -56,7 +56,7 @@ export function ImpersonationBanner({
       role="status"
       aria-live="polite"
       className={
-        "sticky top-0 z-50 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-4 py-2 text-sm " +
+        "sticky top-0 z-50 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-4 py-2 text-sm print:hidden " +
         (agotado
           ? "border-danger bg-danger-soft text-danger"
           : "border-accent/40 bg-accent-soft text-foreground")

@@ -297,6 +297,19 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * Impresión: solo el contenido, sin el chrome de la aplicación.
+ * `.no-print` lo usan las barras de acción de las vistas imprimibles; el
+ * toaster de sonner es `position: fixed` y si no se esconde se imprime solo
+ * en la primera página.
+ * --------------------------------------------------------------------------- */
+@media print {
+  .no-print,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * React Day Picker: adaptación a la paleta de diseño.
  * --------------------------------------------------------------------------- */
 .rdp-root {

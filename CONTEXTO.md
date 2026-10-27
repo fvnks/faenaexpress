@@ -578,6 +578,14 @@ dropdown nuevo debe seguirlo.
   de cada Server Action. Si se agrega, va en `src/proxy.ts`, runtime Node (nunca edge).
 - ESLint directo (`pnpm lint`); warning conocido y aceptado en `period-picker.tsx`
   (`window.location.href`, decisión deliberada para evitar hooks de navegación y Suspense).
+- **Impresión**: toda vista imprimible pasa por `window.print()`, y lo que no debe salir en papel
+  se marca con la clase `.no-print` (barra de acción de `/facturas/ventas/[id]/print`, botones de
+  imprimir, banners). La regla global `@media print { .no-print, [data-sonner-toaster] { display:
+  none } }` vive en `globals.css` — antes solo existía en línea en la liquidación de RRHH, y por eso
+  se imprimía la página entera. El chrome de cada shell (sidebar y barra superior de Facturas,
+  encabezados de Colegios/Billing, header del POS) lleva `print:hidden` de Tailwind y el `<main>`
+  `print:p-0`, así que cada layout imprime solo su contenido. Si agregas una vista imprimible dentro
+  de un layout, repite ese patrón.
 - Antes de construir UI nueva: resolver dirección en `DESIGN.md` (R-37 de antislop).
 
 ---
