@@ -1,16 +1,10 @@
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
+import { PrintButton } from "@/components/print-button";
 import { requireContext } from "@/lib/auth";
 import { formatCLP, formatDate } from "@/lib/money";
 import { getSale } from "@/lib/sales";
-
-// Cargar PrintButton solo en el cliente para evitar problemas de hidratación
-const PrintButton = dynamic(
-  () => import("@/components/print-button").then((mod) => mod.PrintButton),
-  { ssr: false }
-);
 
 export default async function SalePrintPage(props: PageProps<"/facturas/ventas/[id]/print">) {
   const ctx = await requireContext("ventas");
