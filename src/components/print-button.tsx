@@ -5,7 +5,6 @@ import { useEffect, useRef } from "react";
 export function PrintButton({ label = "Imprimir liquidación" }: { label?: string }) {
   const printRef = useRef<(() => void) | undefined>(undefined);
 
-  // Capturar window.print solo después de la hidratación del cliente
   useEffect(() => {
     printRef.current = () => window.print();
   }, []);
