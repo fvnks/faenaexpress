@@ -587,6 +587,13 @@ dropdown nuevo debe seguirlo.
   `print:p-0`, así que cada layout imprime solo su contenido. Si agregas una vista imprimible dentro
   de un layout, repite ese patrón.
 - Antes de construir UI nueva: resolver dirección en `DESIGN.md` (R-37 de antislop).
+- **Error React #441 (hidratación)**: no renderices fechas con `new Date().toLocaleString()` ni
+  funciones que dependan de la zona horaria del entorno en Server Components: el servidor y el
+  cliente pueden discrepar y React aborta la hidratación. Usa un componente cliente con `useEffect`
+  que calcule la fecha tras la hidratación (ver `src/components/formatted-date.tsx`). Lo mismo aplica
+  a cualquier listener de evento adjuntado directamente en el JSX (`onClick` en elementos del
+  servidor): adjúntalo en `useEffect` post-hidratación o usa un `<button type="button">` con un
+  form/Server Action en su lugar.
 
 ---
 
