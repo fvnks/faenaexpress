@@ -27,6 +27,7 @@ export async function getPosSiiConfigForUI(companyId: string) {
       resolucionSii: true,
       resolucionFecha: true,
       acteco: true,
+      siiEnvironment: true,
       habilitado: true,
       certificadoVence: true,
       certificadoPfx: true,

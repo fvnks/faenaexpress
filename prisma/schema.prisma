@@ -2914,6 +2914,8 @@ model PosSiiConfig {
   resolucionSii    String?
   resolucionFecha  DateTime?
   acteco           String?  // código actividad económica SII
+  // Entorno del SII: "pruebas" o "produccion". Configurable desde la UI.
+  siiEnvironment   String   @default("pruebas")
   // Estado
   habilitado       Boolean  @default(false)
   createdAt        DateTime @default(now())

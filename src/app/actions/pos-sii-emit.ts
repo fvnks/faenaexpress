@@ -95,7 +95,6 @@ export async function emitirDtePosSale(
   let envio: SiiEnvioResultado | null = null;
   let folioUsado = 0;
   let xmlFirmadoGuardado = "";
-  const environment = detectarSiiEnvironment();
   let cafSeleccionado: { id: string; folioActual: number; folioFinal: number; tipoDte: number; vigenteHasta: Date | string } | null = null;
   let configIdSeleccionado: string | null = null;
 
@@ -110,6 +109,9 @@ export async function emitirDtePosSale(
       };
     }
     configIdSeleccionado = configFresh.id;
+
+    // Entorno SII configurable desde la BD (UI de configuración) con fallback a variable de entorno.
+    const environment = detectarSiiEnvironment(configFresh.siiEnvironment);
 
     const caf = configFresh.cafs?.find(
       (c) => c.tipoDte === tipoDte && c.folioActual < c.folioFinal,
@@ -483,7 +485,8 @@ export async function consultarEstadoDteAction(
     return { error: `No se encontró un DTE con TrackID ${trackId}.` };
   }
 
-  const environment = detectarSiiEnvironment();
+  const config = await getPosSiiConfigForUI(ctx.company.id);
+  const environment = detectarSiiEnvironment(config?.siiEnvironment ?? null);
   try {
     const estadoSii = await consultarEstadoDteSii(trackId, environment);
 

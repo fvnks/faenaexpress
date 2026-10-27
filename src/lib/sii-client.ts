@@ -193,10 +193,25 @@ export async function consultarEstadoDteSii(
 }
 
 /**
- * Determina el entorno del SII según la variable de entorno SII_ENVIRONMENT.
- * Valores válidos: "pruebas" o "produccion". Por defecto usa "pruebas".
+ * Determina el entorno del SII.
+ *
+ * Si se pasa `environment` (valor guardado en la BD de la empresa), se usa ese.
+ * Si no, se lee de la variable de entorno `SII_ENVIRONMENT` del servidor.
+ * Por defecto usa "pruebas".
  */
-export function detectarSiiEnvironment(): SiiEnvironment {
+export function detectarSiiEnvironment(
+  environment?: string | null,
+): SiiEnvironment {
+  if (environment === "produccion" || environment === "production") {
+    return "produccion";
+  }
+  if (
+    environment === "pruebas" ||
+    environment === "test" ||
+    environment === "development"
+  ) {
+    return "pruebas";
+  }
   const env = process.env.SII_ENVIRONMENT;
   if (env === "produccion" || env === "production") return "produccion";
   return "pruebas";

@@ -19,8 +19,6 @@ type DteEnError = {
 export default async function PosSiiPage() {
   const ctx = await requireContext();
   const config = await getPosSiiConfigForUI(ctx.company.id);
-  const siiEnvironment =
-    process.env.SII_ENVIRONMENT === "produccion" ? "produccion" : "pruebas";
 
   // DTEs en error para reenvío masivo.
   const { db } = await import("@/lib/db");
@@ -48,7 +46,7 @@ export default async function PosSiiPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <section className={cardClass + " p-5"}>
-          <PosSiiConfigForm config={config} siiEnvironment={siiEnvironment} />
+          <PosSiiConfigForm config={config} />
         </section>
 
         <section className={cardClass + " p-5"}>

@@ -13,11 +13,12 @@ type Config = {
   resolucionSii?: string | null;
   resolucionFecha?: Date | string | null;
   acteco?: string | null;
+  siiEnvironment?: string | null;
   habilitado: boolean;
   updatedAt?: Date | string | null;
 } | null;
 
-export function PosSiiConfigForm({ config, siiEnvironment }: { config: Config; siiEnvironment: string }) {
+export function PosSiiConfigForm({ config }: { config: Config }) {
   const [state, formAction] = useActionState(upsertPosCaf, undefined);
   const [deleteState, deleteAction] = useActionState(deletePosCafAction, undefined);
   const [toggleState, toggleAction] = useActionState(togglePosSiiEnabledAction, undefined);
@@ -218,21 +219,43 @@ export function PosSiiConfigForm({ config, siiEnvironment }: { config: Config; s
       <div className="border-t border-border mt-5 pt-5">
         <h2 className="text-sm font-semibold">Entorno del SII</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Define la variable de entorno `SII_ENVIRONMENT` (`pruebas` o `produccion`)
-          en el servidor para elegir a qué entorno se envían los DTE. Actualmente:
+          Elige a qué entorno del SII se envían los DTE (boletas y facturas
+          electrónicas). Este valor se guarda en la empresa y se puede cambiar
+          en cualquier momento desde esta pantalla.
         </p>
-        <div className="mt-2 flex items-center gap-2">
-          <span className={`px-2 py-1 rounded text-xs font-medium ${
-            siiEnvironment === "produccion"
-              ? "bg-red-100 text-red-700"
-              : "bg-blue-100 text-blue-700"
-          }`}>
-            {siiEnvironment === "produccion" ? "🟡 Producción" : "🟢 Pruebas"}
-          </span>
-          <p className="text-xs text-muted-foreground ml-2">
-            Sin definir = pruebas. Cambia en .env y reinicia el servidor.
-          </p>
-        </div>
+        <form action={formAction} className="mt-3 flex flex-col gap-3">
+          <div className={fieldClass}>
+            <label htmlFor="pos-sii-entorno" className={labelClass}>
+              Entorno del SII
+            </label>
+            <select
+              id="pos-sii-entorno"
+              name="siiEnvironment"
+              defaultValue={config?.siiEnvironment ?? "pruebas"}
+              onChange={(e) => {
+                e.target.form?.requestSubmit?.();
+              }}
+              className={controlClass}
+            >
+              <option value="pruebas">
+                🟢 Pruebas (maullin.sii.cl)
+              </option>
+              <option value="produccion">
+                🔴 Producción (palena.sii.cl)
+              </option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Los DTE de pruebas no tienen validez fiscal real. Usa producción
+              solo cuando tengas el certificado autorizado por el SII.
+            </p>
+          </div>
+          {state?.error ? (
+            <p role="alert" className="text-xs text-danger">{state.error}</p>
+          ) : null}
+          {state?.ok ? (
+            <p className="text-xs text-success">Entorno del SII actualizado.</p>
+          ) : null}
+        </form>
       </div>
     </div>
   );

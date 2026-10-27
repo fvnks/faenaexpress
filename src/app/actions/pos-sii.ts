@@ -30,6 +30,7 @@ export async function upsertPosSiiConfig(
   const resolucionSii = String(formData.get("resolucionSii") ?? "").trim() || null;
   const resolucionFecha = String(formData.get("resolucionFecha") ?? "").trim();
   const acteco = String(formData.get("acteco") ?? "").trim() || null;
+  const siiEnvironment = String(formData.get("siiEnvironment") ?? "pruebas");
   const habilitado = String(formData.get("habilitado") ?? "off") === "on";
 
   let certificadoPfx: string | null = null;
@@ -60,6 +61,7 @@ export async function upsertPosSiiConfig(
           resolucionSii,
           resolucionFecha: resolucionFecha ? new Date(resolucionFecha) : null,
           acteco,
+          siiEnvironment,
           habilitado,
           updatedAt: new Date(),
           certificadoPfx: certificadoPfx,
@@ -109,12 +111,14 @@ export async function upsertPosSiiConfig(
         resolucionSii,
         resolucionFecha: resolucionFecha ? new Date(resolucionFecha) : null,
         acteco,
+        siiEnvironment,
         habilitado,
       },
       update: {
         resolucionSii,
         resolucionFecha: resolucionFecha ? new Date(resolucionFecha) : null,
         acteco,
+        siiEnvironment,
         habilitado,
       },
     });
@@ -144,6 +148,7 @@ export async function getPosSiiConfigForUI(companyId: string) {
       resolucionSii: true,
       resolucionFecha: true,
       acteco: true,
+      siiEnvironment: true,
       habilitado: true,
       certificadoVence: true,
       certificadoPfx: true,
