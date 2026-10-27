@@ -499,6 +499,20 @@ del certificado.
 **Consulta manual de estado** (`consultarEstadoDteAction`): permite consultar el
 estado de un DTE en el SII por su TrackID y actualizar el registro local.
 
+**PDF de venta y compra (diseño typeDte):**
+- `/facturas/ventas/[id]/pdf`: descarga el PDF en formato carta con el diseño
+  oficial de typeDte (emisor, receptor, ítems, totales, timbre PDF417). El tipo
+  de documento es boleta (39) para consumidor final o factura (33) si tiene RUT.
+- `/facturas/compras/[id]/pdf`: descarga el PDF en formato carta con el mismo
+  diseño, para compras registradas como factura de compra (tipo 46).
+
+**DTE de Factura de Compra (tipo 46) — `emitirDteCompraAction`:**
+Cuando un proveedor no emite factura electrónica, la empresa puede autofacturar
+la compra emitiendo un DTE tipo 46 (`Factura de Compra Electrónica`). El emisor
+es la empresa y el receptor es el proveedor. Se guarda un `PosDte` vinculado a
+la `Purchase` (campo `purchaseId`) y se consume un folio del CAF de tipo 46.
+Disponible desde la acción de compra en el detalle de la compra.
+
 ---
 
 ## 9. Reportes
@@ -714,6 +728,14 @@ dropdown nuevo debe seguirlo.
   - **Alertas de stock mínimo** en catálogo de productos POS (columna "Mín.",
     badge "Stock bajo" cuando stock ≤ minStock).
   - Historial de cajas muestra terminal y bodega de cada turno.
+  - **DTE PDF tipo carta (diseño typeDte)**:
+    - `/facturas/ventas/[id]/pdf`: PDF carta con diseño typeDte (PDF417 timbre,
+      totales, emisor/receptor) para ventas (tipo 33/39).
+    - `/facturas/compras/[id]/pdf`: PDF carta con el mismo diseño para compras.
+  - **DTE tipo 46 (Factura de Compra) — `emitirDteCompraAction`**: autofactura de
+    compras cuando el proveedor no emite electrónica. Emisor = empresa, receptor =
+    proveedor. Guarda `PosDte` con `purchaseId`, consume folio del CAF tipo 46.
+    Migración `20261106000000_pos_dte_purchase`.
 - **POS Fase 2+ (pendiente)**:
   - Cortes de caja independientes por terminal (las sesiones son por usuario;
     el listado histórico aún no filtra por terminal).
