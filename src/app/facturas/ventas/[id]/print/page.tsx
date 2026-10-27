@@ -1,3 +1,4 @@
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
@@ -29,13 +30,12 @@ export default async function SalePrintPage(props: PageProps<"/facturas/ventas/[
       <div className="no-print sticky top-0 z-10 flex items-center justify-between border-b border-gray-300 bg-gray-100 px-4 py-3">
         <h1 className="text-sm font-semibold">Vista de impresión — Factura {sale.documentNumber ?? ""}</h1>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => window.history.back()}
+          <Link
+            href={`/facturas/ventas/${sale.id}`}
             className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50"
           >
             Volver
-          </button>
+          </Link>
           <PrintButton />
         </div>
       </div>
