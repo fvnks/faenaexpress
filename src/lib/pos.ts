@@ -139,6 +139,7 @@ export type PosCatalogItem = {
   ivaAffected: boolean;
   tracksStock: boolean;
   stock: string;
+  minStock: string | null;
   active: boolean;
   categoryName: string | null;
   unitName: string | null;
@@ -174,6 +175,7 @@ export async function listPosCatalog(companyId: string): Promise<PosCatalogItem[
       ivaAffected: product.ivaAffected,
       tracksStock: product.tracksStock,
       stock: stock.toFixed(3),
+      minStock: product.minStock ? product.minStock.toFixed(3) : null,
       active: product.active,
       categoryName: product.category?.name ?? null,
       unitName: product.unit?.name ?? null,
@@ -281,7 +283,7 @@ export async function getPosSale(companyId: string, saleId: string) {
     include: {
       partner: true,
       user: { select: { name: true } },
-      session: { select: { id: true, openedAt: true, status: true } },
+      session: { select: { id: true, openedAt: true, status: true, warehouse: true } },
       relatedSale: { select: { saleNumber: true } },
       relatedReturns: {
         where: { status: "COMPLETED" },
@@ -294,11 +296,16 @@ export async function getPosSale(companyId: string, saleId: string) {
   });
 }
 
-export async function listPosSessions(companyId: string, take = 30) {
+export async function listPosSessions(companyId: string, take = 30, terminalId?: string) {
   const sessions = await prisma.posSession.findMany({
-    where: { companyId },
+    where: {
+      companyId,
+      ...(terminalId ? { terminalId } : {}),
+    },
     include: {
       openedBy: { select: { name: true } },
+      warehouse: { select: { id: true, name: true } },
+      terminal: { select: { id: true, name: true } },
       sales: {
         where: { status: "COMPLETED" },
         select: { total: true, payments: { select: { method: true, amount: true } } },

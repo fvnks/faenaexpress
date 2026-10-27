@@ -340,6 +340,7 @@ export function PosProductsClient({
                 <th className="px-4 py-2 text-right">Precio neto</th>
                 <th className="px-4 py-2 text-right">Precio con IVA</th>
                 <th className="px-4 py-2 text-right">Stock</th>
+                <th className="px-4 py-2 text-right">Mín.</th>
                 <th className="px-4 py-2">Estado</th>
                 {puedeEditar ? <th className="px-4 py-2 text-right"></th> : null}
               </tr>
@@ -369,6 +370,13 @@ export function PosProductsClient({
                         })
                       : "—"}
                   </td>
+                  <td className="tabular px-4 py-2 text-right">
+                    {product.minStock
+                      ? Number(product.minStock).toLocaleString("es-CL", {
+                          maximumFractionDigits: 3,
+                        })
+                      : "—"}
+                  </td>
                   <td className="px-4 py-2">
                     {!product.active ? (
                       <span className="rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">
@@ -377,6 +385,10 @@ export function PosProductsClient({
                     ) : product.tracksStock && Number(product.stock) <= 0 ? (
                       <span className="rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">
                         Sin stock
+                      </span>
+                    ) : product.tracksStock && product.minStock && Number(product.stock) <= Number(product.minStock) ? (
+                      <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">
+                        Stock bajo
                       </span>
                     ) : (
                       <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">

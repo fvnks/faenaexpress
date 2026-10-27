@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/pos", label: "Resumen" },
   { href: "/pos/venta", label: "Vender" },
   { href: "/pos/ventas", label: "Ventas" },
+  { href: "/pos/credito", label: "Cuenta corriente" },
   { href: "/pos/productos", label: "Productos" },
   { href: "/pos/caja", label: "Caja" },
   { href: "/pos/terminales", label: "Terminales" },

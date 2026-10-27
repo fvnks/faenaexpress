@@ -2,7 +2,13 @@ import Link from "next/link";
 
 import { requireContext } from "@/lib/auth";
 import { formatCLP, formatDate } from "@/lib/money";
-import { getOpenPosSession, getPosSession, listPosSessions, listPosTerminals } from "@/lib/pos";
+import {
+  getOpenPosSession,
+  getPosSession,
+  listPosSessions,
+  listPosTerminals,
+} from "@/lib/pos";
+import { listWarehouses } from "@/lib/inventory";
 import { cardClass, secondaryButtonClass } from "@/lib/ui";
 import { CloseSessionForm } from "@/app/pos/caja/close-session-form";
 import { OpenSessionForm } from "@/app/pos/caja/open-session-form";
@@ -19,8 +25,9 @@ export default async function PosCajaPage() {
   const ctx = await requireContext();
   const open = await getOpenPosSession(ctx.company.id, ctx.user.id);
   const session = open ? await getPosSession(ctx.company.id, open.id) : null;
-  const history = await listPosSessions(ctx.company.id);
+  const history = await listPosSessions(ctx.company.id, 30);
   const terminals = await listPosTerminals(ctx.company.id);
+  const warehouses = await listWarehouses(ctx.company.id);
 
   const sales = session?.sales ?? [];
   const cashSales = sales.reduce(
@@ -99,7 +106,7 @@ export default async function PosCajaPage() {
                 Necesitas una caja abierta para registrar ventas.
               </p>
               <div className="mt-4">
-                <OpenSessionForm terminals={terminals} />
+                <OpenSessionForm terminals={terminals} warehouses={warehouses} />
               </div>
             </>
           )}
@@ -161,6 +168,8 @@ export default async function PosCajaPage() {
               <tr className="text-left text-muted-foreground">
                 <th className="px-4 py-2">Apertura</th>
                 <th className="px-4 py-2">Cajero</th>
+                <th className="px-4 py-2">Terminal</th>
+                <th className="px-4 py-2">Bodega</th>
                 <th className="px-4 py-2 text-right">Monto inicial</th>
                 <th className="px-4 py-2 text-right">Ventas</th>
                 <th className="px-4 py-2 text-right">Total</th>
@@ -170,7 +179,7 @@ export default async function PosCajaPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {history.map((row: { id: string; openedAt: Date; openedByName: string; openingAmount: number; count: number; cash: number; total: number; closingAmount: number | null; status: string }) => {
+              {history.map((row: { id: string; openedAt: Date; openedByName: string; openingAmount: number; count: number; cash: number; total: number; closingAmount: number | null; status: string; terminal: { name: string } | null; warehouse: { name: string } | null }) => {
                 // El arqueo: lo que debía haber en la caja contra lo que se contó.
                 const expectedCash = row.openingAmount + row.cash;
                 const difference = row.closingAmount === null ? null : row.closingAmount - expectedCash;
@@ -181,6 +190,12 @@ export default async function PosCajaPage() {
                     {formatDate(row.openedAt)} {time(row.openedAt)}
                   </td>
                   <td className="px-4 py-2">{row.openedByName}</td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {row.terminal?.name ?? "—"}
+                  </td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {row.warehouse?.name ?? "—"}
+                  </td>
                   <td className="px-4 py-2 text-right">{formatCLP(row.openingAmount)}</td>
                   <td className="px-4 py-2 text-right">{row.count}</td>
                   <td className="px-4 py-2 text-right">{formatCLP(row.total)}</td>

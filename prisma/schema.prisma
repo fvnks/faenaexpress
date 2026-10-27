@@ -1489,6 +1489,7 @@ model Warehouse {
   targets   StockMovement[]  @relation("MovementDestination")
   counts    StockCount[]
   lots      ProductLot[]
+  posSessions PosSession[] @relation("PosSessionWarehouse")
 
   @@unique([companyId, name])
   @@index([companyId])
@@ -2817,6 +2818,7 @@ enum PosSaleStatus {
   DRAFT
   COMPLETED
   VOIDED
+  PENDING // venta a crédito con saldo pendiente (cuenta corriente)
 }
 
 model PosSession {
@@ -2824,6 +2826,7 @@ model PosSession {
   companyId       String
   openedById      String
   terminalId      String?          // terminal desde la que se opera este turno
+  warehouseId     String?          // bodega donde opera esta caja (por defecto si no se elige)
   openedAt        DateTime         @default(now())
   closedAt        DateTime?
   openingAmount   Int              // monto inicial en CLP
@@ -2836,6 +2839,7 @@ model PosSession {
   company Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   openedBy User     @relation("PosSessionOpenedBy", fields: [openedById], references: [id])
   terminal PosTerminal? @relation("PosSessionTerminal", fields: [terminalId], references: [id], onDelete: SetNull)
+  warehouse Warehouse? @relation("PosSessionWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
   sales   PosSale[]
 
   @@index([companyId, status])
@@ -2852,6 +2856,10 @@ model PosSale {
   tax         Int
   discount    Int           @default(0)
   total       Int
+  // Venta a crédito / cuenta corriente: cuánto se ha pagado y cuánto queda.
+  amountPaid  Int           @default(0) // monto pagado (abonos + pagos iniciales)
+  balanceDue  Int           @default(0) // saldo pendiente (total - amountPaid)
+  creditDueDate DateTime?   // fecha de vencimiento del crédito
   status      PosSaleStatus @default(COMPLETED)
   notes       String?
   createdAt   DateTime      @default(now())

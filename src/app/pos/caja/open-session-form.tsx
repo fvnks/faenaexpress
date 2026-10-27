@@ -8,8 +8,10 @@ import { controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/
 
 export function OpenSessionForm({
   terminals,
+  warehouses,
 }: {
   terminals: { id: string; name: string }[];
+  warehouses: { id: string; name: string }[];
 }) {
   const [state, formAction] = useActionState<PosActionState, FormData>(openPosSession, undefined);
 
@@ -29,6 +31,23 @@ export function OpenSessionForm({
         </select>
         <p className="text-xs text-muted-foreground">
           Desde qué punto de venta físico se opera esta caja.
+        </p>
+      </div>
+
+      <div className={fieldClass}>
+        <label htmlFor="pos-warehouse" className={labelClass}>
+          Bodega (opcional)
+        </label>
+        <select id="pos-warehouse" name="warehouseId" className={controlClass}>
+          <option value="">Por defecto</option>
+          {warehouses.map((warehouse) => (
+            <option key={warehouse.id} value={warehouse.id}>
+              {warehouse.name}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-muted-foreground">
+          Bodega donde se descontará el stock de las ventas de esta caja.
         </p>
       </div>
 

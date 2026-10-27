@@ -37,6 +37,8 @@ type SalePayload = {
   items: SaleItemInput[];
   payments: SalePaymentInput[];
   notes?: string | null;
+  /** Fecha de vencimiento para ventas a crédito (cuenta corriente). */
+  creditDueDate?: string | null;
 };
 
 type NormalizedItem = {
@@ -99,6 +101,7 @@ export async function openPosSession(
 
   const openingAmount = Math.max(0, parseInteger(formData.get("openingAmount")));
   const terminalId = String(formData.get("terminalId") ?? "").trim() || null;
+  const warehouseId = String(formData.get("warehouseId") ?? "").trim() || null;
   const existing = await getOpenPosSession(ctx.company.id, ctx.user.id);
   if (existing) return { error: "Ya tienes una caja abierta. Ciérrala antes de abrir otra." };
 
@@ -111,11 +114,21 @@ export async function openPosSession(
     if (!terminal) return { error: "La terminal seleccionada no existe o no está activa." };
   }
 
+  // Si se elige una bodega, verificar que exista y pertenezca a la empresa.
+  if (warehouseId) {
+    const warehouse = await db.warehouse.findFirst({
+      where: { id: warehouseId, companyId: ctx.company.id, active: true },
+      select: { id: true },
+    });
+    if (!warehouse) return { error: "La bodega seleccionada no existe o no está activa." };
+  }
+
   const session = await db.posSession.create({
     data: {
       companyId: ctx.company.id,
       openedById: ctx.user.id,
       terminalId,
+      warehouseId,
       openingAmount,
       notes: String(formData.get("notes") ?? "").trim() || null,
     },
@@ -287,7 +300,11 @@ export async function createPosSale(
   if (total > 0) {
     const paid = payments.reduce((sum, payment) => sum + payment.amount, 0);
     if (paid < total) {
-      return { error: `Faltan ${formatCLP(total - paid)} para completar el pago.` };
+      // Venta a crédito / cuenta corriente: solo si hay cliente y se paga algo
+      // (o nada, si es crédito puro). El saldo pendiente queda en balanceDue.
+      if (!payload.partnerId) {
+        return { error: `Faltan ${formatCLP(total - paid)} para completar el pago. Asigna un cliente para vender a crédito.` };
+      }
     }
     // Si el cliente paga de más (vuelto), lo que se registra es lo que cubre la
     // venta. La diferencia no es un ingreso: es cambio.
@@ -298,7 +315,11 @@ export async function createPosSale(
       remaining -= applied;
       if (remaining === 0) break;
     }
-    if (remaining > 0) return { error: "El pago no alcanza el total de la venta." };
+    if (remaining > 0 && payments.length === 0) {
+      // Crédito puro: no hay pagos, todo queda pendiente.
+    } else if (remaining > 0) {
+      return { error: "El pago no alcanza el total de la venta." };
+    }
   } else {
     payments.length = 0;
   }
@@ -321,7 +342,13 @@ export async function createPosSale(
             tax,
             discount: normalizedItems.reduce((sum, item) => sum + item.discount, 0),
             total,
-            status: "COMPLETED",
+            amountPaid: payments.reduce((sum, p) => sum + p.amount, 0),
+            balanceDue: Math.max(0, total - payments.reduce((sum, p) => sum + p.amount, 0)),
+            creditDueDate: payload.creditDueDate ? new Date(payload.creditDueDate) : null,
+            status:
+              total > 0 && payments.reduce((sum, p) => sum + p.amount, 0) < total
+                ? "PENDING"
+                : "COMPLETED",
             notes: String(payload.notes ?? "").trim() || null,
             userId: ctx.user.id,
             items: {
@@ -354,7 +381,9 @@ export async function createPosSale(
               date: new Date(),
               quantity: new Prisma.Decimal(item.quantity.toFixed(6)),
               unitCost: null,
-              warehouseId: null,
+              // El descuento de stock se hace en la bodega de la caja; si no hay
+              // bodega elegida, se usa la por defecto de la empresa.
+              warehouseId: session.warehouseId ?? null,
               reason: `Venta POS ${saleNumber}`,
               reference: `pos:${sale.id}:item:${item.productId}`,
               notes: item.name,
@@ -1061,4 +1090,94 @@ export async function deletePosTerminal(input: {
 
   revalidatePath("/pos/terminales");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Abono a venta POS a crédito (cuenta corriente). Solo supervisor.
+// ---------------------------------------------------------------------------
+
+export type PosCreditPaymentInput = {
+  saleId: string;
+  amount: number;
+  method: string;
+  reference?: string;
+  notes?: string;
+};
+
+export async function recordPosCreditPayment(input: PosCreditPaymentInput): Promise<PosTerminalResult> {
+  const { ctx, error } = await requirePosSupervisor();
+  if (error) return { error };
+
+  const saleId = String(input.saleId ?? "");
+  const amount = Math.round(Number(input.amount ?? 0));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { error: "El monto del abono no es válido." };
+  }
+
+  const sale = await db.posSale.findFirst({
+    where: { id: saleId, companyId: ctx.company.id },
+    select: { id: true, saleNumber: true, total: true, amountPaid: true, balanceDue: true, status: true, notes: true },
+  });
+  if (!sale) return { error: "La venta no existe." };
+  if (sale.balanceDue <= 0) {
+    return { error: "Esa venta no tiene saldo pendiente." };
+  }
+  if (amount > sale.balanceDue) {
+    return { error: `El abono (${formatCLP(amount)}) excede el saldo pendiente (${formatCLP(sale.balanceDue)}).` };
+  }
+
+  const method = String(input.method ?? "").trim();
+  if (!method) return { error: "Ingresa el medio de pago." };
+
+  const newAmountPaid = sale.amountPaid + amount;
+  const newBalanceDue = sale.balanceDue - amount;
+  const newStatus = newBalanceDue === 0 ? "COMPLETED" : "PENDING";
+
+  await db.$transaction([
+    db.posPayment.create({
+      data: {
+        saleId,
+        method,
+        amount,
+        reference: String(input.reference ?? "").trim() || null,
+      },
+    }),
+    db.posSale.update({
+      where: { id: saleId },
+      data: {
+        amountPaid: newAmountPaid,
+        balanceDue: newBalanceDue,
+        status: newStatus,
+        notes: input.notes ? [sale.notes, `Abono ${formatCLP(amount)}: ${input.notes}`].filter(Boolean).join(" · ") : sale.notes,
+      },
+    }),
+  ]);
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "PosSale",
+    entityId: saleId,
+    summary: `Abonó ${formatCLP(amount)} al ticket ${sale.saleNumber}; saldo pendiente ${formatCLP(newBalanceDue)}.`,
+  });
+
+  revalidatePath("/pos/ventas");
+  revalidatePath(`/pos/ventas/${saleId}`);
+  revalidatePath("/pos/reportes");
+  return { ok: true };
+}
+
+/**
+ * Wrapper de recordPosCreditPayment para usarlo desde un <form> (Server Action
+ * con FormData). Lee saleId, amount, method, reference y notes del formulario.
+ */
+export async function recordPosCreditPaymentFormAction(
+  formData: FormData,
+): Promise<void> {
+  const saleId = String(formData.get("saleId") ?? "");
+  const amount = Math.round(Number(formData.get("amount") ?? "0"));
+  const method = String(formData.get("method") ?? "").trim();
+  const reference = String(formData.get("reference") ?? "").trim() || undefined;
+  const notes = String(formData.get("notes") ?? "").trim() || undefined;
+
+  await recordPosCreditPayment({ saleId, amount, method, reference, notes });
 }

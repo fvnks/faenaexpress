@@ -8,9 +8,11 @@ import { DteDownloadButton } from "@/app/pos/ventas/[id]/dte-download";
 import { VoidSaleForm } from "@/app/pos/ventas/[id]/void-sale-form";
 import { formatPosDateTime } from "@/app/pos/fecha";
 import { requireContext } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { formatCLP } from "@/lib/money";
 import { getPosSale } from "@/lib/pos";
-import { cardClass, secondaryButtonClass } from "@/lib/ui";
+import { cardClass, controlClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
+import { recordPosCreditPaymentFormAction, type PosActionState } from "@/app/actions/pos";
 
 import "@/app/pos/ventas/[id]/thermal-ticket.css";
 
@@ -24,6 +26,34 @@ export default async function PosTicketPage(props: PageProps<"/pos/ventas/[id]">
   const sale = await getPosSale(ctx.company.id, id);
 
   if (!sale) notFound();
+
+  // Compras previas del cliente en Facturas (historial para mostrar en el POS).
+  let customerPurchases: { id: string; documentNumber: string | null; totalAmount: number; createdAt: Date; status: string }[] = [];
+  if (sale.partnerId) {
+    const purchases = await db.sale.findMany({
+      where: {
+        companyId: ctx.company.id,
+        partnerId: sale.partnerId,
+        id: { not: sale.id },
+      },
+      select: {
+        id: true,
+        documentNumber: true,
+        totalAmount: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+    customerPurchases = purchases.map((p) => ({
+      id: p.id,
+      documentNumber: p.documentNumber,
+      totalAmount: Number(p.totalAmount),
+      status: p.status,
+      createdAt: p.createdAt,
+    }));
+  }
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
@@ -158,10 +188,111 @@ export default async function PosTicketPage(props: PageProps<"/pos/ventas/[id]">
           )}
         </div>
 
-        {sale.notes ? (
-          <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
-            Nota: {sale.notes}
-          </p>
+        {sale.balanceDue > 0 ? (
+          <>
+            <div className="mt-4 border-t border-border pt-3 bg-accent-soft rounded-control">
+              <div className="flex justify-between gap-6 border-b border-border pb-2">
+                <dt className="font-medium">Saldo pendiente</dt>
+                <dd className="tabular font-semibold text-danger">{formatCLP(sale.balanceDue)}</dd>
+              </div>
+              {sale.creditDueDate ? (
+                <div className="flex justify-between gap-6 pt-1 text-xs">
+                  <dt className="text-muted-foreground">Vence</dt>
+                  <dd className="tabular">{new Date(sale.creditDueDate).toLocaleDateString("es-CL")}</dd>
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+
+        {sale.balanceDue > 0 ? (
+          <section className={cardClass + " p-4 mt-4 print:hidden"}>
+            <h2 className="text-sm font-semibold">Abono a cuenta corriente</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Registra un abono a este ticket. Solo un supervisor puede hacerlo.
+            </p>
+            <form action={recordPosCreditPaymentFormAction} className="mt-3 flex flex-col sm:flex-row gap-3">
+              <input type="hidden" name="saleId" value={sale.id} />
+              <div className="flex flex-col gap-1 sm:flex-1">
+                <label htmlFor="pos-credit-amount" className={labelClass}>Monto del abono</label>
+                <input
+                  id="pos-credit-amount"
+                  name="amount"
+                  type="number"
+                  min="0"
+                  step="1"
+                  className={controlClass}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1 sm:flex-1">
+                <label htmlFor="pos-credit-method" className={labelClass}>Medio de pago</label>
+                <select id="pos-credit-method" name="method" className={controlClass} required>
+                  <option value="">Selecciona</option>
+                  <option>Efectivo</option>
+                  <option>Transferencia</option>
+                  <option>Tarjeta de crédito</option>
+                  <option>Tarjeta de débito</option>
+                  <option>Cheque</option>
+                  <option>Otro</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1 sm:flex-1">
+                <label htmlFor="pos-credit-reference" className={labelClass}>Referencia (opcional)</label>
+                <input
+                  id="pos-credit-reference"
+                  name="reference"
+                  type="text"
+                  placeholder="N° de autorización, cheque…"
+                  className={controlClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1 sm:flex-1">
+                <label htmlFor="pos-credit-notes" className={labelClass}>Nota (opcional)</label>
+                <input
+                  id="pos-credit-notes"
+                  name="notes"
+                  type="text"
+                  placeholder="Comentario del abono…"
+                  className={controlClass}
+                />
+              </div>
+              <button type="submit" className={primaryButtonClass}>
+                Registrar abono
+              </button>
+            </form>
+          </section>
+        ) : null}
+
+        {customerPurchases.length > 0 ? (
+          <section className={cardClass + " p-4 mt-4 print:hidden"}>
+            <h2 className="text-sm font-semibold">Compras previas del cliente</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Últimas {customerPurchases.length} facturas de este cliente en Facturas.
+            </p>
+            <table className="mt-2 w-full text-sm divide-y divide-border">
+              <thead>
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  <th className="px-4 py-2">Fecha</th>
+                  <th className="px-4 py-2">Documento</th>
+                  <th className="px-4 py-2 text-right">Total</th>
+                  <th className="px-4 py-2">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {customerPurchases.map((p) => (
+                  <tr key={p.id} className="tabular">
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {new Date(p.createdAt).toLocaleDateString("es-CL")}
+                    </td>
+                    <td className="px-4 py-2">{p.documentNumber ?? "—"}</td>
+                    <td className="px-4 py-2 text-right tabular">{formatCLP(p.totalAmount)}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{p.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
         ) : null}
 
         {sale.relatedSale ? (
