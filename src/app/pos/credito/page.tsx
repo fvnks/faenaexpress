@@ -3,7 +3,15 @@ import Link from "next/link";
 import { requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCLP } from "@/lib/money";
-import { cardClass, secondaryButtonClass } from "@/lib/ui";
+import {
+  cardClass,
+  controlClass,
+  fieldClass,
+  labelClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from "@/lib/ui";
+import { recordPosCreditPaymentFormAction } from "@/app/actions/pos";
 
 export default async function PosCreditoPage() {
   const ctx = await requireContext();
@@ -26,6 +34,8 @@ export default async function PosCreditoPage() {
     (sum, s) => sum + Number(s.balanceDue),
     0,
   );
+
+  const metodosPago = ["Efectivo", "Transferencia", "Tarjeta de crédito", "Tarjeta de débito", "Cheque", "Otro"];
 
   return (
     <div className="flex flex-col gap-6">
@@ -118,12 +128,52 @@ export default async function PosCreditoPage() {
                       {formatCLP(balanceDue)}
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <Link
-                        href={`/pos/ventas/${sale.id}`}
-                        className="text-primary hover:underline"
-                      >
-                        Ver
-                      </Link>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Link
+                          href={`/pos/ventas/${sale.id}`}
+                          className="text-primary hover:underline text-xs"
+                        >
+                          Ver
+                        </Link>
+                        <form
+                          action={recordPosCreditPaymentFormAction}
+                          className="flex items-center gap-1"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            (e.target as HTMLFormElement).requestSubmit();
+                          }}
+                        >
+                          <input type="hidden" name="saleId" value={sale.id} />
+                          <input
+                            name="amount"
+                            type="number"
+                            min="0"
+                            step="1"
+                            max={balanceDue}
+                            placeholder="Monto"
+                            className="rounded-control border border-border bg-surface px-2 py-1 text-xs tabular text-right w-20"
+                            required
+                          />
+                          <select
+                            name="method"
+                            className="rounded-control border border-border bg-surface px-2 py-1 text-xs w-24"
+                            defaultValue="Efectivo"
+                            required
+                          >
+                            {metodosPago.map((m) => (
+                              <option key={m} value={m}>
+                                {m}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="submit"
+                            className="rounded-control border border-border bg-surface px-2 py-1 text-xs text-primary hover:bg-primary-soft hover:text-primary"
+                          >
+                            Abonar
+                          </button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 );

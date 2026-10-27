@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 
 import {
@@ -45,17 +46,25 @@ const formVacio: FormState = {
 
 export function PosProductsClient({
   products,
+  warehouses,
   ivaRate,
   puedeEditar,
+  transferPosStock,
 }: {
   products: PosCatalogItem[];
+  warehouses: { id: string; name: string }[];
   ivaRate: number;
   puedeEditar: boolean;
+  transferPosStock: (
+    input: { productId: string; fromWarehouseId: string; toWarehouseId: string; quantity: number; reason?: string },
+  ) => Promise<{ error?: string; ok?: boolean }>;
 }) {
   const [form, setForm] = useState<FormState>(formVacio);
   const [error, setError] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
   const [query, setQuery] = useState("");
+  const [transferring, setTransferring] = useState<{ productId: string; fromWarehouseId: string | null } | null>(null);
+  const [transferError, setTransferError] = useState<string | null>(null);
 
   const filtrados = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -67,6 +76,13 @@ export function PosProductsClient({
         (p.categoryName ?? "").toLowerCase().includes(term),
     );
   }, [products, query]);
+
+  const bajoStockCount = products.filter(
+    (p) => p.tracksStock && p.minStock && Number(p.stock) > 0 && Number(p.stock) <= Number(p.minStock),
+  ).length;
+  const sinStockCount = products.filter(
+    (p) => p.tracksStock && Number(p.stock) <= 0,
+  ).length;
 
   function abrirCrear() {
     setForm({ ...formVacio, open: true });
@@ -86,6 +102,48 @@ export function PosProductsClient({
       active: product.active,
     });
     setError(null);
+  }
+
+  async function handleTransferSubmit(formData: FormData) {
+    const productId = String(formData.get("productId") ?? "");
+    const fromWarehouseId = String(formData.get("fromWarehouseId") ?? "");
+    const toWarehouseId = String(formData.get("toWarehouseId") ?? "");
+    const quantity = Math.round(Number(formData.get("quantity") ?? "0"));
+    const reason = String(formData.get("reason") ?? "").trim() || undefined;
+    setTransferring(null);
+    setTransferError(null);
+    if (!toWarehouseId) {
+      setTransferError("Selecciona una bodega de destino.");
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setTransferError("La cantidad no es válida.");
+      return;
+    }
+    const result = await transferPosStock({ productId, fromWarehouseId, toWarehouseId, quantity, reason });
+    if (result.error) {
+      setTransferError(result.error);
+    }
+  }
+
+  async function transferir(productId: string, fromWarehouseId: string, formData: FormData) {
+    const toWarehouseId = String(formData.get("toWarehouseId") ?? "");
+    const quantity = Math.round(Number(formData.get("quantity") ?? "0"));
+    const reason = String(formData.get("reason") ?? "").trim() || undefined;
+    setTransferring(null);
+    setTransferError(null);
+    if (!toWarehouseId) {
+      setTransferError("Selecciona una bodega de destino.");
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setTransferError("La cantidad no es válida.");
+      return;
+    }
+    const result = await transferPosStock({ productId, fromWarehouseId, toWarehouseId, quantity, reason });
+    if (result.error) {
+      setTransferError(result.error);
+    }
   }
 
   function cerrar() {
@@ -173,6 +231,31 @@ export function PosProductsClient({
           </button>
         ) : null}
       </div>
+
+      {(bajoStockCount > 0 || sinStockCount > 0) && (
+        <section className={cardClass + " p-3 mb-3"}>
+          <div className="flex flex-wrap items-center gap-3">
+            {sinStockCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-danger-soft text-danger text-xs font-semibold">
+                ⚠ {sinStockCount} producto(s) sin stock
+              </span>
+            )}
+            {bajoStockCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-accent-soft text-accent text-xs font-semibold">
+                ⚠ {bajoStockCount} producto(s) con stock bajo el mínimo
+              </span>
+            )}
+            {puedeEditar && (
+              <Link
+                href="/pos/caja"
+                className="text-xs text-primary hover:underline ml-auto sm:ml-0"
+              >
+                Ir a caja
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       <div className={cardClass + " p-4"}>
         <label htmlFor="pos-catalog-search" className={labelClass}>
@@ -405,6 +488,18 @@ export function PosProductsClient({
                       >
                         Editar
                       </button>
+                      {product.tracksStock && warehouses.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTransferring({ productId: product.id, fromWarehouseId: warehouses[0].id });
+                            setTransferError(null);
+                          }}
+                          className="text-accent hover:underline ml-2 px-2 py-1 text-xs"
+                        >
+                          Transferir
+                        </button>
+                      ) : null}
                       {!product.active ? (
                         <button
                           type="button"
@@ -413,6 +508,61 @@ export function PosProductsClient({
                         >
                           Reactivar
                         </button>
+                      ) : null}
+                      {transferring?.productId === product.id && transferring.fromWarehouseId ? (
+                        <form
+                          action={handleTransferSubmit}
+                          className="mt-2 flex flex-wrap gap-2 items-end"
+                        >
+                          <input type="hidden" name="productId" value={product.id} />
+                          <input type="hidden" name="fromWarehouseId" value={transferring.fromWarehouseId} />
+                          <select
+                            name="toWarehouseId"
+                            className="rounded-control border border-border bg-surface px-2 py-1 text-xs"
+                            required
+                          >
+                            <option value="">Bodega destino</option>
+                            {warehouses
+                              .filter((w) => String(w.id) !== transferring.fromWarehouseId)
+                              .map((w) => (
+                                <option key={w.id} value={String(w.id)}>
+                                  {w.name}
+                                </option>
+                              ))}
+                          </select>
+                          <input
+                            name="quantity"
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            placeholder="Cantidad"
+                            className="rounded-control border border-border bg-surface px-2 py-1 text-xs tabular text-right w-20"
+                            required
+                          />
+                          <input
+                            name="reason"
+                            type="text"
+                            placeholder="Motivo (opcional)"
+                            className="rounded-control border border-border bg-surface px-2 py-1 text-xs w-32"
+                          />
+                          <button
+                            type="submit"
+                            disabled={transferring?.productId !== product.id}
+                            className="rounded-control border border-border bg-surface px-2 py-1 text-xs text-primary hover:bg-primary-soft hover:text-primary"
+                          >
+                            Mover
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTransferring(null)}
+                            className="rounded-control border border-border bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-background"
+                          >
+                            Cancelar
+                          </button>
+                          {transferError ? (
+                            <span className="mt-1 text-xs text-danger">{transferError}</span>
+                          ) : null}
+                        </form>
                       ) : null}
                     </td>
                   ) : null}

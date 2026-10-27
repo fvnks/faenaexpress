@@ -1181,3 +1181,64 @@ export async function recordPosCreditPaymentFormAction(
 
   await recordPosCreditPayment({ saleId, amount, method, reference, notes });
 }
+
+/**
+ * Transfiere stock entre bodegas desde el POS.
+ * Usa un movimiento TRANSFER que conserva el costo promedio (PPP).
+ * Solo supervisor (ADMIN / ACCOUNTANT).
+ */
+export async function transferPosStock(input: {
+  productId: string;
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  quantity: number;
+  reason?: string;
+}): Promise<PosProductResult> {
+  const { ctx, error } = await requirePosSupervisor();
+  if (error) return { error };
+
+  const productId = String(input.productId ?? "");
+  const fromWarehouseId = String(input.fromWarehouseId ?? "");
+  const toWarehouseId = String(input.toWarehouseId ?? "");
+  const quantity = Number(input.quantity);
+  const reason = String(input.reason ?? "").trim() || "Transferencia entre bodegas desde el punto de venta";
+
+  if (!productId) return { error: "Falta el producto." };
+  if (!fromWarehouseId) return { error: "Falta la bodega de origen." };
+  if (!toWarehouseId) return { error: "Falta la bodega de destino." };
+  if (fromWarehouseId === toWarehouseId) return { error: "Las bodegas deben ser distintas." };
+  if (!Number.isFinite(quantity) || quantity <= 0) return { error: "La cantidad no es válida." };
+
+  const product = await db.product.findFirst({
+    where: { id: productId, companyId: ctx.company.id, tracksStock: true },
+    select: { id: true, name: true },
+  });
+  if (!product) return { error: "El producto no existe o no controla stock." };
+
+  const result = await registerMovement({
+    companyId: ctx.company.id,
+    productId,
+    type: "TRANSFER",
+    date: new Date(),
+    quantity: new Prisma.Decimal(quantity.toFixed(3)),
+    unitCost: null,
+    warehouseId: fromWarehouseId,
+    toWarehouseId,
+    reason,
+    reference: `pos:transfer:${productId}`,
+    notes: product.name,
+    createdById: ctx.user.id,
+  });
+  if (!result.ok) return { error: result.error ?? "No se pudo transferir el stock." };
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Product",
+    entityId: productId,
+    summary: `Transfirió ${quantity} unidad(es) de «${product.name}» de bodega ${fromWarehouseId.slice(-6)} a ${toWarehouseId.slice(-6)} desde el punto de venta.`,
+  });
+
+  revalidatePath("/pos/productos");
+  revalidatePath("/pos/venta");
+  return { ok: true };
+}

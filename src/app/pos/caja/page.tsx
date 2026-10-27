@@ -21,11 +21,17 @@ function time(date: Date) {
   });
 }
 
-export default async function PosCajaPage() {
+export default async function PosCajaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const ctx = await requireContext();
   const open = await getOpenPosSession(ctx.company.id, ctx.user.id);
   const session = open ? await getPosSession(ctx.company.id, open.id) : null;
-  const history = await listPosSessions(ctx.company.id, 30);
+  const params = await searchParams;
+  const terminalId = (params.terminalId as string | undefined) ?? "";
+  const history = await listPosSessions(ctx.company.id, 30, terminalId || undefined);
   const terminals = await listPosTerminals(ctx.company.id);
   const warehouses = await listWarehouses(ctx.company.id);
 
@@ -155,8 +161,30 @@ export default async function PosCajaPage() {
       </div>
 
       <section className={cardClass + " overflow-x-auto"}>
-        <div className="border-b border-border px-4 py-3">
+        <div className="border-b border-border px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">Historial de cajas</h2>
+          <form method="get" className="flex items-center gap-2">
+            <label htmlFor="pos-history-terminal" className="text-xs text-muted-foreground">
+              Terminal
+            </label>
+            <select
+              id="pos-history-terminal"
+              name="terminalId"
+              defaultValue={terminalId}
+              className="rounded-control border border-border bg-surface px-3 py-1.5 text-sm"
+              onChange={(event) => {
+                const form = (event.target as HTMLSelectElement).form;
+                if (form) form.requestSubmit();
+              }}
+            >
+              <option value="">Todas</option>
+              {terminals.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </form>
         </div>
         {history.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
