@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { FormattedDate } from "@/components/formatted-date";
 import { requireContext } from "@/lib/auth";
 import { listPosTerminals } from "@/lib/pos";
 import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
@@ -99,7 +100,7 @@ export default async function PosTerminalesPage() {
                     </td>
                     <td className="px-4 py-2 text-right">{terminal._count.sessions}</td>
                     <td className="px-4 py-2 text-muted-foreground">
-                      {new Date(terminal.createdAt).toLocaleDateString("es-CL")}
+                      <FormattedDate iso={terminal.createdAt.toISOString()} />
                     </td>
                     <td className="px-4 py-2 text-right">
                       <form
