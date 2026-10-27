@@ -146,16 +146,18 @@ src/
       ventas/             # Lista de tickets con filtros y [id] (detalle del ticket)
       productos/          # Catálogo de productos del POS (alta, edición, ajuste de stock)
       sii/                # Configuración SII: certificado .pfx, resolución, acteco, CAFs
-        page.tsx          # Configuración SII y CAFs
-        config-form.tsx
-        caf-form.tsx
-    [id]/                 # Detalle de ticket con DteInfo (estado del DTE, reintento)
-      page.tsx            # Ticket de venta con información del DTE (folio, estado)
-      dte-info.tsx        # Estado del DTE y botón de reintento de envío
-      print-ticket-button.tsx
-      thermal-ticket.css
-      void-sale-form.tsx
-      return-form.tsx
+        page.tsx          # Configuración SII, CAFs y reenvío masivo de DTEs en error
+        config-form.tsx   # Certificado, datos emisor, habilitación, entorno SII
+        caf-form.tsx      # Gestión de CAFs (tipos 33, 39, 61, 56)
+        dte-error-reenvio.tsx  # Reenvío masivo de DTEs en error/rechazados
+      [id]/               # Detalle de ticket con DteInfo, DteDownload y reintento
+        page.tsx          # Ticket de venta con información del DTE (folio, estado)
+        dte-info.tsx      # Estado del DTE y botón de reintento individual
+        dte-download.tsx  # Descarga del XML firmado del DTE emitido
+        print-ticket-button.tsx
+        thermal-ticket.css
+        void-sale-form.tsx
+        return-form.tsx
   actions/                # Server Actions (auth, companies, purchases, sales, expenses,
                           # partners, catalogs, import, dte, notifications, invitations,
                           # accept-invitation, profile, modules)
@@ -199,9 +201,9 @@ CONTEXTO.md               # Este documento
 | `defontana/client.ts` | Cliente HTTP del ERP Defontana (login, GraphQL de compras/ventas, descarga de XML) |
 | `defontana/credentials.ts` | Credenciales por empresa (cifradas): `getStoredDefontanaCredentials`, `hasStoredDefontanaCredentials`, `withDefontanaSession` |
 | `dte-generator.ts` | Generador de XML DTE tipo 33 (factura) y 39 (boleta) para el POS |
-| `dte-signer.ts` | Firmante de DTE con certificado .pfx (XML-DSIG RSA-SHA256) |
-| `sii-client.ts` | Cliente para enviar DTE al SII y consultar estado por TrackID |
-| `sii/runtime.ts` | Integración SII por **@albertomarturelo/sii-core**: lecturas por fetch (sin Chromium), login headless con Playwright desde la web (la Clave se usa una vez y se descarta), sesión en `~/.sii/session.json` |
+| `dte-signer.ts` | Firmante de DTE con certificado .pfx (XML-DSIG RSA-SHA256, Node.js pkcs12.keyInfo) |
+| `sii-client.ts` | Cliente para enviar DTE al SII (`enviarDteSii`) y consultar estado por TrackID (`consultarEstadoDteSii`). Entorno configurable vía `SII_ENVIRONMENT` |
+| `sii/runtime.ts` | Integración SII por **@albertomarturelo/sii-core**: lecturas por fetch (sin Chromium), login headless con Playwright desde la web, sesión en `~/.sii/session.json` |
 | `sii/rcv.ts` | Consultas RCV: `fetchRcvRows` (compras/ventas oficiales) + estado de sesión |
 | `import.ts` | Importador Excel/CSV (ver §9) |
 | `csv.ts` | Exportación CSV de reportes |
@@ -347,7 +349,7 @@ saldo es 0.
 | `import.ts` | `importFile` (Excel/CSV de compras, ventas o gastos) |
 | `dte.ts` | `previewDteImport` + `confirmDteImport` (XML SII) |
 | `payments.ts` | `registerPayment` / `deletePayment` (abonos de compras y ventas, con recálculo del estado) |
-| `pos-sii-emit.ts` | `emitirDtePosSale` / `reintentarDtePosSale` (emite DTE al SII para ventas POS) |
+| `pos-sii-emit.ts` | `emitirDtePosSale` (emite DTE al SII para ventas POS), `reintentarDtePosSale` / `reintentarDteAction` (reintento individual), `reintentarDtesEnErrorAction` (reenvío masivo), `consultarEstadoDteAction` (consulta por TrackID), `anularDtePosSale` (nota de crédito tipo 61 al anular venta) |
 | `notifications.ts` | Marcar leída / todas leídas |
 
 **Reglas de seguridad (críticas)**: toda acción valida `requireContext` + `canWrite`/`isAdmin`
@@ -460,24 +462,39 @@ CAF con folios disponibles).
    automáticamente `emitirDtePosSale`.
 2. El sistema determina el tipo de DTE: **boleta (39)** para consumidor final, o
    **factura (33)** si el cliente tiene RUT distinto de consumidor final.
-3. Obtiene un folio disponible del CAF correspondiente (tipo 33 o 39) e incrementa
-   `folioActual` solo si el SII acepta el documento.
+3. Obtiene un folio disponible del CAF correspondiente (tipo 33 o 39) con protección
+   contra condiciones de carrera (bucle de reintentos + actualización condicional).
 4. Genera el XML DTE (`dte-generator.ts`), lo firma con el certificado .pfx de la
    empresa (`dte-signer.ts`, XML-DSIG RSA-SHA256) y lo envía al SII
    (`sii-client.ts`).
-5. Guarda el registro `PosDte` con el estado (EMITIDO / RECHAZADO / ERROR_ENVIO),
-   el TrackID del SII y el XML enviado/respuesta.
+5. Guarda el registro `PosDte` con el estado (EMITIDO / RECHAZADO / ERROR_ENVIO /
+   PENDIENTE_ENVIO), el TrackID del SII y el XML enviado/respuesta.
 6. Vincula el `PosDte` con la `PosSale` para que el ticket muestre el folio real.
+7. Incrementa `folioActual` del CAF solo si el SII aceptó el documento.
+
+**Entorno SII:** se configura con la variable de entorno `SII_ENVIRONMENT`
+(`pruebas` o `produccion`). Por defecto usa `pruebas` (`maullin.sii.cl`). Se muestra
+en la UI de configuración SII.
 
 **Desde el ticket de venta** (`/pos/ventas/[id]`):
 - Si el DTE está **EMITIDO**: muestra "Factura Electrónica N° XXX" o
-  "Boleta Electrónica N° XXX" con el folio real y el TrackID.
+  "Boleta Electrónica N° XXX" con el folio real y el TrackID. Incluye botón para
+  descargar el XML firmado.
 - Si está **RECHAZADO** o **ERROR_ENVIO**: muestra el error y un botón
-  "Reintentar envío al SII" para volver a intentar la emisión.
+  "Reintentar envío al SII" para volver a intentar la emisión individual.
 - Si no hay DTE: indica que el documento es interno de control (SII no habilitado).
 
-**Entorno:** por defecto se envía al entorno de **pruebas** del SII
-(`maullin.sii.cl`). Para producción, se debe configurar el entorno adecuado.
+**Reenvío masivo** (`/pos/sii`): lista todos los DTE en error/rechazados de la
+empresa y permite reenviarlos en lote con `reintentarDtesEnErrorAction`.
+
+**Anulación de DTE:** cuando se anula una venta POS que tiene un DTE EMITIDO,
+`voidPosSale` prepara automáticamente una **nota de crédito tipo 61** (`PosDte`
+con estado `PENDIENTE_ENVIO`) vinculada a la venta original, consumiendo un folio
+del CAF de tipo 61. El envío real al SII se puede hacer después cuando se disponga
+del certificado.
+
+**Consulta manual de estado** (`consultarEstadoDteAction`): permite consultar el
+estado de un DTE en el SII por su TrackID y actualizar el registro local.
 
 ---
 
@@ -631,6 +648,15 @@ dropdown nuevo debe seguirlo.
 - **Emisión de DTE del POS al SII**: en Compras y Ventas del POS, cada venta puede emitir
   su DTE (boleta 39 o factura 33) al SII con certificado digital, CAF y folio real. El
   ticket muestra el estado del DTE y permite reintentar el envío si falló.
+- **Emisión DTE - capacidades sin certificado (Fase 1 completa)**:
+  - Entorno SII configurable vía `SII_ENVIRONMENT` (pruebas/produccion).
+  - Generación de XML DTE tipo 33/39 y firma con certificado .pfx (RSA-SHA256).
+  - Envío al SII y registro de PosDte con estado (EMITIDO/RECHAZADO/ERROR_ENVIO).
+  - Protección contra condiciones de carrera en CAF (reintentos + actualización condicional).
+  - Reenvío masivo de DTEs en error desde `/pos/sii`.
+  - Descarga del XML firmado desde el ticket de venta (`DteDownloadButton`).
+  - Anulación con nota de crédito tipo 61 preparada al anular venta con DTE EMITIDO.
+  - Consulta manual de estado por TrackID (`consultarEstadoDteAction`).
 
 ### Pendientes / ideas
 
@@ -641,6 +667,9 @@ dropdown nuevo debe seguirlo.
 - **Pagos parciales (abonos)**: implementados. El saldo de un documento es su total (en ventas,
   menos la retención) menos la suma de sus abonos; de ahí se deriva `PENDING`/`PARTIAL`/`PAID`.
   Los abonos viven en la tabla `Payment` y se administran en el detalle de compras y ventas.
+- **POS DTE - requiere certificado SII**: validación real contra el SII (maullin.sii.cl pruebas /
+  palena.sii.cl producción), generación de PDF timbrado oficial, consulta automática de estado
+  (reintento programado), reenvío automático de DTEs en ERROR_ENVIO.
 - **POS Fase 2+ (operaciones de caja)**: múltiples terminales/cajas simultáneas, roles cajero /
   supervisor, cortes de caja independientes por terminal, stock por bodega/sucursal, alertas de
   stock mínimo, historial de compras del cliente desde el POS, venta a crédito / cuenta corriente,
