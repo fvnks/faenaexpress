@@ -683,10 +683,23 @@ dropdown nuevo debe seguirlo.
 - **POS DTE - requiere certificado SII real**: validación real contra el SII (maullin.sii.cl pruebas /
   palena.sii.cl producción), consulta automática de estado (reintento programado), reenvío automático
   de DTEs en ERROR_ENVIO.
-- **POS Fase 2+ (operaciones de caja)**: múltiples terminales/cajas simultáneas, roles cajero /
-  supervisor, cortes de caja independientes por terminal, stock por bodega/sucursal, alertas de
-  stock mínimo, historial de compras del cliente desde el POS, venta a crédito / cuenta corriente,
-  reportes de ventas por período/producto/cajero, exportación CSV/Excel de ventas POS.
+- **POS Fase 2 (implementada)**:
+  - Modelo `PosTerminal` + `terminalId` en `PosSession` (migración `20261104000000_pos_terminal`).
+  - UI de gestión de terminales en `/pos/terminales` (crear, editar, desactivar).
+  - Selector de terminal al abrir caja en `/pos/caja`.
+  - `requirePosSupervisor` (ADMIN/ACCOUNTANT) protege `closePosSession`, `voidPosSale`,
+    `createPosReturn`, `adjustPosStock`; `requirePosWrite` se mantiene en `createPosSale`,
+    `createPosPartner`, `openPosSession`, `createPosProduct`, `updatePosProduct`.
+  - Página `/pos/reportes`: ventas por período, producto, cajero y medio de pago, con
+    tarjetas de totales y filtros por fecha y búsqueda.
+  - Export CSV en `/pos/ventas/export` (mismos filtros que reportes).
+- **POS Fase 2+ (pendiente)**:
+  - Cortes de caja independientes por terminal (las sesiones son por usuario; el listado
+    histórico aún no filtra por terminal).
+  - Stock por bodega/sucursal (el POS usa la bodega por defecto).
+  - Alertas de stock mínimo.
+  - Historial de compras del cliente desde el POS.
+  - Venta a crédito / cuenta corriente.
 - **POS Fase 3+ (diferenciación)**: modo offline con sincronización al volver, integración con
   terminales de pago (TPV), generación de etiquetas de código de barras, API para e-commerce,
   pantalla de cocina (KDS) para restaurantes.
