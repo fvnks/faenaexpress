@@ -19,12 +19,13 @@ export function HeroSection() {
 
   return (
     <section className="relative pb-24 overflow-hidden">
-      {/* Fondo envolvente oscuro con glow (estilo Wope) + GradientASCII */}
-      <div className="absolute inset-0 z-0 bg-gradient-to-b from-background via-background/80 to-background" />
+      {/* Fondo envolvente oscuro (estilo Wope) */}
+      <div className="absolute inset-0 z-0 bg-background" />
       <div className="absolute inset-0 z-10 pointer-events-none">
         <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-primary-soft rounded-full blur-[120px] opacity-60" />
         <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-accent-soft rounded-full blur-[120px] opacity-40" />
       </div>
+      {/* GradientASCII animado sobre el fondo */}
       <div className="absolute inset-0 z-20">
         <div className="w-full h-full">
           <GradientASCII
@@ -105,7 +106,7 @@ export function HeroSection() {
             ))}
           </ul>
 
-          <div className="hidden lg:block ml-auto flex items-center gap-3">
+          <div className="hidden lg:block ml-auto flex items-center gap-6">
             <Link
               href="/login"
               className="inline-block px-4 py-2 text-sm font-semibold text-muted-foreground border border-border bg-surface rounded-control hover:bg-primary-soft hover:text-primary transition-colors"
@@ -114,7 +115,7 @@ export function HeroSection() {
             </Link>
             <a
               href="/login"
-              className="relative group inline-block px-4 py-2 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden rounded-control"
+              className="relative group inline-block px-5 py-2.5 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden rounded-control"
             >
               <div className="absolute top-0 right-full w-full h-full bg-accent transform group-hover:translate-x-full group-hover:scale-102 transition duration-500" />
               <span className="relative">Crear cuenta</span>
@@ -124,7 +125,7 @@ export function HeroSection() {
       </nav>
 
       {/* Hero content */}
-      <div className="relative z-30 mx-auto max-w-5xl px-6 pt-20 sm:pt-32 lg:pt-40">
+      <div className="relative z-30 mx-auto max-w-5xl px-6 pt-16 sm:pt-20 lg:pt-24">
         <div className="grid lg:grid-cols-2 lg:gap-12 lg:items-center">
           {/* Texto a la izquierda */}
           <div className="text-center lg:text-left">
