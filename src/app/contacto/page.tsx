@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 
 import Link from "next/link";
 
-import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
-import { submitContacto } from "@/app/actions/contacto";
+import { ContactoSection } from "@/components/landing/contacto-section";
 
 export const metadata: Metadata = {
   title: "Contacto — Yellow ERP",
@@ -36,43 +35,8 @@ export default function ContactoPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-16">
-        <div className="flex flex-col lg:flex-row gap-12">
-          <aside className="lg:w-1/4 shrink-0 space-y-6">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">Contacto</h2>
-            <p className="text-base leading-relaxed text-muted-foreground">
-              ¿Tienes preguntas sobre Yellow ERP? Escríbenos y te responderemos a la
-              brevedad.
-            </p>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <span className="mt-1 text-muted-foreground">✉</span>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Escríbenos</p>
-                  <p className="text-sm text-muted-foreground">
-                    contacto@yellow-erp.cl
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="mt-1 text-muted-foreground">📍</span>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Oficina</p>
-                  <p className="text-sm text-muted-foreground">
-                    Santiago, Chile
-                  </p>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <section className="flex-1">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground mb-6">
-              Envíanos un mensaje
-            </h2>
-            <ContactoForm />
-          </section>
-        </div>
+      <main className="relative">
+        <ContactoSection />
       </main>
 
       <footer className="border-t border-border mt-auto">
@@ -92,75 +56,5 @@ export default function ContactoPage() {
         </div>
       </footer>
     </div>
-  );
-}
-
-function ContactoForm() {
-  return (
-    <form action={submitContacto} className="space-y-4">
-      <div className={fieldClass}>
-        <label htmlFor="contacto-nombre" className={labelClass}>
-          Nombre
-        </label>
-        <input
-          id="contacto-nombre"
-          name="nombre"
-          type="text"
-          maxLength={100}
-          className={controlClass}
-          required
-          placeholder="Tu nombre"
-        />
-      </div>
-
-      <div className={fieldClass}>
-        <label htmlFor="contacto-email" className={labelClass}>
-          Correo electrónico
-        </label>
-        <input
-          id="contacto-email"
-          name="email"
-          type="email"
-          maxLength={200}
-          className={controlClass}
-          required
-          placeholder="tú@empresa.cl"
-        />
-      </div>
-
-      <div className={fieldClass}>
-        <label htmlFor="contacto-empresa" className={labelClass}>
-          Empresa
-        </label>
-        <input
-          id="contacto-empresa"
-          name="empresa"
-          type="text"
-          maxLength={100}
-          className={controlClass}
-          required
-          placeholder="Nombre de tu empresa"
-        />
-      </div>
-
-      <div className={fieldClass}>
-        <label htmlFor="contacto-mensaje" className={labelClass}>
-          Mensaje
-        </label>
-        <textarea
-          id="contacto-mensaje"
-          name="mensaje"
-          rows={5}
-          maxLength={1000}
-          className={controlClass}
-          required
-          placeholder="Cuéntanos qué necesitas…"
-        />
-      </div>
-
-      <button type="submit" className={primaryButtonClass}>
-        Enviar mensaje
-      </button>
-    </form>
   );
 }
