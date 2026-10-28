@@ -1,6 +1,6 @@
 'use client';
 
-import GradientASCIIRaw from './GradientASCII';
+import GradientASCIIRaw from './GradientASCII.jsx';
 import type { ComponentPropsWithoutRef } from 'react';
 
 export type GradientASCIIProps = ComponentPropsWithoutRef<typeof GradientASCIIRaw>;

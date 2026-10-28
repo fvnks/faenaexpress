@@ -1,23 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 import { submitContacto } from "@/app/actions/contacto";
 import { primaryButtonClass, controlClass, fieldClass, labelClass } from "@/lib/ui";
 
 export function ContactoSection() {
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
+  const formRef = useRef<HTMLFormElement>(null);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSubmit(formData: FormData): Promise<void> {
     setStatus("sending");
-
-    const formData = new FormData(event.currentTarget);
     try {
       await submitContacto(formData);
       setStatus("ok");
-      event.currentTarget.reset();
+      formRef.current?.reset();
     } catch {
       setStatus("error");
     }
@@ -67,7 +65,7 @@ export function ContactoSection() {
           </div>
 
           {/* Form */}
-          <form action={handleSubmit} className="space-y-6 lg:space-y-8">
+          <form ref={formRef} action={handleSubmit} className="space-y-6 lg:space-y-8">
             <div className={fieldClass}>
               <label htmlFor="contacto-nombre" className={labelClass}>
                 Nombre completo
