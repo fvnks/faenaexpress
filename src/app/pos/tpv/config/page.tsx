@@ -24,6 +24,15 @@ export default async function PosTpvConfigPage() {
     );
   }
 
+  // Server Action wrappers para usar como form actions
+  async function handleSaveConfig(formData: FormData) {
+    await saveTpvConfigAction(undefined, formData);
+  }
+
+  async function handleDeleteConfig(formData: FormData) {
+    await deleteTpvConfigAction(undefined);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -38,12 +47,6 @@ export default async function PosTpvConfigPage() {
           Volver al resumen
         </Link>
       </div>
-
-      {configResult?.error && (
-        <p role="alert" className="text-sm text-danger">
-          {configResult.error}
-        </p>
-      )}
 
       <section className={cardClass + " p-6"}>
         <h2 className="text-sm font-semibold mb-4">Credenciales de Transbank</h2>
@@ -124,6 +127,17 @@ export default async function PosTpvConfigPage() {
             Guardar configuración
           </button>
         </form>
+
+        {configResult?.error && (
+          <p role="alert" className="text-sm text-danger">
+            {configResult.error}
+          </p>
+        )}
+        {configResult?.ok && (
+          <p className="text-sm text-success">
+            Configuración guardada correctamente.
+          </p>
+        )}
       </section>
 
       {config?.habilitado && (
@@ -174,12 +188,4 @@ export default async function PosTpvConfigPage() {
       )}
     </div>
   );
-}
-
-async function handleSaveConfig(formData: FormData) {
-  await saveTpvConfigAction(undefined, formData);
-}
-
-async function handleDeleteConfig(formData: FormData) {
-  await deleteTpvConfigAction(undefined);
 }
