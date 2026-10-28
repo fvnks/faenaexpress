@@ -140,7 +140,7 @@ export function HeroSection() {
               </svg>
             </div>
             <div className="max-w-md">
-              <p className="md:text-xl text-muted-foreground font-medium leading-relaxed">
+              <p className="md:text-xl text-foreground font-medium leading-relaxed">
                 Registra compras, ventas y gastos en minutos, concilia el banco y ten
                 siempre claro quién pagó cada gasto. Montos en pesos, IVA al 19 %,
                 todo en español.
@@ -150,7 +150,7 @@ export function HeroSection() {
 
           <a
             href="/login"
-            className="relative group inline-block w-full sm:w-auto py-4 px-6 mb-24 text-white font-semibold rounded-control bg-accent overflow-hidden transition-colors"
+            className="relative group inline-block w-full sm:w-auto py-4 px-6 mb-24 text-white font-semibold rounded-control bg-accent overflow-hidden"
           >
             <div className="absolute top-0 right-full w-full h-full bg-accent/80 transform group-hover:translate-x-full group-hover:scale-102 transition duration-500" />
             <div className="relative flex items-center justify-center gap-2">
@@ -183,10 +183,10 @@ export function HeroSection() {
                 "Empresa B",
                 "Empresa C",
               ].map((nombre) => (
-                <div key={nombre} className="w-1/3 px-4 flex items-center justify-center h-16">
-                  <div className="w-full h-full rounded-control border border-border bg-surface flex items-center justify-center text-xs font-medium text-muted-foreground">
+                <div key={nombre} className="w-1/3 px-4 flex items-center justify-center h-16 opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-opacity duration-300">
+                  <span className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
                     {nombre}
-                  </div>
+                  </span>
                 </div>
               ))}
             </div>
@@ -194,20 +194,20 @@ export function HeroSection() {
 
           {/* Stats card (reemplaza bg-folder.svg) */}
           <div className="relative lg:-mt-20 w-full max-w-md">
-            <div className="absolute top-0 left-0 w-full h-full bg-primary-soft/40 rounded-3xl -z-10 blur-sm" />
+            <div className="absolute inset-0 bg-surface/40 backdrop-blur-sm rounded-3xl -z-10" />
             <div className="relative flex flex-col">
               <div className="max-w-xs pl-5 pt-10 pr-20 z-10">
                 <h3 className="text-xl font-semibold text-foreground">
                   Construyendo el futuro juntos
                 </h3>
               </div>
-              <div className="max-w-md -mt-10 px-5 xs:px-10 pb-12 pt-18 bg-accent-soft rounded-b-3xl">
+              <div className="max-w-md -mt-10 px-5 xs:px-10 pb-12 pt-18 rounded-b-3xl border border-surface/30 bg-surface/30">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-3xl font-semibold text-foreground">18k+</span>
                     <span className="text-sm text-muted-foreground">Proyectos</span>
                   </div>
-                  <div className="h-12 w-px bg-border mx-4" />
+                  <div className="h-12 w-px bg-surface/30 mx-4" />
                   <div className="flex items-center gap-3">
                     <span className="text-3xl font-semibold text-foreground">20+</span>
                     <span className="text-sm text-muted-foreground">Premios</span>
