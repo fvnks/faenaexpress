@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ModuleSwitcher } from "@/components/module-switcher";
+import { ServiceWorkerRegistration } from "@/components/sw-registration";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ToasterFlash } from "@/components/toaster-flash";
 import { getActiveMembership, requireUser } from "@/lib/auth";
@@ -60,6 +61,7 @@ export default async function PosLayout({ children }: LayoutProps<"/pos">) {
         {children}
       </main>
       <ToasterFlash flash={flash} />
+      <ServiceWorkerRegistration />
     </div>
   );
 }

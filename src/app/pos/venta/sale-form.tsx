@@ -7,7 +7,9 @@ import { createPosPartner, createPosSale, type PosActionState } from "@/app/acti
 import { SelectDropdown } from "@/components/select-dropdown";
 import { SubmitButton } from "@/components/submit-button";
 import { formatCLP } from "@/lib/money";
+import { saveOfflineSale } from "@/lib/offline-sales";
 import type { PosPartner, PosProduct } from "@/lib/pos";
+import { useOfflineSales } from "@/hooks/use-offline-sales";
 import {
   cardClass,
   controlClass,
@@ -97,6 +99,35 @@ export function PosSaleForm({
     createPosSale,
     undefined,
   );
+  const { isOnline, pendingCount, syncing } = useOfflineSales();
+  const [offlineSaved, setOfflineSaved] = useState(false);
+
+  /**
+   * Wrapper del envío de venta: si hay conexión usa la Server Action normal;
+   * si no, guarda la venta localmente para sincronizar después.
+   */
+  async function handleSubmit(formData: FormData) {
+    if (!isOnline) {
+      const payloadRaw = formData.get("payload");
+      if (!payloadRaw) return;
+      try {
+        await saveOfflineSale(JSON.parse(String(payloadRaw)));
+        setOfflineSaved(true);
+        // Limpiar el carrito tras guardar offline
+        setLines([]);
+        setPartnerId("");
+        setPartnerName("");
+        setPartnerRut(null);
+        setPartnerQuery("");
+        setNotes("");
+        setPayments([{ key: nextPaymentKey(), method: methods[0] ?? "Efectivo", amount: "", touched: false, reference: "" }]);
+      } catch {
+        setOfflineSaved(false);
+      }
+      return;
+    }
+    await formAction(formData);
+  }
 
   const [lines, setLines] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
@@ -760,13 +791,51 @@ export function PosSaleForm({
               />
             </div>
 
+            {!isOnline && (
+              <section className={cardClass + " p-3 mb-3 border border-danger/40 bg-danger-soft"}>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-danger">●</span>
+                  <span className="font-medium text-danger">
+                    Sin conexión a internet
+                  </span>
+                  <span className="text-muted-foreground">
+                    La venta se guardará localmente y se sincronizará al recuperar la conexión.
+                  </span>
+                </div>
+                {pendingCount > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Hay {pendingCount} venta(s) pendiente(s) de sincronizar.
+                  </p>
+                )}
+                {syncing && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Sincronizando ventas pendientes…
+                  </p>
+                )}
+              </section>
+            )}
+
+            {offlineSaved && (
+              <section className={cardClass + " p-3 mb-3 border border-success/40 bg-success-soft"}>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-success">●</span>
+                  <span className="font-medium text-success">
+                    Venta guardada localmente
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Se registrará en el servidor al recuperar la conexión.
+                </p>
+              </section>
+            )}
+
             {state?.error ? (
               <p role="alert" className="mt-3 text-sm text-danger">
                 {state.error}
               </p>
             ) : null}
 
-            <form action={formAction} className="mt-4">
+            <form action={handleSubmit} className="mt-4">
               <input type="hidden" name="payload" value={JSON.stringify(payload)} />
               <SubmitButton
                 className={primaryButtonClass + " w-full"}

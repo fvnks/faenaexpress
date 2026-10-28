@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { ConnectionStatus } from "@/components/connection-status";
+
 const LINKS = [
   { href: "/pos", label: "Resumen" },
   { href: "/pos/venta", label: "Vender" },
@@ -12,6 +14,7 @@ const LINKS = [
   { href: "/pos/caja", label: "Caja" },
   { href: "/pos/terminales", label: "Terminales" },
   { href: "/pos/reportes", label: "Reportes" },
+  { href: "/pos/sincronizar", label: "Sincronizar" },
 ];
 
 export function PosNav() {
@@ -40,6 +43,9 @@ export function PosNav() {
           </Link>
         );
       })}
+      <span className="ml-auto flex items-center gap-2">
+        <ConnectionStatus />
+      </span>
     </nav>
   );
 }
