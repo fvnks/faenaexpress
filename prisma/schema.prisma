@@ -1116,6 +1116,8 @@ model Company {
   posTerminals          PosTerminal[]
   posTpvConfig          PosTpvConfig?
   posTpvTransaction     PosTpvTransaction[]
+  ecommerceApiKeys      EcommerceApiKey[]
+  ecommerceOrders       EcommerceOrder[]
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
@@ -1527,6 +1529,7 @@ model Product {
   saleItems     SaleItem[]     @relation("SaleItemProduct")
   lots          ProductLot[]
   posSaleItems PosSaleItem[]
+  ecommerceOrderItems EcommerceOrderItem[]
 
   @@unique([companyId, sku])
   @@index([companyId, name])
@@ -3056,4 +3059,67 @@ model PosTpvTransaction {
 
   @@index([companyId])
   @@index([saleId])
+}
+
+// ---------------------------------------------------------------------------
+// Ecommerce API: expone productos y acepta pedidos desde tiendas online.
+// Las claves de API (EcommerceApiKey) autentican cada request; los pedidos
+// (EcommerceOrder) se crean desde el canal online y pueden convertirse en
+// ventas POS cuando se despachan.
+// ---------------------------------------------------------------------------
+model EcommerceApiKey {
+  id          String   @id @default(cuid())
+  companyId   String   @unique
+  name        String   // nombre descriptivo, ej: "Tienda Web Principal"
+  keyHash     String   @unique // hash de la clave API
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model EcommerceOrder {
+  id          String   @id @default(cuid())
+  companyId   String
+  orderNumber String   // número secuencial visible al cliente, ej: WEB-0001
+  customerName String
+  customerEmail String?
+  customerPhone String?
+  customerAddress String?
+  subtotal    Int      // neto en CLP
+  tax         Int      // IVA en CLP
+  total       Int      // total en CLP
+  status      String   @default("PENDING") // PENDING, CONFIRMED, PREPARING, SHIPPED, DELIVERED, CANCELLED
+  paymentMethod String? // medio de pago usado en el canal online
+  paymentReference String? // referencia de pago (transferencia, tarjeta, etc.)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items     EcommerceOrderItem[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@unique([companyId, orderNumber])
+}
+
+model EcommerceOrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  productId  String? // referencia al producto del catálogo POS (puede ser null si se eliminó)
+  productSku String  // SKU capturado al momento del pedido
+  productName String // nombre capturado al momento del pedido
+  quantity   Int
+  unitPrice  Int     // precio unitario neto en CLP
+  lineTotal  Int     // cantidad * unitPrice
+
+  order    EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product  Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
 }
