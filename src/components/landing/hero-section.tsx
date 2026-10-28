@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import GradientASCIIRaw from "@/components/ui/GradientASCII.jsx";
-import { primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
+import { primaryButtonClass } from "@/lib/ui";
 
 const GradientASCII = GradientASCIIRaw as React.FC<Record<string, unknown>>;
 
@@ -18,29 +18,34 @@ export function HeroSection() {
   ];
 
   return (
-    <section className="relative pb-20 overflow-hidden">
-      {/* GradientASCII background (reemplaza los blobs decorativos) */}
-      <div className="absolute inset-0 z-0">
+    <section className="relative pb-24 overflow-hidden">
+      {/* Fondo envolvente oscuro con glow (estilo Wope) + GradientASCII */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-background via-background/80 to-background" />
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-primary-soft rounded-full blur-[120px] opacity-60" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-accent-soft rounded-full blur-[120px] opacity-40" />
+      </div>
+      <div className="absolute inset-0 z-20">
         <div className="w-full h-full">
           <GradientASCII
             colors={["#1e3fd8", "#f6f8ff", "#a5d8ff", "#38bdf8"]}
             shape="horizon"
             characters=" =+xX0S8#@"
-            cellSize={18}
-            density={0.8}
-            glyphOpacity={0.85}
-            glow={0.2}
+            cellSize={22}
+            density={0.6}
+            glyphOpacity={0.4}
+            glow={0.15}
             depthOfField={0}
-            flicker={0.2}
-            softness={0.5}
-            scale={1}
-            flow={0.5}
-            speed={1}
-            gradientOpacity={0.9}
-            grain={0.08}
-            variation={0}
+            flicker={0.1}
+            softness={0.6}
+            scale={1.2}
+            flow={0.4}
+            speed={0.8}
+            gradientOpacity={0.5}
+            grain={0.03}
+            variation={0.1}
             mouseInteraction
-            scrambleRadius={0.1}
+            scrambleRadius={0.08}
             clickEffect="wave"
             intro
             lightMode={false}
@@ -49,172 +54,209 @@ export function HeroSection() {
       </div>
 
       {/* Navbar */}
-      <nav className="relative z-10 py-6 mb-12 md:mb-20 bg-transparent">
-        <div className="container px-4 mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Link href="/" className="inline-block text-lg font-bold tracking-tight">
-                <span
-                  aria-hidden="true"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-400 text-[13px] font-bold text-black"
+      <nav className="relative z-30 py-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6">
+          <div className="flex items-center gap-2">
+            <Link href="/" className="inline-block text-lg font-bold tracking-tight">
+              <span
+                aria-hidden="true"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-400 text-[13px] font-bold text-black"
+              >
+                Y
+              </span>
+              Yellow ERP
+            </Link>
+          </div>
+
+          <div className="lg:hidden ml-auto">
+            <button
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              className="flex w-10 h-10 items-center justify-center rounded-control border border-border bg-surface"
+              aria-label="Abrir menú"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-foreground"
+              >
+                <path d="M3 12H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <ul className="hidden lg:flex ml-14 lg:w-auto lg:space-x-12">
+            {navLinks.map((link) => (
+              <li key={link.href} className="group relative">
+                <Link
+                  href={link.href}
+                  className="inline-block text-sm text-muted-foreground hover:text-foreground font-medium transition-colors"
                 >
-                  Y
-                </span>
-                Yellow ERP
-              </Link>
-            </div>
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
 
-            <div className="lg:hidden ml-auto">
-              <button
-                onClick={() => setMobileNavOpen(!mobileNavOpen)}
-                className="flex w-12 h-12 items-center justify-center rounded-control border border-border bg-surface"
-                aria-label="Abrir menú"
-              >
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="text-foreground"
-                >
-                  <path d="M3 12H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-
-            <ul className="hidden lg:flex ml-14 lg:w-auto lg:space-x-12">
-              {navLinks.map((link) => (
-                <li key={link.href} className="group relative">
-                  <Link
-                    href={link.href}
-                    className="inline-block text-sm text-muted-foreground hover:text-foreground font-medium transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-
-            <div className="hidden lg:block ml-auto flex items-center gap-4">
-              <Link
-                href="/login"
-                className="inline-block text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Entrar
-              </Link>
-              <a
-                href="/login"
-                className="relative group inline-block px-4 py-2 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden transition duration-300 rounded-control"
-              >
-                <div className="absolute top-0 right-full w-full h-full bg-accent transform group-hover:translate-x-full group-hover:scale-102 transition duration-500" />
-                <span className="relative">Crear cuenta</span>
-              </a>
-            </div>
+          <div className="hidden lg:block ml-auto flex items-center gap-3">
+            <Link
+              href="/login"
+              className="inline-block text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Entrar
+            </Link>
+            <a
+              href="/login"
+              className="relative group inline-block px-4 py-2 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden rounded-control"
+            >
+              <div className="absolute top-0 right-full w-full h-full bg-accent transform group-hover:translate-x-full group-hover:scale-102 transition duration-500" />
+              <span className="relative">Crear cuenta</span>
+            </a>
           </div>
         </div>
       </nav>
 
       {/* Hero content */}
-      <div className="relative container px-4 mx-auto">
-        <div className="max-w-xl xl:max-w-4xl">
-          <h1 className="font-bold text-5xl xs:text-6xl md:text-8xl xl:text-10xl text-foreground mb-8 sm:mb-14 leading-tight">
-            Deja de perseguir facturas en Excel.
-          </h1>
-
-          <div className="md:flex mb-14 max-w-xs sm:max-w-sm md:max-w-none">
-            <div className="mb-6 md:mb-0 md:mr-8 pt-3">
-              <svg
-                width="84"
-                height="10"
-                viewBox="0 0 84 10"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+      <div className="relative z-30 mx-auto max-w-5xl px-6 pt-20 sm:pt-32 lg:pt-40">
+        <div className="grid lg:grid-cols-2 lg:gap-12 lg:items-center">
+          {/* Texto a la izquierda */}
+          <div className="text-center lg:text-left">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary-soft bg-primary-soft text-primary text-xs font-medium uppercase tracking-wider mb-6 block lg:inline-block">
+              ERP para empresas chilenas
+            </span>
+            <h1 className="text-4xl xs:text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-foreground leading-tight mb-6 sm:mb-8">
+              Deja de perseguir facturas en Excel.
+            </h1>
+            <p className="text-base sm:text-lg text-foreground/90 leading-relaxed mb-10 sm:mb-12 max-w-2xl sm:max-w-none mx-auto lg:mx-0">
+              Registra compras, ventas y gastos en minutos, concilia el banco y
+              ten siempre claro quién pagó cada gasto. Montos en pesos, IVA al
+              19 %, todo en español.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
+              <Link
+                href="/login"
+                className="relative group inline-block w-full sm:w-auto py-4 px-8 text-white font-semibold rounded-control bg-accent overflow-hidden text-center sm:text-left"
               >
-                <path
-                  d="M1 4.25C0.585786 4.25 0.25 4.58579 0.25 5C0.25 5.41421 0.585786 5.75 1 5.75L1 4.25ZM84 5.00001L76.5 0.669879L76.5 9.33013L84 5.00001ZM1 5.75L77.25 5.75001L77.25 4.25001L1 4.25L1 5.75Z"
-                  fill="#181B1E"
-                />
-              </svg>
-            </div>
-            <div className="max-w-md">
-              <p className="md:text-xl text-foreground font-medium leading-relaxed">
-                Registra compras, ventas y gastos en minutos, concilia el banco y ten
-                siempre claro quién pagó cada gasto. Montos en pesos, IVA al 19 %,
-                todo en español.
-              </p>
+                <div className="absolute top-0 right-full w-full h-full bg-accent/80 transform group-hover:translate-x-full group-hover:scale-102 transition duration-500" />
+                <div className="relative flex items-center justify-center gap-2">
+                  <span>Entrar a mi cuenta</span>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M11.25 3.75L3.75 11.25"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M11.25 11.25L3.75 3.75"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+              </Link>
+              <Link
+                href="#que-hace"
+                className="w-full sm:w-auto py-4 px-8 text-sm font-semibold text-foreground border border-border bg-surface hover:bg-primary-soft hover:text-primary transition-colors text-center sm:text-left"
+              >
+                Ver de qué se trata
+              </Link>
             </div>
           </div>
 
-          <a
-            href="/login"
-            className="relative group inline-block w-full sm:w-auto py-4 px-6 mb-24 text-white font-semibold rounded-control bg-accent overflow-hidden"
-          >
-            <div className="absolute top-0 right-full w-full h-full bg-accent/80 transform group-hover:translate-x-full group-hover:scale-102 transition duration-500" />
-            <div className="relative flex items-center justify-center gap-2">
-              <span>Entrar a mi cuenta</span>
-              <svg
-                width="8"
-                height="12"
-                viewBox="0 0 8 12"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M6.83 5.29L2.59 1.05C2.49704 0.956274 2.38644 0.881879 2.26458 0.83111C2.14272 0.780342 2.01202 0.754204 1.88 0.754204C1.74799 0.754204 1.61729 0.780342 1.49543 0.83111C1.37357 0.881879 1.26297 0.956274 1.17 1.05C0.983753 1.23736 0.879211 1.49082 0.879211 1.755C0.879211 2.01919 0.983753 2.27264 1.17 2.46L4.71 6L1.17 9.54C0.983753 9.72736 0.879211 9.98082 0.879211 10.245C0.879211 10.5092 0.983753 10.7626 1.17 10.95C1.26344 11.0427 1.37426 11.116 1.4961 11.1658C1.61794 11.2155 1.7484 11.2408 1.88 11.24C2.01161 11.2408 2.14207 11.2155 2.26391 11.1658C2.38575 11.116 2.49656 11.0427 2.59 10.95L6.83 6.71C6.92373 6.61704 6.99813 6.50644 7.04889 6.38458C7.09966 6.26272 7.1258 6.13201 7.1258 6C7.1258 5.86799 7.09966 5.73728 7.04889 5.61543C6.99813 5.49357 6.92373 5.38297 6.83 5.29Z"
-                  fill="#FFF2EE"
-                />
-              </svg>
+          {/* Mockup a la derecha */}
+          <div className="hidden lg:block flex justify-center">
+            <div className="relative max-w-md">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-accent rounded-2xl blur opacity-30" />
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface/5 backdrop-blur-sm shadow-2xl">
+                <div className="flex border-b border-white/5 bg-white/5 p-3">
+                  <div className="flex w-24 shrink-0 flex-col gap-1.5 p-1">
+                    <span className="h-2 w-12 rounded-full bg-white/20" aria-hidden="true" />
+                    <span className="h-1.5 w-8 rounded-full bg-white/10" aria-hidden="true" />
+                    <span className="h-1.5 w-10 rounded-full bg-white/10" aria-hidden="true" />
+                    <span className="h-1.5 w-7 rounded-full bg-white/10" aria-hidden="true" />
+                  </div>
+                  <div className="flex-1 p-3">
+                    <span className="block h-2 w-20 rounded-full bg-white/10" aria-hidden="true" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 p-4">
+                  {[
+                    ["Por cobrar", "$2.480.000"],
+                    ["Por pagar", "$890.000"],
+                    ["Conciliar", "12"],
+                  ].map(([etiqueta, valor]) => (
+                    <div key={etiqueta} className="rounded-lg border border-white/5 bg-white/5 p-3">
+                      <p className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+                        {etiqueta}
+                      </p>
+                      <p className="tabular mt-1 text-sm font-semibold text-white">
+                        {valor}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="px-4 pb-4">
+                  <div className="overflow-hidden rounded-xl border border-white/5 bg-white/5">
+                    <div className="flex items-center gap-2 border-b border-white/5 bg-white/10 px-3 py-2 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                      <span className="flex-1">Documento</span>
+                      <span className="hidden sm:block flex-1">Proveedor</span>
+                      <span className="w-20 text-right">Monto</span>
+                      <span className="w-16 text-right">Estado</span>
+                    </div>
+                    {[
+                      ["Factura 872263", "Comercial del Sur", "$446.375", "Pagada"],
+                      ["Factura 1031", "Insumos Andes", "$119.000", "Pendiente"],
+                      ["Factura 5502", "Transportes Río", "$238.000", "Pagada"],
+                    ].map(([doc, prov, monto, estado]) => (
+                      <div
+                        key={String(doc)}
+                        className="flex items-center gap-2 border-b border-white/5 px-3 py-2 text-xs last:border-b-0"
+                      >
+                        <span className="flex-1 truncate text-white/90">{doc}</span>
+                        <span className="hidden sm:block truncate text-white/50">{prov}</span>
+                        <span className="tabular w-20 text-right text-white/70">{monto}</span>
+                        <span className="w-14 text-right">
+                          <span
+                            className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/10 text-white/70"
+                          >
+                            {estado}
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-          </a>
+          </div>
         </div>
 
-        <div className="lg:flex lg:items-start gap-12">
-          {/* Trusted by */}
-          <div className="max-w-2xl mb-20 lg:mb-0 lg:mr-32">
-            <span className="block mb-6 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Confían en nosotros
-            </span>
-            <div className="flex items-center -mx-4">
-              {[
-                "Empresa A",
-                "Empresa B",
-                "Empresa C",
-              ].map((nombre) => (
-                <div key={nombre} className="w-1/3 px-4 flex items-center justify-center h-16 opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-opacity duration-300">
-                  <span className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
-                    {nombre}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Stats card (reemplaza bg-folder.svg) */}
-          <div className="relative lg:-mt-20 w-full max-w-md">
-            <div className="absolute inset-0 bg-surface/40 backdrop-blur-sm rounded-3xl -z-10" />
-            <div className="relative flex flex-col">
-              <div className="max-w-xs pl-5 pt-10 pr-20 z-10">
-                <h3 className="text-xl font-semibold text-foreground">
-                  Construyendo el futuro juntos
-                </h3>
+        {/* Confían en nosotros */}
+        <div className="mt-16 sm:mt-20 flex justify-center">
+          <div className="flex items-center justify-center gap-8 sm:gap-12 opacity-60 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-500">
+            {["Empresa A", "Empresa B", "Empresa C"].map((nombre) => (
+              <div key={nombre} className="flex items-center justify-center h-12 min-w-[120px]">
+                <span className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
+                  {nombre}
+                </span>
               </div>
-              <div className="max-w-md -mt-10 px-5 xs:px-10 pb-12 pt-18 rounded-b-3xl border border-surface/30 bg-surface/30">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl font-semibold text-foreground">18k+</span>
-                    <span className="text-sm text-muted-foreground">Proyectos</span>
-                  </div>
-                  <div className="h-12 w-px bg-surface/30 mx-4" />
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl font-semibold text-foreground">20+</span>
-                    <span className="text-sm text-muted-foreground">Premios</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
@@ -225,10 +267,10 @@ export function HeroSection() {
       >
         <div
           onClick={() => setMobileNavOpen(false)}
-          className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
           aria-hidden="true"
         />
-        <nav className="absolute inset-y-0 left-0 z-30 w-full max-w-md bg-surface border-r border-border flex flex-col py-6 px-6 shadow-xl">
+        <nav className="absolute inset-y-0 left-0 z-30 w-full max-w-md bg-surface border-r border-border flex flex-col py-6 px-6 shadow-2xl">
           <div className="flex items-center justify-between mb-16">
             <Link href="/" className="mr-auto text-2xl font-medium leading-none">
               <span
