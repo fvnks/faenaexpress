@@ -96,8 +96,12 @@ export default function ContactoPage() {
 }
 
 function ContactoForm() {
+  async function handleSubmit(formData: FormData) {
+    await enviarContacto(undefined, formData);
+  }
+
   return (
-    <form action={enviarContacto} className="space-y-4">
+    <form action={handleSubmit} className="space-y-4">
       <div className={fieldClass}>
         <label htmlFor="contacto-nombre" className={labelClass}>
           Nombre
@@ -106,7 +110,7 @@ function ContactoForm() {
           id="contacto-nombre"
           name="nombre"
           type="text"
-          maxLength="100"
+          maxLength={100}
           className={controlClass}
           required
           placeholder="Tu nombre"
@@ -121,7 +125,7 @@ function ContactoForm() {
           id="contacto-email"
           name="email"
           type="email"
-          maxLength="200"
+          maxLength={200}
           className={controlClass}
           required
           placeholder="tú@empresa.cl"
@@ -136,7 +140,7 @@ function ContactoForm() {
           id="contacto-empresa"
           name="empresa"
           type="text"
-          maxLength="100"
+          maxLength={100}
           className={controlClass}
           required
           placeholder="Nombre de tu empresa"
@@ -150,8 +154,8 @@ function ContactoForm() {
         <textarea
           id="contacto-mensaje"
           name="mensaje"
-          rows="5"
-          maxLength="1000"
+          rows={5}
+          maxLength={1000}
           className={controlClass}
           required
           placeholder="Cuéntanos qué necesitas…"
