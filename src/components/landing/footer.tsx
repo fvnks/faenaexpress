@@ -20,8 +20,8 @@ export function LandingFooter() {
     <footer className="border-t border-border bg-surface">
       <div className="mx-auto max-w-5xl px-6 py-12 lg:py-16">
         {/* Top: eslogan + CTA */}
-        <div className="grid lg:grid-cols-3 gap-8 lg:gap-12 mb-12 lg:mb-16">
-          <div className="lg:col-span-2">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 lg:gap-0 mb-12 lg:mb-16">
+          <div className="lg:max-w-[60%]">
             <span
               aria-hidden="true"
               className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-400 text-[13px] font-bold text-black mb-3 block lg:mb-0"
@@ -38,7 +38,7 @@ export function LandingFooter() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 lg:ml-auto">
             <p className="text-sm font-semibold text-foreground uppercase tracking-wider">
               ¿Tienes preguntas?
             </p>
