@@ -3,10 +3,11 @@
 import Link from "next/link";
 
 import { FormattedDate } from "@/components/formatted-date";
+import { TerminalDeleteButton } from "@/app/pos/terminales/terminal-delete-button";
 import { requireContext } from "@/lib/auth";
 import { listPosTerminals } from "@/lib/pos";
 import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
-import { createPosTerminal, deletePosTerminal, updatePosTerminal } from "@/app/actions/pos";
+import { createPosTerminal, updatePosTerminal } from "@/app/actions/pos";
 
 export default async function PosTerminalesPage() {
   const ctx = await requireContext();
@@ -22,10 +23,6 @@ export default async function PosTerminalesPage() {
     const name = String(formData.get("name") ?? "").trim();
     const active = formData.get("active") === "on";
     await updatePosTerminal({ id, name, active });
-  }
-
-  async function onDelete(id: string) {
-    await deletePosTerminal({ id });
   }
 
   return (
@@ -128,21 +125,10 @@ export default async function PosTerminalesPage() {
                         >
                           Guardar
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (
-                              confirm(
-                                `¿Desactivar la terminal «${terminal.name}»? No se borrará el historial de cajas, pero no se podrá abrir una caja nueva en ella.`
-                              )
-                            ) {
-                              void onDelete(terminal.id);
-                            }
-                          }}
-                          className="rounded-control border border-border px-2 py-1 text-xs text-danger hover:bg-danger/5"
-                        >
-                          Desactivar
-                        </button>
+                        <TerminalDeleteButton
+                          terminalId={terminal.id}
+                          terminalName={terminal.name}
+                        />
                       </form>
                     </td>
                   </tr>

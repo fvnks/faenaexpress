@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { FormattedTime } from "@/components/formatted-time";
 import { requireContext } from "@/lib/auth";
 import { formatCLP, formatDate } from "@/lib/money";
 import {
@@ -12,14 +13,6 @@ import { listWarehouses } from "@/lib/inventory";
 import { cardClass, secondaryButtonClass } from "@/lib/ui";
 import { CloseSessionForm } from "@/app/pos/caja/close-session-form";
 import { OpenSessionForm } from "@/app/pos/caja/open-session-form";
-
-function time(date: Date) {
-  return date.toLocaleTimeString("es-CL", {
-    timeZone: "America/Santiago",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default async function PosCajaPage({
   searchParams,
@@ -74,7 +67,8 @@ export default async function PosCajaPage({
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Desde</dt>
                   <dd>
-                    {time(session.openedAt)} · {formatDate(session.openedAt)}
+                    <FormattedTime iso={session.openedAt.toISOString()} />{" "}
+                    · {formatDate(session.openedAt)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
@@ -140,7 +134,9 @@ export default async function PosCajaPage({
                   {sales.map((sale: { id: string; saleNumber: string; createdAt: Date; partner: { name: string } | null; total: number }) => (
                     <tr key={sale.id} className="tabular">
                       <td className="py-2 pr-3 font-mono text-xs">{sale.saleNumber}</td>
-                      <td className="py-2 pr-3 text-muted-foreground">{time(sale.createdAt)}</td>
+                      <td className="py-2 pr-3 text-muted-foreground">
+                        <FormattedTime iso={sale.createdAt.toISOString()} />
+                      </td>
                       <td className="py-2 pr-3">{sale.partner?.name ?? "Consumidor final"}</td>
                       <td className="py-2 pr-3 text-right">{formatCLP(sale.total)}</td>
                       <td className="py-2 text-right">
@@ -215,7 +211,7 @@ export default async function PosCajaPage({
                 return (
                 <tr key={row.id} className="tabular">
                   <td className="px-4 py-2">
-                    {formatDate(row.openedAt)} {time(row.openedAt)}
+                    {formatDate(row.openedAt)} <FormattedTime iso={row.openedAt.toISOString()} />
                   </td>
                   <td className="px-4 py-2">{row.openedByName}</td>
                   <td className="px-4 py-2 text-muted-foreground">

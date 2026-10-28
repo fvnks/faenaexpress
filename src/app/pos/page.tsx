@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 
+import { FormattedTime } from "@/components/formatted-time";
 import { Chart01 } from "@/components/ui/studio-blocks/chart-01";
 import { Kpi01 } from "@/components/ui/studio-blocks/kpi-01";
 import { Kpi04 } from "@/components/ui/studio-blocks/kpi-04";
@@ -64,7 +65,7 @@ export default async function PosHomePage() {
           <div>
             <p className="text-sm font-semibold text-foreground">Caja abierta</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Desde {session.openedAt.toLocaleTimeString("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit" })} · Monto inicial{" "}
+              Desde <FormattedTime iso={session.openedAt.toISOString()} /> · Monto inicial{" "}
               <span className="tabular">{formatCLP(session.openingAmount)}</span>
             </p>
           </div>
