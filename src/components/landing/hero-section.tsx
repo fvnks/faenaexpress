@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import GradientASCII from "@/components/ui/GradientASCII";
+import GradientASCIIRaw from "@/components/ui/GradientASCII.jsx";
 import { primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
+
+const GradientASCII = GradientASCIIRaw as React.FC<Record<string, unknown>>;
 
 export function HeroSection() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
