@@ -57,7 +57,10 @@ export function HeroSection() {
       <nav className="relative z-30 py-4 md:py-6">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <Link href="/" className="inline-block text-lg font-bold tracking-tight">
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-lg font-bold tracking-tight"
+            >
               <span
                 aria-hidden="true"
                 className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-400 text-[13px] font-bold text-black"
@@ -105,7 +108,7 @@ export function HeroSection() {
           <div className="hidden lg:block ml-auto flex items-center gap-3">
             <Link
               href="/login"
-              className="inline-block text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-block px-4 py-2 text-sm font-semibold text-muted-foreground border border-border bg-surface rounded-control hover:bg-primary-soft hover:text-primary transition-colors"
             >
               Entrar
             </Link>
