@@ -746,15 +746,25 @@ dropdown nuevo debe seguirlo.
     detalle de la venta.
   - **Alerta de stock bajo en catálogo** (`/pos/productos`): banner superior con
     conteo de productos sin stock y con stock bajo el mínimo.
+  - **Modo offline del POS**:
+    - IndexedDB para almacenar ventas pendientes sin conexión
+    - Hook `useOfflineSales` para detectar estado de conexión y sincronizar automáticamente
+    - Indicador `ConnectionStatus` en el nav del POS con contador de pendientes
+    - Página `/pos/sincronizar` para listar, sincronizar y eliminar ventas pendientes
+    - Service Worker (`public/sw.js`) para cachear assets del POS
+    - Al abrir una venta sin conexión, se guarda localmente y se sincroniza al recuperar internet
 - **POS Fase 2+ (pendiente)**:
   - Notificaciones push/email para alertas de stock mínimo (ahora solo hay banner
     visual en el catálogo).
   - Cortes de caja totalmente independientes por terminal (las sesiones siguen
     siendo por usuario; el historial filtra por terminal pero no restringe por
     usuario).
-- **POS Fase 3+ (diferenciación)**: modo offline con sincronización al volver, integración con
-  terminales de pago (TPV), generación de etiquetas de código de barras, API para e-commerce,
-  pantalla de cocina (KDS) para restaurantes.
+- **POS Fase 3 (en progreso)**:
+  - ✅ Modo offline con sincronización al volver (implementado)
+  - Integración con terminales de pago (TPV) - Transbank/Webpay
+  - Generación de etiquetas de código de barras para productos
+  - API para e-commerce (productos, stock, pedidos)
+  - Pantalla de cocina (KDS) para restaurantes
 - **XML de compras**: reutilizar el parser para DTEs recibidos de proveedores (emisor = proveedor).
 - Adjuntar XML/PDF a cada documento (requiere almacenamiento de archivos).
 - OAuth (Google/Microsoft) y recuperación de contraseña (requiere servicio de email) — hoy el
