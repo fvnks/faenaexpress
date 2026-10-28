@@ -54,8 +54,8 @@ export function HeroSection() {
       </div>
 
       {/* Navbar */}
-      <nav className="relative z-30 py-6">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6">
+      <nav className="relative z-30 py-4 md:py-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Link href="/" className="inline-block text-lg font-bold tracking-tight">
               <span
@@ -68,7 +68,7 @@ export function HeroSection() {
             </Link>
           </div>
 
-          <div className="lg:hidden ml-auto">
+          <div className="lg:hidden ml-2">
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
               className="flex w-10 h-10 items-center justify-center rounded-control border border-border bg-surface"
@@ -89,7 +89,7 @@ export function HeroSection() {
             </button>
           </div>
 
-          <ul className="hidden lg:flex ml-14 lg:w-auto lg:space-x-12">
+          <ul className="hidden lg:flex ml-8 lg:w-auto lg:space-x-8">
             {navLinks.map((link) => (
               <li key={link.href} className="group relative">
                 <Link
@@ -128,7 +128,7 @@ export function HeroSection() {
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary-soft bg-primary-soft text-primary text-xs font-medium uppercase tracking-wider mb-6 block lg:inline-block">
               ERP para empresas chilenas
             </span>
-            <h1 className="text-4xl xs:text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-foreground leading-tight mb-6 sm:mb-8">
+            <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-6xl font-bold text-foreground leading-tight mb-6 sm:mb-8">
               Deja de perseguir facturas en Excel.
             </h1>
             <p className="text-base sm:text-lg text-foreground/90 leading-relaxed mb-10 sm:mb-12 max-w-2xl sm:max-w-none mx-auto lg:mx-0">
@@ -141,7 +141,7 @@ export function HeroSection() {
                 href="/login"
                 className="relative group inline-block w-full sm:w-auto py-4 px-8 text-white font-semibold rounded-control bg-accent overflow-hidden text-center sm:text-left"
               >
-                <div className="absolute top-0 right-full w-full h-full bg-accent/80 transform group-hover:translate-x-full group-hover:scale-102 transition duration-500" />
+                <div className="absolute inset-0 bg-accent transform translate-x-full group-hover:translate-x-0 transition duration-500" />
                 <div className="relative flex items-center justify-center gap-2">
                   <span>Entrar a mi cuenta</span>
                   <svg
@@ -170,9 +170,12 @@ export function HeroSection() {
               </Link>
               <Link
                 href="#que-hace"
-                className="w-full sm:w-auto py-4 px-8 text-sm font-semibold text-foreground border border-border bg-surface hover:bg-primary-soft hover:text-primary transition-colors text-center sm:text-left"
+                className="relative group inline-block w-full sm:w-auto py-4 px-8 text-sm font-semibold text-foreground border border-border bg-surface overflow-hidden text-center sm:text-left"
               >
-                Ver de qué se trata
+                <div className="absolute inset-0 bg-primary-soft transform translate-x-full group-hover:translate-x-0 transition duration-500" />
+                <div className="relative flex items-center justify-center gap-2">
+                  <span>Ver de qué se trata</span>
+                </div>
               </Link>
             </div>
           </div>
@@ -180,8 +183,8 @@ export function HeroSection() {
           {/* Mockup a la derecha */}
           <div className="hidden lg:block flex justify-center">
             <div className="relative max-w-md">
-              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-accent rounded-2xl blur opacity-30" />
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface/5 backdrop-blur-sm shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-2xl blur opacity-50" />
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface/5 backdrop-blur-sm shadow-xl">
                 <div className="flex border-b border-white/5 bg-white/5 p-3">
                   <div className="flex w-24 shrink-0 flex-col gap-1.5 p-1">
                     <span className="h-2 w-12 rounded-full bg-white/20" aria-hidden="true" />
@@ -244,19 +247,6 @@ export function HeroSection() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Confían en nosotros */}
-        <div className="mt-16 sm:mt-20 flex justify-center">
-          <div className="flex items-center justify-center gap-8 sm:gap-12 opacity-60 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-500">
-            {["Empresa A", "Empresa B", "Empresa C"].map((nombre) => (
-              <div key={nombre} className="flex items-center justify-center h-12 min-w-[120px]">
-                <span className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
-                  {nombre}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       </div>
