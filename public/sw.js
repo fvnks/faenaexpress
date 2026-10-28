@@ -6,7 +6,7 @@
  * IndexedDB y se sincronizan al recuperar la conexión.
  */
 
-const CACHE_NAME = "pos-offline-v1";
+const CACHE_NAME = "pos-offline-v2";
 const ASSETS_TO_CACHE = [
   "/pos",
   "/pos/venta",
@@ -17,12 +17,21 @@ const ASSETS_TO_CACHE = [
   "/pos/credito",
   "/pos/terminales",
   "/pos/reportes",
+  "/pos/kds",
 ];
 
-// Instalar: cachear assets esenciales
+// Instalar: cachear assets esenciales (sin fallar si alguno no está disponible)
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)),
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.all(
+        ASSETS_TO_CACHE.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn(`SW: No se pudo cachear ${url}`, err);
+          })
+        )
+      );
+    })
   );
 });
 
@@ -33,9 +42,9 @@ self.addEventListener("activate", (event) => {
       return Promise.all(
         keys
           .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key)),
+          .map((key) => caches.delete(key))
       );
-    }),
+    })
   );
 });
 
@@ -59,7 +68,9 @@ self.addEventListener("fetch", (event) => {
         if (response.ok && request.method === "GET") {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
+            cache.put(request, responseClone).catch(() => {
+              // Ignorar errores de caché
+            });
           });
         }
         return response;
