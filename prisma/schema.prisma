@@ -1118,6 +1118,7 @@ model Company {
   posTpvTransaction     PosTpvTransaction[]
   ecommerceApiKeys      EcommerceApiKey[]
   ecommerceOrders       EcommerceOrder[]
+  posKdsOrders          PosKdsOrder[]
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
@@ -1530,6 +1531,7 @@ model Product {
   lots          ProductLot[]
   posSaleItems PosSaleItem[]
   ecommerceOrderItems EcommerceOrderItem[]
+  posKdsOrderItems PosKdsOrderItem[]
 
   @@unique([companyId, sku])
   @@index([companyId, name])
@@ -2885,6 +2887,7 @@ model PosSale {
   relatedReturns PosSale[] @relation("PosDevolucion")
   dtes PosDte[]
   posTpvTransaction PosTpvTransaction[]
+  posKdsOrders PosKdsOrder[]
 
   @@unique([companyId, saleNumber])
   @@index([companyId, createdAt])
@@ -3122,4 +3125,64 @@ model EcommerceOrderItem {
 
   @@index([orderId])
   @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// POS Kitchen Display System (KDS): pantalla de cocina para restaurantes.
+// Las órdenes de cocina se pueden crear desde una venta POS o directamente
+// desde la pantalla de cocina. Cada orden tiene ítems con estados individuales
+// (pendiente, en preparación, listo para servir, servido).
+// ---------------------------------------------------------------------------
+model PosKdsOrder {
+  id          String   @id @default(cuid())
+  companyId   String
+  saleId      String?          // venta POS que originó esta orden (opcional)
+  tableNumber String?          // número de mesa (ej: "Mesa 5", "Barra 1")
+  customerName String?         // nombre del cliente (opcional)
+  status      PosKdsStatus     @default(PENDING) // PENDING, PREPARING, READY, SERVED, CANCELLED
+  notes       String?          // notas del mesero o de cocina
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  startedAt   DateTime?        // cuándo empezó a prepararse
+  completedAt DateTime?        // cuándo se marcó como servido
+
+  company Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sale    PosSale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  items   PosKdsOrderItem[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+}
+
+model PosKdsOrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  productId  String? // referencia al producto del catálogo POS (opcional)
+  productName String  // nombre del plato capturado al momento de la orden
+  quantity   Int
+  unitPrice  Int?      // precio unitario en CLP (opcional)
+  notes      String?   // notas especiales de preparación (ej: "sin cebolla")
+  status     PosKdsItemStatus @default(PENDING) // PENDING, PREPARING, READY, CANCELLED
+
+  order   PosKdsOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+enum PosKdsStatus {
+  PENDING   // pendiente (nuevo, no visto por cocina)
+  PREPARING // en preparación
+  READY     // listo para servir
+  SERVED    // servido al cliente
+  CANCELLED // cancelado
+}
+
+enum PosKdsItemStatus {
+  PENDING   // pendiente
+  PREPARING // en preparación
+  READY     // listo
+  CANCELLED // cancelado
 }

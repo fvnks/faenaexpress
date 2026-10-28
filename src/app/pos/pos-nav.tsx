@@ -17,6 +17,7 @@ const LINKS = [
   { href: "/pos/sincronizar", label: "Sincronizar" },
   { href: "/pos/tpv/config", label: "TPV" },
   { href: "/pos/etiquetas", label: "Etiquetas" },
+  { href: "/pos/kds", label: "Cocina (KDS)" },
 ];
 
 export function PosNav() {

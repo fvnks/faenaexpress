@@ -565,3 +565,64 @@ export async function posSalesReport(
 
   return { sales: reportSales, totals, byProduct, byCashier, byMethod };
 }
+
+/**
+ * Órdenes de cocina pendientes y en preparación (para la pantalla KDS).
+ * Solo incluye estados PENDING y PREPARING.
+ */
+export async function listPosKdsOrders(companyId: string) {
+  return db.posKdsOrder.findMany({
+    where: {
+      companyId,
+      status: { in: ["PENDING", "PREPARING"] },
+    },
+    include: {
+      items: { orderBy: { id: "asc" } },
+      sale: { select: { saleNumber: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * Órdenes de cocina completadas (historial del día).
+ * Incluye estados SERVED y CANCELLED.
+ */
+export async function listPosKdsOrdersHistory(companyId: string, take = 50) {
+  return db.posKdsOrder.findMany({
+    where: {
+      companyId,
+      status: { in: ["SERVED", "CANCELLED"] },
+    },
+    include: {
+      items: { orderBy: { id: "asc" } },
+      sale: { select: { saleNumber: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+    take,
+  });
+}
+
+/**
+ * Contador de órdenes pendientes (para badge en el nav).
+ */
+export async function countPosKdsPending(companyId: string) {
+  return db.posKdsOrder.count({
+    where: {
+      companyId,
+      status: "PENDING",
+    },
+  });
+}
+
+/**
+ * Contador de órdenes en preparación.
+ */
+export async function countPosKdsPreparing(companyId: string) {
+  return db.posKdsOrder.count({
+    where: {
+      companyId,
+      status: "PREPARING",
+    },
+  });
+}
