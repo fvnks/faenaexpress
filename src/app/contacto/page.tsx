@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import Link from "next/link";
+
 import { ContactoSection } from "@/components/landing/contacto-section";
 import { LandingFooter } from "@/components/landing/footer";
 
