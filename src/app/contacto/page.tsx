@@ -96,12 +96,8 @@ export default function ContactoPage() {
 }
 
 function ContactoForm() {
-  async function handleSubmit(formData: FormData) {
-    await enviarContacto(undefined, formData);
-  }
-
   return (
-    <form action={handleSubmit} className="space-y-4">
+    <form action={enviarContacto} className="space-y-4">
       <div className={fieldClass}>
         <label htmlFor="contacto-nombre" className={labelClass}>
           Nombre

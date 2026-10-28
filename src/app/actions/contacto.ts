@@ -21,7 +21,6 @@ export type ContactoState = {
 };
 
 export async function enviarContacto(
-  _prevState: ContactoState,
   formData: FormData,
 ): Promise<ContactoState> {
   const raw = {
