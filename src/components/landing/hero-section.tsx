@@ -105,8 +105,8 @@ export function HeroSection() {
         <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-accent-soft rounded-full blur-[120px] opacity-40" />
       </div>
       {/* GradientASCII animado sobre el fondo */}
-      <div className="absolute inset-0 z-20">
-        <div className="w-full h-full">
+      <div className="absolute inset-0 z-20 h-[700px] w-full">
+        <div className="h-full w-full">
           <GradientASCII
             colors={["#1B5FA8", "#4A9FD8", "#8A5408", "#E0A94A"]}
             shape="horizon"
@@ -185,17 +185,17 @@ export function HeroSection() {
             ))}
           </ul>
 
-          <div className="hidden lg:block ml-auto flex items-center gap-6">
+          <div className="hidden lg:block ml-auto flex items-center gap-8">
             <Link
               href="/login"
-              className="relative group inline-block px-4 py-2 text-sm font-semibold text-muted-foreground border border-border bg-surface rounded-control overflow-hidden"
+              className="relative group inline-block px-5 py-2.5 text-sm font-semibold text-muted-foreground border border-border bg-surface rounded-control overflow-hidden"
             >
               <div className="absolute inset-0 bg-primary-soft transform translate-x-full group-hover:translate-x-0 transition duration-500" />
               <span className="relative">Entrar</span>
             </Link>
             <a
               href="/login"
-              className="relative group inline-block px-4 py-2 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden rounded-control"
+              className="relative group inline-block px-5 py-2.5 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden rounded-control"
             >
               <div className="absolute inset-0 bg-accent transform translate-x-full group-hover:translate-x-0 transition duration-500" />
               <span className="relative">Crear cuenta</span>
