@@ -764,7 +764,8 @@ dropdown nuevo debe seguirlo.
   - ✅ Integración con terminales de pago (TPV) - Transbank Webpay Plus (implementado)
   - ✅ Generación de etiquetas de código de barras para productos (implementado)
   - ✅ API para e-commerce: GET /api/ecommerce/products, GET /api/ecommerce/products/[id], POST/GET /api/ecommerce/orders, GET /api/ecommerce/orders/[id] (implementado)
-  - Pantalla de cocina (KDS) para restaurantes
+  - ✅ API para e-commerce: GET /api/ecommerce/products, GET /api/ecommerce/products/[id], POST/GET /api/ecommerce/orders, GET /api/ecommerce/orders/[id] (implementado)
+  - ✅ Pantalla de cocina (KDS) para restaurantes (implementado): /pos/kds con órdenes pendientes/en preparación, cambio de estado de ítems individuales, cambio de estado de orden completa, historial de órdenes servidas
 - **XML de compras**: reutilizar el parser para DTEs recibidos de proveedores (emisor = proveedor).
 - Adjuntar XML/PDF a cada documento (requiere almacenamiento de archivos).
 - OAuth (Google/Microsoft) y recuperación de contraseña (requiere servicio de email) — hoy el
