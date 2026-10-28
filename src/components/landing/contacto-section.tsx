@@ -9,7 +9,7 @@ import { primaryButtonClass, controlClass, fieldClass, labelClass } from "@/lib/
 export function ContactoSection() {
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
 
-  async function handleSubmit(event: FormDataEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("sending");
 
@@ -105,7 +105,7 @@ export function ContactoSection() {
               <textarea
                 id="contacto-mensaje"
                 name="mensaje"
-                rows="5"
+                rows={5}
                 maxLength={1000}
                 className={controlClass}
                 required
