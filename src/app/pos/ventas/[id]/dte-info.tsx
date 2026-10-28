@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 
-import { reintentarDteAction, type EmitirDteState } from "@/app/actions/pos-sii-emit";
+import { reintentarDteAction } from "@/app/actions/pos-sii-emit";
 import { SubmitButton } from "@/components/submit-button";
 import { secondaryButtonClass } from "@/lib/ui";
 
@@ -36,16 +36,19 @@ type DteInfoProps = {
 
 export function DteInfo({ saleId, dtes }: DteInfoProps) {
   const dte = dtes[0];
-  const [state, formAction] = useActionState<EmitirDteState, FormData>(
-    reintentarDteAction,
-    undefined,
-  );
+  const [state, setState] = useState<{ error?: string; ok?: boolean } | undefined>(undefined);
   const [retrying, setRetrying] = useState(false);
 
-  const puedeReintentar =
-    dte &&
-    (dte.estado === "RECHAZADO" || dte.estado === "ERROR_ENVIO") &&
-    !retrying;
+  async function handleSubmit(formData: FormData) {
+    setState(undefined);
+    setRetrying(true);
+    const result = await reintentarDteAction(undefined, formData);
+    setState(result);
+    setRetrying(false);
+    if (result?.ok) {
+      // Trigger a refresh by toggling a state - parent will handle revalidation
+    }
+  }
 
   if (!dte) {
     return (
@@ -92,32 +95,18 @@ export function DteInfo({ saleId, dtes }: DteInfoProps) {
           {dte.xmlRespuesta.slice(0, 200)}
         </p>
       ) : null}
-      {puedeReintentar ? (
-        <form
-          action={formAction}
-          onSubmit={(e) => {
-            e.preventDefault();
-            setRetrying(true);
-          }}
-          className="mt-2 flex flex-col gap-2"
-        >
+      {dte.estado === "RECHAZADO" || dte.estado === "ERROR_ENVIO" ? (
+        <form action={handleSubmit} className="mt-2 flex flex-col gap-2">
           <input type="hidden" name="saleId" value={saleId} />
           <SubmitButton
-            disabled={retrying || state?.ok}
+            disabled={retrying}
             pendingLabel="Reenviando…"
             className={secondaryButtonClass + " text-xs px-3 py-1"}
           >
             {retrying ? "Reenviando…" : "Reintentar envío al SII"}
           </SubmitButton>
           {state?.error ? (
-            <p role="alert" className="text-xs text-danger">
-              {state.error}
-            </p>
-          ) : null}
-          {state?.ok ? (
-            <p className="text-xs text-success">
-              DTE reenviado correctamente.
-            </p>
+            <p role="alert" className="text-xs text-danger">{state.error}</p>
           ) : null}
         </form>
       ) : null}

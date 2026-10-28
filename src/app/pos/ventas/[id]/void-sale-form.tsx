@@ -1,21 +1,22 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
 
 import { voidPosSale, type PosActionState } from "@/app/actions/pos";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { controlClass, dangerButtonClass, fieldClass, labelClass } from "@/lib/ui";
 
-/**
- * Anula un ticket del mismo turno: el motivo se escribe en la página y el
- * ConfirmSubmit pide confirmación antes de enviar. Queda registrado en la
- * nota del ticket y en la auditoría.
- */
 export function VoidSaleForm({ saleId, saleNumber }: { saleId: string; saleNumber: string }) {
-  const [state, formAction] = useActionState<PosActionState, FormData>(voidPosSale, undefined);
+  const [state, setState] = useState<PosActionState>(undefined);
+
+  async function handleSubmit(formData: FormData) {
+    setState(undefined);
+    const result = await voidPosSale(undefined, formData);
+    setState(result);
+  }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form action={handleSubmit} className="flex flex-col gap-3">
       <input type="hidden" name="saleId" value={saleId} />
 
       <div className={fieldClass}>

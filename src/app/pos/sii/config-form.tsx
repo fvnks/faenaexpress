@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
 
 import { upsertPosCaf, deletePosCafAction, togglePosSiiEnabledAction } from "@/app/actions/pos-sii-caf";
 import { SubmitButton } from "@/components/submit-button";
@@ -19,11 +19,29 @@ type Config = {
 } | null;
 
 export function PosSiiConfigForm({ config }: { config: Config }) {
-  const [state, formAction] = useActionState(upsertPosCaf, undefined);
-  const [deleteState, deleteAction] = useActionState(deletePosCafAction, undefined);
-  const [toggleState, toggleAction] = useActionState(togglePosSiiEnabledAction, undefined);
+  const [state, setState] = useState<{ error?: string; ok?: boolean } | undefined>(undefined);
+  const [deleteState, setDeleteState] = useState<{ error?: string; ok?: boolean } | undefined>(undefined);
+  const [toggleState, setToggleState] = useState<{ error?: string; ok?: boolean } | undefined>(undefined);
 
   const isExpired = config?.certificadoVence ? new Date(config.certificadoVence) < new Date() : false;
+
+  async function handleSaveConfig(formData: FormData) {
+    setState(undefined);
+    const result = await upsertPosCaf(undefined, formData);
+    setState(result);
+  }
+
+  async function handleDeleteCert(formData: FormData) {
+    setDeleteState(undefined);
+    const result = await deletePosCafAction(undefined, formData);
+    setDeleteState(result);
+  }
+
+  async function handleToggleConfig(formData: FormData) {
+    setToggleState(undefined);
+    const result = await togglePosSiiEnabledAction(undefined, formData);
+    setToggleState(result);
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -50,12 +68,12 @@ export function PosSiiConfigForm({ config }: { config: Config }) {
             </div>
           </div>
           <div className="mt-3 flex gap-2">
-            <form action={deleteAction} className="w-full">
+            <form action={handleDeleteCert} className="w-full">
               <SubmitButton className={dangerButtonClass} pendingLabel="Eliminando…">
                 Eliminar certificado
               </SubmitButton>
             </form>
-            <form action={formAction} className="w-full">
+            <form action={handleSaveConfig} className="w-full">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="file" name="certificadoPfx" accept=".pfx,.p12" className="sr-only" id="pfx-file" onChange={(e) => e.currentTarget.form?.requestSubmit()} />
                 <button type="button" onClick={() => document.getElementById("pfx-file")?.click()} className={secondaryButtonClass}>
@@ -66,7 +84,7 @@ export function PosSiiConfigForm({ config }: { config: Config }) {
           </div>
         </div>
       ) : (
-        <form action={formAction} className="flex flex-col gap-4">
+        <form action={handleSaveConfig} className="flex flex-col gap-4">
           <div className={fieldClass}>
             <label htmlFor="pos-pfx-file" className={labelClass}>
               Archivo .pfx / .p12
@@ -127,7 +145,7 @@ export function PosSiiConfigForm({ config }: { config: Config }) {
           Complementan los datos de la empresa para la facturación electrónica.
         </p>
 
-        <form action={formAction} className="mt-3 flex flex-col gap-4">
+        <form action={handleSaveConfig} className="mt-3 flex flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className={fieldClass}>
               <label htmlFor="pos-resolucion" className={labelClass}>
@@ -193,7 +211,7 @@ export function PosSiiConfigForm({ config }: { config: Config }) {
           Activa la facturación electrónica en el POS. Requiere certificado, resolución y acteco.
         </p>
 
-        <form action={toggleAction} className="mt-3">
+        <form action={handleToggleConfig} className="mt-3">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -223,7 +241,7 @@ export function PosSiiConfigForm({ config }: { config: Config }) {
           electrónicas). Este valor se guarda en la empresa y se puede cambiar
           en cualquier momento desde esta pantalla.
         </p>
-        <form action={formAction} className="mt-3 flex flex-col gap-3">
+        <form action={handleSaveConfig} className="mt-3 flex flex-col gap-3">
           <div className={fieldClass}>
             <label htmlFor="pos-sii-entorno" className={labelClass}>
               Entorno del SII

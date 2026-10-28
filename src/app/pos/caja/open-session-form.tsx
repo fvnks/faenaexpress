@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
 
 import { openPosSession, type PosActionState } from "@/app/actions/pos";
 import { SubmitButton } from "@/components/submit-button";
@@ -13,10 +13,16 @@ export function OpenSessionForm({
   terminals: { id: string; name: string }[];
   warehouses: { id: string; name: string }[];
 }) {
-  const [state, formAction] = useActionState<PosActionState, FormData>(openPosSession, undefined);
+  const [state, setState] = useState<PosActionState>(undefined);
+
+  async function handleSubmit(formData: FormData) {
+    setState(undefined);
+    const result = await openPosSession(undefined, formData);
+    setState(result);
+  }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={handleSubmit} className="flex flex-col gap-4">
       <div className={fieldClass}>
         <label htmlFor="pos-terminal" className={labelClass}>
           Terminal (opcional)

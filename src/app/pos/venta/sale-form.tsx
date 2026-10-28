@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState, useTransition, useEffect } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
 
-import { createPosPartner, createPosSale, type PosActionState } from "@/app/actions/pos";
+import { createPosSale, createPosPartner, type PosActionState, type PosPartnerResult } from "@/app/actions/pos";
 import { createPosSaleForTpvAction, type TpvActionState } from "@/app/actions/tpv";
 import { SelectDropdown } from "@/components/select-dropdown";
 import { SubmitButton } from "@/components/submit-button";
@@ -96,51 +96,10 @@ export function PosSaleForm({
   ivaRate: number;
   sessionOpenedAt: string;
 }) {
-  const [state, formAction] = useActionState<PosActionState, FormData>(
-    createPosSale,
-    undefined,
-  );
+  const [state, setState] = useState<PosActionState>(undefined);
+  const [tpvState, setTpvState] = useState<TpvActionState>(undefined);
   const { isOnline, pendingCount, syncing } = useOfflineSales();
   const [offlineSaved, setOfflineSaved] = useState(false);
-  const [tpvState, tpvFormAction] = useActionState<TpvActionState, FormData>(
-    createPosSaleForTpvAction,
-    undefined,
-  );
-
-  // Redirigir a Transbank cuando la acción TPV devuelve una URL
-  useEffect(() => {
-    if (tpvState?.url) {
-      window.location.href = tpvState.url;
-    }
-  }, [tpvState?.url]);
-
-  /**
-   * Wrapper del envío de venta: si hay conexión usa la Server Action normal;
-   * si no, guarda la venta localmente para sincronizar después.
-   */
-  async function handleSubmit(formData: FormData) {
-    if (!isOnline) {
-      const payloadRaw = formData.get("payload");
-      if (!payloadRaw) return;
-      try {
-        await saveOfflineSale(JSON.parse(String(payloadRaw)));
-        setOfflineSaved(true);
-        // Limpiar el carrito tras guardar offline
-        setLines([]);
-        setPartnerId("");
-        setPartnerName("");
-        setPartnerRut(null);
-        setPartnerQuery("");
-        setNotes("");
-        setPayments([{ key: nextPaymentKey(), method: methods[0] ?? "Efectivo", amount: "", touched: false, reference: "" }]);
-      } catch {
-        setOfflineSaved(false);
-      }
-      return;
-    }
-    await formAction(formData);
-  }
-
   const [lines, setLines] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
   const [partnerId, setPartnerId] = useState("");
@@ -155,7 +114,7 @@ export function PosSaleForm({
   const [newPartnerName, setNewPartnerName] = useState("");
   const [newPartnerRut, setNewPartnerRut] = useState("");
   const [partnerError, setPartnerError] = useState<string | null>(null);
-  const [savingPartner, startSavingPartner] = useTransition();
+  const [savingPartner, setSavingPartner] = useState(false);
 
   const defaultMethod = methods[0] ?? "Efectivo";
   const [payments, setPayments] = useState<PaymentLine[]>([
@@ -285,9 +244,6 @@ export function PosSaleForm({
     setPayments((prev) =>
       prev.map((payment) => {
         if (payment.key !== key) return payment;
-        // Solo editar el monto fija el pago como tocado: cambiar el método o
-        // escribir la referencia no debe congelar el monto, que mientras tanto
-        // sigue al total de la venta.
         return { ...payment, ...patch, touched: patch.amount !== undefined ? true : payment.touched };
       }),
     );
@@ -323,8 +279,9 @@ export function PosSaleForm({
       setPartnerError("Ingresa el nombre o el RUT del cliente.");
       return;
     }
-    startSavingPartner(async () => {
-      const result = await createPosPartner({ name: newPartnerName, rut: newPartnerRut });
+    setSavingPartner(true);
+    createPosPartner({ name: newPartnerName, rut: newPartnerRut }).then((result: PosPartnerResult) => {
+      setSavingPartner(false);
       if (result.error) {
         setPartnerError(result.error);
         return;
@@ -369,6 +326,64 @@ export function PosSaleForm({
     overStock.length === 0 &&
     remaining === 0;
 
+  /**
+   * Wrapper del envío de venta: si hay conexión usa la Server Action normal;
+   * si no, guarda la venta localmente para sincronizar después.
+   */
+  async function handleSubmit(formData: FormData) {
+    if (!isOnline) {
+      const payloadRaw = formData.get("payload");
+      if (!payloadRaw) return;
+      try {
+        await saveOfflineSale(JSON.parse(String(payloadRaw)));
+        setOfflineSaved(true);
+        // Limpiar el carrito tras guardar offline
+        setLines([]);
+        setPartnerId("");
+        setPartnerName("");
+        setPartnerRut(null);
+        setPartnerQuery("");
+        setNotes("");
+        setPayments([{ key: nextPaymentKey(), method: methods[0] ?? "Efectivo", amount: "", touched: false, reference: "" }]);
+      } catch {
+        setOfflineSaved(false);
+      }
+      return;
+    }
+    setState(undefined);
+    try {
+      const result = await createPosSale(undefined, formData);
+      setState(result);
+      if (result?.ok) {
+        setLines([]);
+        setPartnerId("");
+        setPartnerName("");
+        setPartnerRut(null);
+        setPartnerQuery("");
+        setNotes("");
+        setPayments([{ key: nextPaymentKey(), method: methods[0] ?? "Efectivo", amount: "", touched: false, reference: "" }]);
+      }
+    } catch {
+      setState({ error: "No se pudo registrar la venta. Intenta de nuevo." });
+    }
+  }
+
+  /**
+   * Emisión de DTE al SII al finalizar la venta (si está configurado).
+   */
+  async function handleTPVSubmit(formData: FormData) {
+    setTpvState(undefined);
+    try {
+      const result = await createPosSaleForTpvAction(undefined, formData);
+      setTpvState(result);
+      if (result?.ok && result?.url) {
+        window.location.href = result.url;
+      }
+    } catch {
+      setTpvState({ error: "No se pudo iniciar el pago con tarjeta. Intenta de nuevo." });
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -404,11 +419,11 @@ export function PosSaleForm({
           />
 
           {filteredProducts.length === 0 ? (
-            <p className="mt-6 text-center text-sm text-muted-foreground">
+            <div className="mt-6 text-center text-sm text-muted-foreground">
               {products.length === 0
                 ? "No hay productos con precio de venta. Configúralos en Inventario."
                 : "Ningún producto coincide con la búsqueda."}
-            </p>
+            </div>
           ) : (
             <div className="mt-3 grid max-h-[60vh] gap-2 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
               {filteredProducts.map((product) => {
@@ -431,7 +446,7 @@ export function PosSaleForm({
                       <span className="tabular text-base font-semibold text-foreground">
                         {formatCLP(product.priceNet)}
                       </span>
-                      <span className="tabular truncate text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground truncate">
                         {product.tracksStock
                           ? agotado
                             ? "Sin stock"
@@ -585,7 +600,9 @@ export function PosSaleForm({
                     >
                       <span className="truncate font-medium">{partner.name}</span>
                       {partner.rut ? (
-                        <span className="truncate text-xs text-muted-foreground">{partner.rut}</span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {partner.rut}
+                        </span>
                       ) : null}
                     </button>
                   </li>
@@ -641,8 +658,7 @@ export function PosSaleForm({
                           step="0.001"
                           value={line.quantity}
                           onChange={(event) =>
-                            updateLine(line.productId, { quantity: event.target.value })
-                          }
+                            updateLine(line.productId, { quantity: event.target.value })}
                           onFocus={(event) => event.currentTarget.select()}
                           aria-label={`Cantidad de ${line.name}`}
                           className={controlClass + " tabular w-20 px-2 py-1 text-right"}
@@ -657,11 +673,9 @@ export function PosSaleForm({
                           step="1"
                           value={line.discount}
                           onChange={(event) =>
-                            updateLine(line.productId, { discount: event.target.value })
-                          }
+                            updateLine(line.productId, { discount: event.target.value })}
                           onFocus={(event) => event.currentTarget.select()}
                           placeholder="Desc."
-                          aria-label={`Descuento de ${line.name}`}
                           className={controlClass + " tabular w-20 px-2 py-1 text-right"}
                         />
                         <span className="tabular ml-auto text-sm font-semibold">
@@ -670,8 +684,7 @@ export function PosSaleForm({
                       </div>
                       {stockWarning ? (
                         <p className="text-xs text-danger">
-                          Solo hay {line.stock.toLocaleString("es-CL", { maximumFractionDigits: 3 })}{" "}
-                          en stock.
+                          Solo hay {line.stock.toLocaleString("es-CL", { maximumFractionDigits: 3 })} en stock.
                         </p>
                       ) : null}
                     </li>
@@ -724,56 +737,54 @@ export function PosSaleForm({
               {payments.map((payment, index) => {
                 const isCash = payment.method.toLowerCase().includes("efectivo");
                 return (
-                <div key={payment.key} className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <SelectDropdown
-                      name={`method-${payment.key}`}
-                      value={payment.method}
-                      options={methods.map((method) => ({ value: method, label: method }))}
-                      allowEmpty={false}
-                      emptyLabel={defaultMethod}
-                      onValueChange={(value) => updatePayment(payment.key, { method: value })}
-                      className="min-w-0 flex-1"
-                    />
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      step="1"
-                      value={payment.touched ? payment.amount : String(totals.total)}
-                      onChange={(event) =>
-                        updatePayment(payment.key, { amount: event.target.value })
-                      }
-                      onFocus={(event) => event.currentTarget.select()}
-                      aria-label={`Monto del pago ${index + 1}`}
-                      className={controlClass + " tabular w-28 px-2 py-2 text-right"}
-                    />
-                    {payments.length > 1 ? (
-                      <button
-                        type="button"
-                        onClick={() => removePayment(payment.key)}
-                        aria-label={`Quitar pago ${index + 1}`}
-                        className="text-xs text-muted-foreground hover:text-danger"
-                      >
-                        ✕
-                      </button>
+                  <div key={payment.key} className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <SelectDropdown
+                        name={`method-${payment.key}`}
+                        value={payment.method}
+                        options={methods.map((method) => ({ value: method, label: method }))}
+                        allowEmpty={false}
+                        emptyLabel={defaultMethod}
+                        onValueChange={(value) => updatePayment(payment.key, { method: value })}
+                        className="min-w-0 flex-1"
+                      />
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        step="1"
+                        value={payment.touched ? payment.amount : String(totals.total)}
+                        onChange={(event) =>
+                          updatePayment(payment.key, { amount: event.target.value })}
+                        onFocus={(event) => event.currentTarget.select()}
+                        aria-label={`Monto del pago ${index + 1}`}
+                        className={controlClass + " tabular w-28 px-2 py-2 text-right"}
+                      />
+                      {payments.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => removePayment(payment.key)}
+                          aria-label={`Quitar pago ${index + 1}`}
+                          className="text-xs text-muted-foreground hover:text-danger"
+                        >
+                          ✕
+                        </button>
+                      ) : null}
+                    </div>
+                    {!isCash ? (
+                      <input
+                        type="text"
+                        value={payment.reference}
+                        onChange={(event) =>
+                          updatePayment(payment.key, { reference: event.target.value })}
+                        maxLength={60}
+                        placeholder="N° de autorización o comprobante (opcional)"
+                        aria-label={`Referencia del pago ${index + 1}`}
+                        className={controlClass + " px-2 py-1 text-xs"}
+                        autoComplete="off"
+                      />
                     ) : null}
                   </div>
-                  {!isCash ? (
-                    <input
-                      type="text"
-                      value={payment.reference}
-                      onChange={(event) =>
-                        updatePayment(payment.key, { reference: event.target.value })
-                      }
-                      maxLength={60}
-                      placeholder="N° de autorización o comprobante (opcional)"
-                      aria-label={`Referencia del pago ${index + 1}`}
-                      className={controlClass + " px-2 py-1 text-xs"}
-                      autoComplete="off"
-                    />
-                  ) : null}
-                </div>
                 );
               })}
 
@@ -803,44 +814,6 @@ export function PosSaleForm({
               />
             </div>
 
-            {!isOnline && (
-              <section className={cardClass + " p-3 mb-3 border border-danger/40 bg-danger-soft"}>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-danger">●</span>
-                  <span className="font-medium text-danger">
-                    Sin conexión a internet
-                  </span>
-                  <span className="text-muted-foreground">
-                    La venta se guardará localmente y se sincronizará al recuperar la conexión.
-                  </span>
-                </div>
-                {pendingCount > 0 && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Hay {pendingCount} venta(s) pendiente(s) de sincronizar.
-                  </p>
-                )}
-                {syncing && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Sincronizando ventas pendientes…
-                  </p>
-                )}
-              </section>
-            )}
-
-            {offlineSaved && (
-              <section className={cardClass + " p-3 mb-3 border border-success/40 bg-success-soft"}>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-success">●</span>
-                  <span className="font-medium text-success">
-                    Venta guardada localmente
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Se registrará en el servidor al recuperar la conexión.
-                </p>
-              </section>
-            )}
-
             {state?.error ? (
               <p role="alert" className="mt-3 text-sm text-danger">
                 {state.error}
@@ -858,31 +831,6 @@ export function PosSaleForm({
               </SubmitButton>
             </form>
 
-            {isOnline && totals.total > 0 && payments.some((p) =>
-              p.method.toLowerCase().includes("tarjeta")
-            ) && (
-              <form action={tpvFormAction} className="mt-3">
-                <input type="hidden" name="payload" value={JSON.stringify(payload)} />
-                <SubmitButton
-                  className="border border-accent/40 bg-accent-soft text-accent hover:bg-accent w-full"
-                  pendingLabel="Redirigiendo a Transbank…"
-                  disabled={!!tpvState?.error || !!tpvState?.ok}
-                >
-                  Pagar con tarjeta (TPV)
-                </SubmitButton>
-                {tpvState?.error && (
-                  <p role="alert" className="mt-2 text-sm text-danger">
-                    {tpvState.error}
-                  </p>
-                )}
-                {tpvState?.url && (
-                  <p className="mt-2 text-sm text-success">
-                    Redirigiendo a Transbank para completar el pago…
-                  </p>
-                )}
-              </form>
-            )}
-
             {lines.length > 0 ? (
               <button
                 type="button"
@@ -896,17 +844,39 @@ export function PosSaleForm({
         </section>
       </div>
 
-      {lines.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          Tip: escribe el código de barras y presiona Enter para agregar el producto sin soltar el
-          teclado.
-        </p>
-      ) : null}
-
       <div className="flex flex-wrap gap-2">
         <Link href="/pos/ventas" className={secondaryButtonClass}>
           Ver ventas
         </Link>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {isOnline ? (
+          <form action={handleTPVSubmit} className="flex flex-col gap-2">
+            <input type="hidden" name="payload" value={JSON.stringify(payload)} />
+            <button
+              type="button"
+              onClick={() => {
+                const formData = new FormData();
+                formData.append("payload", JSON.stringify(payload));
+                handleTPVSubmit(formData);
+              }}
+              className="border border-accent/40 bg-accent-soft text-accent hover:bg-accent px-4 py-2 rounded text-sm"
+            >
+              Pagar con tarjeta (TPV)
+            </button>
+            {tpvState?.error && (
+              <p role="alert" className="text-sm text-danger">
+                {tpvState.error}
+              </p>
+            )}
+            {tpvState?.url && (
+              <p className="text-sm text-success">
+                Redirigiendo a Transbank para completar el pago…
+              </p>
+            )}
+          </form>
+        ) : null}
       </div>
     </div>
   );

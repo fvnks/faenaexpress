@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 
 import { closePosSession, type PosActionState } from "@/app/actions/pos";
 import { SubmitButton } from "@/components/submit-button";
-import { formatCLP } from "@/lib/money";
 import { controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
+import { formatCLP } from "@/lib/money";
 
 export function CloseSessionForm({
   sessionId,
@@ -14,15 +14,21 @@ export function CloseSessionForm({
   sessionId: string;
   expected: number;
 }) {
-  const [state, formAction] = useActionState<PosActionState, FormData>(closePosSession, undefined);
+  const [state, setState] = useState<PosActionState>(undefined);
   const [counted, setCounted] = useState("");
 
   const countedNumber = Number(counted);
   const difference =
     Number.isFinite(countedNumber) && counted !== "" ? countedNumber - expected : null;
 
+  async function handleSubmit(formData: FormData) {
+    setState(undefined);
+    const result = await closePosSession(undefined, formData);
+    setState(result);
+  }
+
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={handleSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="sessionId" value={sessionId} />
 
       <div className={fieldClass}>

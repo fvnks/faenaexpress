@@ -1,22 +1,23 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 
 import { createPosReturn, type PosActionState } from "@/app/actions/pos";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { controlClass, dangerButtonClass, fieldClass, labelClass } from "@/lib/ui";
 
-/**
- * Devolución de un ticket de un turno cerrado: el dinero sale de la caja
- * abierta de quien la procesa y el stock vuelve al inventario. Pide motivo y
- * confirmación, igual que la anulación.
- */
 export function ReturnSaleForm({ saleId, saleNumber }: { saleId: string; saleNumber: string }) {
-  const [state, formAction] = useActionState<PosActionState, FormData>(createPosReturn, undefined);
+  const [state, setState] = useState<PosActionState>(undefined);
   const [motivo, setMotivo] = useState("");
 
+  async function handleSubmit(formData: FormData) {
+    setState(undefined);
+    const result = await createPosReturn(undefined, formData);
+    setState(result);
+  }
+
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form action={handleSubmit} className="flex flex-col gap-3">
       <input type="hidden" name="saleId" value={saleId} />
 
       <div className={fieldClass}>

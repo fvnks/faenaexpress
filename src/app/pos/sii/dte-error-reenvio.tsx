@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
 
 import { reintentarDtesEnErrorAction } from "@/app/actions/pos-sii-emit";
 import { secondaryButtonClass } from "@/lib/ui";
@@ -15,10 +15,13 @@ type DteEnError = {
 };
 
 export function DteErrorReenvio({ dtesEnError }: { dtesEnError: DteEnError[] }) {
-  const [state, formAction, pending] = useActionState<
-    { error?: string; ok?: boolean; reintentados?: number; exitosos?: number } | undefined,
-    FormData
-  >(reintentarDtesEnErrorAction, undefined);
+  const [state, setState] = useState<{ error?: string; ok?: boolean; reintentados?: number; exitosos?: number } | undefined>(undefined);
+
+  async function handleSubmit(formData: FormData) {
+    setState(undefined);
+    const result = await reintentarDtesEnErrorAction(undefined, formData);
+    setState(result);
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,13 +71,12 @@ export function DteErrorReenvio({ dtesEnError }: { dtesEnError: DteEnError[] }) 
         </table>
       </div>
 
-      <form action={formAction} className="mt-4 flex flex-col gap-2">
+      <form action={handleSubmit} className="mt-4 flex flex-col gap-2">
         <button
           type="submit"
-          disabled={pending}
-          className={secondaryButtonClass + " text-xs px-3 py-1.5 disabled:opacity-60"}
+          className={secondaryButtonClass + " text-xs px-3 py-1.5"}
         >
-          {pending ? "Reenviando…" : `Reenviar ${dtesEnError.length} DTE(s) al SII`}
+          {dtesEnError.length > 0 ? `Reenviar ${dtesEnError.length} DTE(s) al SII` : "Sin DTEs pendientes"}
         </button>
         {state?.error ? (
           <p role="alert" className="text-xs text-danger">{state.error}</p>

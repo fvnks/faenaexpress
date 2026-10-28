@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 
 import { upsertPosCaf, deletePosCafAction } from "@/app/actions/pos-sii-caf";
 import { SubmitButton } from "@/components/submit-button";
@@ -28,8 +28,8 @@ type Config = {
 type CafState = { error?: string } | undefined;
 
 export function PosSiiCafForm({ config }: { config: Config }) {
-  const [state, formAction] = useActionState(upsertPosCaf, { error: undefined } as { error?: string });
-  const [deleteState] = useActionState(deletePosCafAction, undefined);
+  const [state, setState] = useState<CafState>(undefined);
+  const [deleteState, setDeleteState] = useState<CafState>(undefined);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -78,20 +78,25 @@ export function PosSiiCafForm({ config }: { config: Config }) {
     });
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    formAction(fd);
+  async function handleSaveCaf(formData: FormData) {
+    setState(undefined);
+    const result = await upsertPosCaf(undefined, formData);
+    setState(result);
+    if (result?.ok) {
+      setShowForm(false);
+      setEditingId(null);
+    }
   }
 
-  function handleDelete(cafId: string) {
+  async function handleDeleteCaf(cafId: string) {
+    setDeleteState(undefined);
     const fd = new FormData();
     fd.append("cafId", cafId);
-    fetch("/api/pos/sii/caf", {
-      method: "DELETE",
-      body: JSON.stringify({ cafId }),
-      headers: { "Content-Type": "application/json" },
-    });
+    const result = await deletePosCafAction(undefined, fd);
+    setDeleteState(result);
+    if (result?.ok) {
+      setEditingId(null);
+    }
   }
 
   const availableTypes = [39, 33, 61, 56];
@@ -112,7 +117,7 @@ export function PosSiiCafForm({ config }: { config: Config }) {
       </div>
 
       {showForm ? (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form action={handleSaveCaf} className="flex flex-col gap-4">
           <input type="hidden" name="configId" value="" />
           <input type="hidden" name="cafId" value={editingId ?? ""} />
 
@@ -284,7 +289,7 @@ export function PosSiiCafForm({ config }: { config: Config }) {
                         >
                           Editar
                         </button>
-                        <form onSubmit={(e) => { e.preventDefault(); handleDelete(caf.id); }} className="inline">
+                        <form onSubmit={(e) => { e.preventDefault(); handleDeleteCaf(caf.id); }} className="inline">
                           <button
                             type="submit"
                             className="text-danger hover:underline text-xs ml-2"
