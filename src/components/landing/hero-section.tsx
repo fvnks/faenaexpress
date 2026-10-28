@@ -205,68 +205,21 @@ export function HeroSection() {
       </nav>
 
       {/* Hero content */}
-      <div className="relative z-30 mx-auto max-w-5xl px-6 pt-16 sm:pt-20 lg:pt-24">
-        <div className="grid lg:grid-cols-2 lg:gap-12 lg:items-center">
-          {/* Texto a la izquierda */}
-          <div className="text-center lg:text-left">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary-soft bg-primary-soft text-primary text-xs font-medium uppercase tracking-wider mb-6 block lg:inline-block">
-              ERP para empresas chilenas
-            </span>
-            <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-6xl font-bold text-foreground leading-tight mb-6 sm:mb-8">
-              Deja de perseguir facturas en Excel.
-            </h1>
-            <p className="text-base sm:text-lg text-foreground/90 leading-relaxed mb-10 sm:mb-12 max-w-2xl sm:max-w-none mx-auto lg:mx-0">
-              Registra compras, ventas y gastos en minutos, concilia el banco y
-              ten siempre claro quién pagó cada gasto. Montos en pesos, IVA al
-              19 %, todo en español.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
-              <Link
-                href="/login"
-                className="relative group inline-block w-full sm:w-auto py-4 px-8 text-white font-semibold rounded-control bg-accent overflow-hidden text-center sm:text-left"
-              >
-                <div className="absolute inset-0 bg-accent transform translate-x-full group-hover:translate-x-0 transition duration-500" />
-                <div className="relative flex items-center justify-center gap-2">
-                  <span>Entrar a mi cuenta</span>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M11.25 3.75L3.75 11.25"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M11.25 11.25L3.75 3.75"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-              </Link>
-              <Link
-                href="#que-hace"
-                className="relative group inline-block w-full sm:w-auto py-4 px-8 text-sm font-semibold text-foreground border border-border bg-surface overflow-hidden text-center sm:text-left"
-              >
-                <div className="absolute inset-0 bg-primary-soft transform translate-x-full group-hover:translate-x-0 transition duration-500" />
-                <div className="relative flex items-center justify-center gap-2">
-                  <span>Ver de qué se trata</span>
-                </div>
-              </Link>
-            </div>
-          </div>
+      <div className="relative z-30 mx-auto max-w-5xl px-6 pt-12 sm:pt-16 lg:pt-20 pb-16">
+        <div className="text-center">
+          {/* Badge */}
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary-soft bg-primary-soft text-primary text-xs font-medium uppercase tracking-wider mb-4 inline-block">
+            ERP para empresas chilenas
+          </span>
 
-          {/* Mockup a la derecha */}
-          <div className="hidden lg:block flex justify-center">
-            <div className="relative max-w-md">
+          {/* H1 centrado */}
+          <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-6xl font-bold text-foreground leading-tight mb-6 sm:mb-8">
+            Deja de perseguir facturas en Excel.
+          </h1>
+
+          {/* Mockup centrado y más ancho */}
+          <div className="mx-auto max-w-3xl lg:max-w-4xl mb-10 sm:mb-12">
+            <div className="relative max-w-full">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/60 to-accent/60 rounded-2xl blur opacity-80" />
               <div className="relative overflow-hidden rounded-2xl border border-white/30 bg-primary shadow-2xl">
                 <div className="flex border-b border-white/20 bg-primary/80 p-3">
@@ -341,6 +294,57 @@ export function HeroSection() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Párrafo centrado debajo del mockup */}
+          <p className="text-base sm:text-lg text-foreground/90 leading-relaxed mb-10 sm:mb-12 max-w-2xl sm:max-w-none mx-auto">
+            Registra compras, ventas y gastos en minutos, concilia el banco y
+            ten siempre claro quién pagó cada gasto. Montos en pesos, IVA al
+            19 %, todo en español.
+          </p>
+
+          {/* CTAs centrados */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/login"
+              className="relative group inline-block w-full sm:w-auto py-4 px-8 text-white font-semibold rounded-control bg-accent overflow-hidden text-center sm:text-left"
+            >
+              <div className="absolute inset-0 bg-accent transform translate-x-full group-hover:translate-x-0 transition duration-500" />
+              <div className="relative flex items-center justify-center gap-2">
+                <span>Entrar a mi cuenta</span>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M11.25 3.75L3.75 11.25"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M11.25 11.25L3.75 3.75"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            </Link>
+            <Link
+              href="#que-hace"
+              className="relative group inline-block w-full sm:w-auto py-4 px-8 text-sm font-semibold text-foreground border border-border bg-surface overflow-hidden text-center sm:text-left"
+            >
+              <div className="absolute inset-0 bg-primary-soft transform translate-x-full group-hover:translate-x-0 transition duration-500" />
+              <div className="relative flex items-center justify-center gap-2">
+                <span>Ver de qué se trata</span>
+              </div>
+            </Link>
           </div>
         </div>
       </div>
