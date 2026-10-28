@@ -1,21 +1,100 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import GradientASCIIRaw from "@/components/ui/GradientASCII.jsx";
 import { primaryButtonClass } from "@/lib/ui";
 
 const GradientASCII = GradientASCIIRaw as React.FC<Record<string, unknown>>;
 
+type MockupType = "compras" | "ventas" | "gastos" | "reportes";
+
+const MOCKUPS: Record<MockupType, {
+  title: string;
+  subtitle: string;
+  cards: Array<{ label: string; value: string }>;
+  tableHeaders: Array<string>;
+  tableRows: Array<Array<string>>;
+}> = {
+  compras: {
+    title: "Compras por pagar",
+    subtitle: "Facturas de proveedores pendientes de pago",
+    cards: [
+      { label: "Por pagar", value: "$2.480.000" },
+      { label: "Pagado este mes", value: "$890.000" },
+      { label: "Vencidas", value: "12" },
+    ],
+    tableHeaders: ["Documento", "Proveedor", "Monto", "Estado"],
+    tableRows: [
+      ["Factura 872263", "Comercial del Sur", "$446.375", "Pendiente"],
+      ["Factura 1031", "Insumos Andes", "$119.000", "Pagada"],
+      ["Factura 5502", "Transportes Río", "$238.000", "Pendiente"],
+    ],
+  },
+  ventas: {
+    title: "Ventas por cobrar",
+    subtitle: "Facturas emitidas a clientes pendientes de pago",
+    cards: [
+      { label: "Por cobrar", value: "$3.120.000" },
+      { label: "Cobrado hoy", value: "$450.000" },
+      { label: "Vencidas", value: "8" },
+    ],
+    tableHeaders: ["Documento", "Cliente", "Monto", "Estado"],
+    tableRows: [
+      ["Boleta 4421", "Consumidor final", "$15.400", "Pagada"],
+      ["Factura 9912", "Constructora XYZ", "$1.250.000", "Pendiente"],
+      ["Factura 3045", "Distribuciones ABC", "$680.000", "Pagada"],
+    ],
+  },
+  gastos: {
+    title: "Gastos operacionales",
+    subtitle: "Gastos por área y responsable de pago",
+    cards: [
+      { label: "Gastos del mes", value: "$980.000" },
+      { label: "Por reembolsar", value: "$120.000" },
+      { label: "Pagados", value: "$860.000" },
+    ],
+    tableHeaders: ["Concepto", "Área", "Monto", "Estado"],
+    tableRows: [
+      ["Servicios básicos", "Oficina", "$85.000", "Pagado"],
+      ["Transporte", "Logística", "$45.000", "Pendiente"],
+      ["Suministros", "Oficina", "$32.000", "Pagado"],
+    ],
+  },
+  reportes: {
+    title: "Resumen mensual",
+    subtitle: "Estado de resultados del período actual",
+    cards: [
+      { label: "Ingresos", value: "$5.200.000" },
+      { label: "Gastos", value: "$3.100.000" },
+      { label: "Utilidad", value: "$2.100.000" },
+    ],
+    tableHeaders: ["Mes", "Ingresos", "Gastos", "Resultado"],
+    tableRows: [
+      ["Enero", "$4.800.000", "$2.900.000", "$1.900.000"],
+      ["Febrero", "$5.200.000", "$3.100.000", "$2.100.000"],
+      ["Marzo", "$4.900.000", "$2.800.000", "$2.100.000"],
+    ],
+  },
+};
+
 export function HeroSection() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mockup, setMockup] = useState<MockupType>("compras");
+
+  useEffect(() => {
+    const types: MockupType[] = ["compras", "ventas", "gastos", "reportes"];
+    setMockup(types[Math.floor(Math.random() * types.length)]);
+  }, []);
 
   const navLinks = [
     { href: "#que-hace", label: "Qué hace" },
     { href: "#plataforma", label: "Plataforma" },
     { href: "/contacto", label: "Contacto" },
   ];
+
+  const m = MOCKUPS[mockup];
 
   return (
     <section className="relative pb-24 overflow-hidden">
@@ -29,7 +108,7 @@ export function HeroSection() {
       <div className="absolute inset-0 z-20">
         <div className="w-full h-full">
           <GradientASCII
-            colors={["#1e3fd8", "#f6f8ff", "#a5d8ff", "#38bdf8"]}
+            colors={["#1B5FA8", "#4A9FD8", "#8A5408", "#E0A94A"]}
             shape="horizon"
             characters=" =+xX0S8#@"
             cellSize={22}
@@ -203,17 +282,13 @@ export function HeroSection() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 p-4">
-                  {[
-                    ["Por cobrar", "$2.480.000"],
-                    ["Por pagar", "$890.000"],
-                    ["Conciliar", "12"],
-                  ].map(([etiqueta, valor]) => (
-                    <div key={etiqueta} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                  {m.cards.map((card) => (
+                    <div key={card.label} className="rounded-lg border border-white/10 bg-white/5 p-3">
                       <p className="text-[10px] font-semibold text-white/60 uppercase tracking-wider">
-                        {etiqueta}
+                        {card.label}
                       </p>
                       <p className="tabular mt-1 text-sm font-semibold text-white">
-                        {valor}
+                        {card.value}
                       </p>
                     </div>
                   ))}
@@ -222,30 +297,44 @@ export function HeroSection() {
                 <div className="px-4 pb-4">
                   <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
                     <div className="flex items-center gap-2 border-b border-white/10 bg-white/10 px-3 py-2 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
-                      <span className="flex-1">Documento</span>
-                      <span className="hidden sm:block flex-1">Proveedor</span>
-                      <span className="w-20 text-right">Monto</span>
-                      <span className="w-16 text-right">Estado</span>
+                      {m.tableHeaders.map((h, i) => (
+                        <span
+                          key={i}
+                          className={
+                            i === 0
+                              ? "flex-1"
+                              : i === m.tableHeaders.length - 1
+                              ? "w-16 text-right"
+                              : i === m.tableHeaders.length - 2
+                              ? "w-20 text-right"
+                              : "hidden sm:block flex-1"
+                          }
+                        >
+                          {h}
+                        </span>
+                      ))}
                     </div>
-                    {[
-                      ["Factura 872263", "Comercial del Sur", "$446.375", "Pagada"],
-                      ["Factura 1031", "Insumos Andes", "$119.000", "Pendiente"],
-                      ["Factura 5502", "Transportes Río", "$238.000", "Pagada"],
-                    ].map(([doc, prov, monto, estado]) => (
+                    {m.tableRows.map((row, rIdx) => (
                       <div
-                        key={String(doc)}
+                        key={rIdx}
                         className="flex items-center gap-2 border-b border-white/5 px-3 py-2 text-xs last:border-b-0 hover:bg-white/10"
                       >
-                        <span className="flex-1 truncate text-white">{doc}</span>
-                        <span className="hidden sm:block truncate text-white/60">{prov}</span>
-                        <span className="tabular w-20 text-right text-white">{monto}</span>
-                        <span className="w-14 text-right">
+                        {row.map((cell, cIdx) => (
                           <span
-                            className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/20 text-white"
+                            key={cIdx}
+                            className={
+                              cIdx === 0
+                                ? "flex-1 truncate text-white"
+                                : cIdx === row.length - 1
+                                ? "w-14 text-right"
+                                : cIdx === row.length - 2
+                                ? "w-20 text-right"
+                                : "hidden sm:block truncate text-white/60"
+                            }
                           >
-                            {estado}
+                            {cell}
                           </span>
-                        </span>
+                        ))}
                       </div>
                     ))}
                   </div>
