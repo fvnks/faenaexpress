@@ -761,8 +761,8 @@ dropdown nuevo debe seguirlo.
     usuario).
 - **POS Fase 3 (en progreso)**:
   - ✅ Modo offline con sincronización al volver (implementado)
-  - Integración con terminales de pago (TPV) - Transbank/Webpay
-  - Generación de etiquetas de código de barras para productos
+  - ✅ Integración con terminales de pago (TPV) - Transbank Webpay Plus (implementado)
+  - ✅ Generación de etiquetas de código de barras para productos (implementado)
   - API para e-commerce (productos, stock, pedidos)
   - Pantalla de cocina (KDS) para restaurantes
 - **XML de compras**: reutilizar el parser para DTEs recibidos de proveedores (emisor = proveedor).
