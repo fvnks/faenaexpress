@@ -109,15 +109,16 @@ export function HeroSection() {
           <div className="hidden lg:block ml-auto flex items-center gap-6">
             <Link
               href="/login"
-              className="inline-block px-4 py-2 text-sm font-semibold text-muted-foreground border border-border bg-surface rounded-control hover:bg-primary-soft hover:text-primary transition-colors"
+              className="relative group inline-block px-4 py-2 text-sm font-semibold text-muted-foreground border border-border bg-surface rounded-control overflow-hidden"
             >
-              Entrar
+              <div className="absolute inset-0 bg-primary-soft transform translate-x-full group-hover:translate-x-0 transition duration-500" />
+              <span className="relative">Entrar</span>
             </Link>
             <a
               href="/login"
-              className="relative group inline-block px-5 py-2.5 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden rounded-control"
+              className="relative group inline-block px-4 py-2 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden rounded-control"
             >
-              <div className="absolute top-0 right-full w-full h-full bg-accent transform group-hover:translate-x-full group-hover:scale-102 transition duration-500" />
+              <div className="absolute inset-0 bg-accent transform translate-x-full group-hover:translate-x-0 transition duration-500" />
               <span className="relative">Crear cuenta</span>
             </a>
           </div>
