@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState, useTransition } from "react";
+import { useActionState, useMemo, useState, useTransition, useEffect } from "react";
 
 import { createPosPartner, createPosSale, type PosActionState } from "@/app/actions/pos";
+import { createPosSaleForTpvAction, type TpvActionState } from "@/app/actions/tpv";
 import { SelectDropdown } from "@/components/select-dropdown";
 import { SubmitButton } from "@/components/submit-button";
 import { formatCLP } from "@/lib/money";
@@ -101,6 +102,17 @@ export function PosSaleForm({
   );
   const { isOnline, pendingCount, syncing } = useOfflineSales();
   const [offlineSaved, setOfflineSaved] = useState(false);
+  const [tpvState, tpvFormAction] = useActionState<TpvActionState, FormData>(
+    createPosSaleForTpvAction,
+    undefined,
+  );
+
+  // Redirigir a Transbank cuando la acción TPV devuelve una URL
+  useEffect(() => {
+    if (tpvState?.url) {
+      window.location.href = tpvState.url;
+    }
+  }, [tpvState?.url]);
 
   /**
    * Wrapper del envío de venta: si hay conexión usa la Server Action normal;
@@ -845,6 +857,31 @@ export function PosSaleForm({
                 Cobrar {formatCLP(totals.total)}
               </SubmitButton>
             </form>
+
+            {isOnline && totals.total > 0 && payments.some((p) =>
+              p.method.toLowerCase().includes("tarjeta")
+            ) && (
+              <form action={tpvFormAction} className="mt-3">
+                <input type="hidden" name="payload" value={JSON.stringify(payload)} />
+                <SubmitButton
+                  className="border border-accent/40 bg-accent-soft text-accent hover:bg-accent w-full"
+                  pendingLabel="Redirigiendo a Transbank…"
+                  disabled={!!tpvState?.error || !!tpvState?.ok}
+                >
+                  Pagar con tarjeta (TPV)
+                </SubmitButton>
+                {tpvState?.error && (
+                  <p role="alert" className="mt-2 text-sm text-danger">
+                    {tpvState.error}
+                  </p>
+                )}
+                {tpvState?.url && (
+                  <p className="mt-2 text-sm text-success">
+                    Redirigiendo a Transbank para completar el pago…
+                  </p>
+                )}
+              </form>
+            )}
 
             {lines.length > 0 ? (
               <button

@@ -1114,6 +1114,8 @@ model Company {
   posSales              PosSale[]
   posSiiConfig          PosSiiConfig?
   posTerminals          PosTerminal[]
+  posTpvConfig          PosTpvConfig?
+  posTpvTransaction     PosTpvTransaction[]
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
@@ -2879,6 +2881,7 @@ model PosSale {
   relatedSale  PosSale?    @relation("PosDevolucion", fields: [relatedSaleId], references: [id], onDelete: SetNull)
   relatedReturns PosSale[] @relation("PosDevolucion")
   dtes PosDte[]
+  posTpvTransaction PosTpvTransaction[]
 
   @@unique([companyId, saleNumber])
   @@index([companyId, createdAt])
@@ -3007,4 +3010,50 @@ model PosTerminal {
 
   @@index([companyId])
   @@index([companyId, active])
+}
+
+// ---------------------------------------------------------------------------
+// PosTpvConfig: configuración de Terminal Punto de Venta (TPV) para pagos con
+// tarjeta a través de Transbank Webpay Plus. Guarda credenciales cifradas y
+// el ambiente (integración / producción).
+// ---------------------------------------------------------------------------
+model PosTpvConfig {
+  id              String   @id @default(cuid())
+  companyId       String   @unique
+  // Credenciales Transbank (cifradas con TPV_SECRET_KEY, base64)
+  comercioId      String?  // commerce code de Transbank
+  apiKey          String?  // llave API de Transbank
+  ambiente        String   @default("integracion") // integracion | produccion
+  habilitado      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// PosTpvTransaction: registro de cada intento de pago con tarjeta a través
+// de Transbank Webpay Plus. Vinculado a la venta POS que lo originó.
+// ---------------------------------------------------------------------------
+model PosTpvTransaction {
+  id              String   @id @default(cuid())
+  companyId       String
+  saleId          String   @unique // venta POS que originó este pago TPV
+  buyOrder        String   // orden de compra enviada a Transbank
+  sessionId       String   // sesión POS que originó el pago
+  amount          Int      // monto en CLP
+  status          String   @default("PENDING") // PENDING, APROBADO, RECHAZADO, ERROR
+  tokenWs         String?  // token de Transbank
+  authorizationCode String? // código de autorización del banco
+  responseCode    Int?     // código de respuesta de Transbank
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sale    PosSale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([saleId])
 }
