@@ -280,8 +280,6 @@ export function HeroSection() {
     { href: "/contacto", label: "Contacto" },
   ];
 
-  const m = MOCKUPS[mockup];
-
   return (
     <section className="relative pb-24 overflow-hidden">
       {/* Fondo envolvente oscuro (estilo Wope) */}
