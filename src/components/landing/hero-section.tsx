@@ -188,17 +188,17 @@ export function HeroSection() {
           {/* Mockup a la derecha */}
           <div className="hidden lg:block flex justify-center">
             <div className="relative max-w-md">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-2xl blur opacity-50" />
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface/5 backdrop-blur-sm shadow-xl">
-                <div className="flex border-b border-white/5 bg-white/5 p-3">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/40 to-accent/40 rounded-2xl blur opacity-60" />
+              <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-surface/90 backdrop-blur shadow-2xl">
+                <div className="flex border-b border-white/10 bg-surface/80 p-3">
                   <div className="flex w-24 shrink-0 flex-col gap-1.5 p-1">
-                    <span className="h-2 w-12 rounded-full bg-white/20" aria-hidden="true" />
-                    <span className="h-1.5 w-8 rounded-full bg-white/10" aria-hidden="true" />
-                    <span className="h-1.5 w-10 rounded-full bg-white/10" aria-hidden="true" />
-                    <span className="h-1.5 w-7 rounded-full bg-white/10" aria-hidden="true" />
+                    <span className="h-2 w-12 rounded-full bg-white/30" aria-hidden="true" />
+                    <span className="h-1.5 w-8 rounded-full bg-white/20" aria-hidden="true" />
+                    <span className="h-1.5 w-10 rounded-full bg-white/20" aria-hidden="true" />
+                    <span className="h-1.5 w-7 rounded-full bg-white/20" aria-hidden="true" />
                   </div>
                   <div className="flex-1 p-3">
-                    <span className="block h-2 w-20 rounded-full bg-white/10" aria-hidden="true" />
+                    <span className="block h-2 w-20 rounded-full bg-white/20" aria-hidden="true" />
                   </div>
                 </div>
 
@@ -208,8 +208,8 @@ export function HeroSection() {
                     ["Por pagar", "$890.000"],
                     ["Conciliar", "12"],
                   ].map(([etiqueta, valor]) => (
-                    <div key={etiqueta} className="rounded-lg border border-white/5 bg-white/5 p-3">
-                      <p className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+                    <div key={etiqueta} className="rounded-lg border border-white/10 bg-surface/60 p-3">
+                      <p className="text-[10px] font-semibold text-white/70 uppercase tracking-wider">
                         {etiqueta}
                       </p>
                       <p className="tabular mt-1 text-sm font-semibold text-white">
@@ -220,8 +220,8 @@ export function HeroSection() {
                 </div>
 
                 <div className="px-4 pb-4">
-                  <div className="overflow-hidden rounded-xl border border-white/5 bg-white/5">
-                    <div className="flex items-center gap-2 border-b border-white/5 bg-white/10 px-3 py-2 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                  <div className="overflow-hidden rounded-xl border border-white/10 bg-surface/70">
+                    <div className="flex items-center gap-2 border-b border-white/10 bg-surface/50 px-3 py-2 text-[10px] font-semibold text-white/60 uppercase tracking-wider">
                       <span className="flex-1">Documento</span>
                       <span className="hidden sm:block flex-1">Proveedor</span>
                       <span className="w-20 text-right">Monto</span>
@@ -234,14 +234,14 @@ export function HeroSection() {
                     ].map(([doc, prov, monto, estado]) => (
                       <div
                         key={String(doc)}
-                        className="flex items-center gap-2 border-b border-white/5 px-3 py-2 text-xs last:border-b-0"
+                        className="flex items-center gap-2 border-b border-white/5 px-3 py-2 text-xs last:border-b-0 hover:bg-white/5"
                       >
                         <span className="flex-1 truncate text-white/90">{doc}</span>
-                        <span className="hidden sm:block truncate text-white/50">{prov}</span>
-                        <span className="tabular w-20 text-right text-white/70">{monto}</span>
+                        <span className="hidden sm:block truncate text-white/60">{prov}</span>
+                        <span className="tabular w-20 text-right text-white/80">{monto}</span>
                         <span className="w-14 text-right">
                           <span
-                            className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/10 text-white/70"
+                            className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/10 text-white/80"
                           >
                             {estado}
                           </span>
