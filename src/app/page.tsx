@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { LandingNavbar } from "@/components/landing/navbar";
-import { LandingHero } from "@/components/landing/hero";
+import { HeroSection } from "@/components/landing/hero-section";
 import { LandingProblemSection } from "@/components/landing/problem-section";
 import { LandingFeaturesSection } from "@/components/landing/features-section";
 import { LandingPlatformSection } from "@/components/landing/platform-section";
@@ -31,8 +30,7 @@ export default async function Home() {
 function Landing() {
   return (
     <div className="min-h-dvh bg-background">
-      <LandingNavbar />
-      <LandingHero />
+      <HeroSection />
       <LandingProblemSection />
       <LandingFeaturesSection />
       <LandingPlatformSection />
