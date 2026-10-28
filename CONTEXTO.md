@@ -763,7 +763,7 @@ dropdown nuevo debe seguirlo.
   - ✅ Modo offline con sincronización al volver (implementado)
   - ✅ Integración con terminales de pago (TPV) - Transbank Webpay Plus (implementado)
   - ✅ Generación de etiquetas de código de barras para productos (implementado)
-  - API para e-commerce (productos, stock, pedidos)
+  - ✅ API para e-commerce: GET /api/ecommerce/products, GET /api/ecommerce/products/[id], POST/GET /api/ecommerce/orders, GET /api/ecommerce/orders/[id] (implementado)
   - Pantalla de cocina (KDS) para restaurantes
 - **XML de compras**: reutilizar el parser para DTEs recibidos de proveedores (emisor = proveedor).
 - Adjuntar XML/PDF a cada documento (requiere almacenamiento de archivos).
