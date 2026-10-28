@@ -8,85 +8,271 @@ import { primaryButtonClass } from "@/lib/ui";
 
 const GradientASCII = GradientASCIIRaw as React.FC<Record<string, unknown>>;
 
-type MockupType = "compras" | "ventas" | "gastos" | "reportes";
+type MockupType = "compras" | "ventas" | "gastos" | "reportes" | "banco" | "rrhh";
 
 const MOCKUPS: Record<MockupType, {
   title: string;
   subtitle: string;
-  cards: Array<{ label: string; value: string }>;
+  cards: Array<{ label: string; value: string; trend?: string }>;
   tableHeaders: Array<string>;
   tableRows: Array<Array<string>>;
+  icon: string;
 }> = {
   compras: {
-    title: "Compras por pagar",
-    subtitle: "Facturas de proveedores pendientes de pago",
+    title: "Libro de Compras",
+    subtitle: "Facturas de proveedores y estado de pago",
     cards: [
-      { label: "Por pagar", value: "$2.480.000" },
-      { label: "Pagado este mes", value: "$890.000" },
-      { label: "Vencidas", value: "12" },
+      { label: "Por pagar", value: "$2.480.000", trend: "+12%" },
+      { label: "Pagado mes", value: "$890.000", trend: "-5%" },
+      { label: "Vencidas", value: "12", trend: "+2" },
+      { label: "Proveedores", value: "43", trend: "+1" },
     ],
-    tableHeaders: ["Documento", "Proveedor", "Monto", "Estado"],
+    tableHeaders: ["Folio", "Proveedor", "Fecha", "Vencimiento", "Monto", "Estado"],
     tableRows: [
-      ["Factura 872263", "Comercial del Sur", "$446.375", "Pendiente"],
-      ["Factura 1031", "Insumos Andes", "$119.000", "Pagada"],
-      ["Factura 5502", "Transportes Río", "$238.000", "Pendiente"],
+      ["F-872263", "Comercial del Sur Ltda.", "25/10", "10/11", "$446.375", "Pendiente"],
+      ["F-1031", "Insumos Andes SpA", "27/10", "12/11", "$119.000", "Pagada"],
+      ["F-5502", "Transportes RÃ­o Ltda.", "26/10", "11/11", "$238.000", "Pendiente"],
+      ["F-0089", "Ferretería El Clavo", "25/10", "09/11", "$56.700", "Pagada"],
+      ["F-3341", "DistribuciÃ³n Central", "24/10", "08/11", "$712.500", "Pendiente"],
     ],
+    icon: "🧾",
   },
   ventas: {
-    title: "Ventas por cobrar",
-    subtitle: "Facturas emitidas a clientes pendientes de pago",
+    title: "Libro de Ventas",
+    subtitle: "Facturas emitidas y estado de cobro",
     cards: [
-      { label: "Por cobrar", value: "$3.120.000" },
-      { label: "Cobrado hoy", value: "$450.000" },
-      { label: "Vencidas", value: "8" },
+      { label: "Por cobrar", value: "$3.120.000", trend: "+8%" },
+      { label: "Cobrado hoy", value: "$450.000", trend: "+15%" },
+      { label: "Vencidas", value: "8", trend: "-1" },
+      { label: "Clientes", value: "67", trend: "+3" },
     ],
-    tableHeaders: ["Documento", "Cliente", "Monto", "Estado"],
+    tableHeaders: ["Folio", "Cliente", "Fecha", "Vencimiento", "Monto", "Estado"],
     tableRows: [
-      ["Boleta 4421", "Consumidor final", "$15.400", "Pagada"],
-      ["Factura 9912", "Constructora XYZ", "$1.250.000", "Pendiente"],
-      ["Factura 3045", "Distribuciones ABC", "$680.000", "Pagada"],
+      ["B-4421", "Consumidor final", "28/10", "28/10", "$15.400", "Pagada"],
+      ["F-9912", "Constructora XYZ Ltda.", "27/10", "11/11", "$1.250.000", "Pendiente"],
+      ["F-3045", "Distribuciones ABC SpA", "26/10", "10/11", "$680.000", "Pagada"],
+      ["F-7731", "Retail Mayorista S.A.", "25/10", "09/11", "$2.100.000", "Pendiente"],
+      ["F-1105", "Servicios Integrales SPA", "24/10", "08/11", "$890.000", "Pendiente"],
     ],
+    icon: "🧾",
   },
   gastos: {
-    title: "Gastos operacionales",
-    subtitle: "Gastos por área y responsable de pago",
+    title: "Gastos Operacionales",
+    subtitle: "Gastos por área con pagador y reembolso",
     cards: [
-      { label: "Gastos del mes", value: "$980.000" },
-      { label: "Por reembolsar", value: "$120.000" },
-      { label: "Pagados", value: "$860.000" },
+      { label: "Gastos mes", value: "$980.000", trend: "+6%" },
+      { label: "Por reembolsar", value: "$120.000", trend: "+4%" },
+      { label: "Pagados", value: "$860.000", trend: "-2%" },
+      { label: "Categorías", value: "12", trend: "0" },
     ],
-    tableHeaders: ["Concepto", "Área", "Monto", "Estado"],
+    tableHeaders: ["Concepto", "Pagador", "Fecha", "Monto", "Estado"],
     tableRows: [
-      ["Servicios básicos", "Oficina", "$85.000", "Pagado"],
-      ["Transporte", "Logística", "$45.000", "Pendiente"],
-      ["Suministros", "Oficina", "$32.000", "Pagado"],
+      ["Servicios bÃ¡sicos", "María González", "28/10", "$85.000", "Pagado"],
+      ["Transporte logística", "Carlos Méndez", "27/10", "$45.000", "Pendiente"],
+      ["Suministros oficina", "María González", "26/10", "$32.000", "Pagado"],
+      ["Viáticos comercial", "Andrés Rojas", "25/10", "$120.000", "Por reembolsar"],
+      ["ImpresiÃ³n y papel", "Lucía FernÃ¡ndez", "24/10", "$18.500", "Pendiente"],
     ],
+    icon: "💸",
   },
   reportes: {
-    title: "Resumen mensual",
-    subtitle: "Estado de resultados del período actual",
+    title: "Estado de Resultados",
+    subtitle: "Resumen mensual y comparativo",
     cards: [
-      { label: "Ingresos", value: "$5.200.000" },
-      { label: "Gastos", value: "$3.100.000" },
-      { label: "Utilidad", value: "$2.100.000" },
+      { label: "Ingresos totales", value: "$5.200.000", trend: "+12%" },
+      { label: "Gastos totales", value: "$3.100.000", trend: "+4%" },
+      { label: "Utilidad bruta", value: "$2.100.000", trend: "+18%" },
+      { label: "Margen", value: "40.4%", trend: "+2.1%" },
     ],
-    tableHeaders: ["Mes", "Ingresos", "Gastos", "Resultado"],
+    tableHeaders: ["Mes", "Ingresos", "Gastos", "Utilidad", "Margen"],
     tableRows: [
-      ["Enero", "$4.800.000", "$2.900.000", "$1.900.000"],
-      ["Febrero", "$5.200.000", "$3.100.000", "$2.100.000"],
-      ["Marzo", "$4.900.000", "$2.800.000", "$2.100.000"],
+      ["Enero 2026", "$4.800.000", "$2.900.000", "$1.900.000", "39.6%"],
+      ["Febrero 2026", "$5.200.000", "$3.100.000", "$2.100.000", "40.4%"],
+      ["Marzo 2026", "$4.900.000", "$2.800.000", "$2.100.000", "42.9%"],
+      ["Abril 2026", "$5.600.000", "$3.400.000", "$2.200.000", "39.3%"],
     ],
+    icon: "📊",
+  },
+  banco: {
+    title: "ConciliaciÃ³n Bancaria",
+    subtitle: "Movimientos bancarios y estado de conciliaciÃ³n",
+    cards: [
+      { label: "Sin conciliar", value: "$1.250.000", trend: "+3%" },
+      { label: "Conciliado", value: "$8.400.000", trend: "-1%" },
+      { label: "Diferencias", value: "3", trend: "0" },
+      { label: "Cuentas", value: "4", trend: "0" },
+    ],
+    tableHeaders: ["Fecha", "Glosa", "Monto", "Tipo", "Estado"],
+    tableRows: [
+      ["28/10", "Traspaso a Cuenta:008178288402", "-$500.000", "Traspaso", "Ignorado"],
+      ["27/10", "Pago proveedor Comercial del Sur", "-$446.375", "Salida", "Pendiente"],
+      ["26/10", "DepÃ³sito cliente Constructora XYZ", "+$1.250.000", "Entrada", "Conciliado"],
+      ["25/10", "Compra materiales oficina", "-$89.500", "Salida", "Pendiente"],
+      ["24/10", "Cobro factura Servicios Integrales", "+$890.000", "Entrada", "Conciliado"],
+    ],
+    icon: "🏦",
+  },
+  rrhh: {
+    title: "Remuneraciones",
+    subtitle: "Trabajadores, sueldos y pagos de octubre",
+    cards: [
+      { label: "Trabajadores", value: "24", trend: "+1" },
+      { label: "Pago mensual", value: "$12.400.000", trend: "+5%" },
+      { label: "Pendientes", value: "0", trend: "0" },
+      { label: "Contratos", value: "22", trend: "+2" },
+    ],
+    tableHeaders: ["Trabajador", "RUT", "Concepto", "Monto lÃ­quido", "Fecha"],
+    tableRows: [
+      ["María González", "12.345.678-9", "Sueldo octubre", "$850.000", "28/10"],
+      ["Carlos Méndez", "9.876.543-2", "Sueldo octubre", "$720.000", "28/10"],
+      ["Andrés Rojas", "7.654.321-5", "Sueldo octubre", "$950.000", "28/10"],
+      ["Lucía FernÃ¡ndez", "6.543.210-1", "Bono producciÃ³n", "$300.000", "28/10"],
+      ["Diego Silva", "5.432.109-8", "Aguinaldo", "$450.000", "28/10"],
+    ],
+    icon: "👥",
   },
 };
 
-export function HeroSection() {
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+function MockupContent() {
   const [mockup, setMockup] = useState<MockupType>("compras");
 
   useEffect(() => {
-    const types: MockupType[] = ["compras", "ventas", "gastos", "reportes"];
+    const types: MockupType[] = ["compras", "ventas", "gastos", "reportes", "banco", "rrhh"];
     setMockup(types[Math.floor(Math.random() * types.length)]);
   }, []);
+
+  const m = MOCKUPS[mockup];
+
+  return (
+    <>
+      {/* Mockup al final, centrado y más ancho */}
+      <div className="mx-auto max-w-6xl mb-10 sm:mb-12">
+        <div className="relative">
+          {/* Card de dashboard */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-[#0d1b2e] shadow-2xl">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-3xl blur-[100px] opacity-30" />
+
+            {/* Header del mockup */}
+            <div className="relative z-10 flex items-center justify-between px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 border border-accent/20">
+                  <span className="text-lg">{m.icon}</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white leading-tight">{m.title}</h3>
+                  <p className="text-[10px] text-white/70">{m.subtitle}</p>
+                </div>
+              </div>
+              <div className="text-[10px] font-mono text-white/70">
+                28/10/2026 · 14:32
+              </div>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-4">
+              {m.cards.map((card) => (
+                <div
+                  key={card.label}
+                  className="flex flex-col gap-1 rounded-xl border border-white/20 bg-white/10 p-3"
+                >
+                  <p className="text-[9px] font-semibold text-white/90 uppercase tracking-wider">
+                    {card.label}
+                  </p>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <p className="text-sm font-bold text-white tabular-nums">
+                      {card.value}
+                    </p>
+                    {card.trend && (
+                      <span className={`text-[9px] font-bold ${card.trend.startsWith('+') ? 'text-primary' : card.trend.startsWith('-') ? 'text-accent' : 'text-white/50'}`}>
+                        {card.trend}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tabla */}
+            <div className="relative z-10 overflow-x-auto px-6 pb-6">
+              <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-4 py-3">
+                  <span className="text-[9px] font-semibold text-white/80 uppercase tracking-wider">
+                    Últimos movimientos
+                  </span>
+                  <span className="text-[10px] text-white/70 font-mono">
+                    Última actualización: hace 2 min
+                  </span>
+                </div>
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/5">
+                      {m.tableHeaders.map((h, i) => (
+                        <th
+                          key={i}
+                          className={`px-4 py-3 text-[9px] font-semibold text-white/80 uppercase tracking-wider ${
+                            i === 0 ? "text-left" : i === m.tableHeaders.length - 1 ? "text-right" : "text-center"
+                          }`}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {m.tableRows.map((row, rIdx) => (
+                      <tr
+                        key={rIdx}
+                        className="border-b border-white/5 bg-white/3 hover:bg-white/10 transition-colors"
+                      >
+                        {row.map((cell, cIdx) => {
+                          const isEstado = cIdx === row.length - 1;
+                          const isMonto = cIdx === row.length - 2;
+                          return (
+                            <td
+                              key={cIdx}
+                              className={`px-4 py-2.5 ${
+                                cIdx === 0
+                                  ? "text-left text-white font-medium truncate w-[80px]"
+                                  : isEstado
+                                  ? "text-right font-bold w-[70px]"
+                                  : isMonto
+                                  ? "text-right tabular-nums font-medium w-[70px]"
+                                  : "text-center text-white/80 min-w-[60px] truncate"
+                              }`}
+                            >
+                              {isEstado ? (
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                  cell === "Pagada" || cell === "Pagado" || cell === "Conciliado"
+                                    ? "bg-primary/10 border border-primary/20 text-primary"
+                                    : cell === "Pendiente" || cell === "Por reembolsar"
+                                    ? "bg-accent/10 border border-accent/20 text-accent"
+                                    : cell === "Ignorado"
+                                    ? "bg-white/10 border border-white/20 text-white/70"
+                                    : "bg-white/10 border border-white/20 text-white/70"
+                                }`}>
+                                  {cell}
+                                </span>
+                              ) : (
+                                cell
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function HeroSection() {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const navLinks = [
     { href: "#que-hace", label: "Qué hace" },
@@ -212,106 +398,35 @@ export function HeroSection() {
             ERP para empresas chilenas
           </span>
 
-          {/* H1 centrado */}
-          <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-6xl font-bold text-foreground leading-tight mb-6 sm:mb-8">
-            Deja de perseguir facturas en Excel.
+          {/* H1 centrado con palabras resaltadas */}
+          <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-6xl font-bold text-foreground leading-tight mb-6 sm:mb-8 relative">
+            Deja de perseguir <span className="text-accent">facturas</span> en
+            <span className="text-primary">Excel</span>.
           </h1>
 
-          {/* Mockup centrado y más ancho */}
-          <div className="mx-auto max-w-3xl lg:max-w-4xl mb-10 sm:mb-12">
-            <div className="relative max-w-full">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/60 to-accent/60 rounded-2xl blur opacity-80" />
-              <div className="relative overflow-hidden rounded-2xl border border-white/30 bg-primary shadow-2xl">
-                <div className="flex border-b border-white/20 bg-primary/80 p-3">
-                  <div className="flex w-24 shrink-0 flex-col gap-1.5 p-1">
-                    <span className="h-2 w-12 rounded-full bg-white/40" aria-hidden="true" />
-                    <span className="h-1.5 w-8 rounded-full bg-white/25" aria-hidden="true" />
-                    <span className="h-1.5 w-10 rounded-full bg-white/25" aria-hidden="true" />
-                    <span className="h-1.5 w-7 rounded-full bg-white/25" aria-hidden="true" />
-                  </div>
-                  <div className="flex-1 p-3">
-                    <span className="block h-2 w-20 rounded-full bg-white/25" aria-hidden="true" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 p-4">
-                  {m.cards.map((card) => (
-                    <div key={card.label} className="rounded-lg border border-white/10 bg-white/5 p-3">
-                      <p className="text-[10px] font-semibold text-white/60 uppercase tracking-wider">
-                        {card.label}
-                      </p>
-                      <p className="tabular mt-1 text-sm font-semibold text-white">
-                        {card.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="px-4 pb-4">
-                  <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                    <div className="flex items-center gap-2 border-b border-white/10 bg-white/10 px-3 py-2 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
-                      {m.tableHeaders.map((h, i) => (
-                        <span
-                          key={i}
-                          className={
-                            i === 0
-                              ? "flex-1"
-                              : i === m.tableHeaders.length - 1
-                              ? "w-16 text-right"
-                              : i === m.tableHeaders.length - 2
-                              ? "w-20 text-right"
-                              : "hidden sm:block flex-1"
-                          }
-                        >
-                          {h}
-                        </span>
-                      ))}
-                    </div>
-                    {m.tableRows.map((row, rIdx) => (
-                      <div
-                        key={rIdx}
-                        className="flex items-center gap-2 border-b border-white/5 px-3 py-2 text-xs last:border-b-0 hover:bg-white/10"
-                      >
-                        {row.map((cell, cIdx) => (
-                          <span
-                            key={cIdx}
-                            className={
-                              cIdx === 0
-                                ? "flex-1 truncate text-white"
-                                : cIdx === row.length - 1
-                                ? "w-14 text-right"
-                                : cIdx === row.length - 2
-                                ? "w-20 text-right"
-                                : "hidden sm:block truncate text-white/60"
-                            }
-                          >
-                            {cell}
-                          </span>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Párrafo centrado debajo del mockup */}
-          <p className="text-base sm:text-lg text-foreground/90 leading-relaxed mb-10 sm:mb-12 max-w-2xl sm:max-w-none mx-auto">
-            Registra compras, ventas y gastos en minutos, concilia el banco y
-            ten siempre claro quién pagó cada gasto. Montos en pesos, IVA al
+          {/* Párrafo debajo del H1 con palabras resaltadas */}
+          <p className="text-base sm:text-lg text-foreground/90 leading-relaxed mb-8 sm:mb-10 max-w-2xl sm:max-w-none mx-auto">
+            Registra <span className="text-primary font-semibold">compras</span>,
+            <span className="text-accent font-semibold">ventas</span> y{" "}
+            <span className="text-primary font-semibold">gastos</span> en
+            minutos, concilia el{" "} <span className="text-accent font-semibold">
+              banco
+            </span>{" "}
+            y ten siempre claro quién pagó cada gasto. Montos en pesos, IVA al
             19 %, todo en español.
           </p>
 
-          {/* CTAs centrados */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          {/* CTAs debajo del párrafo */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 sm:mb-16">
             <Link
               href="/login"
-              className="relative group inline-block w-full sm:w-auto py-4 px-8 text-white font-semibold rounded-control bg-accent overflow-hidden text-center sm:text-left"
+              className="relative group inline-block w-full sm:w-auto py-4 px-8 text-white font-semibold rounded-control bg-accent overflow-hidden text-center sm:text-left shadow-lg shadow-accent/30"
             >
-              <div className="absolute inset-0 bg-accent transform translate-x-full group-hover:translate-x-0 transition duration-500" />
+              <div
+                className="absolute inset-0 bg-accent/80 transform translate-x-full group-hover:translate-x-0 transition duration-500"
+              />
               <div className="relative flex items-center justify-center gap-2">
-                <span>Entrar a mi cuenta</span>
+                <span className="group-hover:text-white transition-colors">Entrar a mi cuenta</span>
                 <svg
                   width="16"
                   height="16"
@@ -346,6 +461,9 @@ export function HeroSection() {
               </div>
             </Link>
           </div>
+
+          {/* Mockup al final, centrado y más ancho */}
+          <MockupContent />
         </div>
       </div>
 
