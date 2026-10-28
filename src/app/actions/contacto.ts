@@ -42,3 +42,11 @@ export async function enviarContacto(
 
   return { ok: true };
 }
+
+/**
+ * Wrapper para usar como action nativa de <form> en Next.js.
+ * Next.js requiere que la función pasada a action retorne void | Promise<void>.
+ */
+export async function submitContacto(formData: FormData): Promise<void> {
+  await enviarContacto(formData);
+}

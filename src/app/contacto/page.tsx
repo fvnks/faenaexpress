@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
-import { enviarContacto } from "@/app/actions/contacto";
+import { submitContacto } from "@/app/actions/contacto";
 
 export const metadata: Metadata = {
   title: "Contacto — Yellow ERP",
@@ -96,12 +96,8 @@ export default function ContactoPage() {
 }
 
 function ContactoForm() {
-  async function handleSubmit(formData: FormData): Promise<void> {
-    await enviarContacto(formData);
-  }
-
   return (
-    <form action={handleSubmit} className="space-y-4">
+    <form action={submitContacto} className="space-y-4">
       <div className={fieldClass}>
         <label htmlFor="contacto-nombre" className={labelClass}>
           Nombre
