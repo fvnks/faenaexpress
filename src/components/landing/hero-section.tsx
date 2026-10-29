@@ -135,13 +135,17 @@ const MOCKUPS: Record<MockupType, {
 
 function MockupContent() {
   const [mockup, setMockup] = useState<MockupType>("compras");
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     const types: MockupType[] = ["compras", "ventas", "gastos", "reportes", "banco", "rrhh"];
     setMockup(types[Math.floor(Math.random() * types.length)]);
+    setVisible(true);
   }, []);
 
   const m = MOCKUPS[mockup];
+
+  if (!visible) return null;
 
   return (
     <>
@@ -236,7 +240,7 @@ function MockupContent() {
                                   : isEstado
                                   ? "text-right font-bold w-[70px]"
                                   : isMonto
-                                  ? "text-right tabular-nums font-medium w-[70px]"
+                                  ? "text-right tabular-nums font-bold text-white w-[70px]"
                                   : "text-center text-white/80 min-w-[60px] truncate"
                               }`}
                             >
@@ -369,17 +373,17 @@ export function HeroSection() {
             ))}
           </ul>
 
-          <div className="hidden lg:block ml-auto flex items-center gap-8">
+          <div className="hidden lg:block ml-auto flex items-center gap-10">
             <Link
               href="/login"
-              className="relative group inline-block px-5 py-2.5 text-sm font-semibold text-muted-foreground border border-border bg-surface rounded-control overflow-hidden"
+              className="relative group inline-block px-6 py-2.5 text-sm font-semibold text-muted-foreground border border-border bg-surface rounded-control overflow-hidden"
             >
               <div className="absolute inset-0 bg-primary-soft transform translate-x-full group-hover:translate-x-0 transition duration-500" />
               <span className="relative">Entrar</span>
             </Link>
             <a
               href="/login"
-              className="relative group inline-block px-5 py-2.5 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden rounded-control"
+              className="relative group inline-block px-6 py-2.5 text-sm font-semibold text-accent hover:text-white border border-accent overflow-hidden rounded-control"
             >
               <div className="absolute inset-0 bg-accent transform translate-x-full group-hover:translate-x-0 transition duration-500" />
               <span className="relative">Crear cuenta</span>
@@ -418,10 +422,10 @@ export function HeroSection() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 sm:mb-16">
             <Link
               href="/login"
-              className="relative group inline-block w-full sm:w-auto py-4 px-8 text-white font-semibold rounded-control bg-accent overflow-hidden text-center sm:text-left shadow-lg shadow-accent/30"
+              className="relative group inline-block w-full sm:w-auto py-4 px-8 text-white font-semibold rounded-control bg-accent overflow-hidden text-center sm:text-left shadow-lg shadow-accent/30 hover:shadow-xl hover:shadow-accent/50 transition-shadow"
             >
               <div
-                className="absolute inset-0 bg-accent/80 transform translate-x-full group-hover:translate-x-0 transition duration-500"
+                className="absolute inset-0 bg-[#0d1b2e] transform translate-x-full group-hover:translate-x-0 transition duration-500"
               />
               <div className="relative flex items-center justify-center gap-2">
                 <span className="group-hover:text-white transition-colors">Entrar a mi cuenta</span>
