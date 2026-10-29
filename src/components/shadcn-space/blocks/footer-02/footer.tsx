@@ -1,18 +1,20 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import Link from "next/link"
+
+const footerLinks = [
+    { label: "Compras", href: "/facturas/compras" },
+    { label: "Ventas", href: "/facturas/ventas" },
+    { label: "Gastos", href: "/facturas/gastos" },
+    { label: "Banco", href: "/facturas/banco" },
+    { label: "Reportes", href: "/facturas/reportes" },
+    { label: "Catálogos", href: "/facturas/catalogos" },
+    { label: "Contacto", href: "/contacto" },
+    { label: "Importar", href: "/facturas/importar" },
+]
 
 export default function Footer() {
-    const footerLinks = [
-        { label: "Home", href: "#" },
-        { label: "Categories", href: "#" },
-        { label: "Properties", href: "#" },
-        { label: "Featured property", href: "#" },
-        { label: "Testimonials", href: "#" },
-        { label: "Blog", href: "#" },
-        { label: "FAQs", href: "#" },
-        { label: "404 page", href: "#" },
-    ]
     return (
         <footer className="dark bg-background">
             <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 md:py-24 py-8">
@@ -21,7 +23,7 @@ export default function Footer() {
                         <div className='grid grid-cols-12 gap-6 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-100 ease-in-out fill-mode-both'>
                             <div className="col-span-12 md:col-span-3">
                                 <p className='w-full text-foreground'>
-                                    Stay updated with the latest news, promotions, and exclusive offers.
+                                    Mantente actualizado con las últimas novedades, promociones y ofertas exclusivas de Yellow ERP.
                                 </p>
                             </div>
                             <div className="md:col-span-1" />
@@ -32,15 +34,15 @@ export default function Footer() {
                                             required
                                             type="email"
                                             name="email"
-                                            placeholder="enter your email"
+                                            placeholder="tu correo electrónico"
                                             className="rounded-full h-full py-2 text-white"
                                         />
                                         <Button type='submit' className='h-auto py-2 px-4 rounded-full cursor-pointer font-medium hover:bg-primary/80'>
-                                            Subscribe
+                                            Suscribirme
                                         </Button>
                                     </form>
                                     <p className='text-sm flex-1 text-foreground'>
-                                        By subscribing, you agree to receive our promotional emails. You can unsubscribe at any time.
+                                        Al suscribirte, aceptas recibir nuestros correos promocionales. Puedes darte de baja en cualquier momento.
                                     </p>
                                 </div>
                             </div>
@@ -50,45 +52,51 @@ export default function Footer() {
                     <div className="grid grid-cols-12 gap-6">
                         <div className="col-span-12 md:col-span-7 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-100 ease-in-out fill-mode-both">
                             <h2 className="sm:text-5xl text-3xl font-medium mb-6 text-foreground">
-                                Begin your path to success contact us today.
+                                Begin your path to success, contact us today.
                             </h2>
-                            <Button className="py-3.5 px-6 rounded-full bg-teal-400 hover:bg-teal-400/80 h-auto">
-                                Get in touch
+                            <Button className="py-3.5 px-6 rounded-full bg-primary hover:bg-primary/80 h-auto">
+                                Contactar
                             </Button>
                         </div>
                         <div className="md:col-span-1" />
                         <div className="col-span-12 md:col-span-2 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-100 ease-in-out fill-mode-both">
                             <div className="flex flex-col gap-4">
                                 {footerLinks.slice(0, 4).map((link) => (
-                                    <a
+                                    <Link
                                         key={link.label}
                                         href={link.href}
                                         className="block text-base text-muted-foreground hover:text-primary"
                                     >
                                         {link.label}
-                                    </a>
+                                    </Link>
                                 ))}
                             </div>
                         </div>
                         <div className="col-span-12 md:col-span-2 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-200 ease-in-out fill-mode-both">
                             <div className="flex flex-col gap-4">
                                 {footerLinks.slice(4, 8).map((link) => (
-                                    <a
+                                    <Link
                                         key={link.label}
                                         href={link.href}
                                         className="block text-base text-muted-foreground hover:text-primary"
                                     >
                                         {link.label}
-                                    </a>
+                                    </Link>
                                 ))}
                             </div>
                         </div>
                     </div>
                     <div className="flex flex-col gap-12">
                         <Separator />
-                        <p className="text-sm text-muted-foreground animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300 ease-in-out fill-mode-both">
-                            ©2026 Shadcn Space. All Rights Reserved
-                        </p>
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <p className="text-sm text-muted-foreground animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300 ease-in-out fill-mode-both">
+                                ©2026 Yellow ERP. Todos los derechos reservados.
+                            </p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <Link href="/privacidad" className="hover:text-primary transition-colors">Privacidad</Link>
+                                <Link href="/terminos" className="hover:text-primary transition-colors">Términos</Link>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ContactoSection } from "@/components/landing/contacto-section";
-import { LandingFooter } from "@/components/landing/footer";
+import Footer from "@/components/shadcn-space/blocks/footer-02/footer";
 
 export const metadata: Metadata = {
   title: "Contacto — Yellow ERP",
@@ -40,7 +40,7 @@ export default function ContactoPage() {
         <ContactoSection />
       </main>
 
-      <LandingFooter />
+      <Footer />
     </div>
   );
 }
