@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@plugin "tailwindcss-animate";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* Tokens de DESIGN.md. Claro por defecto, .dark los reemplaza. */
