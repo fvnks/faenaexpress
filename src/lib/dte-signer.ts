@@ -15,6 +15,7 @@ import {
   createPrivateKey,
   X509Certificate,
 } from "node:crypto";
+import * as nodeCrypto from "node:crypto";
 import { decryptToBuffer } from "@/lib/sii-crypto";
 
 /**
@@ -41,8 +42,11 @@ export type DteSignedResult = {
 function extraerClaveYCertificado(pfxBase64: string, pass: string | null) {
   const pfxBuffer = decryptToBuffer(pfxBase64);
 
-  const crypto = require("node:crypto");
-  const pkcs12 = (crypto as any).pkcs12;
+  // `node:crypto.pkcs12` no está tipado en @types/node de esta versión
+  // (en Node 26 fue reemplazado por parsePKCS12). Se usa `any` solo aquí,
+  // porque es un acceso dinámico a una API de Node que puede no existir.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pkcs12 = (nodeCrypto as any).pkcs12;
   if (!pkcs12 || !pkcs12.keyInfo) {
     throw new Error("La versión de Node.js no soporta pkcs12.keyInfo().");
   }

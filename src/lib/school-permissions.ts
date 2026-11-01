@@ -20,6 +20,7 @@ export const schoolSections = [
   "apoderados",
   "cursos",
   "docentes",
+  "equipo",
   "asistencia",
   "calificaciones",
   "promocion",
@@ -41,6 +42,9 @@ const ACCESS: Record<SchoolSection, readonly SchoolRole[]> = {
   apoderados: ["DIRECTOR", "UTP", "ADMIN", "VIEWER"],
   cursos: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "VIEWER"],
   docentes: ["DIRECTOR", "UTP", "ADMIN", "VIEWER"],
+  // El equipo del colegio: quién entra y con qué rol. Lo ve la dirección, la
+  // jefatura y la secretaría; el docente no necesita ver la lista de cuentas.
+  equipo: ["DIRECTOR", "UTP", "ADMIN", "VIEWER"],
   // La asistencia la registra el docente; el resto la ve pero no la escribe.
   asistencia: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "STAFF", "VIEWER"],
   calificaciones: ["DIRECTOR", "UTP", "TEACHER", "VIEWER"],
@@ -66,6 +70,9 @@ const WRITE: Record<SchoolSection, readonly SchoolRole[]> = {
   apoderados: ["DIRECTOR", "UTP", "ADMIN"],
   cursos: ["DIRECTOR", "UTP", "ADMIN"],
   docentes: ["DIRECTOR", "UTP", "ADMIN"],
+  // Sumar y sacar gente del equipo es de la dirección y de la secretaría: es
+  // dar acceso a los datos de los alumnos.
+  equipo: ["DIRECTOR", "ADMIN"],
   asistencia: ["DIRECTOR", "UTP", "TEACHER", "STAFF"],
   calificaciones: ["DIRECTOR", "UTP", "TEACHER"],
   // El acta se arma sola: nadie la escribe a mano en el sistema.
@@ -85,6 +92,24 @@ export function canAccessSchool(role: SchoolRole, section: SchoolSection): boole
 
 export function canWriteSchool(role: SchoolRole, section: SchoolSection): boolean {
   return WRITE[section].includes(role);
+}
+
+/**
+ * El alcance de escritura cuando el rol no basta para decidir.
+ *
+ * Un rol dice *qué puede hacer* una persona; el alcance dice *dónde*. La
+ * dirección y la UTP escriben en cualquier curso del colegio (una nota mal
+ * puesta o una clase sin registrar se corrige desde arriba), pero el docente
+ * solo en los cursos y asignaturas que tiene asignados. Sin esta segunda
+ * capa, un docente podía calificar el curso de otro: los datos de un menor
+ * quedaban al alcance de quien no es su profesor.
+ */
+export const ALCANCE_ASISTENCIA: readonly SchoolRole[] = ["DIRECTOR", "UTP", "STAFF"];
+export const ALCANCE_CALIFICACIONES: readonly SchoolRole[] = ["DIRECTOR", "UTP"];
+
+/** Si el rol escribe en cualquier curso del colegio, sin mirar asignaciones. */
+export function tieneAlcanceGlobal(role: SchoolRole, alcance: readonly SchoolRole[]): boolean {
+  return alcance.includes(role);
 }
 
 const ROLE_LABELS: Record<SchoolRole, string> = {

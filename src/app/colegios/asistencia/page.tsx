@@ -10,6 +10,7 @@ import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { firmaDeSesion } from "@/lib/school-signatures";
 import { puedeFirmarSesion } from "@/lib/school-sign-rules";
 import { classSheet, enrolledStudents, listSessions } from "@/lib/school-attendance";
+import { cursosDeDocente, puedeRegistrarEnClase } from "@/lib/school-team";
 import { todayISO } from "@/lib/money";
 import { cardClass } from "@/lib/ui";
 
@@ -21,8 +22,19 @@ export default async function AsistenciaPage({
   const params = await searchParams;
   const sessionId = typeof params.clase === "string" ? params.clase : null;
 
+  // El alcance del docente: solo los cursos donde imparte alguna asignatura.
+  // El resto del colegio lo ve igual, pero no lo escribe.
+  const esDocente = ctx.role === "TEACHER";
+  const cursosVisibles = esDocente
+    ? await cursosDeDocente(ctx.user.id, ctx.school.id)
+    : null;
+
   const courses = await db.course.findMany({
-    where: { schoolId: ctx.school.id, active: true },
+    where: {
+      schoolId: ctx.school.id,
+      active: true,
+      ...(cursosVisibles ? { id: { in: cursosVisibles } } : {}),
+    },
     orderBy: [{ year: "desc" }, { name: "asc" }],
     select: { id: true, name: true, year: true },
   });
@@ -36,12 +48,22 @@ export default async function AsistenciaPage({
     // los docentes: son el plan del curso.
     const [asignaturas, docentes] = await Promise.all([
       db.subject.findMany({
-        where: { schoolId: ctx.school.id, assignments: { some: {} } },
+        where: {
+          schoolId: ctx.school.id,
+          assignments: { some: {} },
+          ...(esDocente
+            ? { assignments: { some: { teacher: { is: { userId: ctx.user.id } } } } }
+            : {}),
+        },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       }),
+      // El docente registra a su nombre: la lista es su propia ficha.
       db.teacher.findMany({
-        where: { schoolId: ctx.school.id },
+        where: {
+          schoolId: ctx.school.id,
+          ...(esDocente ? { userId: ctx.user.id } : {}),
+        },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       }),
@@ -131,6 +153,12 @@ export default async function AsistenciaPage({
 
   const sesion = await classSheet(sessionId);
   if (!sesion || sesion.schoolId !== ctx.school.id) redirect("/colegios/asistencia");
+
+  // El alcance también es de lectura: el docente no abre la clase de otro
+  // aunque conozca el id (la URL se puede escribir a mano).
+  if (esDocente && !(await puedeRegistrarEnClase(ctx, sesion.courseId, sesion.subjectId))) {
+    redirect("/colegios/asistencia");
+  }
 
   const matriculados = await enrolledStudents(sesion.courseId);
   const porAlumno = new Map(sesion.attendances.map((a) => [a.studentId, a]));

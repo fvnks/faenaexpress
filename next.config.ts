@@ -1,11 +1,5 @@
 import type { NextConfig } from "next";
 
-// Deshabilitar Turbopack en Windows para evitar panic de GenerateSourceMap
-// con Next.js 16.4.2. Usar webpack en su lugar.
-if (process.platform === "win32") {
-  process.env.NEXT_DISABLE_TURBOPACK = "1";
-}
-
 const nextConfig: NextConfig = {
   // Permite levantar una segunda instancia de desarrollo en paralelo (con otra
   // variable de entorno y otro puerto). Sirve cuando el primer `next dev` quedó
@@ -28,6 +22,20 @@ const nextConfig: NextConfig = {
     // Aplica solo los upgrades de seguridad de Next.js, sin los de función.
     agentUpgrade: "security",
   },
+  // Estos paquetes quedan fuera del bundle del servidor: Node los resuelve en
+  // tiempo de ejecución y webpack no tiene que entenderlos.
+  //
+  // - `@prisma/client`: el client generado importa subpaths del runtime
+  //   (`@prisma/client/runtime/client`) que el resolver de Next no encuentra,
+  //   aunque Node sí los resuelve (el paquete los exporta).
+  // - `typedte-sii` / `libxml2-wasm`: validan XML con XSD y `libxml2-wasm`
+  //   importa `node:module`, que webpack no resuelve. Solo se usan en el
+  //   servidor (firmar DTE y validar XML del SII).
+  serverExternalPackages: [
+    "@prisma/client",
+    "typedte-sii",
+    "libxml2-wasm",
+  ],
 };
 
 export default nextConfig;

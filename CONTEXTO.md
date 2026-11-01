@@ -108,7 +108,9 @@ No hay tests todavía. El seed del admin/empresa usa `pnpm prisma db seed` con c
 src/
   app/
     layout.tsx            # IBM Plex Sans + script de tema antes de pintar
-    page.tsx              # standalone: redirect a sesión/login · saas: landing pública
+    page.tsx              # standalone: redirect a sesión/login · saas: landing pública (HeroSection + secciones)
+    contacto/             # Página de contacto pública (ContactoSection + footer)
+    footer-02/            # Página de prueba del bloque shadcn-space footer-02
     login/                # Split-screen: page.tsx + login-form.tsx + visual.tsx (mockup)
     modulos/              # Selector de módulos (con 2+): tarjetas con pendientes reales
     perfil/               # Cambio de contraseña (obligatorio al llegar por invitación)
@@ -138,6 +140,12 @@ src/
       invoices.tsx        # Listado de facturas
     colegios/             # El módulo Colegios
       layout.tsx          # Header con ModuleSwitcher, SchoolSwitcher y secciones
+      page.tsx            # Panel del colegio; con rol TEACHER es «Mi jornada»
+      teacher-home.tsx    # La home del docente: hoy, pendientes y sus cursos
+      equipo/             # Quién entra al colegio, con qué rol y qué ficha
+        page.tsx          # Equipo: alta, cambio de rol, alta/baja y ficha de docente
+        team-form.tsx     # Formulario de alta (con contraseña provisional)
+        team-row.tsx      # Fila: rol, estado, última entrada y vínculo de ficha
     pos/                  # El módulo Punto de Venta
       layout.tsx          # Header con ModuleSwitcher y PosNav
       page.tsx            # Resumen del día, KPIs, últimas ventas, estado de caja
@@ -160,8 +168,11 @@ src/
         return-form.tsx
   actions/                # Server Actions (auth, companies, purchases, sales, expenses,
                           # partners, catalogs, import, dte, notifications, invitations,
-                          # accept-invitation, profile, modules)
+                          # accept-invitation, profile, modules, school-team)
   components/             # Componentes compartidos (ver §10)
+    landing/              # Hero, Problem, Features, Platform, CTA, Footer, Contacto sections
+    shadcn-space/         # Bloques de shadcn (footer-02 adaptado)
+    ui/                   # GradientASCII (WebGL), Button, Card, Input, Separator (shadcn)
   lib/                    # Acceso a datos, reglas de negocio y utilidades
   generated/prisma/       # Prisma Client generado (ignorado por git; importar como
                           # @/generated/prisma/client)
@@ -186,6 +197,8 @@ CONTEXTO.md               # Este documento
 | `types.ts` | `SessionUser` y `AuthContext` compartidos entre auth/session |
 | `rate-limit.ts` | `RateLimiter` en memoria (invitaciones y aceptación) |
 | `permissions.ts` | Matriz `ACCESS`/`WRITE` por sección y rol |
+| `school-permissions.ts` | Lo mismo para Colegios, más los **alcances** `ALCANCE_ASISTENCIA`/`ALCANCE_CALIFICACIONES`: qué rol escribe en cualquier curso y cuál solo en los suyos |
+| `school-team.ts` | El equipo del colegio y el **alcance del docente**: `docenteDeUsuario`, `asignacionesDeDocente`, `cursosDeDocente`, `puedeRegistrarEnClase`, `puedeCalificarEnAsignatura`, `listarEquipo`. El corte va aquí (en el servidor), no en las pantallas |
 | `password.ts` | `hashPassword`/`verifyPassword` (bcryptjs) |
 | `money.ts` | `formatCLP`, `formatDate` (es-CL, TZ UTC), `todayISO`/`todayDate` (America/Santiago), `computeIva`, `computeTotal`, `documentSign`, `monthRange`, `currentPeriod`, `formatPeriod`, `shiftPeriod`, `daysBetween`, `toISODate` |
 | `rut.ts` | `normalizeRut`, `formatRut`, `isValidRut` (módulo 11) |
@@ -569,6 +582,15 @@ Leer **`DESIGN.md`** antes de tocar UI. Puntos clave:
 | `alert.tsx` | Alertas info/warning/destructive/success |
 | `payments-panel.tsx` | Abonos de una compra o venta: historial, saldo y formulario de registro |
 | `breadcrumb.tsx`, `submit-button.tsx`, `confirm-submit.tsx`, `partner-form/list.tsx`, badges | Soporte general |
+| `landing/hero-section.tsx` | Hero de la landing: navbar, H1 con colores, CTAs, mockup del panel con GradientASCII de fondo |
+| `landing/contacto-section.tsx` | Sección de contacto: datos + formulario con envío a Server Action |
+| `landing/footer.tsx` | Footer de la landing (inspirado en trilo.bio): eslogan, navegación, redes, legales |
+| `landing/problem-section.tsx` | Sección "La papeleta de fin de mes" |
+| `landing/features-section.tsx` | Sección "Qué hace el módulo Facturas hoy" |
+| `landing/platform-section.tsx` | Sección "Facturas es el primer módulo" |
+| `landing/cta-section.tsx` | Sección de cierre con CTA |
+| `formatted-time.tsx` | Formatea horas en el cliente (evita hidratación #441 por zona horaria) |
+| `ui/GradientASCII.jsx` | Componente WebGL de efecto ASCII (shadcn community) |
 
 **Patrón de dropdowns (unificado)**: trigger de contorno + chevron doble; menú `w-56 rounded-card
 border bg-surface p-1 shadow-lg` con label opcional, ítems `gap-3`, check azul en el activo,
@@ -677,6 +699,18 @@ dropdown nuevo debe seguirlo.
 - **Selector de módulos**: ModuleSwitcher en los headers de Facturas, Punto de Venta, Colegios
   y Facturación SaaS; aparece cuando el usuario tiene más de un módulo activo.
 - **Facturación SaaS (Billing)**: layout propio con header, ModuleSwitcher y navegación común.
+- **Landing pública (saas)**: `/` muestra landing con HeroSection (navbar, H1 con colores, CTAs,
+  mockup del panel con GradientASCII), secciones de problema/features/plataforma/CTA, y footer.
+  El hero tiene 6 mockups aleatorios (Compras, Ventas, Gastos, Reportes, Banco, RRHH) con datos
+  realistas y badges de estado con colores. El mockup se renderiza en un componente cliente
+  separado (`MockupContent`) para evitar hidratación mismatch por `Math.random()`.
+- **Página de contacto** (`/contacto`): formulario (nombre, email, mensaje) + datos de contacto
+  (hola@yellow-erp.cl, +56 9 9458 0379, +56 9 7278 8032) + footer-02 adaptado.
+- **Footer de landing**: inspirado en trilo.bio, con navegación del producto, redes sociales,
+  CTA de contacto y enlaces legales.
+- **GradientASCII**: componente WebGL (shadcn community) usado como fondo animado del hero
+  con colores del branding (azul primario, ámbar acento). Se instala vía `pnpm dlx shadcn@latest add`.
+- **tailwindcss-animate**: plugin instalado para animaciones (`animate-in`, `fade-in`, etc.).
 - **Emisión de DTE del POS al SII**: en Compras y Ventas del POS, cada venta puede emitir
   su DTE (boleta 39 o factura 33) al SII con certificado digital, CAF y folio real. El
   ticket muestra el estado del DTE y permite reintentar el envío si falló.
@@ -692,6 +726,21 @@ dropdown nuevo debe seguirlo.
   - Consulta manual de estado por TrackID (`consultarEstadoDteAction`).
   - Entorno SII configurable desde la UI en `/pos/sii` (pruebas/produccion).
 
+- **Portal del docente, Fase 1 (01-11-2026): identidad y alcance**.
+  - La identidad docente es `Teacher.userId` (migración `20261110000000_teacher_user_link`):
+    el vínculo entre la ficha del docente y la cuenta de login. Con él, el alcance del docente
+    se deriva de `TeachingAssignment` (curso × asignatura × docente), que ya existía.
+  - **El alcance va en el servidor** (`src/lib/school-team.ts`): `saveAttendance`,
+    `saveClassSession`, `saveGrades`, `createEvaluation` y `deleteEvaluation` rechazan lo que
+    no es del docente. Antes, un docente podía calificar el curso de otro: los datos de un
+    menor quedaban al alcance de quien no es su profesor.
+  - **`/colegios/equipo`**: sumar a alguien al colegio (con contraseña provisional o con una
+    cuenta que ya existe), cambiarle el rol, sacarlo del equipo y **vincular su ficha de
+    docente**. Antes de esto `SchoolMembership` solo se leía: un colegio tenía una persona.
+  - **`/colegios` con rol `TEACHER` es «Mi jornada»** (`teacher-home.tsx`): las clases de hoy,
+    lo que quedó sin firmar y las notas sin poner del período. Todo es derivado, no guardado.
+  - Al editar una clase, `recordedById` **no** se pisa: la clase la registró el docente que
+    la dictó, y es el que puede firmarla.
 ### Pendientes / ideas
 
 - **Deploy**: VPS Ubuntu + Coolify (build `pnpm build`, release `pnpm db:deploy`, variables
@@ -764,8 +813,8 @@ dropdown nuevo debe seguirlo.
   - ✅ Integración con terminales de pago (TPV) - Transbank Webpay Plus (implementado)
   - ✅ Generación de etiquetas de código de barras para productos (implementado)
   - ✅ API para e-commerce: GET /api/ecommerce/products, GET /api/ecommerce/products/[id], POST/GET /api/ecommerce/orders, GET /api/ecommerce/orders/[id] (implementado)
-  - ✅ API para e-commerce: GET /api/ecommerce/products, GET /api/ecommerce/products/[id], POST/GET /api/ecommerce/orders, GET /api/ecommerce/orders/[id] (implementado)
   - ✅ Pantalla de cocina (KDS) para restaurantes (implementado): /pos/kds con órdenes pendientes/en preparación, cambio de estado de ítems individuales, cambio de estado de orden completa, historial de órdenes servidas
+- **Landing shadcn-space**: bloque `footer-02` instalado en `src/components/shadcn-space/blocks/footer-02/` y adaptado para la página de contacto. Los bloques de shadcn se instalan con `pnpm dlx shadcn@latest add @shadcn-space/<block>` y se adaptan a los colores de DESIGN.md.
 - **XML de compras**: reutilizar el parser para DTEs recibidos de proveedores (emisor = proveedor).
 - Adjuntar XML/PDF a cada documento (requiere almacenamiento de archivos).
 - OAuth (Google/Microsoft) y recuperación de contraseña (requiere servicio de email) — hoy el
@@ -775,4 +824,4 @@ dropdown nuevo debe seguirlo.
 
 ---
 
-*Última actualización: 2026-10-27.*
+*Última actualización: 2026-10-29.*

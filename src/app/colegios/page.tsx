@@ -25,6 +25,13 @@ export default async function ColegiosPage() {
   const ctx = await requireSchoolContext("panel");
   const schoolId = ctx.school.id;
 
+  // El docente no ve el panel del colegio (son las métricas de la dirección):
+  // ve su jornada, que es otra pregunta.
+  if (ctx.role === "TEACHER") {
+    const { TeacherHome } = await import("@/app/colegios/teacher-home");
+    return <TeacherHome userId={ctx.user.id} schoolId={schoolId} nombre={ctx.user.name} />;
+  }
+
   const [alumnos, cursos, docentes, apoderados, matriculas, asignaturas, cursosConPlan] =
     await Promise.all([
       db.student.count({ where: { schoolId, status: "ACTIVE" } }),

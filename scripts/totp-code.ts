@@ -1,7 +1,7 @@
 // Genera el código TOTP actual de un usuario (para probar el 2FA).
 // Uso: node --env-file=.env node_modules/tsx/dist/cli.mjs scripts/totp-code.ts <email>
 import { decryptSecret } from "../src/lib/secrets";
-import { totpCode } from "../src/lib/totp";
+import { totpCode } from "../src/lib/totp-crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 

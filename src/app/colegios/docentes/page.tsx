@@ -21,7 +21,6 @@ export default async function DocentesPage() {
       },
     },
   });
-
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -56,6 +55,13 @@ export default async function DocentesPage() {
                 {docente.email ?? ""}
                 {docente.email && docente.phone ? " · " : ""}
                 {docente.phone ?? ""}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {docente.userId ? (
+                  "Con cuenta: puede entrar a registrar sus clases y sus notas."
+                ) : (
+                  "Sin cuenta: vincularlo en Equipo para que registre sus clases y sus notas."
+                )}
               </p>
               {docente.assignments.length > 0 ? (
                 <ul className="mt-2 flex flex-col gap-1">

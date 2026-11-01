@@ -593,10 +593,22 @@ model Teacher {
   name      String
   email     String?
   phone     String?
+  // Vínculo con la cuenta de login de la persona.
+  //
+  // Sin esto, el docente no tiene identidad: el sistema no puede saber qué
+  // cursos son suyos, y el alcance de lo que puede ver o escribir queda en el
+  // aire. Con el vínculo, el scope se deriva de `TeachingAssignment` y cada
+  // dato guardado lleva a una persona real (la Circular N°30 lo exige).
+  //
+  // Es opcional: un docente puede estar registrado sin cuenta (el colegio lo
+  // planifica antes de que la persona entre), y una cuenta puede existir sin
+  // ficha de docente (el personal no docente entra por `SchoolMembership`).
+  userId    String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
 
   school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  user        User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
   assignments TeachingAssignment[]
   sessions     ClassSession[]
 
@@ -932,6 +944,8 @@ model User {
   orgMembers                   OrgMember[]
   invitations                  Invitation[]
   schoolMemberships            SchoolMembership[]
+  // Ficha de docente de la persona (si es docente de un colegio).
+  teacherProfile               Teacher?
   // Personal de plataforma (Yellow ERP). Un usuario normal no lo es.
   platformStaff                PlatformStaff? @relation("PlatformStaffUser")
   recoveryCodes                RecoveryCode[]
@@ -1119,6 +1133,8 @@ model Company {
   ecommerceApiKeys      EcommerceApiKey[]
   ecommerceOrders       EcommerceOrder[]
   posKdsOrders          PosKdsOrder[]
+  posCafs               PosCaf[]
+  posDtes               PosDte[]
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
@@ -2851,6 +2867,8 @@ model PosSession {
   sales   PosSale[]
 
   @@index([companyId, status])
+  @@index([terminalId])
+  @@index([warehouseId])
   @@index([companyId, openedAt])
 }
 
@@ -2963,7 +2981,8 @@ model PosCaf {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  config PosSiiConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  config  PosSiiConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
 
   @@unique([configId, tipoDte])
   @@index([companyId])
@@ -2988,7 +3007,8 @@ model PosDte {
   emitidoAt       DateTime?
   anuladoAt       DateTime?
 
-  config PosSiiConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  config  PosSiiConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
   sale   PosSale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
   purchase Purchase?   @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
 
@@ -3061,7 +3081,6 @@ model PosTpvTransaction {
   sale    PosSale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
-  @@index([saleId])
 }
 
 // ---------------------------------------------------------------------------

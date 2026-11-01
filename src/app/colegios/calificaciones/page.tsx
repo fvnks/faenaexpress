@@ -7,6 +7,7 @@ import { FaltaEsto } from "@/app/colegios/falta-esto";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { courseReport, courseSubjects, listPeriods } from "@/lib/school-grades";
+import { cursosDeDocente, docenteDeUsuario } from "@/lib/school-team";
 import { cardClass } from "@/lib/ui";
 
 const TIPOS_EVALUACION = [
@@ -26,8 +27,18 @@ export default async function CalificacionesPage({
   const params = await searchParams;
   const puedeEditar = schoolCanWrite(ctx, "calificaciones");
 
+  // El alcance del docente: sus cursos y sus asignaturas. La dirección y la
+  // UTP ven el colegio completo.
+  const esDocente = ctx.role === "TEACHER";
+  const cursosVisibles = esDocente ? await cursosDeDocente(ctx.user.id, ctx.school.id) : null;
+  const docente = esDocente ? await docenteDeUsuario(ctx.user.id, ctx.school.id) : null;
+
   const cursos = await db.course.findMany({
-    where: { schoolId: ctx.school.id, active: true },
+    where: {
+      schoolId: ctx.school.id,
+      active: true,
+      ...(cursosVisibles ? { id: { in: cursosVisibles } } : {}),
+    },
     orderBy: [{ year: "desc" }, { name: "asc" }],
     select: { id: true, name: true, year: true },
   });
@@ -43,7 +54,12 @@ export default async function CalificacionesPage({
       ? params.periodo
       : (periodos[0]?.id ?? null);
 
-  const asignaturas = cursoId ? await courseSubjects(cursoId) : [];
+  // Las asignaturas del curso: las del docente, o todas si quien mira es la
+  // dirección o la UTP.
+  const todasAsignaturas = cursoId ? await courseSubjects(cursoId) : [];
+  const asignaturas = docente
+    ? todasAsignaturas.filter((a) => a.teacherId === docente.id)
+    : todasAsignaturas;
   const asignaturaId =
     typeof params.asignatura === "string" && asignaturas.some((a) => a.subject.id === params.asignatura)
       ? params.asignatura

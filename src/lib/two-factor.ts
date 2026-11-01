@@ -21,7 +21,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { db } from "@/lib/db";
 import { decryptSecret, encryptSecret } from "@/lib/secrets";
-import { generateTotpSecret, verifyTotp } from "@/lib/totp";
+import { generateTotpSecret, verifyTotp } from "@/lib/totp-crypto";
 
 const RECOVERY_CODES = 8;
 

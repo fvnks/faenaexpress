@@ -9,6 +9,11 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite, SCHOOL_COOKIE } from "@/lib/school-auth";
 import { invalidarFirmas } from "@/lib/school-signatures";
+import {
+  docenteDeUsuario,
+  puedeCalificarEnAsignatura,
+  puedeRegistrarEnClase,
+} from "@/lib/school-team";
 
 export type AttendanceFormState = { error?: string; ok?: boolean } | undefined;
 
@@ -56,9 +61,16 @@ export async function saveAttendance(
 
   const sesion = await db.classSession.findFirst({
     where: { id: sessionId, schoolId: ctx.school.id },
-    select: { id: true, courseId: true },
+    select: { id: true, courseId: true, subjectId: true },
   });
   if (!sesion) return { error: "Esa clase no es de este colegio." };
+
+  // El alcance: el docente solo marca la asistencia de SUS clases. La
+  // dirección, la UTP y el funcionario que cubre reemplazos escriben en
+  // cualquier clase del colegio.
+  if (!(await puedeRegistrarEnClase(ctx, sesion.courseId, sesion.subjectId))) {
+    return { error: "Esa clase no es de una asignatura tuya." };
+  }
 
   // Solo se puede marcar a quien está matriculado en el curso.
   const matriculados = await db.enrollment.findMany({
@@ -144,6 +156,18 @@ export async function saveClassSession(
     return { error: "Curso, asignatura o docente no válidos para este colegio." };
   }
 
+  // El alcance: el docente registra SUS clases, no las de otro. La dirección y
+  // la UTP sí pueden registrar la clase de un reemplazo.
+  if (!(await puedeRegistrarEnClase(ctx, courseId, subjectId))) {
+    return { error: "Esa asignatura no es tuya." };
+  }
+  if (ctx.role === "TEACHER") {
+    const propio = await docenteDeUsuario(ctx.user.id, ctx.school.id);
+    if (!propio || propio.id !== docente.id) {
+      return { error: "Registra la clase a tu nombre." };
+    }
+  }
+
   const date = new Date(`${fecha}T12:00:00Z`);
   if (Number.isNaN(date.getTime())) return { error: "La fecha no es válida." };
 
@@ -163,8 +187,10 @@ export async function saveClassSession(
       contents: String(formData.get("contents") ?? "").trim() || null,
       activities: String(formData.get("activities") ?? "").trim() || null,
       objectives: String(formData.get("objectives") ?? "").trim() || null,
-      recordedById: ctx.user.id,
-      recordedAt: new Date(),
+      // `recordedById` NO se toca: la clase la registró el docente que la
+      // dictó, y es el que puede firmarla. Si la UTP corrige un contenido,
+      // sigue siendo la clase de ese docente (la corrección se ve en
+      // `updatedAt`).
     },
     create: {
       schoolId: ctx.school.id,
@@ -461,9 +487,15 @@ export async function saveGrades(
 
   const evaluacion = await db.evaluation.findFirst({
     where: { id: evaluationId, schoolId: ctx.school.id },
-    select: { id: true, courseId: true },
+    select: { id: true, courseId: true, subjectId: true },
   });
   if (!evaluacion) return { error: "Esa evaluación no es de este colegio." };
+
+  // El alcance: el docente califica SUS asignaturas. Sin este corte, un
+  // docente podía abrir el curso de otro y calificar a sus alumnos.
+  if (!(await puedeCalificarEnAsignatura(ctx, evaluacion.courseId, evaluacion.subjectId))) {
+    return { error: "Esa asignatura no es tuya." };
+  }
 
   // Solo se califica a quien está matriculado en el curso.
   const matriculados = await db.enrollment.findMany({
@@ -566,6 +598,11 @@ export async function createEvaluation(
     return { error: "El curso, la asignatura o el período no son de este colegio." };
   }
 
+  // El alcance: el docente crea evaluaciones en SUS asignaturas.
+  if (!(await puedeCalificarEnAsignatura(ctx, courseId, subjectId))) {
+    return { error: "Esa asignatura no es tuya." };
+  }
+
   if (!Number.isFinite(weight) || weight < 0 || weight > 100) {
     return { error: "La ponderación va de 0 a 100." };
   }
@@ -611,10 +648,18 @@ export async function deleteEvaluation(
   const id = String(formData.get("evaluationId") ?? "").trim();
   if (!id) return { error: "Falta la evaluación." };
 
-  const eliminada = await db.evaluation.deleteMany({
+  const evaluacion = await db.evaluation.findFirst({
     where: { id, schoolId: ctx.school.id },
+    select: { id: true, courseId: true, subjectId: true },
   });
-  if (eliminada.count === 0) return { error: "Esa evaluación no es de este colegio." };
+  if (!evaluacion) return { error: "Esa evaluación no es de este colegio." };
+
+  // El alcance: borrar una evaluación es escribir en esa asignatura.
+  if (!(await puedeCalificarEnAsignatura(ctx, evaluacion.courseId, evaluacion.subjectId))) {
+    return { error: "Esa asignatura no es tuya." };
+  }
+
+  await db.evaluation.delete({ where: { id: evaluacion.id } });
 
   revalidatePath("/colegios/calificaciones");
   revalidatePath("/colegios/promocion");

@@ -232,6 +232,65 @@ verificación de la identidad es el riesgo grande de este módulo. Mitigaciones:
 sesiones con vencimiento, límite de intentos, registro de accesos, y que el colegio sea quien
 entrega el código en persona.
 
+### El portal del docente (diseño, 01-11-2026)
+
+El portal del apoderado lo usan las familias; este lo usa el personal que teaches. Son
+superficies distintas: la familia lee y pide, el docente **escribe el registro oficial**
+(el libro de clases y las notas). Por eso el docente entra con **usuario y contraseña**
+(es personal del colegio, no un tercero), y por eso su alcance es más estrecho.
+
+**La decisión de fondo (01-11-2026):** no es un portal aparte. El docente entra a la misma
+app (`/colegios`) y su home es distinta: con rol `TEACHER`, `/colegios` deja de ser el panel
+del colegio (esas métricas son de la dirección) y pasa a ser **«Mi jornada»**. La app ya sabe
+todo lo difícil —la matemática de las notas, el leccionario, la firma con el verificador del
+MINEDUC, el export del EDE— y duplicarlo en otra ruta sería dos_truths: dos pantallas que
+terminan discrepando.
+
+**El problema que había que resolver primero (y no era una pantalla):**
+
+| Antes | Después |
+| --- | --- |
+| `Teacher` no tenía vínculo con la cuenta de login: el docente era un registro sin persona | `Teacher.userId` (único) y el alcance se deriva de `TeachingAssignment` |
+| `SchoolMembership` solo se leía: **no había forma de sumar a nadie al colegio** | `/colegios/equipo`: alta, cambio de rol, baja y vínculo de ficha |
+| El rol daba acceso a **todo** el colegio: un docente podía calificar el curso de otro | Dos capas: el **rol** dice qué puede hacer, el **alcance** dice dónde |
+| `/colegios/calificaciones` era un recorrido de administración (curso → período → asignatura → evaluación) | La home del docente: hoy, pendientes y sus cursos |
+
+**El alcance, en el servidor y no en las pantallas.** Las Server Actions son alcanzables por
+POST directo: si el corte vive en el `<select>`, se lo salta. `src/lib/school-team.ts` decide:
+
+- La dirección y la UTP escriben en cualquier clase y cualquier asignatura (una nota mal puesta
+  se corrige desde arriba).
+- El funcionario (`STAFF`) escribe en la asistencia de cualquier clase: cubre reemplazos.
+- El docente escribe **solo** en los cursos y asignaturas que tiene asignados.
+
+**Lo que hace la home «Mi jornada»** (todo derivado, no guardado: un pendiente guardado hay
+que mantenerlo y se desincroniza solo):
+
+- **Hoy**: las clases del día, con el estado de la asistencia y de la firma.
+- **Lo que quedó pendiente**: clases suyas sin firmar (la firma es del libro, y la hace quien
+  las registró) y evaluaciones del período con notas sin poner.
+- **Mis cursos y asignaturas**: el enlace directo a calificar.
+
+**Lo que sigue (fases siguientes):**
+
+| Fase | Qué |
+| --- | --- |
+| **2. Densidad móvil** | La asistencia y la hoja de notas pensadas para el celular: una fila por alumno, «marcar todos presentes» y corregir, pegar notas desde Excel, atajos de teclado, la firma a un toque, y la **cola offline** (el patrón del POS: `offline-sales.ts` + `public/sw.js`) |
+| **3. Reuniones** | El lado docente de las citaciones con la familia (`Appointment` ya existe y la familia ya las pide desde el portal) + un modelo nuevo para las reuniones de equipo y de curso (`StaffMeeting`, con asistentes, acta y acuerdos con responsable) + una agenda unificada |
+| **4. Convivencia y trazabilidad** | Que el docente pueda **denunciar** un caso desde el aula (hoy solo escribe la dirección y la UTP), adjuntar evidencia de una evaluación (el patrón de `StudentDocument` ya existe) y el historial de correcciones de cada nota (la Circular 30 lo pide) |
+
+**Decisiones que quedan abiertas:**
+
+1. ¿El docente ve las notas de **las otras asignaturas** de su curso (el parte de promedios del
+   curso)? Hoy sí: ve el promedio del curso, que es de sus alumnos.
+2. ¿La dirección y la UTP pueden **corregir** una nota de un docente, o solo abrir el curso?
+   Hoy pueden escribir en cualquier asignatura; lo que no hay es el rastro de quién la
+   corrigó (la Circular 30 lo pide: es la Fase 4).
+3. ¿El docente puede descargar el **libro de clases completo** (el export del EDE)? Hoy puede:
+   es el documento del colegio, no de una familia.
+4. ¿El **profesor jefe** (coautor del informe del Art. 11 según el Decreto 67) es un rol
+   propio? Hoy no existe: el Art. 11 lo resuelve la UTP y la dirección.
+
 ### Estado de C0 (20-10-2026): implementada y verificada
 
 - **Schema** (migración `20261026170000_school_domain`): `School`, `SchoolMembership`, `Course`, `Student`,

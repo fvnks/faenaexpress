@@ -24,6 +24,7 @@ const SECCIONES: { href: string; label: string; section: SchoolSection }[] = [
   { href: "/colegios/apoderados", label: "Apoderados", section: "apoderados" },
   { href: "/colegios/cursos", label: "Cursos", section: "cursos" },
   { href: "/colegios/docentes", label: "Docentes", section: "docentes" },
+  { href: "/colegios/equipo", label: "Equipo", section: "equipo" },
   { href: "/colegios/comunicacion", label: "Comunicación", section: "comunicacion" },
   { href: "/colegios/convivencia", label: "Convivencia", section: "convivencia" },
   { href: "/colegios/libro", label: "Libro de clases", section: "libro" },
@@ -34,6 +35,11 @@ const SECCIONES: { href: string; label: string; section: SchoolSection }[] = [
 export default async function ColegiosLayout({ children }: LayoutProps<"/colegios">) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  // La clave provisional la entregó el colegio: mientras no se cambie, el
+  // colegio la conoce. Antes de entrar a los datos de los alumnos, se cambia
+  // (es lo mismo que hace el POS).
+  if (user.mustChangePassword) redirect("/perfil");
 
   const [ctx, schools, flash] = await Promise.all([
     getActiveSchool(),
