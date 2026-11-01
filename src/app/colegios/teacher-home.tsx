@@ -168,12 +168,25 @@ export async function TeacherHome({
                     >
                       {s.signature ? "Firmada" : completa ? "Sin firmar" : "Asistencia incompleta"}
                     </span>
-                    <Link
-                      href={`/colegios/asistencia?curso=${s.course.id}&clase=${s.id}`}
-                      className="text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary/80"
-                    >
-                      Abrir
-                    </Link>
+                    {s.signature || completa ? (
+                      <Link
+                        href={`/colegios/asistencia?curso=${s.course.id}&clase=${s.id}`}
+                        className={
+                          completa
+                            ? "rounded-control border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+                            : "text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary/80"
+                        }
+                      >
+                        {completa ? "Firmar" : "Abrir"}
+                      </Link>
+                    ) : (
+                      <Link
+                        href={`/colegios/asistencia?curso=${s.course.id}&clase=${s.id}`}
+                        className="text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary/80"
+                      >
+                        Completar
+                      </Link>
+                    )}
                   </span>
                 </li>
               );
