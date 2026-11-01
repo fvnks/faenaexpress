@@ -129,7 +129,7 @@ export default async function AsistenciaPage({
                       <span className="text-sm">
                         {s.date.toLocaleDateString("es-CL")} · {s.subject.name} · {s.teacher.name}
                       </span>
-                      <span className="flex items-center gap-3">
+                      <span className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">
                           {s._count.attendances} marcados
                         </span>
@@ -138,6 +138,12 @@ export default async function AsistenciaPage({
                           className="rounded-control border border-border px-3 py-1.5 text-sm hover:bg-background"
                         >
                           Abrir
+                        </Link>
+                        <Link
+                          href={`/colegios/asistencia/movil?sessionId=${s.id}`}
+                          className="rounded-control border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+                        >
+                          Móvil
                         </Link>
                       </span>
                     </li>

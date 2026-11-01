@@ -301,7 +301,7 @@ export default async function CalificacionesPage({
                       {ev.isFinal ? " · final" : ""}
                     </span>
                   </span>
-                  <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
                       {ev.grades.length} de {matriculados.length} con nota
                     </span>
@@ -313,6 +313,12 @@ export default async function CalificacionesPage({
                       }
                     >
                       {ev.id === evaluacionId ? "Abierta" : "Abrir"}
+                    </Link>
+                    <Link
+                      href={`/colegios/calificaciones/movil?evaluacionId=${ev.id}`}
+                      className="rounded-control border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+                    >
+                      Móvil
                     </Link>
                   </span>
                 </li>
