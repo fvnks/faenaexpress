@@ -383,3 +383,110 @@ export function serializeSale(sale: {
     notes: sale.notes ?? "",
   };
 }
+
+// ---------------------------------------------------------------------------
+// Historial de documentos relacionados (árbol de notas de crédito/débito)
+// ---------------------------------------------------------------------------
+
+export type DocumentTreeNode = {
+  id: string;
+  documentNumber: string | null;
+  documentType: string;
+  status: string;
+  totalAmount: number;
+  date: Date;
+  relationType: 'root' | 'creditNote' | 'debitNote' | 'adjustedDocument';
+  children: DocumentTreeNode[];
+};
+
+/**
+ * Construye un árbol de documentos relacionados a partir de una venta dada.
+ *
+ * El árbol recorre recursivamente:
+ *  - Las notas de crédito/débito que ajustan este documento (relatedNotes).
+ *  - Para cada nota, el documento que esta nota ajusta (relatedSaleId).
+ *
+ * Se evitan ciclos (una nota que apunta a un documento ya visitado no se
+ * repite).
+ */
+export async function getDocumentTree(
+  companyId: string,
+  saleId: string,
+): Promise<DocumentTreeNode | null> {
+  const visited = new Set<string>();
+
+  async function buildNode(
+    saleId: string,
+    relationType: 'root' | 'creditNote' | 'debitNote' | 'adjustedDocument' = 'root',
+  ): Promise<DocumentTreeNode | null> {
+    if (visited.has(saleId)) return null;
+
+    const sale = await db.sale.findFirst({
+      where: { id: saleId, companyId },
+      select: {
+        id: true,
+        documentNumber: true,
+        documentType: true,
+        status: true,
+        totalAmount: true,
+        date: true,
+        relatedSaleId: true,
+        relatedNotes: {
+          orderBy: { date: 'asc' },
+          select: {
+            id: true,
+            documentNumber: true,
+            documentType: true,
+            status: true,
+            totalAmount: true,
+            date: true,
+          },
+        },
+      },
+    });
+
+    if (!sale) return null;
+
+    visited.add(saleId);
+
+    const children: DocumentNode[] = [];
+
+    for (const note of sale.relatedNotes) {
+      const noteNode: DocumentTreeNode = {
+        id: note.id,
+        documentNumber: note.documentNumber,
+        documentType: note.documentType,
+        status: note.status,
+        totalAmount: Number(note.totalAmount.toString()),
+        date: note.date,
+        relationType:
+          note.documentType === 'CREDIT_NOTE' ? 'creditNote' : 'debitNote',
+        children: [],
+      };
+
+      // Si la nota ajusta a un documento diferente de este, agregarlo como hijo
+      // de la nota (para no crear ciclos).
+      if (note.relatedSaleId && note.relatedSaleId !== saleId) {
+        const relatedDoc = await buildNode(note.relatedSaleId, 'adjustedDocument');
+        if (relatedDoc) {
+          noteNode.children.push(relatedDoc);
+        }
+      }
+
+      children.push(noteNode);
+    }
+
+    return {
+      id: sale.id,
+      documentNumber: sale.documentNumber,
+      documentType: sale.documentType,
+      status: sale.status,
+      totalAmount: Number(sale.totalAmount.toString()),
+      date: sale.date,
+      relationType,
+      children,
+    };
+  }
+
+  return buildNode(saleId, 'root');
+}

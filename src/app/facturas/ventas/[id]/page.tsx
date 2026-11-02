@@ -12,13 +12,14 @@ import { FetchSaleXmlButton } from "@/components/fetch-sale-xml-button";
 import { PaymentsPanel } from "@/components/payments-panel";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SubmitButton } from "@/components/submit-button";
+import DocumentHistoryTree from "@/components/document-history-tree";
 import { canWrite, requireContext } from "@/lib/auth";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
 import { listPayments, saleSettleTotal, sumPayments } from "@/lib/payments";
 import { paymentMethodOptions } from "@/lib/payment-methods";
 import { canAccess } from "@/lib/permissions";
-import { getSale } from "@/lib/sales";
+import { getSale, getDocumentTree } from "@/lib/sales";
 import {
   cardClass,
   controlClass,
@@ -31,6 +32,7 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
   const ctx = await requireContext("ventas");
   const { id } = await props.params;
   const sale = await getSale(ctx.company.id, id);
+  const documentTree = await getDocumentTree(ctx.company.id, id);
   // Las formas de pago que ofrece la empresa: su catálogo más las base.
   const formasDePago = await paymentMethodOptions(ctx.company.id);
 
@@ -254,6 +256,10 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
         ) : null}
 
         <section className={cardClass + " flex flex-col gap-3 p-5"}>
+        <section className={cardClass + " flex flex-col gap-3 p-5"}>
+          <h2 className="font-semibold">Árbol de documentos relacionados</h2>
+          <DocumentHistoryTree tree={documentTree} />
+        </section>
           <h2 className="font-semibold">Cobro</h2>
 
           {collected ? (
