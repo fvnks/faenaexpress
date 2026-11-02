@@ -18,6 +18,7 @@
     "ui": "@/components/ui"
   },
   "registries": {
-    "@studio-blocks": "https://studio-blocks.arhamkhnz.com/r/{name}.json"
+    "@studio-blocks": "https://studio-blocks.arhamkhnz.com/r/{name}.json",
+    "@react-bits": "https://reactbits.dev/r/{name}.json"
   }
 }
