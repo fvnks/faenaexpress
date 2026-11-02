@@ -538,10 +538,48 @@ export async function saveGrades(
   if (registros.length === 0) return { error: "No hay alumnos que calificar." };
 
   // La hoja es la fuente de verdad de esa evaluación: lo que viene se guarda,
-  // nota por nota, con su estado.
+  // nota por nota, con su estado. Cada cambio se registra en GradeChange para
+  // trazabilidad (Circular N°30).
+  const existentes = await db.grade.findMany({
+    where: { evaluationId },
+    select: { studentId: true, value: true, status: true },
+  });
+  const existentesMap = new Map(
+    existentes.map((e) => [e.studentId, { value: e.value, status: e.status }]),
+  );
+
+  const cambios: Array<{
+    evaluationId: string;
+    studentId: string;
+    previousValue: number | null;
+    newValue: number | null;
+    previousStatus: GradeStatus;
+    newStatus: GradeStatus;
+    changedById: string;
+  }> = [];
+
   await db.$transaction(
-    registros.map((r) =>
-      db.grade.upsert({
+    registros.map((r) => {
+      const existente = existentesMap.get(r.studentId);
+
+      // Si ya existía y cambió algo, registrar en GradeChange.
+      if (existente) {
+        const valorCambio =
+          existente.value !== r.value || existente.status !== r.status;
+        if (valorCambio) {
+          cambios.push({
+            evaluationId,
+            studentId: r.studentId,
+            previousValue: existente.value,
+            newValue: r.value,
+            previousStatus: existente.status,
+            newStatus: r.status,
+            changedById: ctx.user.id,
+          });
+        }
+      }
+
+      return db.grade.upsert({
         where: { evaluationId_studentId: { evaluationId, studentId: r.studentId } },
         create: {
           evaluationId,
@@ -556,9 +594,24 @@ export async function saveGrades(
           recordedById: ctx.user.id,
           recordedAt: new Date(),
         },
-      }),
-    ),
+      });
+    }),
   );
+
+  // Registrar los cambios de nota para trazabilidad.
+  for (const cambio of cambios) {
+    await db.gradeChange.create({
+      data: {
+        evaluationId: cambio.evaluationId,
+        studentId: cambio.studentId,
+        previousValue: cambio.previousValue,
+        newValue: cambio.newValue,
+        previousStatus: cambio.previousStatus,
+        newStatus: cambio.newStatus,
+        changedById: cambio.changedById,
+      },
+    });
+  }
 
   revalidatePath("/colegios/calificaciones");
   revalidatePath("/colegios/promocion");

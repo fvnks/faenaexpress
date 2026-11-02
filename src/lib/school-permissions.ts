@@ -30,6 +30,10 @@ export const schoolSections = [
   "comunicacion",
   "cobranza",
   "administracion",
+  "citas",
+  "reuniones",
+  "agenda",
+  "calendario",
 ] as const;
 
 export type SchoolSection = (typeof schoolSections)[number];
@@ -60,6 +64,15 @@ const ACCESS: Record<SchoolSection, readonly SchoolRole[]> = {
   comunicacion: ["DIRECTOR", "UTP", "ADMIN", "STAFF", "VIEWER"],
   cobranza: ["DIRECTOR", "ADMIN", "VIEWER"],
   administracion: ["DIRECTOR", "ADMIN"],
+  // Citas con familias dirigidas al docente: lo ve todo el equipo; el docente
+  // responde las suyas, la dirección y la UTP supervisan.
+  citas: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "STAFF", "VIEWER"],
+  // Reuniones de staff: lo ve todo el equipo; la dirección y la UTP crean.
+  reuniones: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "STAFF", "VIEWER"],
+  // Agenda del docente: solo lectura para todos los roles del colegio.
+  agenda: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "STAFF", "VIEWER"],
+  // Calendario semanal del docente: solo lectura para todos los roles.
+  calendario: ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "STAFF", "VIEWER"],
 };
 
 // Quién puede escribir en cada sección.
@@ -84,6 +97,10 @@ const WRITE: Record<SchoolSection, readonly SchoolRole[]> = {
   comunicacion: ["DIRECTOR", "UTP", "ADMIN"],
   cobranza: ["DIRECTOR", "ADMIN"],
   administracion: ["DIRECTOR", "ADMIN"],
+  citas: ["DIRECTOR", "UTP", "ADMIN"],
+  reuniones: ["DIRECTOR", "UTP", "ADMIN"],
+  agenda: [],
+  calendario: [],
 };
 
 export function canAccessSchool(role: SchoolRole, section: SchoolSection): boolean {

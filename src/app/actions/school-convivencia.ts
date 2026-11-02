@@ -8,9 +8,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import type { ConductActionType, ConductCaseType } from "@/generated/prisma/client";
+import type {
+  ConductActionType,
+  ConductCaseType,
+  StudentDocumentType,
+} from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
+import { docenteDeUsuario } from "@/lib/school-team";
 import {
   fechaRevisionPlan,
   fechaVenceInvestigacion,
@@ -48,6 +53,7 @@ export async function reportCase(
   const type = texto(formData, "type") || "CONDUCTA";
   const severity = texto(formData, "severity") || "LEVE";
   const alumnos = formData.getAll("studentId").map(String).filter(Boolean);
+  const courseId = texto(formData, "courseId");
 
   if (title.length < 5) return { error: "Describe el caso con un título claro." };
   if (description.length < 20) {
@@ -60,23 +66,60 @@ export async function reportCase(
     return { error: "La gravedad no es válida." };
   }
 
-  const validos = alumnos.length
-    ? await db.student.findMany({
-        where: { id: { in: alumnos }, schoolId: ctx.school.id },
-        select: { id: true },
-      })
-    : [];
-  const idsValidos = validos.map((s) => s.id);
+  // Si es docente, solo puede denunciar alumnos de SUS cursos (alcance).
+  let cursoDocenteId: string | null = null;
+  let idsValidos: string[] = [];
+
+  if (ctx.role === "TEACHER") {
+    const docente = await docenteDeUsuario(ctx.user.id, ctx.school.id);
+    if (!docente) {
+      return { error: "Tu usuario no tiene una ficha de docente vinculada." };
+    }
+    const asignaciones = await db.teachingAssignment.findMany({
+      where: { teacherId: docente.id },
+      select: { courseId: true },
+    });
+    const cursosDelDocente = new Set(asignaciones.map((a) => a.courseId));
+
+    // Validar que todos los alumnos estén matriculados en cursos del docente.
+    const matriculas = await db.enrollment.findMany({
+      where: {
+        studentId: { in: alumnos },
+        status: "ACTIVE",
+        courseId: { in: Array.from(cursosDelDocente) },
+      },
+      select: { studentId: true },
+    });
+    const estudiantesValidos = new Set(matriculas.map((m) => m.studentId));
+
+    // Filtrar solo alumnos válidos (matriculados en cursos del docente).
+    const alumnosFiltrados = alumnos.filter((a) => estudiantesValidos.has(a));
+    if (alumnosFiltrados.length === 0) {
+      return {
+        error: "No hay alumnos válidos en tus cursos asignados.",
+      };
+    }
+
+    idsValidos = alumnosFiltrados;
+    cursoDocenteId = courseId || asignaciones[0]?.courseId || null;
+  } else {
+    // Dirección, UTP, ADMIN: pueden denunciar a cualquier alumno del colegio.
+    const validos = await db.student.findMany({
+      where: { id: { in: alumnos }, schoolId: ctx.school.id },
+      select: { id: true },
+    });
+    idsValidos = validos.map((s) => s.id);
+  }
 
   const caso = await db.conductCase.create({
     data: {
       schoolId: ctx.school.id,
+      courseId: cursoDocenteId,
       type: type as ConductCaseType,
       severity,
       title,
       description,
       status: "ABIERTO",
-      // El plazo lo pone la ley, no el colegio.
       investigationDueAt: fechaVenceInvestigacion(),
       reportedById: ctx.user.id,
       participants: {
@@ -89,14 +132,14 @@ export async function reportCase(
         create: {
           type: "RECEPCION" as const,
           title: "Recepción de la denuncia",
-          notes: `Reportado por ${ctx.user.name}`,
+          notes: "Reportado por " + ctx.user.name,
         },
       },
     },
   });
 
   revalidatePath("/colegios/convivencia");
-  revalidatePath(`/colegios/convivencia/casos/${caso.id}`);
+  revalidatePath("/colegios/convivencia/casos/" + caso.id);
   return { ok: true };
 }
 
@@ -450,4 +493,65 @@ export async function approvePlan(
 
   revalidatePath("/colegios/convivencia/plan");
   return { ok: true };
+}
+
+/** Sube un documento de evidencia vinculado a una evaluación o caso. */
+export async function uploadEvidence(
+  _prev: ConvivenciaFormState,
+  formData: FormData,
+): Promise<ConvivenciaFormState> {
+  const ctx = await requireSchoolContext("convivencia");
+
+  const evaluationId = texto(formData, "evaluationId");
+  const caseId = texto(formData, "caseId");
+  const title = texto(formData, "title");
+  const description = texto(formData, "description");
+  const type = texto(formData, "type") || "OTRO";
+
+  if (!title) return { error: "El título es obligatorio." };
+  if (!evaluationId && !caseId) {
+    return { error: "Debe vincular la evidencia a una evaluación o un caso." };
+  }
+
+  const file = formData.get("file") as File | null;
+  if (!file) return { error: "Debe seleccionar un archivo." };
+
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  const documento = await db.studentDocument.create({
+    data: {
+      schoolId: ctx.school.id,
+      studentId: "", // Se rellena abajo si hay evaluación
+      type: type as StudentDocumentType,
+      title,
+      description: description || null,
+      fileName: file.name,
+      mimeType: file.type,
+      sizeBytes: buffer.length,
+      fileData: buffer,
+      uploadedById: ctx.user.id,
+      evaluationId: evaluationId || null,
+      caseId: caseId || null,
+    },
+  });
+
+  // Si hay evaluationId, rellenar studentId de la evaluación
+  if (evaluationId) {
+    const evaluacion = await db.evaluation.findFirst({
+      where: { id: evaluationId },
+      include: {
+        grades: { select: { studentId: true }, take: 1 },
+      },
+    });
+    if (evaluacion?.grades[0]) {
+      await db.studentDocument.update({
+        where: { id: documento.id },
+        data: { studentId: evaluacion.grades[0].studentId },
+      });
+    }
+  }
+
+  revalidatePath("/colegios/convivencia");
+  return { ok: true, id: documento.id };
 }

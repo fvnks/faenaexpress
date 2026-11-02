@@ -444,6 +444,7 @@ model School {
   consents    StudentConsent[]
   justifications JustificationRequest[]
   appointments  Appointment[]
+  staffMeetings StaffMeeting[]
   conductCases  ConductCase[]
   protocols     ConductProtocol[]
   plans         ConvivenciaPlan[]
@@ -490,6 +491,7 @@ model Course {
   sessions     ClassSession[]
   evaluations Evaluation[]
   circulars   Circular[]
+  staffMeetings StaffMeeting[]
 
   @@index([schoolId, year])
 }
@@ -517,6 +519,7 @@ model Student {
   absences      StudentAbsence[]
   grades        Grade[]
   documents     StudentDocument[]
+  gradeChanges  GradeChange[]
   consents      StudentConsent[]
   justifications JustificationRequest[]
   appointments  Appointment[]
@@ -611,6 +614,9 @@ model Teacher {
   user        User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
   assignments TeachingAssignment[]
   sessions     ClassSession[]
+  appointments Appointment[]          // citas con familias dirigidas a este docente
+  createdStaffMeetings StaffMeeting[] @relation("creator") // reuniones de staff que creó
+  staffMeetingAttendances StaffMeetingAttendee[] // reuniones donde asiste
 
   @@index([schoolId, name])
 }
@@ -952,6 +958,7 @@ model User {
   accessLogs                   AccessLog[]
   posSessionsOpened            PosSession[] @relation("PosSessionOpenedBy")
   posSales                     PosSale[]   @relation("PosSaleUser")
+  gradeChanges                 GradeChange[]
 }
 
 // Códigos de recuperación: por si el cliente pierde su teléfono. Se muestran
@@ -2338,10 +2345,14 @@ model StudentDocument {
   sizeBytes    Int
   fileData     Bytes
   uploadedById String
+  evaluationId String?
+  caseId       String?
   createdAt    DateTime           @default(now())
 
   school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  evaluation  Evaluation? @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  caso        ConductCase? @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([schoolId, studentId])
 }
@@ -2440,6 +2451,8 @@ model Evaluation {
   subject  Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   period   GradingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
   grades   Grade[]
+  documents StudentDocument[]
+  gradeChanges GradeChange[]
 
   @@index([courseId, periodId])
   @@index([subjectId, periodId])
@@ -2464,6 +2477,29 @@ model Grade {
 
   @@unique([evaluationId, studentId])
   @@index([studentId])
+}
+
+// Historial de correcciones de notas: cada vez que se cambia una nota, se
+// guarda el antes y el despues. La Circular N30 exige trazabilidad de cada
+// dato del registro academico: quien lo cambio, cuando y por que.
+model GradeChange {
+  id           String      @id @default(cuid())
+  evaluationId String
+  studentId    String
+  previousValue Float?
+  newValue      Float?
+  previousStatus GradeStatus
+  newStatus     GradeStatus
+  reason        String?
+  changedById   String
+  changedAt     DateTime    @default(now())
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  changedBy  User       @relation(fields: [changedById], references: [id], onDelete: Cascade)
+
+  @@index([evaluationId, studentId])
+  @@index([changedById])
 }
 
 // La decisión del Art. 11 del Decreto 67/2018: qué pasa con el alumno que no
@@ -2614,6 +2650,7 @@ model Appointment {
   schoolId   String
   studentId  String
   guardianId String?
+  teacherId  String?           // El profesor al que va dirigida la cita
   title      String
   reason     String?
   scheduledAt DateTime
@@ -2631,9 +2668,83 @@ model Appointment {
   school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student  Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   guardian Guardian? @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  teacher  Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  // Cuándo el docente marcó la cita como leída.
+  readAt   DateTime?
 
   @@index([schoolId, scheduledAt])
   @@index([studentId])
+  @@index([teacherId])
+  @@index([teacherId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Reuniones de equipo y de curso (StaffMeeting)
+// ---------------------------------------------------------------------------
+
+enum MeetingType {
+  CURSO       // reunión de curso (título, apoderados, docentes del curso)
+  DEPARTAMENTO // reunión de departamento (mismo área)
+  CLAUSTRO     // claustro completo
+  HOMOTRIA     // reunión de homotría / nivel
+  APODERADOS   // reunión con apoderados del curso o colegio
+}
+
+// Una reunión del equipo docente o directivo: con asistentes, acta y acuerdos.
+model StaffMeeting {
+  id          String   @id @default(cuid())
+  schoolId    String
+  courseId    String?  // si es reunión de curso específico
+  type        MeetingType @default(CURSO)
+  title       String
+  description String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  place       String?
+  // Acta de la reunión: acuerdos, responsables y fechas.
+  minutes     String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school     School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  course     Course?            @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  creator    Teacher?           @relation("creator", fields: [createdById], references: [id], onDelete: SetNull)
+  attendees  StaffMeetingAttendee[]
+  agreements MeetingAgreement[]
+
+  @@index([schoolId, startsAt])
+  @@index([courseId])
+}
+
+// Asistente de una reunión de staff.
+model StaffMeetingAttendee {
+  id         String   @id @default(cuid())
+  meetingId  String
+  personId   String?  // docente vinculado (si es docente del colegio)
+  personName String   // nombre para mostrar (si no es docente vinculado)
+  personRole String   // DIRECTOR, UTP, TEACHER, STAFF, etc.
+  attended   Boolean  @default(false)
+  notes      String?
+
+  meeting StaffMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  teacher Teacher?     @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@index([meetingId])
+}
+
+// Acuerdo de una reunión de staff: qué se acordó, quién se hace cargo y cuándo.
+model MeetingAgreement {
+  id         String   @id @default(cuid())
+  meetingId  String
+  content    String
+  responsible String? // quién se hace cargo del acuerdo
+  dueDate    DateTime?
+  done       Boolean  @default(false)
+
+  meeting StaffMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
 }
 
 // ---------------------------------------------------------------------------
@@ -2689,6 +2800,9 @@ enum ConductActionType {
 model ConductCase {
   id          String            @id @default(cuid())
   schoolId    String
+  // Curso al que pertenece el alumno denunciado. Si el docente reporta, solo
+  // puede denunciar alumnos de sus cursos asignados (alcance de identidad).
+  courseId    String?
   type        ConductCaseType   @default(CONDUCTA)
   // "LEVE" | "MEDIA" | "GRAVE"
   severity    String            @default("LEVE")
@@ -2713,6 +2827,7 @@ model ConductCase {
   school       School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   participants CaseParticipant[]
   actions      ConductAction[]
+  documents    StudentDocument[]
 
   @@index([schoolId, status])
   @@index([schoolId, investigationDueAt])

@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -28,11 +29,15 @@ const SECCIONES: { href: string; label: string; section: SchoolSection }[] = [
   { href: "/colegios/comunicacion", label: "Comunicación", section: "comunicacion" },
   { href: "/colegios/convivencia", label: "Convivencia", section: "convivencia" },
   { href: "/colegios/libro", label: "Libro de clases", section: "libro" },
+  { href: "/colegios/citas", label: "Citas", section: "citas" },
+  { href: "/colegios/reuniones", label: "Reuniones", section: "reuniones" },
+  { href: "/colegios/agenda", label: "Agenda", section: "agenda" },
+  { href: "/colegios/calendario", label: "Calendario", section: "calendario" },
 ];
 
 // Shell del módulo Colegios. Es paralelo al de Facturas, pero con su propia
 // navegación: las secciones de un colegio no son las de una empresa.
-export default async function ColegiosLayout({ children }: LayoutProps<"/colegios">) {
+export default async function ColegiosLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 

@@ -4,7 +4,10 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { saveAttendance, type AttendanceFormState } from "@/app/actions/schools";
-import { SubmitButton } from "@/components/submit-button";
+import {
+  saveOfflineAttendance,
+  countPendingOfflineAttendance,
+} from "@/lib/offline-attendance";
 
 type Alumno = { id: string; nombre: string; estadoInicial: string };
 
@@ -35,7 +38,7 @@ export function AttendanceMobile({
   date: Date;
   alumnos: Alumno[];
 }) {
-  const [state, action] = useActionState<AttendanceFormState, FormData>(
+  const [state, action, isPending] = useActionState<AttendanceFormState, FormData>(
     saveAttendance,
     undefined,
   );
@@ -46,9 +49,37 @@ export function AttendanceMobile({
     new Map(alumnos.map((a) => [a.id, a.estadoInicial])),
   );
 
+  // Estado de conexión
+  const [online, setOnline] = useState<boolean>(typeof navigator !== "undefined" && navigator.onLine);
+  const [pendientes, setPendientes] = useState<number>(0);
+
+  // Sincronizar pendientes al recuperar la conexión
+  useEffect(() => {
+    if (!online) return;
+
+    let cancelado = false;
+    (async () => {
+      const n = await countPendingOfflineAttendance();
+      if (!cancelado) setPendientes(n);
+    })();
+    return () => { cancelado = true; };
+  }, [online]);
+
+  useEffect(() => {
+    const handler = () => setOnline(navigator.onLine);
+    window.addEventListener("online", handler);
+    window.addEventListener("offline", handler);
+    return () => {
+      window.removeEventListener("online", handler);
+      window.removeEventListener("offline", handler);
+    };
+  }, []);
+
   useEffect(() => {
     if (state?.ok) {
       toast.success("Asistencia guardada");
+      // Recargar pendientes tras guardar exitoso
+      countPendingOfflineAttendance().then(setPendientes);
     }
   }, [state]);
 
@@ -68,6 +99,35 @@ export function AttendanceMobile({
     setEstados(new Map(alumnos.map((a) => [a.id, "ABSENT"])));
   };
 
+  const guardar = async () => {
+    const listaAlumnos = alumnos.map((a) => ({
+      studentId: a.id,
+      estado: estados.get(a.id) ?? "PRESENT",
+      justificacion: "",
+    }));
+
+    if (online) {
+      const formData = new FormData();
+      formData.append("sessionId", sessionId);
+      listaAlumnos.forEach((a) => {
+        formData.append("studentId", a.studentId);
+        formData.append("estado", a.estado);
+        formData.append("justificacion", a.justificacion);
+      });
+      action(formData);
+    } else {
+      // Sin conexión: guardar localmente y sincronizar al volver
+      try {
+        await saveOfflineAttendance({ sessionId, alumnos: listaAlumnos });
+        const n = await countPendingOfflineAttendance();
+        setPendientes(n);
+        toast.success("Guardado sin conexión. Se sincronizará al recuperar internet.");
+      } catch {
+        toast.error("No se pudo guardar localmente.");
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4 p-4">
       <div>
@@ -81,6 +141,32 @@ export function AttendanceMobile({
             month: "short",
           })}
         </p>
+      </div>
+
+      {/* Indicador de conexión y pendientes */}
+      <div
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-control text-xs font-medium border ${
+          online
+            ? "border-border bg-surface text-muted-foreground"
+            : "border-warning bg-warning-soft text-warning"
+        }`}
+      >
+        {online ? (
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-success" />
+            Conectado
+          </span>
+        ) : (
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+            Sin conexión
+          </span>
+        )}
+        {pendientes > 0 ? (
+          <span className="ml-auto rounded-full bg-danger text-danger-foreground px-2 py-0.5">
+            {pendientes} pendiente{pendientes !== 1 ? "s" : ""}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex gap-2 mb-3">
@@ -98,7 +184,7 @@ export function AttendanceMobile({
         </button>
       </div>
 
-      <form ref={form} action={action} className="space-y-1">
+      <form ref={form} onSubmit={(e) => { e.preventDefault(); guardar(); }} className="space-y-1">
         <input type="hidden" name="sessionId" value={sessionId} />
         {alumnos.map((a) => {
           const actual = estados.get(a.id) ?? "PRESENT";
@@ -127,12 +213,13 @@ export function AttendanceMobile({
             </div>
           );
         })}
-        <SubmitButton
+        <button
+          type="submit"
+          disabled={isPending}
           className="w-full rounded-control border border-primary bg-transparent px-4 py-3 text-sm font-semibold text-primary"
-          pendingLabel="Guardando..."
         >
-          Guardar asistencia
-        </SubmitButton>
+          {isPending ? "Guardando..." : online ? "Guardar asistencia" : "Guardar (sin conexión)"}
+        </button>
         {state?.error ? (
           <p className="mt-2 text-sm text-danger">{state.error}</p>
         ) : null}

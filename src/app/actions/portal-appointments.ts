@@ -51,17 +51,45 @@ export async function requestTeacherAppointment(
   const fecha = new Date(`${fechaTexto}T${horaTexto}:00.000Z`);
   if (Number.isNaN(fecha.getTime())) return { error: "La fecha o la hora no son válidas." };
 
+  const durationMinRaw = String(formData.get("durationMin") ?? "30").trim();
+  const durationMin = Number.parseInt(durationMinRaw, 10) || 30;
+  const endsAt = new Date(fecha.getTime() + durationMin * 60 * 1000);
+
+  // Evitar solapamiento: el docente no puede tener dos citas al mismo tiempo.
+  // Trae citas en un rango amplio y filtra en JS considerando durationMin.
+  const rangoInicio = new Date(fecha.getTime() - 60 * 60 * 1000); // -1 hora
+  const rangoFin = new Date(fecha.getTime() + 60 * 60 * 1000); // +1 hora
+  const citasDocente = await db.appointment.findMany({
+    where: {
+      schoolId: apoderado.schoolId,
+      teacherId,
+      status: { not: "CANCELADA" },
+      scheduledAt: { gte: rangoInicio, lte: rangoFin },
+    },
+    select: { id: true, title: true, scheduledAt: true, durationMin: true },
+  });
+  const solapamiento = citasDocente.find((c) => {
+    const cEnd = new Date(c.scheduledAt.getTime() + c.durationMin * 60 * 1000);
+    return fecha < cEnd && endsAt > c.scheduledAt;
+  });
+  if (solapamiento) {
+    return {
+      error: `Ese docente ya tiene una cita "${solapamiento.title}" a esa hora.`,
+    };
+  }
+
   await db.appointment.create({
     data: {
       schoolId: apoderado.schoolId,
       studentId,
       guardianId: apoderado.id,
+      teacherId,
       title: `Solicitud de reunión: ${apoderado.name} con ${profesor.name}`,
       reason,
       scheduledAt: fecha,
-      durationMin: 30,
+      durationMin,
       place: place || null,
-      createdById: apoderado.id, // Usamos el ID del apoderado como creador temporal
+      createdById: apoderado.id,
     },
   });
 
