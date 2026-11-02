@@ -62,19 +62,25 @@ export function CalendarManager({
   });
 
   useEffect(() => {
-    if (crear?.ok) {
-      toast.success("Evento creado");
-      setFormData({ date: "", type: "HOLIDAY", name: "", description: "", isNonInstructional: true });
-    }
-    if (crear?.error) toast.error(crear.error);
+    const crearOk = () => {
+      if (crear?.ok) {
+        toast.success("Evento creado");
+        setFormData({ date: "", type: "HOLIDAY", name: "", description: "", isNonInstructional: true });
+      }
+      if (crear?.error) toast.error(crear.error);
+    };
+    crearOk();
   }, [crear]);
 
   useEffect(() => {
-    if (editar?.ok) {
-      toast.success("Evento actualizado");
-      setEditandoId(null);
-    }
-    if (editar?.error) toast.error(editar.error);
+    const editarOk = () => {
+      if (editar?.ok) {
+        toast.success("Evento actualizado");
+        setEditandoId(null);
+      }
+      if (editar?.error) toast.error(editar.error);
+    };
+    editarOk();
   }, [editar]);
 
   useEffect(() => {

@@ -61,7 +61,7 @@ export async function saveOfflineSale(payload: {
 /**
  * Lista todas las ventas pendientes de sincronizar.
  */
-export async function listOfflineSales(): Promise<Array<{
+export type OfflineSaleRecord = {
   id: string;
   payload: {
     partnerId?: string | null;
@@ -72,18 +72,14 @@ export async function listOfflineSales(): Promise<Array<{
   createdAt: number;
   synced: boolean;
   syncError: string | null;
-}>> {
+};
+
+export async function listOfflineSales(): Promise<OfflineSaleRecord[]> {
   const db = await openDb();
   const tx = db.transaction(STORE_NAME, "readonly");
   const store = tx.objectStore(STORE_NAME);
   const index = store.index("createdAt");
-  const result: Array<{
-    id: string;
-    payload: any;
-    createdAt: number;
-    synced: boolean;
-    syncError: string | null;
-  }> = [];
+  const result: OfflineSaleRecord[] = [];
   return new Promise((resolve, reject) => {
     index.openCursor().onsuccess = (event) => {
       const target = event.target as IDBRequest | null;
@@ -113,7 +109,7 @@ export async function markOfflineSaleSynced(
   const db = await openDb();
   const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
-  const record = await new Promise<any>((resolve, reject) => {
+  const record = await new Promise<OfflineSaleRecord | undefined>((resolve, reject) => {
     const req = store.get(id);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);

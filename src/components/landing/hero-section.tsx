@@ -139,8 +139,11 @@ function MockupContent() {
 
   useEffect(() => {
     const types: MockupType[] = ["compras", "ventas", "gastos", "reportes", "banco", "rrhh"];
-    setMockup(types[Math.floor(Math.random() * types.length)]);
-    setVisible(true);
+    const apply = () => {
+      setMockup(types[Math.floor(Math.random() * types.length)]);
+      setVisible(true);
+    };
+    apply();
   }, []);
 
   const m = MOCKUPS[mockup];

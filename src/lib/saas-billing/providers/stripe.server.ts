@@ -17,12 +17,19 @@ import type { PaymentProvider, PaymentIntent, PaymentVerification } from "./inde
 
 const STRIPE_BASE_URL = "https://api.stripe.com";
 
+type StripePaymentIntentResponse = {
+  id: string;
+  amount: number;
+  client_secret: string;
+  status: string;
+};
+
 async function stripeRequest(
   method: "GET" | "POST",
   path: string,
-  body?: any,
+  body?: Record<string, unknown>,
   idempotencyKey?: string,
-): Promise<any> {
+): Promise<StripePaymentIntentResponse> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
     "Content-Type": "application/x-www-form-urlencoded",

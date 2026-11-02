@@ -11,6 +11,8 @@
 //
 "use server";
 
+import { createHmac } from "crypto";
+
 import type { PaymentProvider, PaymentIntent, PaymentVerification } from "./index";
 
 const FLOW_BASE_URL =
@@ -18,20 +20,26 @@ const FLOW_BASE_URL =
     ? "https://api.flow.cl"
     : "https://sandbox.flow.cl/api";
 
+type FlowPaymentResponse = {
+  token: string;
+  url: string;
+  status?: number;
+  amount?: number;
+};
+
 function generateSignature(
   params: Record<string, string>,
   secretKey: string,
 ): string {
-  const crypto = require("crypto");
   const sortedKeys = Object.keys(params).sort();
   const stringToSign = sortedKeys.map((k) => `${k}${params[k]}`).join("");
-  return crypto.createHmac("sha256", secretKey).update(stringToSign).digest("hex");
+  return createHmac("sha256", secretKey).update(stringToSign).digest("hex");
 }
 
 async function flowRequest(
   endpoint: string,
   params: Record<string, string>,
-): Promise<any> {
+): Promise<FlowPaymentResponse> {
   const apiKey = process.env.FLOW_API_KEY!;
   const secretKey = process.env.FLOW_SECRET_KEY!;
   const commerceId = process.env.FLOW_COMMERCE_ID;

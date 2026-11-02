@@ -12,13 +12,15 @@ export function FormattedTime({ iso }: { iso: string }) {
   const [time, setTime] = useState<string | null>(null);
 
   useEffect(() => {
-    setTime(
-      new Date(iso).toLocaleTimeString("es-CL", {
-        timeZone: "America/Santiago",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    );
+    const apply = () =>
+      setTime(
+        new Date(iso).toLocaleTimeString("es-CL", {
+          timeZone: "America/Santiago",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
+    apply();
   }, [iso]);
 
   if (!time) return <span className="text-muted-foreground">—</span>;

@@ -47,8 +47,66 @@ export type DtePreviewResult = {
     existingSaleId?: string;
     mensaje?: string;
   }>;
-  resumen: any;
+  resumen: DtePreviewResumen;
   xmlFiles: number;
+};
+
+/** Resumen de la vista previa de importación de DTE. */
+export type DtePreviewResumen = {
+  /** Documentos que se completan con el XML importado. */
+  actualizar?: number;
+  duplicadas?: number;
+  omitidas?: number;
+  conError?: number;
+};
+
+/** Vista mínima de la venta que consume el flujo de DTE (typeDte). */
+type VentaParaDte = {
+  id: string;
+  saleNumber: string;
+  date: Date;
+  totalAmount: number;
+  notes: string | null;
+  partnerId: string | null;
+};
+
+/** PosDte con su venta (para armar el PDF desde el DTE persistido). */
+type PosDteConVenta = {
+  id: string;
+  folio: number;
+  sale: VentaParaDte & {
+    partner?: { rut?: string | null; name?: string | null } | null;
+    items: Array<{
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      discount: number;
+    }>;
+  };
+};
+
+/** Compra (proveedor) con los montos que consume el flujo de DTE (tipo 46). */
+type CompraParaDte = {
+  id: string;
+  date: Date;
+  netAmount: number;
+  exento: number;
+  ivaAmount: number;
+  totalAmount: number;
+  notes: string | null;
+  city?: string | null;
+  partner?: { rut?: string | null; name?: string | null } | null;
+};
+
+/** Un CAF con folios disponibles para un tipo de DTE. */
+type SiiCaf = {
+  id: string;
+  tipoDte: number;
+  folioInicio: number;
+  folioFinal: number;
+  folioActual: number;
+  vigenteDesde: Date | string;
+  vigenteHasta: Date | string;
 };
 
 /**
@@ -80,9 +138,9 @@ async function obtenerConfigSiiValida(companyId: string) {
 /**
  * Busca un CAF disponible para el tipo de documento.
  */
-function obtenerCafDisponible(config: any, tipoDte: number) {
+function obtenerCafDisponible(config: { cafs?: SiiCaf[] }, tipoDte: number) {
   const caf = config.cafs?.find(
-    (c: any) => c.tipoDte === tipoDte && Number(c.folioActual) < Number(c.folioFinal),
+    (c) => c.tipoDte === tipoDte && Number(c.folioActual) < Number(c.folioFinal),
   );
   if (!caf) {
     throw new Error(
@@ -149,10 +207,10 @@ export async function emitirDteAction(
     return { ok: false, error: "Falta el ID de la venta." };
   }
 
-  // Buscar la venta (usar as any para evitar problemas de tipos de Prisma).
-  const sale = (await (db as any).posSale.findFirst({
+  // Buscar la venta (el tipo lo resuelve el cliente generado de Prisma).
+  const sale = (await db.posSale.findFirst({
     where: { id: saleId, companyId: ctx.company.id },
-  })) as any;
+  })) as unknown as VentaParaDte | null;
   if (!sale) {
     return { ok: false, error: "La venta no existe." };
   }
@@ -160,14 +218,14 @@ export async function emitirDteAction(
   // Cargar relaciones por separado.
   const [partner, items, dtes] = await Promise.all([
     sale.partnerId
-      ? (db as any).partner.findFirst({ where: { id: sale.partnerId, companyId: ctx.company.id } })
+      ? db.partner.findFirst({ where: { id: sale.partnerId, companyId: ctx.company.id } })
       : null,
-    (db as any).posSaleItem.findMany({ where: { saleId: sale.id } }),
-    (db as any).posDte.findMany({ where: { saleId: sale.id, companyId: ctx.company.id } }),
+    db.posSaleItem.findMany({ where: { saleId: sale.id } }),
+    db.posDte.findMany({ where: { saleId: sale.id, companyId: ctx.company.id } }),
   ]);
 
   // Si ya tiene DTE emitido, no reemitir.
-  const dteExistente = dtes?.find((d: any) => d.estado === "EMITIDO");
+  const dteExistente = dtes?.find((d) => d.estado === "EMITIDO");
   if (dteExistente) {
     return {
       ok: true,
@@ -217,7 +275,7 @@ export async function emitirDteAction(
     ciudadReceptor: undefined,
     telefonoReceptor: undefined,
     correoReceptor: undefined,
-    items: items.map((item: any) => ({
+    items: items.map((item) => ({
       nombre: item.name,
       cantidad: Number(item.quantity),
       precioUnitario: item.unitPrice,
@@ -290,7 +348,7 @@ export async function emitirDteAction(
   // Guardar PosDte.
   let posDte;
   try {
-    posDte = await (db as any).posDte.create({
+    posDte = await db.posDte.create({
       data: {
         companyId: ctx.company.id,
         configId: config.id,
@@ -351,7 +409,7 @@ export async function generarPdfDteAction(
     return { ok: false, error: "Falta el ID del DTE." };
   }
 
-  const posDte = (await (db as any).posDte.findFirst({
+  const posDte = (await db.posDte.findFirst({
     where: { id: posDteId, companyId: ctx.company.id },
     include: {
       sale: {
@@ -361,7 +419,7 @@ export async function generarPdfDteAction(
         },
       },
     },
-  })) as any;
+  })) as unknown as PosDteConVenta | null;
   if (!posDte) {
     return { ok: false, error: "El DTE no existe." };
   }
@@ -400,7 +458,7 @@ export async function generarPdfDteAction(
     correoEmisor: ctx.company.email ?? undefined,
     rutReceptor: sale.partner?.rut ?? "66666666-6",
     razonSocialReceptor: sale.partner?.name ?? "Consumidor final",
-    items: sale.items.map((item: any) => ({
+    items: sale.items.map((item) => ({
       nombre: item.name,
       cantidad: Number(item.quantity),
       precioUnitario: item.unitPrice,
@@ -477,17 +535,24 @@ export async function emitirDteCompraAction(
 
   // Buscar la compra con sus ítems y proveedor.
   const [purchase, items] = await Promise.all([
-    (db as any).purchase.findFirst({
+    db.purchase.findFirst({
       where: { id: purchaseId, companyId: ctx.company.id },
-    }),
-    (db as any).purchaseItem.findMany({ where: { purchaseId } }),
+    }) as unknown as CompraParaDte | null,
+    db.purchaseItem.findMany({
+      where: { purchaseId },
+    }) as unknown as Array<{
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      discount: number;
+    }>,
   ]);
   if (!purchase) {
     return { ok: false, error: "La compra no existe." };
   }
 
   // Si ya tiene DTE emitido, no reemitir.
-  const dteExistente = await (db as any).posDte.findFirst({
+  const dteExistente = await db.posDte.findFirst({
     where: { purchaseId: purchase.id, companyId: ctx.company.id, estado: "EMITIDO" },
   });
   if (dteExistente) {
@@ -532,7 +597,7 @@ export async function emitirDteCompraAction(
     ciudadReceptor: undefined,
     telefonoReceptor: undefined,
     correoReceptor: undefined,
-    items: items.map((item: any) => ({
+    items: items.map((item) => ({
       nombre: item.name,
       cantidad: Number(item.quantity),
       precioUnitario: item.unitPrice,
@@ -605,7 +670,7 @@ export async function emitirDteCompraAction(
   // Guardar PosDte vinculado a la compra.
   let posDte;
   try {
-    posDte = await (db as any).posDte.create({
+    posDte = await db.posDte.create({
       data: {
         companyId: ctx.company.id,
         configId: config.id,
@@ -658,7 +723,7 @@ export async function previewDteImport(
     updated: 0,
     errores: ["La importación de XML DTE se ha movido al módulo POS SII. Usa /pos/sii para configurar y emitir DTE."],
     rows: [],
-    resumen: "No disponible",
+    resumen: {},
     xmlFiles: 0,
   };
 }

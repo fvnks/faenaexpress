@@ -134,7 +134,7 @@ export async function emitirDtePosSale(
     folioUsado = caf.folioActual + 1;
 
     // Construir los datos del DTE desde la venta.
-    const items = sale.items.map((item: any, index: number) => ({
+    const items = sale.items.map((item, index: number) => ({
       nroLinDet: index + 1,
       codigo: item.productId ?? null,
       codigoTipo: null,

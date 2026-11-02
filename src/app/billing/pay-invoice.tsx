@@ -37,12 +37,15 @@ export function PayInvoice({ payableInvoices }: PayInvoiceProps) {
   const [provider, setProvider] = useState("");
 
   useEffect(() => {
-    if (estado?.ok && !pendiente) {
-      toast.success("Pago iniciado correctamente");
-      setInvoiceId("");
-      setProvider("");
-    }
-    if (estado?.error) toast.error(estado.error);
+    const reiniciar = () => {
+      if (estado?.ok && !pendiente) {
+        toast.success("Pago iniciado correctamente");
+        setInvoiceId("");
+        setProvider("");
+      }
+      if (estado?.error) toast.error(estado.error);
+    };
+    reiniciar();
   }, [estado]);
 
   if (payableInvoices.length === 0) {

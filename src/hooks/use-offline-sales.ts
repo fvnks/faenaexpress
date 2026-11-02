@@ -1,12 +1,3 @@
-/**
- * Hook para detectar el estado de conexión y gestionar ventas pendientes offline.
- *
- * - Expone `isOnline` (booleano) y `pendingCount` (número de ventas sin sincronizar).
- * - Expone `syncOfflineSales()` para forzar la sincronización manual.
- * - Al montar, si hay conexión, intenta sincronizar automáticamente.
- * - Escucha eventos online/offline del navegador.
- */
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -15,7 +6,6 @@ import {
   listOfflineSales,
   markOfflineSaleSynced,
   countPendingOfflineSales,
-  deleteOfflineSale,
 } from "@/lib/offline-sales";
 import { createPosSale } from "@/app/actions/pos";
 
@@ -33,7 +23,9 @@ export type OfflineSale = {
 };
 
 export function useOfflineSales() {
-  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -49,13 +41,15 @@ export function useOfflineSales() {
 
   // Detectar cambios de conexión
   useEffect(() => {
-    setIsOnline(navigator.onLine);
+    const setOnlineState = (online: boolean) => {
+      setIsOnline(online);
+    };
 
     const handleOnline = () => {
-      setIsOnline(true);
+      setOnlineState(true);
       void syncOfflineSales();
     };
-    const handleOffline = () => setIsOnline(false);
+    const handleOffline = () => setOnlineState(false);
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
@@ -65,13 +59,25 @@ export function useOfflineSales() {
     };
   }, []);
 
-  // Sincronizar al montar si hay conexión
+  // Sincronizar al montar si hay conexión. Sin conexión solo se actualiza el
+  // conteo de pendientes (así el usuario ve cuántas ventas esperan).
   useEffect(() => {
     if (isOnline) {
       void syncOfflineSales();
-    } else {
-      void refreshCount();
+      return;
     }
+
+    let active = true;
+    countPendingOfflineSales()
+      .then((count) => {
+        if (active) setPendingCount(count);
+      })
+      .catch(() => {
+        if (active) setPendingCount(0);
+      });
+    return () => {
+      active = false;
+    };
   }, [isOnline]);
 
   /**

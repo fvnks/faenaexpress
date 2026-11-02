@@ -9,6 +9,8 @@ import { dangerButtonClass } from "@/lib/ui";
 
 const iconCls = "h-4 w-4 shrink-0";
 
+type DefontanaActionState = { error?: string; ok?: boolean; message?: string } | undefined;
+
 function EllipsisIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
@@ -118,7 +120,10 @@ export function ActionsDropdown({
   fetchDefontana?: {
     id: string;
     fieldName: "purchaseId" | "saleId";
-    action: (prev: any, formData: FormData) => Promise<any>;
+    action: (
+      prev: DefontanaActionState,
+      formData: FormData,
+    ) => Promise<DefontanaActionState>;
     label?: string;
   };
   hasDefontanaCredentials?: boolean;

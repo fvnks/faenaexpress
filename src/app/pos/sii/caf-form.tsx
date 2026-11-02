@@ -27,6 +27,11 @@ type Config = {
 
 type CafState = { error?: string } | undefined;
 
+const CAF_VIGENCIA_ANIOS = 365;
+const CAF_VIGENTE_HASTA_DEFAULT = new Date(
+  Date.now() + CAF_VIGENCIA_ANIOS * 24 * 60 * 60 * 1000,
+).toISOString().slice(0, 10);
+
 export function PosSiiCafForm({ config }: { config: Config }) {
   const [state, setState] = useState<CafState>(undefined);
   const [deleteState, setDeleteState] = useState<CafState>(undefined);
@@ -37,7 +42,7 @@ export function PosSiiCafForm({ config }: { config: Config }) {
     folioInicio: 1,
     folioFinal: 100,
     vigenteDesde: new Date().toISOString().slice(0, 10),
-    vigenteHasta: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    vigenteHasta: CAF_VIGENTE_HASTA_DEFAULT,
   });
 
   const cafs = config?.cafs ?? [];
@@ -61,7 +66,7 @@ export function PosSiiCafForm({ config }: { config: Config }) {
       folioInicio: 1,
       folioFinal: 100,
       vigenteDesde: new Date().toISOString().slice(0, 10),
-      vigenteHasta: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      vigenteHasta: CAF_VIGENTE_HASTA_DEFAULT,
     });
     setShowForm(true);
   }
@@ -74,7 +79,7 @@ export function PosSiiCafForm({ config }: { config: Config }) {
       folioInicio: 1,
       folioFinal: 100,
       vigenteDesde: new Date().toISOString().slice(0, 10),
-      vigenteHasta: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      vigenteHasta: CAF_VIGENTE_HASTA_DEFAULT,
     });
   }
 

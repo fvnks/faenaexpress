@@ -44,24 +44,33 @@ export function BillingPaymentMethods({ methods }: BillingPaymentMethodsProps) {
   const [providerToken, setProviderToken] = useState("");
 
   useEffect(() => {
-    if (estadoAgregar?.ok) {
-      toast.success("Método de pago agregado");
-      setShowForm(false);
-      setProvider("");
-      setDisplayName("");
-      setProviderToken("");
-    }
-    if (estadoAgregar?.error) toast.error(estadoAgregar.error);
+    const agregarOk = () => {
+      if (estadoAgregar?.ok) {
+        toast.success("Método de pago agregado");
+        setShowForm(false);
+        setProvider("");
+        setDisplayName("");
+        setProviderToken("");
+      }
+      if (estadoAgregar?.error) toast.error(estadoAgregar.error);
+    };
+    agregarOk();
   }, [estadoAgregar]);
 
   useEffect(() => {
-    if (estadoEliminar?.ok) toast.success("Método eliminado");
-    if (estadoEliminar?.error) toast.error(estadoEliminar.error);
+    const eliminarOk = () => {
+      if (estadoEliminar?.ok) toast.success("Método eliminado");
+      if (estadoEliminar?.error) toast.error(estadoEliminar.error);
+    };
+    eliminarOk();
   }, [estadoEliminar]);
 
   useEffect(() => {
-    if (estadoDefault?.ok) toast.success("Método predeterminado actualizado");
-    if (estadoDefault?.error) toast.error(estadoDefault.error);
+    const defaultOk = () => {
+      if (estadoDefault?.ok) toast.success("Método predeterminado actualizado");
+      if (estadoDefault?.error) toast.error(estadoDefault.error);
+    };
+    defaultOk();
   }, [estadoDefault]);
 
   const PROVIDERS = [

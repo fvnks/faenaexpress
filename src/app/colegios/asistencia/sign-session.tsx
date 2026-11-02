@@ -48,11 +48,14 @@ export function SessionSignature({
   const [codigo, setCodigo] = useState("");
 
   useEffect(() => {
-    if (estado?.ok) {
-      toast.success(`Clase firmada por ${estado.firmadoPor}`);
-      setCodigo("");
-    }
-    if (estado?.error) toast.error(estado.error);
+    const limpiar = () => {
+      if (estado?.ok) {
+        toast.success(`Clase firmada por ${estado.firmadoPor}`);
+        setCodigo("");
+      }
+      if (estado?.error) toast.error(estado.error);
+    };
+    limpiar();
   }, [estado]);
 
   useEffect(() => {

@@ -21,39 +21,40 @@ export default function PosTpvRetornoPage() {
   );
 
   useEffect(() => {
-    // Leer token_ws y buy_order de la URL
-    const searchParams = new URLSearchParams(window.location.search);
-    const tokenWs = searchParams.get("token_ws") ?? "";
-    const buyOrder = searchParams.get("buy_order") ?? "";
+    const iniciar = async () => {
+      // Leer token_ws y buy_order de la URL
+      const searchParams = new URLSearchParams(window.location.search);
+      const tokenWs = searchParams.get("token_ws") ?? "";
+      const buyOrder = searchParams.get("buy_order") ?? "";
 
-    // Extraer saleId del buy_order (formato: POS-PV-XXXXXX)
-    const saleIdMatch = buyOrder.match(/POS-(PV-\d+)/);
-    const extractedSaleId = saleIdMatch ? saleIdMatch[1] : null;
+      // Extraer saleId del buy_order (formato: POS-PV-XXXXXX)
+      const saleIdMatch = buyOrder.match(/POS-(PV-\d+)/);
+      const extractedSaleId = saleIdMatch ? saleIdMatch[1] : null;
 
-    if (!tokenWs || !extractedSaleId) {
-      setStatus("error");
-      setMessage("Parámetros de pago incompletos.");
-      return;
-    }
+      if (!tokenWs || !extractedSaleId) {
+        setStatus("error");
+        setMessage("Parámetros de pago incompletos.");
+        return;
+      }
 
-    setSaleId(extractedSaleId);
+      setSaleId(extractedSaleId);
 
-    // Llamar a la acción de confirmación
-    const formData = new FormData();
-    formData.append("saleId", extractedSaleId);
-    formData.append("token_ws", tokenWs);
+      // Llamar a la acción de confirmación
+      const formData = new FormData();
+      formData.append("saleId", extractedSaleId);
+      formData.append("token_ws", tokenWs);
 
-    confirmTpvSaleAction(undefined, formData).then((result) => {
+      const result = await confirmTpvSaleAction(undefined, formData);
       if (result?.ok) {
         setStatus("ok");
-        setMessage(
-          `Pago aprobado. Autorización: ${result.status ?? "N/A"}`,
-        );
+        setMessage(`Pago aprobado. Autorización: ${result.status ?? "N/A"}`);
       } else {
         setStatus("error");
         setMessage(result?.error ?? "Error desconocido al confirmar el pago.");
       }
-    });
+    };
+
+    void iniciar();
   }, []);
 
   if (status === "loading") {

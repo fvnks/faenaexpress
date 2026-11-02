@@ -70,30 +70,37 @@ export function RequestTeacherAppointment({
   const [place, setPlace] = useState("");
 
   useEffect(() => {
-    if (solicitar?.ok) {
-      toast.success("Solicitud enviada: el profesor la verá en su bandeja.");
-      setReason("");
-      setFecha("");
-      setHora("");
-      setPlace("");
-    }
-    if (solicitar?.error) toast.error(solicitar.error);
+    const enviarOk = () => {
+      if (solicitar?.ok) {
+        toast.success("Solicitud enviada: el profesor la verá en su bandeja.");
+        setReason("");
+        setFecha("");
+        setHora("");
+        setPlace("");
+      }
+      if (solicitar?.error) toast.error(solicitar.error);
+    };
+    enviarOk();
   }, [solicitar]);
 
   useEffect(() => {
-    if (!alumnoId) {
-      setDocentes([]);
-      setTeacherId("");
-      return;
+    const limpiarDocentes = () => {
+      if (!alumnoId) {
+        setDocentes([]);
+        setTeacherId("");
+      }
+    };
+    limpiarDocentes();
+    if (alumnoId) {
+      // Trae los docentes del alumno seleccionado
+      void fetch(`/apoderado/api/docentes?studentId=${alumnoId}`)
+        .then((r) => r.json())
+        .then((data: DocenteCurso[]) => {
+          setDocentes(data);
+          if (data.length > 0 && teacherId === "") setTeacherId(data[0].id);
+        })
+        .catch(() => toast.error("No se pudieron cargar los profesores."));
     }
-    // Trae los docentes del alumno seleccionado
-    fetch(`/apoderado/api/docentes?studentId=${alumnoId}`)
-      .then((r) => r.json())
-      .then((data: DocenteCurso[]) => {
-        setDocentes(data);
-        if (data.length > 0 && teacherId === "") setTeacherId(data[0].id);
-      })
-      .catch(() => toast.error("No se pudieron cargar los profesores."));
   }, [alumnoId]);
 
   const misCitas = citas.filter((c) => c.status === "PENDIENTE");

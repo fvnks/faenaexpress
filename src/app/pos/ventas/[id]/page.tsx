@@ -309,8 +309,8 @@ export default async function PosTicketPage(props: PageProps<"/pos/ventas/[id]">
         ) : null}
 
         <footer className="mt-6 border-t border-border pt-3 text-center text-xs text-muted-foreground">
-          <DteInfo saleId={sale.id} dtes={sale.dtes as any} />
-          <DteDownloadButton dtes={sale.dtes as any} />
+          <DteInfo saleId={sale.id} dtes={sale.dtes} />
+          <DteDownloadButton dtes={sale.dtes} />
           <p className="mt-1">Gracias por su compra.</p>
         </footer>
       </article>
@@ -420,7 +420,7 @@ export default async function PosTicketPage(props: PageProps<"/pos/ventas/[id]">
         )}
 
         <footer>
-          <DteInfo saleId={sale.id} dtes={sale.dtes as any} />
+          <DteInfo saleId={sale.id} dtes={sale.dtes} />
           <p>Gracias por su compra.</p>
         </footer>
       </article>

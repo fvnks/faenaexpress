@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
-import { fetchSaleXmlAction } from "@/app/actions/defontana";
+import { fetchSaleXmlAction, type FetchSaleXmlState } from "@/app/actions/defontana";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
@@ -47,7 +47,7 @@ type Props = {
   params: Record<string, string | string[] | undefined>;
   sortKey: string;
   sortDir: SortDir;
-  fetchSaleXmlAction: (prev: any, formData: FormData) => Promise<any>;
+  fetchSaleXmlAction: (prev: FetchSaleXmlState, formData: FormData) => Promise<FetchSaleXmlState>;
   hasDefontanaCredentials?: boolean;
 };
 

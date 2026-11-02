@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { Prisma } from "@/generated/prisma/client";
 import { recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -229,7 +230,7 @@ export async function createPosSaleForTpv(
   };
 }
 
-async function nextSaleNumber(tx: any, companyId: string) {
+async function nextSaleNumber(tx: Prisma.TransactionClient, companyId: string) {
   const last = await tx.posSale.findFirst({
     where: { companyId },
     orderBy: { saleNumber: "desc" },

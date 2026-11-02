@@ -55,14 +55,22 @@ export default function PosKdsPage() {
   }, []);
 
   useEffect(() => {
-    loadAll();
+    const cargar = async () => {
+      await loadAll();
+    };
+    void cargar();
     // Polling cada 10 segundos para detectar nuevas órdenes
-    const timer = setInterval(loadAll, 10000);
+    const timer = setInterval(() => {
+      void cargar();
+    }, 10000);
     return () => clearInterval(timer);
   }, [loadAll]);
 
   const updateOrderStatus = async (orderId: string, status: string) => {
-    const result = await updateKdsOrderStatus(orderId, status as any);
+    const result = await updateKdsOrderStatus(
+      orderId,
+      status as "PENDING" | "PREPARING" | "READY" | "SERVED" | "CANCELLED",
+    );
     if (result?.ok) {
       setRefresh((r) => r + 1);
     } else {
@@ -71,7 +79,10 @@ export default function PosKdsPage() {
   };
 
   const updateItemStatus = async (itemId: string, status: string) => {
-    const result = await updateKdsItemStatus(itemId, status as any);
+    const result = await updateKdsItemStatus(
+      itemId,
+      status as "PENDING" | "PREPARING" | "READY" | "CANCELLED",
+    );
     if (result?.ok) {
       setRefresh((r) => r + 1);
     } else {
@@ -263,7 +274,10 @@ function OrderCard({
                 value={itemStatus[item.id] || item.status}
                 onChange={(e) => {
                   setItemStatus((prev) => ({ ...prev, [item.id]: e.target.value }));
-                  onItemStatusChange(item.id, e.target.value as any);
+                  onItemStatusChange(
+                    item.id,
+                    e.target.value as "PENDING" | "PREPARING" | "READY" | "CANCELLED",
+                  );
                 }}
                 className="rounded border border-border bg-white px-2 py-1 text-xs"
               >

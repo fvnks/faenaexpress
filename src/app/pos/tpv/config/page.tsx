@@ -145,8 +145,8 @@ export default async function PosTpvConfigPage() {
           <h2 className="text-sm font-semibold mb-3">Estado: Habilitado</h2>
           <p className="text-sm text-muted-foreground">
             El módulo TPV está activo. En la pantalla de venta, al seleccionar
-            "Tarjeta de crédito" o "Tarjeta de débito" como medio de pago,
-            aparecerá la opción de pagar con TPV.
+            &quot;Tarjeta de crédito&quot; o &quot;Tarjeta de débito&quot; como medio de
+            pago, aparecerá la opción de pagar con TPV.
           </p>
         </section>
       )}

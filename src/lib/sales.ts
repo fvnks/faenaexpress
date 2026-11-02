@@ -440,6 +440,7 @@ export async function getDocumentTree(
             status: true,
             totalAmount: true,
             date: true,
+            relatedSaleId: true,
           },
         },
       },
@@ -449,7 +450,7 @@ export async function getDocumentTree(
 
     visited.add(saleId);
 
-    const children: DocumentNode[] = [];
+    const children: DocumentTreeNode[] = [];
 
     for (const note of sale.relatedNotes) {
       const noteNode: DocumentTreeNode = {

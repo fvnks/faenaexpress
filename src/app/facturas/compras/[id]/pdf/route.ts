@@ -9,6 +9,7 @@ import {
   generarPdfCartaDte,
   normalizarRutSii,
   nombreArchivoDte,
+  type DteGenerado,
 } from "@/lib/dte-typedte";
 import { getPurchase } from "@/lib/purchases";
 import { getPosSiiConfigForUI } from "@/app/actions/pos-sii-caf";
@@ -66,11 +67,11 @@ export async function GET(
     ciudadReceptor: undefined,
     telefonoReceptor: undefined,
     correoReceptor: undefined,
-    items: purchase.items.map((item: any) => ({
+    items: purchase.items.map((item) => ({
       nombre: item.name,
       cantidad: Number(item.quantity),
       precioUnitario: item.unitPrice,
-      descuentoMonto: item.discount ?? 0,
+      monto: Number(item.amount),
       exento: false,
     })),
     formaPago: "contado",
@@ -82,7 +83,7 @@ export async function GET(
   };
 
   // Generar el DTE con typeDte para obtener el TED (timbre) necesario para el PDF.
-  let dteGenerado: { xml: string; totales: any; ted: any } | null = null;
+  let dteGenerado: DteGenerado | null = null;
   if (configSii?.certificadoPfx) {
     try {
       const certificadoPfx = Buffer.from(configSii.certificadoPfx, "base64");
@@ -117,7 +118,7 @@ export async function GET(
     const pdfBuffer = await generarPdfCartaDte(representacion);
     const nombreArchivo = nombreArchivoDte(tipoDte, folio);
 
-    return new Response(pdfBuffer as any, {
+    return new Response(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${nombreArchivo}"`,

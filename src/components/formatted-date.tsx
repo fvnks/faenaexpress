@@ -12,7 +12,8 @@ export function FormattedDate({ iso }: { iso: string }) {
   const [date, setDate] = useState<string | null>(null);
 
   useEffect(() => {
-    setDate(new Date(iso).toLocaleDateString("es-CL"));
+    const apply = () => setDate(new Date(iso).toLocaleDateString("es-CL"));
+    apply();
   }, [iso]);
 
   if (!date) return <span className="text-muted-foreground">—</span>;

@@ -6,18 +6,23 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@/generated/prisma/client";
 import { recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
+import type { AuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { formatCLP } from "@/lib/money";
 
 export type SiiConfigState = { error?: string; ok?: boolean } | undefined;
 
-async function requireSiiAdmin() {
+type SiiAdminResult =
+  | { ctx: AuthContext; error: null }
+  | { ctx: null; error: "No tienes permiso para configurar el SII." };
+
+async function requireSiiAdmin(): Promise<SiiAdminResult> {
   const ctx = await requireContext();
   if (!canWrite(ctx, "configuracion")) {
-    return { ctx: null as any, error: "No tienes permiso para configurar el SII." };
+    return { ctx: null, error: "No tienes permiso para configurar el SII." };
   }
-  return { ctx, error: null as string | null };
+  return { ctx, error: null };
 }
 
 export async function upsertPosSiiConfig(
@@ -32,10 +37,6 @@ export async function upsertPosSiiConfig(
   const acteco = String(formData.get("acteco") ?? "").trim() || null;
   const siiEnvironment = String(formData.get("siiEnvironment") ?? "pruebas");
   const habilitado = String(formData.get("habilitado") ?? "off") === "on";
-
-  let certificadoPfx: string | null = null;
-  let certificadoPass: string | null = null;
-  let certificadoVence: Date | null = null;
 
   const file = formData.get("certificadoPfx") as File | null;
   const pass = String(formData.get("certificadoPass") ?? "").trim();

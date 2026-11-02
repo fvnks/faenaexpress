@@ -18,11 +18,20 @@ interface SelectedProduct {
   count: number;
 }
 
-export function EtiquetasClient({ products }: { products: any[] }) {
+type EtiquetaProduct = {
+  id: string;
+  sku: string;
+  name: string;
+  priceNet: number;
+  tracksStock: boolean;
+  stock: string;
+};
+
+export function EtiquetasClient({ products }: { products: EtiquetaProduct[] }) {
   const [selected, setSelected] = useState<SelectedProduct[]>([]);
   const [printing, setPrinting] = useState(false);
 
-  const toggleProduct = (product: any) => {
+  const toggleProduct = (product: EtiquetaProduct) => {
     setSelected((prev) => {
       const existing = prev.find((p) => p.product.id === product.id);
       if (existing) {

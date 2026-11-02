@@ -17,11 +17,24 @@ const MP_BASE_URL =
     ? "https://api.mercadopago.com"
     : "https://api.mercadopago.com";
 
+type MercadoPagoPayment = {
+  id?: string;
+  status: string;
+  transaction_amount: number;
+};
+
+type MercadoPagoResponse = {
+  id?: string;
+  init_point?: string;
+  status?: number;
+  results?: Array<MercadoPagoPayment>;
+};
+
 async function mpRequest(
   endpoint: string,
   method: "GET" | "POST" | "PUT",
-  body?: any,
-): Promise<any> {
+  body?: Record<string, unknown>,
+): Promise<MercadoPagoResponse> {
   const response = await fetch(`${MP_BASE_URL}${endpoint}`, {
     method,
     headers: {
@@ -168,8 +181,9 @@ export const mercadoPagoProvider: PaymentProvider = {
       "POST",
       body,
     );
+    const refundStatus = response.status;
     return {
-      status: response.status === "approved" ? "REFUNDED" : "FAILED",
+      status: String(refundStatus) === "approved" ? "REFUNDED" : "FAILED",
       rawData: response,
     };
   },

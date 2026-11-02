@@ -1,9 +1,10 @@
+import { PrismaClient } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { dayStartUtc, nextDayISO, todayISO } from "@/lib/money";
 
 // Type assertion para que TypeScript reconozca los modelos POS en el cliente generado.
 // En builds frescos de Docker, los tipos generados a veces no se resuelven correctamente.
-const prisma = db as any;
+const prisma = db as unknown as PrismaClient;
 
 // Punto de venta: consultas de lectura del módulo.
 //
@@ -315,7 +316,7 @@ export async function listPosSessions(companyId: string, take = 30, terminalId?:
     take,
   });
 
-  return sessions.map((session: { id: string; openedAt: Date; closedAt: Date | null; openingAmount: number; closingAmount: number | null; status: string; openedBy: { name: string }; sales: { total: number; payments: { method: string; amount: number }[] }[] }) => {
+  return sessions.map((session) => {
     const total = session.sales.reduce((sum: number, sale: { total: number; payments: { method: string; amount: number }[] }) => sum + sale.total, 0);
     const cash = session.sales.reduce(
       (sum: number, sale: { total: number; payments: { method: string; amount: number }[] }) =>
@@ -333,6 +334,8 @@ export async function listPosSessions(companyId: string, take = 30, terminalId?:
       closingAmount: session.closingAmount,
       status: session.status,
       openedByName: session.openedBy.name,
+      terminal: session.terminal ?? null,
+      warehouse: session.warehouse ?? null,
       count: session.sales.length,
       total,
       cash,

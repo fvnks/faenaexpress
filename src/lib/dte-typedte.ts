@@ -11,7 +11,9 @@
 
 import {
   emitir,
+  type DocumentoEmitible,
   type DocumentoEmitido,
+  type DocumentoTributario,
   TIPO,
   TIPO_BOLETA,
   cargarCertificado,
@@ -20,6 +22,8 @@ import {
   calcularTotalesBoleta,
   sanitizeSiiText,
   formatRut,
+  type XmlElement,
+  type Totales,
 } from "typedte-sii";
 import {
   generarPdfCarta,
@@ -60,6 +64,8 @@ export type DatosDteVenta = {
     unidad?: string;
     precioUnitario: number;
     descuentoMonto?: number;
+    /** Monto final de la línea (neto). Si se omite se calcula precio × cantidad − descuento. */
+    monto?: number;
     exento?: boolean;
   }>;
   formaPago: "contado" | "credito" | "sin_costo";
@@ -79,7 +85,7 @@ export type DteGenerado = {
     iva: number;
     total: number;
   };
-  ted: any;
+  ted: XmlElement;
 };
 
 /** Resultado de generación de PDF. */
@@ -101,10 +107,10 @@ export function normalizarRutSii(rut: string | null | undefined): string {
 /**
  * Construye el objeto documento DTE para typeDte a partir de los datos de venta.
  */
-export function construirDocumentoDTE(datos: DatosDteVenta): any {
+export function construirDocumentoDTE(datos: DatosDteVenta): DocumentoEmitible {
   const esBoleta = datos.tipoDte === TIPO_BOLETA.AFECTA || datos.tipoDte === TIPO_BOLETA.EXENTA;
 
-  const comun: any = {
+  const comun = {
     folio: datos.folio,
     fechaEmision: datos.fechaEmision,
     emisor: {
@@ -135,6 +141,7 @@ export function construirDocumentoDTE(datos: DatosDteVenta): any {
       unidad: item.unidad,
       precioUnitario: item.precioUnitario,
       descuentoMonto: item.descuentoMonto ?? 0,
+      monto: item.monto,
       exento: item.exento ?? false,
     })),
     formaPago: datos.formaPago,
@@ -149,13 +156,13 @@ export function construirDocumentoDTE(datos: DatosDteVenta): any {
         rut: datos.rutReceptor ? normalizarRutSii(datos.rutReceptor) : undefined,
         razonSocial: datos.razonSocialReceptor ? sanitizeSiiText(datos.razonSocialReceptor) : undefined,
       },
-    };
+    } as unknown as DocumentoEmitible;
   }
 
   return {
     tipo: datos.tipoDte,
     ...comun,
-  };
+  } as unknown as DocumentoEmitible;
 }
 
 /**
@@ -169,7 +176,7 @@ export function construirDocumentoDTE(datos: DatosDteVenta): any {
  * @param timestamp - Momento de emisión (AAAA-MM-DDTHH:MM:SS).
  */
 export function emitirDteTypeDte(
-  documento: any,
+  documento: DocumentoEmitible,
   cafXml: string,
   certificadoPfx: Buffer,
   certificadoPass: string | undefined,
@@ -186,9 +193,9 @@ export function emitirDteTypeDte(
 
   const totales = esBoleta
     ? calcularTotalesBoleta(documento)
-    : calcularTotales(documento);
+    : calcularTotales(documento as DocumentoTributario);
 
-  const emitido = emitir(documento, {
+  const emitido = emitir(documento as DocumentoTributario, {
     caf: cafParseado,
     certificado,
     timestamp,
@@ -212,11 +219,11 @@ export function emitirDteTypeDte(
 export function construirRepresentacionImprimible(
   datos: DatosDteVenta,
   totales: { neto: number; exento: number; iva: number; total: number },
-  ted: any,
+  ted: unknown,
   unidadSii: string = "SANTIAGO ORIENTE",
   numeroResolucion: number = 0,
   anioResolucion: number = new Date().getFullYear(),
-): any {
+) {
   const esBoleta = datos.tipoDte === TIPO_BOLETA.AFECTA || datos.tipoDte === TIPO_BOLETA.EXENTA;
 
   return {
@@ -250,7 +257,7 @@ export function construirRepresentacionImprimible(
       unidad: item.unidad,
       precioUnitario: item.precioUnitario,
       descuento: item.descuentoMonto ?? 0,
-      monto: Math.max(0, Math.round(item.precioUnitario * item.cantidad - (item.descuentoMonto ?? 0))),
+      monto: item.monto ?? Math.max(0, Math.round(item.precioUnitario * item.cantidad - (item.descuentoMonto ?? 0))),
       exento: item.exento ?? false,
     })),
     referencias: [],
@@ -267,9 +274,9 @@ export function construirRepresentacionImprimible(
  * Genera un PDF de factura/boleta (tamaño carta) usando typeDte/pdf.
  */
 export async function generarPdfCartaDte(
-  representacion: any,
+  representacion: ReturnType<typeof construirRepresentacionImprimible>,
 ): Promise<Buffer> {
-  const uint8 = await generarPdfCarta(representacion);
+  const uint8 = await generarPdfCarta(representacion as unknown as Parameters<typeof generarPdfCarta>[0]);
   return Buffer.from(uint8);
 }
 
@@ -279,10 +286,10 @@ export async function generarPdfCartaDte(
  * ticket hasta que se agregue soporte dedicado.
  */
 export async function generarPdfTicketDte(
-  representacion: any,
+  representacion: ReturnType<typeof construirRepresentacionImprimible>,
   opciones?: { anchoPapelMm?: number; pieDePagina?: string },
 ): Promise<Buffer> {
-  const uint8 = await generarPdfCarta(representacion);
+  const uint8 = await generarPdfCarta(representacion as unknown as Parameters<typeof generarPdfCarta>[0]);
   return Buffer.from(uint8);
 }
 

@@ -52,32 +52,40 @@ export function SolicitarReunion({
   const [place, setPlace] = useState("");
 
   useEffect(() => {
-    if (solicitar?.ok) {
-      toast.success("Solicitud enviada: la secretaría y el profesor la verán.");
-      setReason("");
-      setFecha("");
-      setHora("");
-      setPlace("");
-      setTeacherId("");
-      setAlumnoId("");
-      setProfesores([]);
-    }
-    if (solicitar?.error) toast.error(solicitar.error);
+    const enviarOk = () => {
+      if (solicitar?.ok) {
+        toast.success("Solicitud enviada: la secretaría y el profesor la verán.");
+        setReason("");
+        setFecha("");
+        setHora("");
+        setPlace("");
+        setTeacherId("");
+        setAlumnoId("");
+        setProfesores([]);
+      }
+      if (solicitar?.error) toast.error(solicitar.error);
+    };
+    enviarOk();
   }, [solicitar]);
 
   useEffect(() => {
-    if (!alumnoId) {
-      setProfesores([]);
-      setTeacherId("");
-      return;
+    const limpiarProfesores = () => {
+      if (!alumnoId) {
+        setProfesores([]);
+        setTeacherId("");
+      }
+    };
+    limpiarProfesores();
+    if (alumnoId) {
+      // Trae los docentes del alumno seleccionado
+      void fetch(`/apoderado/api/docentes?studentId=${alumnoId}`)
+        .then((r) => r.json())
+        .then((data: Profesor[]) => {
+          setProfesores(data);
+          if (data.length > 0 && teacherId === "") setTeacherId(data[0].id);
+        })
+        .catch(() => toast.error("No se pudieron cargar los profesores."));
     }
-    fetch(`/apoderado/api/docentes?studentId=${alumnoId}`)
-      .then((r) => r.json())
-      .then((data: Profesor[]) => {
-        setProfesores(data);
-        if (data.length > 0 && teacherId === "") setTeacherId(data[0].id);
-      })
-      .catch(() => toast.error("No se pudieron cargar los profesores."));
   }, [alumnoId]);
 
   const misCitas = citas.filter((c) => c.status === "PENDIENTE");

@@ -15,10 +15,13 @@ export function ConnectionStatus({ className }: ConnectionStatusProps = {}) {
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    setIsOnline(navigator.onLine);
+    const setOnlineState = (online: boolean) => {
+      setIsOnline(online);
+    };
+    setOnlineState(navigator.onLine);
 
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => setOnlineState(true);
+    const handleOffline = () => setOnlineState(false);
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
