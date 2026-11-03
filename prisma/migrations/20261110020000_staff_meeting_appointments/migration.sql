@@ -1,6 +1,6 @@
 -- Agregar teacherId a Appointment para que las citas sepan a qué docente van dirigidas.
 -- Crear modelos StaffMeeting, StaffMeetingAttendee y MeetingAgreement para reuniones
-// de equipo y de curso, con asistentes, acta y acuerdos.
+-- de equipo y de curso, con asistentes, acta y acuerdos.
 
 -- AlterTable
 ALTER TABLE "Appointment" ADD COLUMN     "teacherId" TEXT;
