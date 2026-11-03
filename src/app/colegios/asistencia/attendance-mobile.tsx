@@ -1,13 +1,16 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { saveAttendance, type AttendanceFormState } from "@/app/actions/schools";
+import { useOnline } from "@/components/connection-status";
 import {
   saveOfflineAttendance,
   countPendingOfflineAttendance,
 } from "@/lib/offline-attendance";
+import { sincronizarPendientes } from "@/lib/offline-attendance-sync";
 
 type Alumno = { id: string; nombre: string; estadoInicial: string };
 
@@ -49,37 +52,55 @@ export function AttendanceMobile({
     new Map(alumnos.map((a) => [a.id, a.estadoInicial])),
   );
 
-  // Estado de conexión
-  const [online, setOnline] = useState<boolean>(typeof navigator !== "undefined" && navigator.onLine);
+  // La conexión llega del hook compartido (useSyncExternalStore): el servidor
+  // siempre pinta "conectado" y ahí no hay hydration rota, a diferencia de
+  // leer `navigator.onLine` en el estado inicial.
+  const online = useOnline();
   const [pendientes, setPendientes] = useState<number>(0);
+  const sincronizando = useRef(false);
 
-  // Sincronizar pendientes al recuperar la conexión
+  const refrescarPendientes = () => {
+    countPendingOfflineAttendance().then(setPendientes).catch(() => {});
+  };
+
+  useEffect(() => {
+    refrescarPendientes();
+  }, []);
+
+  // Auto-sync: al recuperar conexión la cola manda sola (lo que promete la UI).
+  // Un solo corrido a la vez: la cola puede tener varios registros.
   useEffect(() => {
     if (!online) return;
-
-    let cancelado = false;
-    (async () => {
-      const n = await countPendingOfflineAttendance();
-      if (!cancelado) setPendientes(n);
-    })();
-    return () => { cancelado = true; };
-  }, [online]);
-
-  useEffect(() => {
-    const handler = () => setOnline(navigator.onLine);
-    window.addEventListener("online", handler);
-    window.addEventListener("offline", handler);
-    return () => {
-      window.removeEventListener("online", handler);
-      window.removeEventListener("offline", handler);
+    const correr = async () => {
+      if (sincronizando.current) return;
+      sincronizando.current = true;
+      try {
+        const antes = await countPendingOfflineAttendance();
+        if (antes === 0) return;
+        const { exitosas, fallidas } = await sincronizarPendientes();
+        setPendientes(await countPendingOfflineAttendance());
+        if (exitosas > 0) {
+          toast.success(
+            `Sincronizadas ${exitosas} asistencia${exitosas !== 1 ? "s" : ""} guardada${exitosas !== 1 ? "s" : ""} sin conexión.`,
+          );
+        }
+        if (fallidas > 0) {
+          toast.error(
+            `${fallidas} de ${antes} asistencias no se pudieron sincronizar; revisa en Sincronizar asistencia.`,
+          );
+        }
+      } finally {
+        sincronizando.current = false;
+      }
     };
-  }, []);
+    void correr();
+  }, [online]);
 
   useEffect(() => {
     if (state?.ok) {
       toast.success("Asistencia guardada");
       // Recargar pendientes tras guardar exitoso
-      countPendingOfflineAttendance().then(setPendientes);
+      countPendingOfflineAttendance().then(setPendientes).catch(() => {});
     }
   }, [state]);
 
@@ -163,9 +184,12 @@ export function AttendanceMobile({
           </span>
         )}
         {pendientes > 0 ? (
-          <span className="ml-auto rounded-full bg-danger text-danger-foreground px-2 py-0.5">
+          <Link
+            href="/colegios/asistencia/sincronizar"
+            className="ml-auto rounded-full bg-danger px-2 py-0.5 text-danger-foreground"
+          >
             {pendientes} pendiente{pendientes !== 1 ? "s" : ""}
-          </span>
+          </Link>
         ) : null}
       </div>
 

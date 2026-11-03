@@ -1,31 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore, useEffect, useState } from "react";
 
 import { countPendingOfflineSales } from "@/lib/offline-sales";
+
+/**
+ * La conexión como estado externo del navegador.
+ *
+ * El servidor no sabe si hubo conexión, así que su snapshot siempre dice
+ * "conectado": así el HTML coincide con el primer render del cliente y no hay
+ * hydration rota (el texto falso «Sin conexión» de la vista móvil venía de
+ * leer `navigator.onLine` en el estado inicial).
+ */
+export function useOnline(): boolean {
+  function subscribe(callback: () => void) {
+    window.addEventListener("online", callback);
+    window.addEventListener("offline", callback);
+    return () => {
+      window.removeEventListener("online", callback);
+      window.removeEventListener("offline", callback);
+    };
+  }
+  return useSyncExternalStore(
+    subscribe,
+    () => navigator.onLine,
+    () => true,
+  );
+}
 
 export type ConnectionStatusProps = {
   className?: string;
 };
 
 export function ConnectionStatus({ className }: ConnectionStatusProps = {}) {
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
+  const isOnline = useOnline();
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    const setOnlineState = (online: boolean) => {
-      setIsOnline(online);
-    };
-    setOnlineState(navigator.onLine);
-
-    const handleOnline = () => setOnlineState(true);
-    const handleOffline = () => setOnlineState(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
     // Contar ventas pendientes al montar
     (async () => {
       try {
@@ -35,11 +46,6 @@ export function ConnectionStatus({ className }: ConnectionStatusProps = {}) {
         setPendingCount(0);
       }
     })();
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
   }, []);
 
   return (

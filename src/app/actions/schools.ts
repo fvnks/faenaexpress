@@ -84,8 +84,10 @@ export async function saveAttendance(
 
   if (ids.length === 0) return { error: "No hay alumnos marcados." };
 
-  for (const [i, studentId] of ids.entries()) {
-    const student = String(studentId);
+  // La validación va antes de escribir: si un alumno no está matriculado o un
+  // estado no existe, nada se guarda.
+  for (const [i, studentIdRaw] of ids.entries()) {
+    const student = String(studentIdRaw);
     if (!idsPermitidos.has(student)) {
       return { error: "Uno de los alumnos no está matriculado en el curso." };
     }
@@ -93,26 +95,35 @@ export async function saveAttendance(
     if (!ESTADOS.includes(estado as (typeof ESTADOS)[number])) {
       return { error: "Estado de asistencia inválido." };
     }
-    const nota = String(formData.getAll("nota")[i] ?? "").trim();
-    const justificacion = String(formData.getAll("justificacion")[i] ?? "").trim();
-
-    await db.attendanceRecord.upsert({
-      where: { sessionId_studentId: { sessionId, studentId: student } },
-      update: {
-        status: estado as (typeof ESTADOS)[number],
-        justificationNote: justificacion || null,
-        recordedById: ctx.user.id,
-        recordedAt: new Date(),
-      },
-      create: {
-        sessionId,
-        studentId: student,
-        status: estado as (typeof ESTADOS)[number],
-        justificationNote: justificacion || null,
-        recordedById: ctx.user.id,
-      },
-    });
   }
+
+  // Toda la hoja en una sola transacción: si algo falla a mitad del bucle no
+  // queda la clase marcada a medias (y la firma que aún cubría las filas
+  // viejas dejaría de decir la verdad sin invalidarse).
+  await db.$transaction(
+    Array.from(ids.entries()).map(([i, studentIdRaw]) => {
+      const student = String(studentIdRaw);
+      const estado = String(estados[i] ?? "PRESENT") as (typeof ESTADOS)[number];
+      const nota = String(formData.getAll("nota")[i] ?? "").trim();
+      const justificacion = String(formData.getAll("justificacion")[i] ?? "").trim();
+      return db.attendanceRecord.upsert({
+        where: { sessionId_studentId: { sessionId, studentId: student } },
+        update: {
+          status: estado,
+          justificationNote: justificacion || null,
+          recordedById: ctx.user.id,
+          recordedAt: new Date(),
+        },
+        create: {
+          sessionId,
+          studentId: student,
+          status: estado,
+          justificationNote: justificacion || null,
+          recordedById: ctx.user.id,
+        },
+      });
+    }),
+  );
 
   // Si la asistencia cambia, la firma deja de ser cierta: nadie firma un
   // registro que no vio. Se borra antes de revalidar la pantalla.
@@ -120,6 +131,8 @@ export async function saveAttendance(
 
   revalidatePath("/colegios/asistencia");
   revalidatePath("/colegios/estudiantes");
+  // El panel muestra la cobertura de asistencia de las clases de hoy.
+  revalidatePath("/colegios");
   return { ok: true };
 }
 
@@ -213,6 +226,8 @@ export async function saveClassSession(
   await invalidarFirmas([guardada.id]);
 
   revalidatePath("/colegios/asistencia");
+  // El panel muestra las clases de hoy con su cobertura.
+  revalidatePath("/colegios");
   return { ok: true };
 }
 

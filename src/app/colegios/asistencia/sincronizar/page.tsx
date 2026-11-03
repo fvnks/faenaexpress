@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { useOnline } from "@/components/connection-status";
 import {
+  clearSyncedOfflineAttendance,
   listOfflineAttendance,
-  markOfflineAttendanceSynced,
-  deleteOfflineAttendance,
 } from "@/lib/offline-attendance";
-import { saveAttendance } from "@/app/actions/schools";
+import { sincronizarPendientes } from "@/lib/offline-attendance-sync";
 import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 
 type OfflineAttendanceItem = {
@@ -24,6 +24,10 @@ export default function AsistenciaSyncPage() {
   const [records, setRecords] = useState<OfflineAttendanceItem[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  // La conexión llega del hook compartido: el servidor siempre pinta
+  // "conectado" y ahí no hay hydration rota ni estado desactualizado.
+  const online = useOnline();
 
   useEffect(() => {
     loadRecords();
@@ -46,39 +50,19 @@ export default function AsistenciaSyncPage() {
     setSyncing(true);
     setSyncMessage(null);
 
-    const pending = records.filter((r) => !r.synced);
-    let success = 0;
-    let failed = 0;
-
-    for (const record of pending) {
-      try {
-        const formData = new FormData();
-        formData.append("sessionId", record.sessionId);
-        record.alumnos.forEach((a) => {
-          formData.append("studentId", a.studentId);
-          formData.append("estado", a.estado);
-          formData.append("justificacion", a.justificacion);
-        });
-        // Llamamos a saveAttendance directamente
-        const result = await saveAttendance(undefined, formData);
-        if (result?.ok) {
-          await markOfflineAttendanceSynced(record.id, true);
-          success += 1;
-        } else {
-          await markOfflineAttendanceSynced(record.id, false, result?.error ?? "Error desconocido");
-          failed += 1;
-        }
-      } catch {
-        failed += 1;
-      }
-    }
+    const pendientes = records.filter((r) => !r.synced).length;
+    const { exitosas, fallidas } = await sincronizarPendientes();
 
     await loadRecords();
     setSyncing(false);
     setSyncMessage(
-      failed > 0
-        ? `Sincronizadas ${success} de ${pending.length} asistencias. ${failed} fallaron.`
-        : `Todas las ${success} asistencia{success !== 1 ? "s" : ""} se sincronizaron.`,
+      fallidas > 0
+        ? fallidas === 1
+          ? `Sincronizadas ${exitosas} de ${pendientes}. La pendiente falló; revisa su error en la lista.`
+          : `Sincronizadas ${exitosas} de ${pendientes}. Fallaron ${fallidas}; revisa el error de cada una en la lista.`
+        : pendientes === 0
+          ? "No había asistencias pendientes."
+          : `Sincronizadas ${pendientes} asistencia${pendientes !== 1 ? "s" : ""}.`,
     );
   }
 
@@ -98,25 +82,25 @@ export default function AsistenciaSyncPage() {
       </div>
 
       <p className="mt-0.5 text-sm text-muted-foreground">
-        Las asistencias guardadas sin conexión se sincronizan automáticamente al recuperar internet.
-        También puedes sincronizarlas manualmente desde aquí.
+        Las asistencias guardadas sin conexión también se sincronizan solas al
+        recuperar internet. Aquí puedes verlas todas y forzar la sincronización.
       </p>
 
       <div
         className={`flex items-center gap-2 px-3 py-1.5 rounded-control text-xs font-medium border ${
-          navigator.onLine ? "border-border bg-surface text-muted-foreground" : "border-warning bg-warning-soft text-warning"
+          online
+            ? "border-border bg-surface text-muted-foreground"
+            : "border-warning bg-warning-soft text-warning"
         }`}
       >
-        <span className={`w-1.5 h-1.5 rounded-full ${
-          navigator.onLine ? "bg-success" : "bg-warning"
-        }`} />
-        {navigator.onLine ? "Conectado" : "Sin conexión"}
+        <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-success" : "bg-warning"}`} />
+        {online ? "Conectado" : "Sin conexión"}
       </div>
 
       <div className="flex gap-2 mb-4">
         <button
           onClick={syncAll}
-          disabled={syncing || pendientes.length === 0 || !navigator.onLine}
+          disabled={syncing || pendientes.length === 0 || !online}
           className={primaryButtonClass + " px-4 py-2 text-sm"}
         >
           {syncing ? "Sincronizando..." : `Sincronizar ${pendientes.length} pendiente${pendientes.length !== 1 ? "s" : ""}`}
@@ -124,9 +108,11 @@ export default function AsistenciaSyncPage() {
         {sincronizadas.length > 0 && (
           <button
             onClick={() => {
-              clearSynced().then(() => {
+              clearSyncedOfflineAttendance().then((n) => {
                 loadRecords();
-                setSyncMessage(`Se eliminaron ${sincronizadas.length} registro${sincronizadas.length !== 1 ? "s" : ""} ya sincronizados.`);
+                setSyncMessage(
+                  `Se eliminaron ${n} registro${n !== 1 ? "s" : ""} ya sincronizado${n !== 1 ? "s" : ""}.`,
+                );
               });
             }}
             className={secondaryButtonClass + " px-4 py-2 text-sm"}
@@ -143,7 +129,7 @@ export default function AsistenciaSyncPage() {
       {records.length === 0 ? (
         <div className={cardClass + " p-6 text-center"}>
           <p className="text-sm text-muted-foreground">
-            No hay asistencias pendientes de sincronizar.
+            No hay asistencias guardadas en este equipo.
           </p>
         </div>
       ) : (
@@ -168,6 +154,7 @@ export default function AsistenciaSyncPage() {
                     · {r.alumnos.length} alumno{r.alumnos.length !== 1 ? "s" : ""}
                   </p>
                   <p className="text-xs text-muted-foreground">{estadoTexto}</p>
+                  {r.syncError ? <p className="text-xs text-danger">{r.syncError}</p> : null}
                 </div>
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -187,12 +174,4 @@ export default function AsistenciaSyncPage() {
       )}
     </div>
   );
-
-  async function clearSynced(): Promise<number> {
-    const synced = records.filter((r) => r.synced);
-    for (const record of synced) {
-      await deleteOfflineAttendance(record.id);
-    }
-    return synced.length;
-  }
 }
