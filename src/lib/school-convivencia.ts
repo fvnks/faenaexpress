@@ -67,6 +67,32 @@ export async function casosConEstado(schoolId: string) {
   });
 }
 
+/**
+ * El resumen de convivencia para el panel: cuántos casos abiertos hay y qué
+ * tan tomado está el plazo legal (Ley 21.809: la investigación de un caso de
+ * alumno no puede pasar de dos meses). Una sola consulta barata, sin
+ * participantes ni acciones: para el tablero basta el plazo.
+ */
+export async function resumenConvivencia(schoolId: string) {
+  const casos = await db.conductCase.findMany({
+    where: { schoolId, status: { in: ["ABIERTO", "EN_INVESTIGACION", "MEDIACION"] } },
+    select: { investigationDueAt: true },
+  });
+
+  const hoy = new Date();
+  let vencidos = 0;
+  let urgentes = 0;
+  for (const caso of casos) {
+    const dias = Math.ceil(
+      (caso.investigationDueAt.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    if (dias < 0) vencidos += 1;
+    else if (dias <= 15) urgentes += 1;
+  }
+
+  return { abiertos: casos.length, vencidos, urgentes };
+}
+
 /** Las acciones pendientes de todo el colegio, ordenadas por urgencia. */
 export async function accionesPendientes(schoolId: string) {
   const acciones = await db.conductAction.findMany({
