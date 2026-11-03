@@ -435,7 +435,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                     </td>
                   ) : null}
                     </tr>
-                  {notas.length > 0 ? (
+                  {notasAbierto && notas.length > 0 ? (
                     <NotesTreeRow notas={notas} scope="venta" colSpan={writable ? 9 : 8} />
                   ) : null}
                   </Fragment>

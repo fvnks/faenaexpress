@@ -135,7 +135,7 @@ export function PurchaseRowGroup({ purchase, notas, writable, hasDefontanaCreden
           </td>
         ) : null}
       </tr>
-      {notas.length > 0 ? (
+      {abierto && notas.length > 0 ? (
         <NotesTreeRow notas={notas} scope="compra" colSpan={writable ? 8 : 6} />
       ) : null}
     </Fragment>
