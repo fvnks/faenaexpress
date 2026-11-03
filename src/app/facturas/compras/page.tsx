@@ -1,38 +1,25 @@
 import Link from "next/link";
 
-import { bulkSetPurchaseStatus, deletePurchase } from "@/app/actions/purchases";
-import { fetchPurchaseXmlAction } from "@/app/actions/defontana";
+import { bulkSetPurchaseStatus } from "@/app/actions/purchases";
 import { hasStoredDefontanaCredentials } from "@/lib/defontana/credentials";
-import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { FilterBar, type FilterField } from "@/components/filter-bar";
 import { Pagination } from "@/components/pagination";
-import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
-import { XmlBadge } from "@/components/xml-badge";
+import { PurchaseRowGroup } from "@/app/facturas/compras/purchase-row-group";
 import { SortableHeader } from "@/components/sortable-header";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listCategories } from "@/lib/catalogs";
 import { documentTypeLabel } from "@/lib/labels";
-import { formatCLP, formatDate, todayDate } from "@/lib/money";
+import { formatCLP, todayDate } from "@/lib/money";
 import { listSuppliers } from "@/lib/partners";
 import { listPurchases, parsePurchaseFilters } from "@/lib/purchases";
+import { notasPorCompras } from "@/lib/purchase-notes";
 import { parseSortDir, sortHref } from "@/lib/sort";
 import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
-
-// Fecha de vencimiento: en rojo si ya pasó y sigue pendiente, en acento si vence
-// dentro de la semana. Lo ya pagado no alarma.
-function dueTone(dueDate: Date, status: string, today: Date): string {
-  if (status !== "PENDING") return "text-muted-foreground";
-  const days = Math.round((dueDate.getTime() - today.getTime()) / 86_400_000);
-  if (days < 0) return "text-danger font-semibold";
-  if (days <= 7) return "text-accent font-semibold";
-  return "text-muted-foreground";
-}
-
 export default async function PurchasesPage(props: PageProps<"/facturas/compras">) {
   const ctx = await requireContext("compras");
   const searchParams = await props.searchParams;
@@ -63,6 +50,9 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
     listCategories(ctx.company.id),
   ]);
   const { items, totals, page, pageCount } = await listPurchases(ctx.company.id, filters);
+  // Las notas que ajustan cada compra de ESTA página: se cruzan por folio
+  // (normalizado) + proveedor. Derivado, sin escribir nada en la base.
+  const notasDeCompras = await notasPorCompras(ctx.company.id, items);
   const hasFilters = Boolean(
     raw.estado || raw.q || raw.proveedor || raw.categoria || raw.tipo || raw.desde || raw.hasta,
   );
@@ -274,82 +264,14 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
               </thead>
               <tbody>
                 {items.map((purchase) => (
-                  <tr key={purchase.id} className="border-b border-border last:border-0 hover:bg-primary-soft/30 transition-colors">
-                    {writable ? (
-                      <td className="px-2 py-2 align-top">
-                        <input
-                          type="checkbox"
-                          name="ids"
-                          value={purchase.id}
-                          data-amount={purchase.totalAmount}
-                          aria-label={`Seleccionar compra ${purchase.documentNumber ?? purchase.partner.name}`}
-                          className="h-4 w-4 accent-primary"
-                        />
-                      </td>
-                    ) : null}
-                    <td className="min-w-0 max-w-[14rem] px-3 py-2 align-top">
-                      <Link
-                        href={`/facturas/compras/${purchase.id}`}
-                        className="block truncate font-medium text-foreground underline-offset-2 hover:underline"
-                      >
-                        {purchase.partner.name}
-                      </Link>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {purchase.partner.rut ?? "—"}
-                        {purchase.area?.name ? ` · ${purchase.area.name}` : ""}
-                      </span>
-                    </td>
-                    <td className="tabular whitespace-nowrap px-3 py-2 align-top">
-                      <span className="block">{purchase.documentNumber ?? "—"}</span>
-                      <XmlBadge tieneXml={Boolean(purchase.xmlContent)} />
-                    </td>
-                    <td className="tabular whitespace-nowrap px-3 py-2 align-top">{formatDate(purchase.date)}</td>
-                    <td className="tabular whitespace-nowrap px-3 py-2 align-top">
-                      {purchase.dueDate ? (
-                        <>
-                          <span className={dueTone(purchase.dueDate, purchase.status, today)}>
-                            {formatDate(purchase.dueDate)}
-                          </span>
-                          {purchase.status === "PENDING" && purchase.dueDate < today ? (
-                            <span className="mt-0.5 block text-xs font-semibold text-danger">Vencida</span>
-                          ) : null}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <PurchaseStatusBadge status={purchase.status} />
-                      {purchase.paymentDate ? (
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
-                          {formatDate(purchase.paymentDate)}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="tabular whitespace-nowrap px-3 py-2 text-right align-top font-semibold">
-                      {formatCLP(purchase.totalAmount)}
-                    </td>
-                    {writable ? (
-                      <td className="px-2 py-2 align-top text-right">
-                        <ActionsDropdown
-                          editHref={`/facturas/compras/${purchase.id}/editar`}
-                          pdfHref={`/facturas/compras/${purchase.id}/pdf`}
-                          deleteAction={deletePurchase}
-                          deleteId={purchase.id}
-                          deleteMessage="¿Eliminar esta compra? Esta acción no se puede deshacer."
-                          fetchDefontana={{
-                            id: purchase.id,
-                            fieldName: "purchaseId",
-                            action: fetchPurchaseXmlAction,
-                            label: purchase.xmlContent
-                              ? "XML ya cargado"
-                              : "Traer XML de Defontana",
-                          }}
-                          hasDefontanaCredentials={hasDefontanaCredentials}
-                        />
-                      </td>
-                    ) : null}
-                  </tr>
+                  <PurchaseRowGroup
+                    key={purchase.id}
+                    purchase={purchase}
+                    notas={notasDeCompras.get(purchase.id) ?? []}
+                    writable={writable}
+                    hasDefontanaCredentials={hasDefontanaCredentials}
+                    today={today}
+                  />
                 ))}
               </tbody>
             </table>

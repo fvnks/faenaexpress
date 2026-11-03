@@ -6,6 +6,7 @@ import { paginate, parsePage } from "@/lib/pagination";
 import { rutSearchPatterns } from "@/lib/rut";
 import { compareFolio, compareText, parseSortDir, type SortDir } from "@/lib/sort";
 import { documentTypeValues } from "@/lib/validation";
+import { noteKinds } from "@/lib/sale-notes";
 
 export type SaleFilters = {
   status: SaleStatus | "ALL";
@@ -157,6 +158,21 @@ async function loadSales(companyId: string, filters: SaleFilters) {
         salesperson: true,
         // Los abonos: sin ellos el saldo real no se puede calcular.
         payments: { select: { amount: true } },
+        // Las notas de crédito/débito que esta factura tiene asignadas: las
+        // usa el árbol desplegable de la lista. Solo lo que la fila muestra,
+        // sin arrastrar el XML de cada nota.
+        relatedNotes: {
+          where: { documentType: { in: noteKinds } },
+          select: {
+            id: true,
+            documentType: true,
+            documentNumber: true,
+            date: true,
+            totalAmount: true,
+            status: true,
+          },
+          orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+        },
       },
     }),
     db.sale.groupBy({

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 
 import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
 import { fetchSaleXmlAction, type FetchSaleXmlState } from "@/app/actions/defontana";
@@ -12,6 +12,7 @@ import { NoSalespeopleHint } from "@/components/no-salespeople-hint";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SortableHeader } from "@/components/sortable-header";
 import { XmlBadge } from "@/components/xml-badge";
+import { notaArbol, NotesToggle, NotesTreeRow, type NotaArbol } from "@/components/notes-tree";
 import { formatCLP, formatDate } from "@/lib/money";
 import { sortHref, type SortDir } from "@/lib/sort";
 import { cardClass, controlClass } from "@/lib/ui";
@@ -37,6 +38,15 @@ type SaleItem = {
   cancellationComment: string | null;
   refacturadaNumber: string | null;
   companyId: string;
+  /** Las notas (crédito/débito) que ajustan a esta factura: el árbol desplegable. */
+  relatedNotes: Array<{
+    id: string;
+    documentType: string;
+    documentNumber: string | null;
+    date: Date;
+    totalAmount: number;
+    status: string;
+  }>;
 };
 
 type Props = {
@@ -84,6 +94,8 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
   const [actionSalespersonId, setActionSalespersonId] = useState<string>("");
   const [bulkVendedorId, setBulkVendedorId] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
+  /** Qué facturas tienen el árbol de notas desplegado (por id). */
+  const [notasAbiertas, setNotasAbiertas] = useState(() => new Set<string>());
   const [, startTransition] = useTransition();
   const dateInputRef = useRef<HTMLInputElement>(null);
   const cancelSaleItem = cancelModalSaleId ? items.find((s) => s.id === cancelModalSaleId) : null;
@@ -120,6 +132,21 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [localModalOpen]);
+
+  // Árbol de notas de una fila: solo cuentan las que son notas de verdad.
+  const notasDeVenta = (sale: SaleItem): NotaArbol[] =>
+    (sale.relatedNotes ?? [])
+      .filter((nota) => nota.documentType === "CREDIT_NOTE" || nota.documentType === "DEBIT_NOTE")
+      .map((nota) => notaArbol(nota, `/facturas/ventas/${nota.id}`));
+
+  const alternarNotas = (saleId: string) => {
+    setNotasAbiertas((prev) => {
+      const next = new Set(prev);
+      if (next.has(saleId)) next.delete(saleId);
+      else next.add(saleId);
+      return next;
+    });
+  };
 
   const clienteSort = sortHref("/facturas/ventas", params, "cliente", sortKey, sortDir);
   const folioSort = sortHref("/facturas/ventas", params, "folio", sortKey, sortDir);
@@ -278,20 +305,24 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
               </tr>
             </thead>
             <tbody>
-              {items.map((sale) => (
-                <tr key={sale.id} className="border-b border-border last:border-0 hover:bg-primary-soft/30 transition-colors">
-                  {writable ? (
-                    <td className="px-2 py-2 align-top">
-                      <input
-                        type="checkbox"
-                        name="ids"
-                        value={sale.id}
-                        data-amount={sale.totalAmount}
-                        aria-label={`Seleccionar venta ${sale.documentNumber ?? sale.partner.name}`}
-                        className="h-4 w-4 accent-primary"
-                      />
-                    </td>
-                  ) : null}
+              {items.map((sale) => {
+                const notas = notasDeVenta(sale);
+                const notasAbierto = notasAbiertas.has(sale.id);
+                return (
+                  <Fragment key={sale.id}>
+                    <tr className="border-b border-border last:border-0 hover:bg-primary-soft/30 transition-colors">
+                      {writable ? (
+                        <td className="px-2 py-2 align-top">
+                          <input
+                            type="checkbox"
+                            name="ids"
+                            value={sale.id}
+                            data-amount={sale.totalAmount}
+                            aria-label={`Seleccionar venta ${sale.documentNumber ?? sale.partner.name}`}
+                            className="h-4 w-4 accent-primary"
+                          />
+                        </td>
+                      ) : null}
                   <td className="min-w-0 max-w-[14rem] px-3 py-2 align-top">
                     <Link
                       href={`/facturas/ventas/${sale.id}`}
@@ -307,6 +338,13 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                   <td className="tabular whitespace-nowrap px-3 py-2 align-top">
                     <span className="block">{sale.documentNumber ?? "—"}</span>
                     <XmlBadge tieneXml={Boolean(sale.xmlContent)} />
+                    {notas.length > 0 ? (
+                      <NotesToggle
+                        abierto={notasAbierto}
+                        onToggle={() => alternarNotas(sale.id)}
+                        cantidad={notas.length}
+                      />
+                    ) : null}
                   </td>
                   <td className="tabular whitespace-nowrap px-3 py-2 align-top">{formatDate(sale.date)}</td>
                   <td className="tabular whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
@@ -385,8 +423,13 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                       />
                     </td>
                   ) : null}
-                </tr>
-              ))}
+                    </tr>
+                  {notas.length > 0 ? (
+                    <NotesTreeRow notas={notas} scope="venta" colSpan={writable ? 9 : 8} />
+                  ) : null}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
