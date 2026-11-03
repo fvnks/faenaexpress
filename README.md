@@ -1,34 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Yellow ERP
 
-## Getting Started
+ERP para empresas chilenas: registra **compras, ventas y gastos** —incluido
+**quién pagó cada gasto**— y arma los libros de IVA, las comisiones y la
+conciliación bancaria.
 
-First, run the development server:
+- **Dinero:** CLP (sin decimales en pantalla).
+- **Impuesto:** IVA 19% ( Chile).
+- **Módulos:** Facturas, Colegios y Punto de Venta.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- [Next.js 16](https://nextjs.org) (App Router, `src/`), React 19, TypeScript y
+  Tailwind CSS 4.
+- PostgreSQL con [Prisma 7](https://www.prisma.io) (driver adapter `@prisma/adapter-pg`).
+- Sesiones propias: cookies opacas con hash del token en la tabla `Session` y
+  contraseñas con `bcryptjs`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Comandos
 
-## Learn More
+| Comando | Qué hace |
+| --- | --- |
+| `pnpm dev` | Servidor de desarrollo. |
+| `pnpm build` | `prisma generate` + build de producción. |
+| `pnpm lint` | ESLint (`next lint` ya no existe). |
+| `pnpm typecheck` | `next typegen` + `tsc --noEmit`. |
+| `pnpm db:migrate` | Crea y aplica una migración de desarrollo. |
+| `pnpm db:generate` | Regenera Prisma Client. |
+| `pnpm db:deploy` | Aplica las migraciones en producción (lo corre el entrypoint de Docker). |
+| `pnpm db:drift` | Compara la base con el schema; sale 0 si están alineados. |
+| `pnpm db:baseline` | Baséa una base antigua al baseline `0_init` (ver `AGENTS.md`). |
+| `pnpm db:studio` | Abre Prisma Studio. |
 
-To learn more about Next.js, take a look at the following resources:
+## Impresión de facturas
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+La factura comercial (la que se le entrega al cliente o al proveedor) se genera
+en el servidor con `@react-pdf/renderer` y una plantilla de
+[easy-invoice-pdf](https://github.com/VladSez/easy-invoice-pdf) vendorizada en
+`src/lib/pdf/vendor/easy-invoice-pdf`. Los totales salen de `src/lib/ledger.ts`,
+la misma regla que usan el panel, las listas y los reportes.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+La carta DTE (el documento tributario) es otra cosa y tiene su propia ruta:
+`/facturas/ventas/[id]/pdf` y `/facturas/compras/[id]/pdf`.
 
-## Deploy on Vercel
+## Licencia
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Este proyecto se publica bajo la **GNU Affero General Public License v3.0**
+(o «AGPL-3.0»). El texto completo está en [`LICENSE`](./LICENSE).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+La AGPL exige que, si el programa se usa a través de una red, se ofrezca el
+código fuente correspondiente. Por eso:
+
+- el código de este ERP está en <https://github.com/fvnks/faenaexpress>, y cada
+  PDF generado enlaza a esa dirección en el pie;
+- la plantilla vendorizada conserva su licencia original (AGPL-3.0) en
+  [`src/lib/pdf/vendor/easy-invoice-pdf/LICENSE`](./src/lib/pdf/vendor/easy-invoice-pdf/LICENSE),
+  y los cambios que le hicimos están detallados en
+  [`src/lib/pdf/vendor/easy-invoice-pdf/README.md`](./src/lib/pdf/vendor/easy-invoice-pdf/README.md).
+
+### Atribución
+
+- **easy-invoice-pdf** — Copyright (C) 2024-present ULADZISLAU SAZONAU —
+  <https://github.com/VladSez/easy-invoice-pdf> (AGPL-3.0).
+- **Open Sans** — Copyright 2020 The Open Sans Project Authors — licensed under
+  the SIL Open Font License 1.1 (`public/fonts/OpenSans-OFL.txt`).

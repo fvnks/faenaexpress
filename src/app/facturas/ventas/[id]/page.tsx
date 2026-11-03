@@ -9,6 +9,7 @@ import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
 import { DteXmlPanel } from "@/components/dte-xml-panel";
 import { FetchSaleXmlButton } from "@/components/fetch-sale-xml-button";
+import { PdfFacturaButton } from "@/components/pdf-factura-button";
 import { PaymentsPanel } from "@/components/payments-panel";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SubmitButton } from "@/components/submit-button";
@@ -79,6 +80,7 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
           </div>
           <div className="flex items-center gap-2">
             <SaleStatusBadge status={sale.status} />
+            <PdfFacturaButton href={`/facturas/ventas/${sale.id}/pdf-factura`} />
             {writable ? (
               <ActionsDropdown
                 editHref={`/facturas/ventas/${sale.id}/editar`}

@@ -134,6 +134,16 @@ Aún no hay tests. Cuando existan, documenta aquí cómo correr uno solo.
 - **Segundo factor (Fase E)**: `src/lib/totp.ts` (TOTP propio, sin dependencias) y `src/lib/two-factor.ts`. Lo necesitan el **dueño de una organización** y el **personal de plataforma** (`recomiendaTwoFactor`: se les **recomienda**, no se les exige). **Activarlo es decisión de cada persona** y se hace desde su perfil (`/perfil`): activarlo, regenerar los 8 códigos de recuperación y desactivarlo (pide la contraseña). Una vez activado, el login **siempre** pide el código (la sesión nace `totpPending`: con ella no se puede usar la app, `requireUser` manda a `/perfil/2fa`). El secreto va cifrado con la llave de secretos. El OWNER de plataforma puede restablecer el 2FA de alguien desde `/admin/usuarios/[id]`. **Quien pierde el teléfono y no tiene códigos necesita un restablecimiento por SQL** (`disableTwoFactor`).
 - **Rate limit del login**: en `src/app/actions/auth.ts` (20 intentos por IP y 10 por cuenta cada 15 min). Es **en memoria**: con más de una instancia hay que moverlo a Redis.
 
+## Factura en PDF (easy-invoice-pdf)
+
+- La **factura comercial** (la que se entrega al cliente o al proveedor) se dibuja en el servidor con `@react-pdf/renderer` y la plantilla de [easy-invoice-pdf](https://github.com/VladSez/easy-invoice-pdf), **vendorizada** en `src/lib/pdf/vendor/easy-invoice-pdf/` (AGPL-3.0). **Por eso el ERP entero es AGPL-3.0**: `LICENSE` en la raíz y el pie de cada PDF enlaza al código fuente (requisito del §13). El README de la carpeta vendorizada lista los cambios; cada cambio del código lleva un comentario `MODIFICACIÓN (vendorizado)`.
+- **No confundir con la carta DTE**: `/facturas/{ventas,compras}/[id]/pdf` es el documento tributario (`lib/dte-typedte.ts`) y no se toca. La factura con easy-invoice-pdf vive en `/facturas/{ventas,compras}/[id]/pdf-factura` (route handlers, `runtime = "nodejs"`, `Content-Disposition: attachment`).
+- **Los totales del PDF salen de `lib/ledger.ts`** (`calcularTotales`), nunca se recalculan: el PDF y la pantalla tienen que decir lo mismo. El IVA por línea se reparte desde el IVA del documento (`repartirIvaPorLinea` en `src/lib/pdf/documento-pdf.ts`) para que la columna sume exacto.
+- **Emisor y receptor se invierten según el caso**: en una venta firma la empresa y recibe el cliente; en una compra firma el proveedor y recibe la empresa. El rótulo siempre es «Emisor»/«Receptor» (no «Vendedor»/«Comprador»).
+- Las notas de crédito/débito se imprimen con montos positivos (como en el documento tributario) y **sin** las líneas «Pagado»/«Pendiente de pago»: una nota no se paga, se aplica contra otro documento.
+- Las tipografías se sirven desde `public/fonts/` (Open Sans, SIL OFL): el original las bajaba de `static.easyinvoicepdf.com` y el PDF no puede depender de un tercero.
+- Ojo: **`tsx` en modo CJS no sirve para probar el render** (`@react-pdf/hyphenate/en-us` es ESM-only y rompe). La verificación se hace por la app: el dev server, la ficha y la descarga del PDF.
+
 ## UI y tema
 
 - Dirección visual en `DESIGN.md`: léelo antes de tocar UI. Tokens en `src/app/globals.css` (`@theme inline`). En los componentes usa utilidades semánticas (`bg-surface`, `text-muted-foreground`, `border-border`, `bg-primary`), no colores crudos.

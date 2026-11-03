@@ -8,6 +8,7 @@ import { Breadcrumb } from "@/components/breadcrumb";
 import { DocItemsTable } from "@/components/doc-items-table";
 import { DteXmlPanel } from "@/components/dte-xml-panel";
 import { FetchPurchaseXmlButton } from "@/components/fetch-purchase-xml-button";
+import { PdfFacturaButton } from "@/components/pdf-factura-button";
 import { PaymentsPanel } from "@/components/payments-panel";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
 import { SubmitButton } from "@/components/submit-button";
@@ -84,6 +85,7 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
           </div>
           <div className="flex items-center gap-2">
             <PurchaseStatusBadge status={purchase.status} />
+            <PdfFacturaButton href={`/facturas/compras/${purchase.id}/pdf-factura`} />
             {writable ? (
               <ActionsDropdown
                 editHref={`/facturas/compras/${purchase.id}/editar`}

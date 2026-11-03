@@ -1,0 +1,85 @@
+# easy-invoice-pdf (vendorizado)
+
+Este directorio es una copia recortada de
+[easy-invoice-pdf](https://github.com/VladSez/easy-invoice-pdf), el proyecto de
+VladSez, y se usa para imprimir la factura comercial (ventas y compras) del ERP.
+
+- **Versión vendorizada:** `1.0.5` (commit `021d61d`).
+- **Licencia:** AGPL-3.0 (copia íntegra en [`LICENSE`](./LICENSE)). Por eso el ERP
+  entero es AGPL-3.0: ver el `LICENSE` de la raíz y la sección «Licencia» del
+  `README.md` del proyecto.
+- **Autoría:** Copyright (C) 2024-present ULADZISLAU SAZONAU.
+
+## Qué se copió y qué no
+
+Del original se copió solo lo necesario para dibujar una factura:
+
+- la plantilla `default` (`templates/default/`) y los componentes comunes que usa
+  (`templates/common/`);
+- las traducciones (`translations.ts`), recortadas a español e inglés;
+- las utilidades de formato (`utils/`): montos, moneda, período de servicio,
+  descuentos por ítem, código QR, importes en letras y helpers de factura.
+
+**No** se copió la aplicación web (formularios, editor visual, base de datos,
+panel, sincronización con la nube, analítica). Eso no lo usa el ERP: acá la
+plantilla se alimenta con los datos que ya tiene el ERP.
+
+## Modificaciones
+
+Cada cambio lleva un comentario `MODIFICACIÓN (vendorizado)` en el archivo
+correspondiente. El resumen:
+
+### Modelo de datos (`schema.ts`)
+
+- El `schema` de **zod** del original se reemplaza por **tipos de TypeScript**.
+  El ERP valida los datos antes de armar el documento (`src/lib/pdf/documento-pdf.ts`),
+  así que la validación en tiempo de ejecución no hacía falta.
+- Se recorta el catálogo: monedas `CLP`, `USD`, `EUR`; idiomas `es`, `en`; una
+  sola plantilla (`default`).
+- Se agregan los campos que el ERP necesita y el original no tenía:
+  `erpPaidAmount`, `erpRetentionAmount`, `erpExemptAmount`, `erpSurchargeAmount`,
+  `erpDocumentLabel`, `erpBalanceVisible`, `erpLabels`, `erpFooterNote` y
+  `erpFooterUrl`.
+
+### Plantilla (`templates/default/`)
+
+- **Tipografías:** el original bajaba Open Sans de `static.easyinvoicepdf.com` en
+  cada generación. Acá la fuente se sirve desde `/public/fonts` (`src/lib/pdf/fonts.ts`),
+  con su licencia SIL OFL en `public/fonts/OpenSans-OFL.txt`: el PDF no depende de
+  un tercero.
+- **Emisor y receptor:** el original rotulaba «Vendedor» y «Comprador». Acá son
+  «Emisor» y «Receptor», porque en una factura de compra los papeles están
+  invertidos (el emisor es el proveedor).
+- **Bloque de totales:** el original imprimía siempre «Pagado 0» y daba el total
+  por pendiente. Acá el bloque dice la verdad del documento: lo que se paga, lo
+  pagado y lo que queda, y en las notas de crédito o débito omite las líneas de
+  saldo (una nota no se paga: se aplica contra otro documento).
+- **Fecha de pago:** el original decía siempre «Fecha de pago» y escribía la
+  fecha de vencimiento. Acá la etiqueta dice qué fecha es.
+- **Pie de página:** el original ponía su marca («Creado con easyinvoicepdf.com»).
+  Acá va el pie del ERP, con el enlace al código fuente (requisito del §13 de la
+  AGPL para un uso en red).
+- **Espaciado del pie:** el original armaba el pie con varios `<Text>` sueltos y un
+  `gap` que `react-pdf` no siempre respeta (el texto salía pegado). Acá el pie es
+  un solo texto con los separadores dentro.
+- **Etiquetas de columnas:** las funciones de traducción que dependían del nombre
+  del impuesto se llaman a través de `utils/etiquetas.ts`, que tolera tanto la
+  firma con argumento como la que lo ignora.
+- **Traducción al español:** «Tipo IVA» pasó a ser «Tasa de IVA», que es lo que
+  significa en Chile.
+
+### Utilidades (`utils/`)
+
+- Se quitaron las dependencias del proyecto original que no aplican acá:
+  **Sentry**, **sonner** (los avisos de la interfaz) y **umami** (analítica). Los
+  errores se registran en la consola del servidor en vez de enviarse a un tercero.
+- `utils/number-to-words/` quedó con español e inglés.
+- `utils/qr.ts` se conserva para cuando se active el código QR (hoy el ERP lo
+  imprime desactivado: el QR tributario es otro).
+
+## Si se actualiza el original
+
+1. Copiar de nuevo los archivos desde el upstream y volver a aplicar los cambios
+   listados arriba (los comentarios `MODIFICACIÓN` son la guía).
+2. Actualizar la versión y el commit en este README.
+3. Copiar la `LICENSE` del upstream a este directorio.
