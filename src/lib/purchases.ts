@@ -1,21 +1,24 @@
-import type { DocumentType, PaymentStatus, Prisma } from "@/generated/prisma/client";
+import type { DocumentType, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { calcularTotales } from "@/lib/ledger";
 import { toISODate, todayDate } from "@/lib/money";
 import { paginate, parsePage } from "@/lib/pagination";
 import { rutSearchPatterns } from "@/lib/rut";
 import { compareFolio, compareText, parseSortDir, type SortDir } from "@/lib/sort";
-import { documentTypeValues } from "@/lib/validation";
+import { documentTypeValues, listaFiltros } from "@/lib/validation";
 
 export type PurchaseFilters = {
-  status: PaymentStatus | "ALL";
-  // "Vencidas" no es un estado propio: son las pendientes de pago cuya fecha
-  // de vencimiento ya pasó.
-  overdue?: boolean;
+  /**
+   * El estado (o los estados) por palabra clave. Ninguno = "todos". Varias
+   * suman: la lista muestra lo que cumpla cualquiera de las elegidas.
+   */
+  estado: PurchaseEstado[];
   q: string;
-  partnerId?: string;
-  categoryId?: string;
-  documentType?: DocumentType;
+  /** Selección múltiple: varios proveedores a la vez. Lista vacía = todos. */
+  proveedor: string[];
+  categoria: string[];
+  /** Varias tipo de documento a la vez (factura + guía, por ejemplo). */
+  tipo: DocumentType[];
   from?: Date;
   to?: Date;
   sort?: string;
@@ -23,11 +26,26 @@ export type PurchaseFilters = {
   page?: number;
 };
 
+export type PurchaseEstado = "pendientes" | "parciales" | "pagadas" | "vencidas";
+
+export const purchaseEstadoValues: PurchaseEstado[] = ["pendientes", "parciales", "pagadas", "vencidas"];
+
 // Orden de los estados al ordenar la columna "Estado".
 const PURCHASE_STATUS_ORDER: Record<string, number> = {
   PENDING: 0,
   PARTIAL: 1,
   PAID: 2,
+};
+
+/**
+ * Las filas del estado por palabra clave. "Vencidas" no es un estado propio:
+ * son las pendientes de pago cuya fecha de vencimiento ya pasó.
+ */
+const gruposEstadoCompra: Record<PurchaseEstado, Prisma.PurchaseWhereInput> = {
+  pendientes: { status: "PENDING" },
+  parciales: { status: "PARTIAL" },
+  pagadas: { status: "PAID" },
+  vencidas: { status: { in: ["PENDING", "PARTIAL"] }, dueDate: { lt: todayDate() } },
 };
 
 export function parsePurchaseFilters(searchParams: {
@@ -42,26 +60,20 @@ export function parsePurchaseFilters(searchParams: {
   dir?: string;
   pagina?: string;
 }): PurchaseFilters {
-  const overdue = searchParams.estado === "vencidas";
-  const status: PurchaseFilters["status"] = overdue
-    ? "PENDING"
-    : searchParams.estado === "pendientes"
-      ? "PENDING"
-      : searchParams.estado === "parciales"
-        ? "PARTIAL"
-        : searchParams.estado === "pagadas"
-          ? "PAID"
-          : "ALL";
-
-  const documentType = documentTypeValues.find((value) => value === searchParams.tipo);
+  // Los valores que no son de la lista se descartan: una URL tocada a mano no
+  // filtra cosas que la lista no ofrece.
+  const estado = listaFiltros(searchParams.estado).filter(
+    (v): v is PurchaseEstado => (purchaseEstadoValues as string[]).includes(v),
+  );
 
   return {
-    status,
-    overdue,
+    estado,
     q: (searchParams.q ?? "").trim(),
-    partnerId: searchParams.proveedor || undefined,
-    categoryId: searchParams.categoria || undefined,
-    documentType,
+    proveedor: listaFiltros(searchParams.proveedor),
+    categoria: listaFiltros(searchParams.categoria),
+    tipo: listaFiltros(searchParams.tipo).filter(
+      (v): v is DocumentType => (documentTypeValues as readonly string[]).includes(v),
+    ),
     from: searchParams.desde ? new Date(`${searchParams.desde}T00:00:00.000Z`) : undefined,
     to: searchParams.hasta ? new Date(`${searchParams.hasta}T23:59:59.999Z`) : undefined,
     sort: searchParams.orden || undefined,
@@ -73,23 +85,25 @@ export function parsePurchaseFilters(searchParams: {
 function buildWhere(companyId: string, filters: PurchaseFilters): Prisma.PurchaseWhereInput {
   const where: Prisma.PurchaseWhereInput = { companyId };
 
-  if (filters.overdue) {
-    where.status = { in: ["PENDING", "PARTIAL"] };
-    where.dueDate = { lt: todayDate() };
-  } else if (filters.status !== "ALL") {
-    where.status = filters.status;
+  const grupos = filters.estado.map((clave) => gruposEstadoCompra[clave]);
+  if (grupos.length === 1) {
+    Object.assign(where, grupos[0]);
+  } else if (grupos.length > 1) {
+    // Varios estados suman: (pendientes) O (vencidas) O (…). El AND de arriba
+    // no choca con el OR de la búsqueda de texto: son cláusulas distintas.
+    where.AND = [{ OR: grupos }];
   }
 
-  if (filters.partnerId) {
-    where.partnerId = filters.partnerId;
+  if (filters.proveedor.length > 0) {
+    where.partnerId = { in: filters.proveedor };
   }
 
-  if (filters.categoryId) {
-    where.categoryId = filters.categoryId;
+  if (filters.categoria.length > 0) {
+    where.categoryId = { in: filters.categoria };
   }
 
-  if (filters.documentType) {
-    where.documentType = filters.documentType;
+  if (filters.tipo.length > 0) {
+    where.documentType = { in: filters.tipo };
   }
 
   if (filters.q) {

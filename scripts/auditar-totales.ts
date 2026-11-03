@@ -19,8 +19,8 @@ import { currentPeriod, monthRange } from "@/lib/money";
 
 const clp = (n: number) => n.toLocaleString("es-CL", { maximumFractionDigits: 0 });
 
-const filtrosVentas: SaleFilters = { status: "ALL", q: "", sort: "fecha", dir: "desc", page: 1 };
-const filtrosCompras: PurchaseFilters = { status: "ALL", q: "", sort: "fecha", dir: "desc", page: 1 };
+const filtrosVentas: SaleFilters = { estado: [], cliente: [], categoria: [], vendedor: [], tipo: [], q: "", sort: "fecha", dir: "desc", page: 1 };
+const filtrosCompras: PurchaseFilters = { estado: [], proveedor: [], categoria: [], tipo: [], q: "", sort: "fecha", dir: "desc", page: 1 };
 
 let fallos = 0;
 

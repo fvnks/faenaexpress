@@ -69,7 +69,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
   const filterFields: FilterField[] = [
     { kind: "text", name: "q", label: "Buscar", placeholder: "Cliente, RUT, N° factura, OC, guía…", grow: true },
     {
-      kind: "select",
+      kind: "multi",
       name: "cliente",
       label: "Cliente",
       emptyLabel: "Todos",
@@ -77,7 +77,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
       options: customers.map((customer) => ({ value: customer.id, label: customer.name })),
     },
     {
-      kind: "select",
+      kind: "multi",
       name: "categoria",
       label: "Categoría",
       emptyLabel: "Todas",
@@ -85,7 +85,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
       options: categories.map((category) => ({ value: category.id, label: category.name })),
     },
     {
-      kind: "select",
+      kind: "multi",
       name: "vendedor",
       label: "Vendedor",
       emptyLabel: "Todos",
@@ -93,7 +93,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
       options: salespeople.map((salesperson) => ({ value: salesperson.id, label: salesperson.name })),
     },
     {
-      kind: "select",
+      kind: "multi",
       name: "tipo",
       label: "Tipo de documento",
       emptyLabel: "Todos",
@@ -101,7 +101,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
       options: documentTypeValues.map((value) => ({ value, label: documentTypeLabel(value) })),
     },
     {
-      kind: "select",
+      kind: "multi",
       name: "estado",
       label: "Estado",
       emptyLabel: "Todas",

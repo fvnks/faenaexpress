@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 export type SelectOption = { value: string; label: string };
 
-function ChevronsUpDown() {
+export function ChevronsUpDown() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true">
       <path d="M7 15l5 5 5-5" /><path d="M7 9l5-5 5 5" />
@@ -12,7 +12,7 @@ function ChevronsUpDown() {
   );
 }
 
-function CheckIcon() {
+export function CheckIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-primary" aria-hidden="true">
       <path d="M20 6L9 17l-5-5" />

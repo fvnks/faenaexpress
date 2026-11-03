@@ -1,29 +1,43 @@
-import type { DocumentType, SaleStatus, Prisma } from "@/generated/prisma/client";
+import type { DocumentType, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { calcularTotales } from "@/lib/ledger";
 import { toISODate } from "@/lib/money";
 import { paginate, parsePage } from "@/lib/pagination";
 import { rutSearchPatterns } from "@/lib/rut";
 import { compareFolio, compareText, parseSortDir, type SortDir } from "@/lib/sort";
-import { documentTypeValues } from "@/lib/validation";
+import { documentTypeValues, listaFiltros } from "@/lib/validation";
 import { noteKinds, notasPorAnulacion } from "@/lib/sale-notes";
 
 export type SaleFilters = {
-  status: SaleStatus | "ALL";
-  // Las ventas en confirming ya se cobraron, así que "por cobrar" las excluye
-  // y "En confirming" las muestra por separado.
-  confirming?: "only" | "exclude";
+  /**
+   * El estado (o los estados) por palabra clave. Ninguno = "todos". Varias
+   * suman: la lista muestra lo que cumpla cualquiera de las elegidas.
+   */
+  estado: SaleEstado[];
   q: string;
-  partnerId?: string;
-  categoryId?: string;
-  salespersonId?: string;
-  documentType?: DocumentType;
+  /** Selección múltiple: varios clientes a la vez. Lista vacía = todos. */
+  cliente: string[];
+  categoria: string[];
+  vendedor: string[];
+  /** Varias tipo de documento a la vez (factura + boleta, por ejemplo). */
+  tipo: DocumentType[];
   from?: Date;
   to?: Date;
   sort?: string;
   dir?: SortDir;
   page?: number;
 };
+
+export type SaleEstado = "pendientes" | "confirming" | "cobradas" | "parciales" | "vencidas" | "anuladas";
+
+export const saleEstadoValues: SaleEstado[] = [
+  "pendientes",
+  "confirming",
+  "cobradas",
+  "parciales",
+  "vencidas",
+  "anuladas",
+];
 
 // Orden de los estados al ordenar la columna "Estado": primero lo que exige
 // acción (por cobrar, parcial, vencida) y al final lo cerrado.
@@ -33,6 +47,21 @@ const SALE_STATUS_ORDER: Record<string, number> = {
   OVERDUE: 2,
   PAID: 3,
   CANCELLED: 4,
+};
+
+/**
+ * Las filas del estado por palabra clave. El mapa es el mismo que la lista
+ * ofrece: cada grupo es un `where` completo, y varios grupos combinan con OR.
+ */
+const gruposEstadoVenta: Record<SaleEstado, Prisma.SaleWhereInput> = {
+  // "Por cobrar" no muestra las ya cobradas por Confirming: eso es su columna,
+  // y mezclar las dos engañaría a quien lee.
+  pendientes: { status: "PENDING", confirmingAt: null },
+  confirming: { confirmingAt: { not: null }, status: { notIn: ["PAID", "CANCELLED"] } },
+  cobradas: { status: "PAID" },
+  parciales: { status: "PARTIAL", confirmingAt: null },
+  vencidas: { status: "OVERDUE", confirmingAt: null },
+  anuladas: { status: "CANCELLED" },
 };
 
 export function parseSaleFilters(searchParams: {
@@ -48,43 +77,21 @@ export function parseSaleFilters(searchParams: {
   dir?: string;
   pagina?: string;
 }): SaleFilters {
-  let status: SaleFilters["status"] = "ALL";
-  let confirming: SaleFilters["confirming"];
-
-  switch (searchParams.estado) {
-    case "pendientes":
-      status = "PENDING";
-      confirming = "exclude";
-      break;
-    case "confirming":
-      confirming = "only";
-      break;
-    case "cobradas":
-      status = "PAID";
-      break;
-    case "parciales":
-      status = "PARTIAL";
-      confirming = "exclude";
-      break;
-    case "vencidas":
-      status = "OVERDUE";
-      confirming = "exclude";
-      break;
-    case "anuladas":
-      status = "CANCELLED";
-      break;
-  }
-
-  const documentType = documentTypeValues.find((value) => value === searchParams.tipo);
+  // Los valores que no son de la lista se descartan: una URL tocada a mano no
+  // filtra cosas que la lista no ofrece.
+  const estado = listaFiltros(searchParams.estado).filter(
+    (v): v is SaleEstado => (saleEstadoValues as string[]).includes(v),
+  );
 
   return {
-    status,
-    confirming,
+    estado,
     q: (searchParams.q ?? "").trim(),
-    partnerId: searchParams.cliente || undefined,
-    categoryId: searchParams.categoria || undefined,
-    salespersonId: searchParams.vendedor || undefined,
-    documentType,
+    cliente: listaFiltros(searchParams.cliente),
+    categoria: listaFiltros(searchParams.categoria),
+    vendedor: listaFiltros(searchParams.vendedor),
+    tipo: listaFiltros(searchParams.tipo).filter(
+      (v): v is DocumentType => (documentTypeValues as readonly string[]).includes(v),
+    ),
     from: searchParams.desde ? new Date(`${searchParams.desde}T00:00:00.000Z`) : undefined,
     to: searchParams.hasta ? new Date(`${searchParams.hasta}T23:59:59.999Z`) : undefined,
     sort: searchParams.orden || undefined,
@@ -96,33 +103,29 @@ export function parseSaleFilters(searchParams: {
 function buildWhere(companyId: string, filters: SaleFilters): Prisma.SaleWhereInput {
   const where: Prisma.SaleWhereInput = { companyId };
 
-  if (filters.status !== "ALL") {
-    where.status = filters.status;
+  const grupos = filters.estado.map((clave) => gruposEstadoVenta[clave]);
+  if (grupos.length === 1) {
+    Object.assign(where, grupos[0]);
+  } else if (grupos.length > 1) {
+    // Varios estados suman: (por cobrar) O (cobradas) O (…). El AND de arriba
+    // no choca con el OR de la búsqueda de texto: son cláusulas distintas.
+    where.AND = [{ OR: grupos }];
   }
 
-  if (filters.confirming === "only") {
-    // En confirming: ya se cobraron (aunque el cliente pague después), por eso
-    // no cuentan como pagadas ni anuladas.
-    where.confirmingAt = { not: null };
-    where.status = { notIn: ["PAID", "CANCELLED"] };
-  } else if (filters.confirming === "exclude") {
-    where.confirmingAt = null;
+  if (filters.cliente.length > 0) {
+    where.partnerId = { in: filters.cliente };
   }
 
-  if (filters.partnerId) {
-    where.partnerId = filters.partnerId;
+  if (filters.categoria.length > 0) {
+    where.categoryId = { in: filters.categoria };
   }
 
-  if (filters.categoryId) {
-    where.categoryId = filters.categoryId;
+  if (filters.vendedor.length > 0) {
+    where.salespersonId = { in: filters.vendedor };
   }
 
-  if (filters.salespersonId) {
-    where.salespersonId = filters.salespersonId;
-  }
-
-  if (filters.documentType) {
-    where.documentType = filters.documentType;
+  if (filters.tipo.length > 0) {
+    where.documentType = { in: filters.tipo };
   }
 
   if (filters.q) {

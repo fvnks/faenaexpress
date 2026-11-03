@@ -17,6 +17,17 @@ export const documentTypeValues = [
   "OTHER",
 ] as const;
 
+/**
+ * "a,b" → ["a", "b"]: los filtros de selección múltiple viajan en la URL
+ * como valores separados por coma. Limpia espacios, descarta vacíos y
+ * desduplica (un id repetido no debe duplicar el filtro).
+ */
+export function listaFiltros(valor: string | string[] | undefined | null): string[] {
+  const bruto = Array.isArray(valor) ? valor[0] : valor;
+  if (!bruto) return [];
+  return [...new Set(bruto.split(",").map((p) => p.trim()).filter(Boolean))];
+}
+
 // El medio de pago es el NOMBRE del catálogo de la empresa (PaymentMethodCatalog),
 // no una lista fija: cada empresa tiene las formas de pago que necesita. La
 // lista concreta se arma en la UI con el catálogo más las formas base.

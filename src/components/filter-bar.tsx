@@ -4,13 +4,24 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { DateRangeFilter } from "@/components/date-range-filter";
+import { MultiSelectDropdown } from "@/components/multi-select-dropdown";
 import { SelectDropdown, type SelectOption } from "@/components/select-dropdown";
 import { cardClass, controlClass, labelClass, secondaryButtonClass } from "@/lib/ui";
+import { listaFiltros } from "@/lib/validation";
 
 export type FilterField =
   | { kind: "text"; name: string; label: string; placeholder?: string; grow?: boolean; width?: string }
   | {
       kind: "select";
+      name: string;
+      label: string;
+      options: SelectOption[];
+      emptyLabel?: string;
+      width?: string;
+    }
+  | {
+      /** Selección múltiple: los valores viajan en la URL separados por coma. */
+      kind: "multi";
       name: string;
       label: string;
       options: SelectOption[];
@@ -90,6 +101,19 @@ export function FilterBar({
               initial={searchParams.get(field.name) ?? ""}
               placeholder={field.placeholder}
               onCommit={(value) => apply(field.name, value, "replace")}
+            />
+          </div>
+        ) : field.kind === "multi" ? (
+          <div key={field.name} className={"flex flex-col gap-1 " + (field.width ?? "w-full sm:w-48")}>
+            <label htmlFor={field.name} className={labelClass}>
+              {field.label}
+            </label>
+            <MultiSelectDropdown
+              id={field.name}
+              values={listaFiltros(searchParams.get(field.name))}
+              emptyLabel={field.emptyLabel ?? "Todos"}
+              options={field.options}
+              onValuesChange={(values) => apply(field.name, values.join(","), "replace")}
             />
           </div>
         ) : (

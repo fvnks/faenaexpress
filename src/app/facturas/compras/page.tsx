@@ -83,7 +83,7 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
   const filterFields: FilterField[] = [
     { kind: "text", name: "q", label: "Buscar", placeholder: "Razón social, RUT, Nº factura u observaciones", grow: true },
     {
-      kind: "select",
+      kind: "multi",
       name: "proveedor",
       label: "Proveedor",
       emptyLabel: "Todos",
@@ -91,7 +91,7 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
       options: suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name })),
     },
     {
-      kind: "select",
+      kind: "multi",
       name: "categoria",
       label: "Categoría",
       emptyLabel: "Todas",
@@ -99,7 +99,7 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
       options: categories.map((category) => ({ value: category.id, label: category.name })),
     },
     {
-      kind: "select",
+      kind: "multi",
       name: "tipo",
       label: "Tipo de documento",
       emptyLabel: "Todos",
@@ -107,7 +107,7 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
       options: documentTypeValues.map((value) => ({ value, label: documentTypeLabel(value) })),
     },
     {
-      kind: "select",
+      kind: "multi",
       name: "estado",
       label: "Estado",
       emptyLabel: "Todas",
