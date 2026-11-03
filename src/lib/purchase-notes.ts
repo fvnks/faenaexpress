@@ -18,7 +18,7 @@
 // solo lectura y las notas siguen mostrándose como filas propias.
 
 import { db } from "@/lib/db";
-import { noteKinds } from "@/lib/sale-notes";
+import { noteKinds, claveFolio } from "@/lib/sale-notes";
 import type { NotaArbol } from "@/components/notes-tree";
 
 /** Lo mínimo que la lista ya tiene de cada compra para poder cruzar. */
@@ -28,11 +28,6 @@ export type CompraParaCruce = {
   documentNumber: string | null;
   partnerId: string;
 };
-
-/** "11.82 " → "1182": el mismo folio llega escrito distinto según el origen. */
-function claveFolio(folio: string): string {
-  return folio.trim().replace(/[.\s]/g, "");
-}
 
 /**
  * Map de compra (factura de compra) → notas que la ajustan, con lo que el

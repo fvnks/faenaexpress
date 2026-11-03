@@ -45,7 +45,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
     listCategories(ctx.company.id),
     listSalespeople(ctx.company.id),
   ]);
-  const { items, totals, page, pageCount } = await listSales(ctx.company.id, filters);
+  const { items, totals, page, pageCount, notasDeAnulaciones } = await listSales(ctx.company.id, filters);
   const hasFilters = Boolean(
     raw.estado || raw.q || raw.cliente || raw.categoria || raw.vendedor || raw.tipo || raw.desde || raw.hasta,
   );
@@ -234,6 +234,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
           sortDir={sortDir}
           fetchSaleXmlAction={fetchSaleXmlAction}
           hasDefontanaCredentials={hasDefontanaCredentials}
+          notasDeAnulaciones={notasDeAnulaciones}
         />
       )}
       <Pagination

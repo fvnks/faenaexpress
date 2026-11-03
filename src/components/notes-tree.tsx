@@ -25,11 +25,12 @@ export type NotaArbol = {
   id: string;
   documentType: string;
   documentNumber: string | null;
-  date: Date;
-  totalAmount: number;
-  status: string;
-  /** Link a la ficha de la nota. */
-  href: string;
+  /** Sin ficha (la nota no está registrada): fecha, monto y estado no vienen. */
+  date?: Date | null;
+  totalAmount?: number | null;
+  status?: string | null;
+  /** Link a la ficha de la nota; null cuando la nota no está registrada. */
+  href?: string | null;
 };
 
 /** Lo mínimo que una fila ya cargada entrega de cada nota que ajusta. */
@@ -54,6 +55,7 @@ export function notaArbol(nota: NotaFuente, href: string): NotaArbol {
     href,
   };
 }
+
 
 export function NoteChevron({ open }: { open: boolean }) {
   return (
@@ -97,10 +99,8 @@ export function NotesToggle({
   );
 }
 
-/**
- * La fila desplegada: una por documento con notas, siempre debajo de su fila
- * madre. Si no hay notas, no se pinta nada (el caller ni la llama).
- */
+/** La fila desplegada: una por documento con notas, siempre debajo de su fila
+ * madre. Si no hay notas, no se pinta nada (el caller ni la llama). */
 export function NotesTreeRow({
   notas,
   scope,
@@ -122,19 +122,29 @@ export function NotesTreeRow({
                 {documentTypeLabel(nota.documentType as DocumentType)}
                 {nota.documentNumber ? ` N° ${nota.documentNumber}` : " (sin folio)"}
               </span>
-              <span className="tabular text-xs text-muted-foreground">{formatDate(nota.date)}</span>
-              {scope === "venta" ? (
+              {nota.date ? (
+                <span className="tabular text-xs text-muted-foreground">{formatDate(nota.date)}</span>
+              ) : null}
+              {nota.status && scope === "venta" ? (
                 <SaleStatusBadge status={nota.status as SaleStatus} />
-              ) : (
+              ) : nota.status ? (
                 <PurchaseStatusBadge status={nota.status as PaymentStatus} />
+              ) : null}
+              {nota.totalAmount != null ? (
+                <span className="tabular ml-auto whitespace-nowrap font-semibold">
+                  {formatCLP(nota.totalAmount)}
+                </span>
+              ) : (
+                <span className="ml-auto text-xs text-muted-foreground">sin ficha registrada</span>
               )}
-              <span className="tabular ml-auto whitespace-nowrap font-semibold">{formatCLP(nota.totalAmount)}</span>
-              <Link
-                href={nota.href}
-                className="text-xs text-primary underline underline-offset-2 hover:text-primary/80"
-              >
-                Ver
-              </Link>
+              {nota.href ? (
+                <Link
+                  href={nota.href}
+                  className="text-xs text-primary underline underline-offset-2 hover:text-primary/80"
+                >
+                  Ver
+                </Link>
+              ) : null}
             </li>
           ))}
         </ul>

@@ -6,7 +6,7 @@ import { paginate, parsePage } from "@/lib/pagination";
 import { rutSearchPatterns } from "@/lib/rut";
 import { compareFolio, compareText, parseSortDir, type SortDir } from "@/lib/sort";
 import { documentTypeValues } from "@/lib/validation";
-import { noteKinds } from "@/lib/sale-notes";
+import { noteKinds, notasPorAnulacion } from "@/lib/sale-notes";
 
 export type SaleFilters = {
   status: SaleStatus | "ALL";
@@ -237,11 +237,15 @@ export async function listSales(companyId: string, filters: SaleFilters) {
   // el mismo hecho se contaría dos veces con signo contrario.
   const anuladasConNota = await db.sale.findMany({
     where: { companyId, status: "CANCELLED", cancellationNoteNumber: { not: null } },
-    select: { cancellationNoteNumber: true },
+    select: { id: true, partnerId: true, cancellationNoteNumber: true, cancellationType: true },
   });
   const notasContrapartida = new Set(
     anuladasConNota.map((row) => row.cancellationNoteNumber!).filter(Boolean),
   );
+
+  // El árbol del armario: cada factura anulada muestra, desplegada, la nota
+  // que la anuló (por folio si la nota está registrada; sin ficha si no).
+  const notasDeAnulaciones = await notasPorAnulacion(companyId, anuladasConNota);
 
   const totales = calcularTotales(
     rows.map((sale) => ({
@@ -267,6 +271,8 @@ export async function listSales(companyId: string, filters: SaleFilters) {
     items,
     page,
     pageCount,
+    // Las notas que anulan cada factura anulada de este lote, por folio.
+    notasDeAnulaciones: Object.fromEntries(notasDeAnulaciones),
     totals: {
       count: rows.length,
       total: totales.total,

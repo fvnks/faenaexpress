@@ -59,6 +59,8 @@ type Props = {
   sortDir: SortDir;
   fetchSaleXmlAction: (prev: FetchSaleXmlState, formData: FormData) => Promise<FetchSaleXmlState>;
   hasDefontanaCredentials?: boolean;
+  /** Las notas que anulan cada factura anulada (por folio), de `listSales`. */
+  notasDeAnulaciones?: Record<string, NotaArbol[]>;
 };
 
 /**
@@ -86,7 +88,7 @@ function parseShortDate(input: string | null): string | null {
   return date.toISOString().slice(0, 10) === wire ? wire : null;
 }
 
-export function SalesTable({ items, writable, salespeople, canManageSalespeople, params, sortKey, sortDir, hasDefontanaCredentials }: Props) {
+export function SalesTable({ items, writable, salespeople, canManageSalespeople, params, sortKey, sortDir, hasDefontanaCredentials, notasDeAnulaciones }: Props) {
   const [cancelModalSaleId, setCancelModalSaleId] = useState<string | null>(null);
   const [assignModalSaleId, setAssignModalSaleId] = useState<string | null>(null);
   const [assignSalespersonId, setAssignSalespersonId] = useState<string>("");
@@ -133,11 +135,20 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [localModalOpen]);
 
-  // Árbol de notas de una fila: solo cuentan las que son notas de verdad.
-  const notasDeVenta = (sale: SaleItem): NotaArbol[] =>
-    (sale.relatedNotes ?? [])
-      .filter((nota) => nota.documentType === "CREDIT_NOTE" || nota.documentType === "DEBIT_NOTE")
-      .map((nota) => notaArbol(nota, `/facturas/ventas/${nota.id}`));
+  // Árbol de notas de una fila: las vinculadas por FK (relatedSaleId) más
+  // —en anuladas— la nota que las anuló, cruzada por folio en listSales.
+  // Nunca dos veces la misma nota.
+  const notasDeVenta = (sale: SaleItem): NotaArbol[] => {
+    const porId = new Map<string, NotaArbol>();
+    for (const nota of sale.relatedNotes ?? []) {
+      if (nota.documentType !== "CREDIT_NOTE" && nota.documentType !== "DEBIT_NOTE") continue;
+      porId.set(nota.id, notaArbol(nota, `/facturas/ventas/${nota.id}`));
+    }
+    for (const nota of notasDeAnulaciones?.[sale.id] ?? []) {
+      if (!porId.has(nota.id)) porId.set(nota.id, nota);
+    }
+    return [...porId.values()];
+  };
 
   const alternarNotas = (saleId: string) => {
     setNotasAbiertas((prev) => {

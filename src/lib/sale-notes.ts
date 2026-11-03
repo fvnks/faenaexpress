@@ -11,8 +11,14 @@ import { db } from "@/lib/db";
 import { paginate, parsePage } from "@/lib/pagination";
 import { rutSearchPatterns } from "@/lib/rut";
 import { parseSortDir, type SortDir } from "@/lib/sort";
+import type { NotaArbol } from "@/components/notes-tree";
 
 export type NoteKind = "CREDIT_NOTE" | "DEBIT_NOTE";
+
+/** "11.82 " → "1182": el mismo folio llega escrito distinto según el origen. */
+export function claveFolio(folio: string): string {
+  return folio.replace(/[.\s]/g, "").trim();
+}
 
 export const noteKinds: NoteKind[] = ["CREDIT_NOTE", "DEBIT_NOTE"];
 
@@ -312,4 +318,96 @@ export async function vincularNotasConDocumentos(companyId: string): Promise<num
     }
   }
   return vinculadas;
+}
+
+/**
+ * Las notas que anulan cada factura del lote dado.
+ *
+ * El flujo «marcar anulada» NO crea ni vincula la nota: solo guarda el folio
+ * en `Sale.cancellationNoteNumber`. La nota que anuló —si está registrada— es
+ * una fila suelta (CREDIT_NOTE/DEBIT_NOTE) que a veces ni siquiera apunta por
+ * la FK a la factura anulada. El cruce es por folio NORMALIZADO dentro de la
+ * empresa; si hay más de una candidata, manda la del mismo cliente.
+ *
+ * Si la nota no está registrada en el sistema (se anotó solo el folio), se
+ * devuelve una entrada `sinFicha` para que el árbol la muestre igual, sin
+ * link ni montos.
+ */
+export async function notasPorAnulacion(
+  companyId: string,
+  anuladas: {
+    id: string;
+    partnerId: string;
+    cancellationNoteNumber: string | null;
+    /** El tipo de la anulación (CREDIT_NOTE/DEBIT_NOTE), para notas sin ficha. */
+    cancellationType?: string | null;
+  }[],
+): Promise<Map<string, NotaArbol[]>> {
+  const mapa = new Map<string, NotaArbol[]>();
+  const folios = new Set(
+    anuladas
+      .map((fila) => (fila.cancellationNoteNumber ? claveFolio(fila.cancellationNoteNumber) : ""))
+      .filter(Boolean),
+  );
+  if (folios.size === 0) return mapa;
+
+  const notas = await db.sale.findMany({
+    where: { companyId, documentType: { in: noteKinds } },
+    select: {
+      id: true,
+      documentType: true,
+      documentNumber: true,
+      date: true,
+      totalAmount: true,
+      status: true,
+      partnerId: true,
+    },
+    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+  });
+
+  const notasPorFolio = new Map<string, typeof notas>();
+  for (const nota of notas) {
+    if (!nota.documentNumber) continue;
+    const clave = claveFolio(nota.documentNumber);
+    const lote = notasPorFolio.get(clave) ?? [];
+    lote.push(nota);
+    notasPorFolio.set(clave, lote);
+  }
+
+  const fuente = (nota: (typeof notas)[number], href: string | null): NotaArbol => ({
+    id: nota.id,
+    documentType: nota.documentType,
+    documentNumber: nota.documentNumber,
+    date: nota.date,
+    totalAmount: nota.totalAmount,
+    status: nota.status,
+    href,
+  });
+
+  for (const anulada of anuladas) {
+    const folio = anulada.cancellationNoteNumber ? claveFolio(anulada.cancellationNoteNumber) : "";
+    if (!folio) continue;
+    const candidatos = notasPorFolio.get(folio) ?? [];
+    // Preferir la nota del mismo cliente; el folio solo es fiable si además
+    // no hay exactamente una candidata en toda la empresa.
+    const misma =
+      candidatos.find((nota) => nota.partnerId === anulada.partnerId) ??
+      (candidatos.length === 1 ? candidatos[0] : undefined);
+    const item = mapa.get(anulada.id) ?? [];
+    if (misma) {
+      item.push(fuente(misma, `/facturas/ventas/${misma.id}`));
+    } else {
+      // La nota que anuló no está registrada: el árbol la muestra con su
+      // folio, sin link ni datos, para que se vea altiro que existe.
+      item.push({
+        id: `${anulada.id}-sin-ficha`,
+        documentType: anulada.cancellationType ?? "CREDIT_NOTE",
+        documentNumber: anulada.cancellationNoteNumber,
+        href: null,
+      });
+    }
+    mapa.set(anulada.id, item);
+  }
+
+  return mapa;
 }
