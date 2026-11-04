@@ -3,9 +3,8 @@ import { Text, View } from "@react-pdf/renderer";
 import type { InvoiceData } from "../../schema";
 
 /**
- * Bloque al estilo del SII que se imprime solo en las facturas de compra:
- * recuadro rojo con RUT del emisor (proveedor), tipo de documento y folio,
- * más la leyenda "UNIDAD S.I.I.".
+ * Cuadro al estilo del SII con tipo de documento, folio y UNIDAD S.I.I.
+ * El RUT del emisor ya aparece arriba con los datos de la empresa.
  */
 export function InvoiceSiiBox({
   invoiceData,
@@ -19,7 +18,7 @@ export function InvoiceSiiBox({
     <View
       style={{
         border: "2px solid #ff0000",
-        width: "65%",
+        width: "40%",
         padding: 12,
         textAlign: "center",
         color: "#ff0000",
@@ -28,12 +27,6 @@ export function InvoiceSiiBox({
         marginTop: 6,
       }}
     >
-      <Text style={{ fontSize: 7, marginBottom: 4 }}>
-        R.U.T.:{" "}
-        <Text style={{ fontSize: 8, fontWeight: "bold" }}>
-          {invoiceData?.seller.vatNo ?? ""}
-        </Text>
-      </Text>
       <Text style={{ fontSize: 7, marginBottom: 4 }}>
         {invoiceType}
       </Text>

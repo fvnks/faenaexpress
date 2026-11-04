@@ -1,6 +1,5 @@
 import { Text, View } from "@react-pdf/renderer";
 
-import { InvoiceCompanyHeader } from "../common/invoice-company-header";
 import { InvoiceSiiBox } from "../common/invoice-sii-box";
 import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import type { InvoiceData } from "../../schema";
@@ -28,51 +27,6 @@ function fieldLine({
   );
 }
 
-/**
- * Cuadrado rojo simple con los datos del receptor, para ventas (al estilo del
- * cuadro SII de compras).
- */
-function ReceiverBox({
-  buyer,
-  invoiceNumberValue,
-}: {
-  buyer: InvoiceData["buyer"];
-  invoiceNumberValue: string | null | undefined;
-}) {
-  return (
-    <View
-      style={{
-        border: "2px solid #ff0000",
-        width: "40%",
-        padding: 12,
-        textAlign: "center",
-        color: "#ff0000",
-        fontWeight: "bold",
-        alignSelf: "flex-start",
-        marginTop: 6,
-      }}
-    >
-      <Text style={{ fontSize: 7, marginBottom: 4 }}>
-        R.U.T.:{" "}
-        <Text style={{ fontSize: 8, fontWeight: "bold" }}>
-          {buyer.vatNo ?? ""}
-        </Text>
-      </Text>
-      <Text style={{ fontSize: 7, marginBottom: 4 }}>
-        {buyer.name ?? ""}
-      </Text>
-      <Text style={{ fontSize: 8, marginBottom: 2, fontWeight: "bold" }}>
-        Folio N° {invoiceNumberValue ?? ""}
-      </Text>
-      <Text style={{ fontSize: 6 }}>
-        {[buyer.address, buyer.city, buyer.commune]
-          .filter(Boolean)
-          .join(", ")}
-      </Text>
-    </View>
-  );
-}
-
 export function InvoiceSellerBuyerInfo({
   invoiceData,
   styles,
@@ -85,22 +39,10 @@ export function InvoiceSellerBuyerInfo({
 
   const invoiceNumberValue = invoiceData?.invoiceNumberObject?.value;
 
-  const paymentFields = [
-    fieldLine({
-      label:
-        invoiceData.erpLabels?.paymentDate ??
-        INVOICE_PDF_TRANSLATIONS.es.paymentInfo.paymentDate,
-      value: invoiceData.paymentDue,
-      styles,
-    }),
-    invoiceData.paymentMethodFieldIsVisible && invoiceData.paymentMethod
-      ? fieldLine({
-          label: INVOICE_PDF_TRANSLATIONS.es.paymentInfo.paymentMethod,
-          value: invoiceData.paymentMethod,
-          styles,
-        })
-      : null,
-  ];
+  // Dirección + ciudad/comuna del receptor
+  const addressParts = [buyer.address, buyer.city, buyer.commune].filter(
+    Boolean,
+  );
 
   return (
     <View
@@ -113,33 +55,69 @@ export function InvoiceSellerBuyerInfo({
         marginBottom: 18,
       }}
     >
-      {/* En ventas: datos del receptor a la izquierda, cuadro rojo del receptor
-          a la derecha. */}
-      {!invoiceData.erpIsPurchase ? (
-        <>
-          <View style={{ width: "55%" }}>
-            <Text style={styles.subheader}>
-              {invoiceData.erpLabels?.buyer ?? "Receptor"}
+      {/* Receptor: nombre y todos sus datos (izquierda) */}
+      <View style={{ width: "55%" }}>
+        <Text style={styles.subheader}>
+          {invoiceData.erpLabels?.buyer ?? "Señor(es):"}
+        </Text>
+        <Text style={[styles.fontBold, styles.fontSize10]}>
+          {buyer.name}
+        </Text>
+        {addressParts.length > 0 && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {addressParts.join(", ")}
+          </Text>
+        )}
+        {buyer.notes && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            Giro: {buyer.notes}
+          </Text>
+        )}
+        {buyer.email && buyer.emailFieldIsVisible && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            Correo: {buyer.email}
+          </Text>
+        )}
+        {buyer.phone && buyer.phoneFieldIsVisible && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            Teléfono: {buyer.phone}
+          </Text>
+        )}
+        {buyer.vatNoFieldIsVisible && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {buyer.vatNoLabelText}:{" "}
+            <Text style={[styles.boldText, styles.fontSize8]}>
+              {buyer.vatNo}
             </Text>
-            {/* Forma y fecha de pago bajo del receptor */}
-            <View style={{ marginTop: 10 }}>
-              {paymentFields}
-            </View>
-          </View>
-          <ReceiverBox
-            buyer={buyer}
-            invoiceNumberValue={invoiceNumberValue}
-          />
-        </>
-      ) : (
-        <>
-          {/* En compras: el cuadro SII (proveedor/emisor del documento) a la
-              derecha, el receptor (empresa) ya se muestra arriba. */}
-          <View style={{ width: "40%", alignSelf: "flex-start" }}>
-            <InvoiceSiiBox invoiceData={invoiceData} />
-          </View>
-        </>
-      )}
+          </Text>
+        )}
+        {/* Forma y fecha de pago bajo del receptor */}
+        <View style={{ marginTop: 10 }}>
+          {invoiceData.erpLabels?.paymentDate &&
+          invoiceData.paymentDue && (
+            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+              {invoiceData.erpLabels.paymentDate}:{" "}
+              <Text style={[styles.boldText, styles.fontSize8]}>
+                {invoiceData.paymentDue}
+              </Text>
+            </Text>
+          )}
+          {invoiceData.paymentMethodFieldIsVisible &&
+          invoiceData.paymentMethod && (
+            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+              {INVOICE_PDF_TRANSLATIONS.es.paymentInfo.paymentMethod}:{" "}
+              <Text style={[styles.boldText, styles.fontSize8]}>
+                {invoiceData.paymentMethod}
+              </Text>
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {/* Cuadro SII a la derecha: tipo, folio, UNIDAD S.I.I. */}
+      <View style={{ width: "40%", alignSelf: "flex-start" }}>
+        <InvoiceSiiBox invoiceData={invoiceData} />
+      </View>
     </View>
   );
 }

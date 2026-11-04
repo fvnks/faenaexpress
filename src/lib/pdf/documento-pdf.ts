@@ -37,6 +37,7 @@ export type TerceroPdf = {
   commune: string | null;
   giro: string | null;
   email: string | null;
+  phone: string | null;
   notes: string | null;
 };
 
@@ -405,12 +406,8 @@ async function baseDocumento({
       // fecha de pago: ahí la que importa es cuándo se pagó.
       paymentDate: documento.paymentDate
         ? "Fecha de pago"
-        : "Fecha de vencimiento",
+        : "Fecha de vencimiento"
     },
-    erpBalanceVisible: !esNota,
-    // Datos de la empresa del ERP (FaenaExpress SpA), siempre iguales
-    // independientemente de si es venta o compra.
-    company: empresaComoParte(empresa, "seller", ETIQUETAS_PARTES),
     // En una compra el emisor es el proveedor: el diseño se acerca al formato
     // del SII (recuadro RUT/tipo/folio + UNIDAD SII).
     erpIsPurchase: !emisorEsEmpresa,

@@ -134,6 +134,8 @@ export type BuyerData = {
   vatNoFieldIsVisible: boolean;
   email?: string;
   emailFieldIsVisible: boolean;
+  phone?: string;
+  phoneFieldIsVisible?: boolean;
   notes?: string;
   notesFieldIsVisible: boolean;
 };
@@ -176,9 +178,6 @@ export type InvoiceData = {
 
   seller: SellerData;
   buyer: BuyerData;
-
-  /** Datos de la empresa del ERP (FaenaExpress SpA), siempre iguales. */
-  company: SellerData;
 
   items: InvoiceItemData[];
 

@@ -56,6 +56,7 @@ export async function GET(
       commune: purchase.partner.commune,
       giro: purchase.partner.giro,
       email: purchase.partner.email,
+      phone: purchase.partner.phone,
       notes: purchase.partner.notes,
     },
     compra: {
