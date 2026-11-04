@@ -1,7 +1,7 @@
 import { Text, View } from "@react-pdf/renderer";
 import dayjs from "dayjs";
 
-import { InvoiceQRCode } from "../common/invoice-qr-code";
+import { InvoicePdf417 } from "../common/invoice-pdf417";
 import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import { type InvoiceData, resolveNumberFormatLocale } from "../../schema";
 
@@ -29,12 +29,10 @@ export const InvoiceBody = ({
   invoiceData,
   styles,
   shouldLocaliseDates = true,
-  qrCodeDataUrl = "",
 }: {
   invoiceData: InvoiceData;
   styles: typeof PDF_DEFAULT_TEMPLATE_STYLES;
   shouldLocaliseDates?: boolean;
-  qrCodeDataUrl?: string;
 }) => {
   const language = invoiceData.language;
   const t = INVOICE_PDF_TRANSLATIONS[language];
@@ -60,8 +58,10 @@ export const InvoiceBody = ({
 
   const vatTableSummaryIsVisible = invoiceData.vatTableSummaryIsVisible;
 
-  const isQrCodeVisible =
-    invoiceData?.qrCodeIsVisible && qrCodeDataUrl && qrCodeDataUrl.length > 0;
+  const isPdf417Visible =
+    invoiceData?.qrCodeIsVisible &&
+    invoiceData.qrCodeData &&
+    invoiceData.qrCodeData.length > 0;
 
   return (
     <>
@@ -152,10 +152,10 @@ export const InvoiceBody = ({
         </View>
       ) : null}
 
-      {/* QR Code - centered below notes */}
-      {isQrCodeVisible ? (
-        <InvoiceQRCode
-          qrCodeDataUrl={qrCodeDataUrl}
+      {/* PDF417 del SII (timbre electrónico) - centrado debajo de las notas */}
+      {isPdf417Visible ? (
+        <InvoicePdf417
+          pdf417DataUrl={invoiceData.qrCodeData!}
           description={invoiceData.qrCodeDescription}
         />
       ) : null}

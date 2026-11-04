@@ -13,8 +13,7 @@ import type {
   InvoiceData,
   InvoiceItemData,
 } from "./vendor/easy-invoice-pdf/schema";
-import { generateQrCodeDataUrl } from "./vendor/easy-invoice-pdf/utils/qr";
-import { qrSiiUrl, tipoDocumentoASii } from "./qr-sii";
+import { pdf417SiiDataUrl, tipoDocumentoASii } from "./pdf417-sii";
 
 /** La empresa emisora (la del ERP) con los datos que se imprimen. */
 export type EmpresaPdf = {
@@ -304,9 +303,9 @@ async function baseDocumento({
     documento.documentType === "CREDIT_NOTE" ||
     documento.documentType === "DEBIT_NOTE";
 
-  // Código QR del SII: valida el documento en el portal del SII con el RUT del
-  // emisor (sin DV), tipo de documento, folio, fecha (DDMMAAAA), monto total y
-  // RUT del receptor (con DV). Solo se genera cuando hay folio y ambos RUT.
+  // PDF417 del SII (timbre electrónico): valida el documento en el portal del
+  // SII con el RUT del emisor, tipo de documento, folio, fecha (AAAA-MM-DD),
+  // monto total y RUT del receptor. Solo se genera cuando hay folio y ambos RUT.
   let qrCodeIsVisible = false;
   let qrCodeData = "";
   if (
@@ -316,7 +315,7 @@ async function baseDocumento({
     documento.totalAmount > 0
   ) {
     try {
-      const url = qrSiiUrl({
+      const dataUrl = await pdf417SiiDataUrl({
         rutEmisor: empresa.rut,
         tipoDte: tipoDocumentoASii(documento.documentType),
         folio: documento.documentNumber,
@@ -324,13 +323,12 @@ async function baseDocumento({
         monto: documento.totalAmount,
         rutReceptor: tercero.rut,
       });
-      const dataUrl = await generateQrCodeDataUrl(url);
       if (dataUrl) {
         qrCodeIsVisible = true;
         qrCodeData = dataUrl;
       }
     } catch {
-      // Si falla la generación del QR, el PDF se imprime sin él.
+      // Si falla la generación del PDF417, el PDF se imprime sin él.
     }
   }
 

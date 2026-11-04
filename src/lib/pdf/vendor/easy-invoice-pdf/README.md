@@ -82,17 +82,15 @@ correspondiente. El resumen:
   `DDMMAAAA`, monto total y RUT receptor con DV) y `documento-pdf.ts` la convierte
   en imagen con `generateQrCodeDataUrl` e imprime el código en la factura.
 
-## Código QR del SII
+## Código QR del SII (PDF417 del timbre electrónico)
 
-El ERP imprime el QR tributario del SII en la factura comercial (ventas y
-compras). `src/lib/pdf/qr-sii.ts` arma la URL de validación del SII con los
-parámetros que pide su servicio de consulta (`p` = RUT emisor sin dígito
-verificador, `t` = tipo DTE, `f` = folio, `d` = fecha en `DDMMAAAA`, `v` = monto
-total, `c` = RUT receptor con dígito verificador) y `documento-pdf.ts` la
-convierte en imagen PNG con `utils/qr.ts`.
-
-La URL apunta al endpoint de consulta de validez de documentos del SII
-(`palena.sii.cl/cgi_dte/UPL/QEstadoDTE`).
+El ERP imprime el código de barras 2D del SII (PDF417 del timbre
+electrónico) en la factura comercial (ventas y compras). `src/lib/pdf/pdf417-sii.ts`
+arma el string del PDF417 (`RE:RUT|TD:TIPO|F:FOLIO|FE:FECHA|RR:RUT_RECEPTOR|MNT:MONTO`,
+el mismo formato que usa la plantilla del SII en `src/lib/sii/pdf-template.ts`)
+y `documento-pdf.ts` lo renderiza como imagen SVG con la librería
+`pdf417-generator` (ya dependencia del proyecto), sin depender de un canvas de
+navegador.
 
 ## Si se actualiza el original
 
