@@ -68,15 +68,19 @@ export const InvoiceBody = ({
   return (
     <>
       <InvoiceHeader invoiceData={invoiceData} styles={styles} />
-      <InvoiceSellerBuyerInfo invoiceData={invoiceData} styles={styles} />
 
       {/* Recuadro al estilo del SII solo en compras: RUT/tipo/folio del
-          proveedor (emisor) + UNIDAD S.I.I. */}
+          proveedor (emisor) + UNIDAD S.I.I., arriba y a la derecha, encima del
+          receptor. */}
       {invoiceData.erpIsPurchase ? (
-        <View style={{ width: "100%", marginTop: 6 }}>
-          <InvoiceSiiBox invoiceData={invoiceData} />
+        <View style={{ width: "100%", marginBottom: 10 }}>
+          <View style={{ display: "flex", justifyContent: "flex-end" }}>
+            <InvoiceSiiBox invoiceData={invoiceData} />
+          </View>
         </View>
       ) : null}
+
+      <InvoiceSellerBuyerInfo invoiceData={invoiceData} styles={styles} />
 
       <InvoiceItemsTable
         invoiceData={invoiceData}
