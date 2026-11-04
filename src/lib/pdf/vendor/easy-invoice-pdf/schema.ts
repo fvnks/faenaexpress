@@ -177,6 +177,9 @@ export type InvoiceData = {
   seller: SellerData;
   buyer: BuyerData;
 
+  /** Datos de la empresa del ERP (FaenaExpress SpA), siempre iguales. */
+  company: SellerData;
+
   items: InvoiceItemData[];
 
   /** Total del documento. */

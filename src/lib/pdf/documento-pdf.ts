@@ -408,6 +408,9 @@ async function baseDocumento({
         : "Fecha de vencimiento",
     },
     erpBalanceVisible: !esNota,
+    // Datos de la empresa del ERP (FaenaExpress SpA), siempre iguales
+    // independientemente de si es venta o compra.
+    company: empresaComoParte(empresa, "seller", ETIQUETAS_PARTES),
     // En una compra el emisor es el proveedor: el diseño se acerca al formato
     // del SII (recuadro RUT/tipo/folio + UNIDAD SII).
     erpIsPurchase: !emisorEsEmpresa,

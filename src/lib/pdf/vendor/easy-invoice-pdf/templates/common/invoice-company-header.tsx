@@ -12,22 +12,22 @@ export function InvoiceCompanyHeader({
 }: {
   invoiceData: InvoiceData;
 }) {
-  const seller = invoiceData?.seller;
-  if (!seller) return null;
+  const company = invoiceData?.company;
+  if (!company) return null;
 
   const lines: Array<React.ReactNode> = [];
 
   // Nombre de la empresa (más grande)
-  if (seller.name) {
+  if (company.name) {
     lines.push(
       <Text key="name" style={{ fontWeight: "bold", fontSize: 12 }}>
-        {seller.name}
+        {company.name}
       </Text>,
     );
   }
 
   // Dirección + ciudad/comuna
-  const addressParts = [seller.address, seller.city, seller.commune].filter(
+  const addressParts = [company.address, company.city, company.commune].filter(
     Boolean,
   );
   if (addressParts.length > 0) {
@@ -39,37 +39,37 @@ export function InvoiceCompanyHeader({
   }
 
   // Giro
-  if (seller.notes) {
+  if (company.notes) {
     lines.push(
       <Text key="giro" style={{ fontSize: 8 }}>
-        Giro: {seller.notes}
+        Giro: {company.notes}
       </Text>,
     );
   }
 
   // Correo
-  if (seller.email && seller.emailFieldIsVisible) {
+  if (company.email && company.emailFieldIsVisible) {
     lines.push(
       <Text key="email" style={{ fontSize: 8 }}>
-        Correo: {seller.email}
+        Correo: {company.email}
       </Text>,
     );
   }
 
   // Teléfono
-  if (seller.phone && seller.phoneFieldIsVisible) {
+  if (company.phone && company.phoneFieldIsVisible) {
     lines.push(
       <Text key="phone" style={{ fontSize: 8 }}>
-        Teléfono: {seller.phone}
+        Teléfono: {company.phone}
       </Text>,
     );
   }
 
   // RUT
-  if (seller.vatNo && seller.vatNoFieldIsVisible) {
+  if (company.vatNo && company.vatNoFieldIsVisible) {
     lines.push(
       <Text key="vatNo" style={{ fontWeight: "bold", fontSize: 8 }}>
-        {seller.vatNoLabelText}: {seller.vatNo}
+        {company.vatNoLabelText}: {company.vatNo}
       </Text>,
     );
   }
