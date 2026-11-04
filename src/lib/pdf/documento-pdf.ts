@@ -461,17 +461,7 @@ export async function documentoVentaPdf({
     neto: venta.netAmount,
   });
 
-  const descripcion = [
-    documentTypeLabel(venta.documentType),
-    ventaExtra.salesperson ? `Vendedor: ${ventaExtra.salesperson}` : null,
-    ventaExtra.purchaseOrder ? `OC: ${ventaExtra.purchaseOrder}` : null,
-    ventaExtra.dispatchGuide ? `Guía: ${ventaExtra.dispatchGuide}` : null,
-    ventaExtra.hesNumber ? `HES: ${ventaExtra.hesNumber}` : null,
-    ventaExtra.category ? `Categoría: ${ventaExtra.category}` : null,
-    ventaExtra.area ? `Área: ${ventaExtra.area}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const descripcion = documentTypeLabel(venta.documentType);
 
   return await baseDocumento({
     empresa,

@@ -1,9 +1,7 @@
 import { Text, View } from "@react-pdf/renderer";
 import dayjs from "dayjs";
 
-import { InvoiceCompanyHeader } from "../common/invoice-company-header";
 import { InvoicePdf417 } from "../common/invoice-pdf417";
-import { InvoiceSiiBox } from "../common/invoice-sii-box";
 import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import { type InvoiceData, resolveNumberFormatLocale } from "../../schema";
 

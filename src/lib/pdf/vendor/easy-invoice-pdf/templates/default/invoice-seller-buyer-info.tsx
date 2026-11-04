@@ -5,9 +5,6 @@ import type { InvoiceData } from "../../schema";
 
 import type { PDF_DEFAULT_TEMPLATE_STYLES } from ".";
 
-/**
- * Una línea de texto con etiqueta opcional y valor en negrita.
- */
 function fieldLine({
   label,
   value,
@@ -26,9 +23,6 @@ function fieldLine({
   );
 }
 
-/**
- * Cuadro rojo SII: muestra RUT del emisor del documento, tipo, folio y UNIDAD S.I.I.
- */
 function SiiBox({
   invoiceData,
   styles,
@@ -79,7 +73,6 @@ export function InvoiceSellerBuyerInfo({
   if (!buyer) return null;
 
   const isPurchase = invoiceData.erpIsPurchase;
-  const invoiceNumberValue = invoiceData?.invoiceNumberObject?.value;
 
   return (
     <View style={{ width: "100%", marginBottom: 14 }}>
@@ -92,8 +85,8 @@ export function InvoiceSellerBuyerInfo({
           width: "100%",
         }}
       >
-        {/* Receptor: nombre y todos sus datos (izquierda) */}
-        <View style={{ width: "55%" }}>
+        {/* RECEPTOR (izquierda, 58%): nombre, dirección, RUT, forma de pago, vencimiento, vendedor, guía */}
+        <View style={{ width: "58%" }}>
           <Text style={styles.subheader}>
             {invoiceData.erpLabels?.buyer ?? "Señor(es):"}
           </Text>
@@ -133,7 +126,6 @@ export function InvoiceSellerBuyerInfo({
               </Text>
             </Text>
           )}
-          {/* Forma y fecha de pago bajo del receptor */}
           {invoiceData.paymentDue && (
             <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
               {invoiceData.erpLabels?.paymentDate ?? "Fecha de vencimiento"}:
@@ -151,6 +143,17 @@ export function InvoiceSellerBuyerInfo({
               </Text>
             </Text>
           )}
+          {/* Vendedor y guía SOLO debajo del receptor (ventas) */}
+          {!isPurchase && invoiceData.erpVendedor && (
+            <Text style={[styles.fontSize7, { marginTop: 6, marginBottom: 2 }]}>
+              Vendedor: {invoiceData.erpVendedor}
+            </Text>
+          )}
+          {!isPurchase && invoiceData.erpGuiaDespacho && (
+            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+              Guía de Despacho: {invoiceData.erpGuiaDespacho}
+            </Text>
+          )}
         </View>
 
         {/* Cuadro rojo SII a la derecha (flotando en paralelo al receptor) */}
@@ -158,22 +161,6 @@ export function InvoiceSellerBuyerInfo({
           <SiiBox invoiceData={invoiceData} styles={styles} />
         </View>
       </View>
-
-      {/* Campos adicionales debajo del receptor (no dentro del cuadro SII) */}
-      {!isPurchase ? (
-        <>
-          {invoiceData.erpVendedor && (
-            <Text style={[styles.fontSize7, { marginTop: 8, marginBottom: 2 }]}>
-              Vendedor: {invoiceData.erpVendedor}
-            </Text>
-          )}
-          {invoiceData.erpGuiaDespacho && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              Guía de Despacho: {invoiceData.erpGuiaDespacho}
-            </Text>
-          )}
-        </>
-      ) : null}
     </View>
   );
 }
