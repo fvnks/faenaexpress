@@ -4,7 +4,7 @@ import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import { type InvoiceData, resolveNumberFormatLocale } from "../../schema";
 
 import type { PDF_DEFAULT_TEMPLATE_STYLES } from ".";
-import { formatAmountChunks } from "../../utils/format-amount";
+import { formatAmountChunks, fractionDigitsFor } from "../../utils/format-amount";
 import { etiquetaConImpuesto } from "../../utils/etiquetas";
 import {
   formatDiscountPercent,
@@ -193,21 +193,25 @@ export function InvoiceItemsTable({
           const netPriceChunks = formatAmountChunks({
             amount: item.netPrice,
             numberFormatLocale,
+            fractionDigits: fractionDigitsFor(invoiceData.currency),
           });
 
           const netAmountChunks = formatAmountChunks({
             amount: item.netAmount,
             numberFormatLocale,
+            fractionDigits: fractionDigitsFor(invoiceData.currency),
           });
 
           const vatAmountChunks = formatAmountChunks({
             amount: item.vatAmount,
             numberFormatLocale,
+            fractionDigits: fractionDigitsFor(invoiceData.currency),
           });
 
           const preTaxAmountChunks = formatAmountChunks({
             amount: item.preTaxAmount,
             numberFormatLocale,
+            fractionDigits: fractionDigitsFor(invoiceData.currency),
           });
 
           const itemHasDiscount = hasItemDiscount(item);
@@ -224,6 +228,7 @@ export function InvoiceItemsTable({
               : formatAmountChunks({
                   amount: item.discountAmount,
                   numberFormatLocale,
+                  fractionDigits: fractionDigitsFor(invoiceData.currency),
                 });
 
           const customDiscountLabel = item.discountLabel?.trim();

@@ -64,6 +64,12 @@ correspondiente. El resumen:
 - **Espaciado del pie:** el original armaba el pie con varios `<Text>` sueltos y un
   `gap` que `react-pdf` no siempre respeta (el texto salía pegado). Acá el pie es
   un solo texto con los separadores dentro.
+- **Montos sin decimales:** en Chile (CLP) no se usan decimales. `utils/format-amount.ts`
+  imprime 0 dígitos fraccionarios para CLP y 2 para USD/EUR (`fractionDigitsFor`).
+- **Diseño de compra al estilo SII:** en compras (`erpIsPurchase`) se imprime un
+  recuadro rojo con el RUT del proveedor (emisor), el tipo de documento y el folio,
+  más la leyenda «UNIDAD S.I.I.», igual que la representación gráfica del SII
+  (`templates/common/invoice-sii-box.tsx`).
 - **Etiquetas de columnas:** las funciones de traducción que dependían del nombre
   del impuesto se llaman a través de `utils/etiquetas.ts`, que tolera tanto la
   firma con argumento como la que lo ignora.

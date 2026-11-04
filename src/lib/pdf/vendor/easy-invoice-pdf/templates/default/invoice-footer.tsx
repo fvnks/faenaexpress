@@ -5,7 +5,7 @@ import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import { type InvoiceData, resolveNumberFormatLocale } from "../../schema";
 
 import type { PDF_DEFAULT_TEMPLATE_STYLES } from ".";
-import { formatAmount } from "../../utils/format-amount";
+import { formatAmount, fractionDigitsFor } from "../../utils/format-amount";
 
 export function InvoiceFooter({
   invoiceData,
@@ -37,6 +37,7 @@ export function InvoiceFooter({
   const formattedInvoiceTotal = formatAmount({
     amount: invoiceTotal,
     numberFormatLocale: resolveNumberFormatLocale(invoiceData),
+    fractionDigits: fractionDigitsFor(invoiceData.currency),
   });
 
   return (

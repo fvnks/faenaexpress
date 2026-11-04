@@ -9,6 +9,18 @@ import {
   NO_BREAK_SPACE,
 } from "./format-currency";
 
+/** Decimales que se imprimen por moneda. En Chile (CLP) no se usan decimales. */
+export const CURRENCY_FRACTION_DIGITS: Record<SupportedCurrencies, number> = {
+  CLP: 0,
+  USD: 2,
+  EUR: 2,
+};
+
+/** Decimales a imprimir para la moneda de la factura. */
+export function fractionDigitsFor(currency: SupportedCurrencies): number {
+  return CURRENCY_FRACTION_DIGITS[currency] ?? 2;
+}
+
 interface FormatAmountArgs {
   /** The number to write. Anything that is not a finite number is written as zero. */
   amount: number;
@@ -31,15 +43,20 @@ export function formatAmountChunks({
   numberFormatLocale,
   minimumFractionDigits = 2,
   maximumFractionDigits = 2,
-}: FormatAmountArgs) {
+  fractionDigits,
+}: FormatAmountArgs & { fractionDigits?: number }) {
   try {
+    const minDigits =
+      fractionDigits ?? minimumFractionDigits;
+    const maxDigits =
+      fractionDigits ?? maximumFractionDigits;
     return formatNumberChunksForPdf({
       amount,
       numberFormatLocale,
       options: {
         style: "decimal",
-        minimumFractionDigits,
-        maximumFractionDigits,
+        minimumFractionDigits: minDigits,
+        maximumFractionDigits: maxDigits,
       },
     });
   } catch (error) {
@@ -54,7 +71,9 @@ export function formatAmountChunks({
  * template's amounts, which carry an ISO code next to the totals instead of a symbol, and
  * both templates' quantities.
  */
-export function formatAmount(args: FormatAmountArgs) {
+export function formatAmount(
+  args: FormatAmountArgs & { fractionDigits?: number },
+) {
   return formatAmountChunks(args).join("");
 }
 

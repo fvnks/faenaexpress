@@ -241,4 +241,9 @@ export type InvoiceData = {
     surcharge?: string;
     total?: string;
   };
+  /**
+   * Si el documento es una compra: el emisor es el proveedor y el diseño se
+   * acerca al formato del SII (recuadro RUT/tipo/folio + UNIDAD SII).
+   */
+  erpIsPurchase?: boolean;
 };

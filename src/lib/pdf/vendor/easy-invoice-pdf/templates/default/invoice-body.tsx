@@ -2,11 +2,12 @@ import { Text, View } from "@react-pdf/renderer";
 import dayjs from "dayjs";
 
 import { InvoicePdf417 } from "../common/invoice-pdf417";
+import { InvoiceSiiBox } from "../common/invoice-sii-box";
 import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import { type InvoiceData, resolveNumberFormatLocale } from "../../schema";
 
 import type { PDF_DEFAULT_TEMPLATE_STYLES } from ".";
-import { formatAmountChunks } from "../../utils/format-amount";
+import { formatAmountChunks, fractionDigitsFor } from "../../utils/format-amount";
 import { InvoiceFooter } from "./invoice-footer";
 import { InvoiceHeader } from "./invoice-header";
 import { InvoiceItemsTable } from "./invoice-items-table";
@@ -46,6 +47,7 @@ export const InvoiceBody = ({
   const invoiceTotalChunks = formatAmountChunks({
     amount: invoiceTotal,
     numberFormatLocale: resolveNumberFormatLocale(invoiceData),
+    fractionDigits: fractionDigitsFor(invoiceData.currency),
   });
 
   // The VAT summary prints the total into a 69pt cell and takes the pieces; every other
@@ -67,6 +69,14 @@ export const InvoiceBody = ({
     <>
       <InvoiceHeader invoiceData={invoiceData} styles={styles} />
       <InvoiceSellerBuyerInfo invoiceData={invoiceData} styles={styles} />
+
+      {/* Recuadro al estilo del SII solo en compras: RUT/tipo/folio del
+          proveedor (emisor) + UNIDAD S.I.I. */}
+      {invoiceData.erpIsPurchase ? (
+        <View style={{ width: "100%", marginTop: 6 }}>
+          <InvoiceSiiBox invoiceData={invoiceData} />
+        </View>
+      ) : null}
 
       <InvoiceItemsTable
         invoiceData={invoiceData}

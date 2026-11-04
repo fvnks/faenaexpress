@@ -4,7 +4,7 @@ import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import { type InvoiceData, resolveNumberFormatLocale } from "../../schema";
 
 import type { PDF_DEFAULT_TEMPLATE_STYLES } from ".";
-import { formatAmountChunks } from "../../utils/format-amount";
+import { formatAmountChunks, fractionDigitsFor } from "../../utils/format-amount";
 import { etiquetaConImpuesto } from "../../utils/etiquetas";
 import { WrappableAmount } from "../common/wrappable-amount";
 
@@ -80,6 +80,7 @@ export function InvoiceVATSummaryTable({
   const totalNetAmountChunks = formatAmountChunks({
     amount: totalNetAmount,
     numberFormatLocale,
+    fractionDigits: fractionDigitsFor(invoiceData.currency),
   });
 
   const totalVATAmount = sortedItems.reduce((acc, item) => {
@@ -88,6 +89,7 @@ export function InvoiceVATSummaryTable({
   const totalVatAmountChunks = formatAmountChunks({
     amount: totalVATAmount,
     numberFormatLocale,
+    fractionDigits: fractionDigitsFor(invoiceData.currency),
   });
 
   return (
@@ -120,16 +122,19 @@ export function InvoiceVATSummaryTable({
         const netAmountChunks = formatAmountChunks({
           amount: item.netAmount,
           numberFormatLocale,
+          fractionDigits: fractionDigitsFor(invoiceData.currency),
         });
 
         const preTaxAmountChunks = formatAmountChunks({
           amount: item.preTaxAmount,
           numberFormatLocale,
+          fractionDigits: fractionDigitsFor(invoiceData.currency),
         });
 
         const vatAmountChunks = formatAmountChunks({
           amount: item.vatAmount,
           numberFormatLocale,
+          fractionDigits: fractionDigitsFor(invoiceData.currency),
         });
 
         // Table row start

@@ -401,6 +401,9 @@ async function baseDocumento({
         : "Fecha de vencimiento",
     },
     erpBalanceVisible: !esNota,
+    // En una compra el emisor es el proveedor: el diseño se acerca al formato
+    // del SII (recuadro RUT/tipo/folio + UNIDAD SII).
+    erpIsPurchase: !emisorEsEmpresa,
     // El pie habla del vencimiento (la fecha de pago va en el bloque de pagos).
     erpFooterDueDate: fechaIso(documento.dueDate ?? documento.date),
   };

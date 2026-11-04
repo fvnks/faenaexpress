@@ -11,6 +11,7 @@ import type { PDF_DEFAULT_TEMPLATE_STYLES } from ".";
 import {
   formatAmount,
   formatAmountInWordsWithCurrency,
+  fractionDigitsFor,
 } from "../../utils/format-amount";
 
 /**
@@ -46,7 +47,11 @@ export function InvoicePaymentTotals({
   const numberFormatLocale = resolveNumberFormatLocale(invoiceData);
 
   const formatMonto = (amount: number) =>
-    formatAmount({ amount, numberFormatLocale });
+    formatAmount({
+      amount,
+      numberFormatLocale,
+      fractionDigits: fractionDigitsFor(invoiceData.currency),
+    });
 
   const payableInWords = getAmountInWords({
     amount: payableAmount,
