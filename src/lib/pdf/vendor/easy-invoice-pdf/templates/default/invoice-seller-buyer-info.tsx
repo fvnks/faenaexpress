@@ -27,8 +27,7 @@ function fieldLine({
 }
 
 /**
- * Cuadro rojo SII flotante: muestra RUT del emisor del documento,
- * tipo de documento, folio y UNIDAD S.I.I.
+ * Cuadro rojo SII: muestra RUT del emisor del documento, tipo, folio y UNIDAD S.I.I.
  */
 function SiiBox({
   invoiceData,
@@ -45,8 +44,8 @@ function SiiBox({
     <View
       style={{
         border: "2px solid #ff0000",
-        width: "40%",
-        padding: 10,
+        width: "45%",
+        padding: 12,
         textAlign: "center",
         color: "#ff0000",
         fontWeight: "bold",
@@ -157,37 +156,24 @@ export function InvoiceSellerBuyerInfo({
         {/* Cuadro rojo SII a la derecha (flotando en paralelo al receptor) */}
         <View style={{ width: "40%", alignSelf: "flex-start" }}>
           <SiiBox invoiceData={invoiceData} styles={styles} />
-
-          {/* Campos adicionales debajo del cuadro SII */}
-          {!isPurchase ? (
-            <>
-              {invoiceData.erpVendedor && (
-                <Text style={[styles.fontSize7, { marginTop: 10, marginBottom: 2 }]}>
-                  Vendedor: {invoiceData.erpVendedor}
-                </Text>
-              )}
-              {invoiceData.erpGuiaDespacho && (
-                <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-                  Guía de Despacho: {invoiceData.erpGuiaDespacho}
-                </Text>
-              )}
-            </>
-          ) : (
-            <>
-              {invoiceData.erpCiudad && (
-                <Text style={[styles.fontSize7, { marginTop: 10, marginBottom: 2 }]}>
-                  Ciudad: {invoiceData.erpCiudad}
-                </Text>
-              )}
-              {invoiceData.erpCondicionPago && (
-                <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-                  Condición de pago: {invoiceData.erpCondicionPago}
-                </Text>
-              )}
-            </>
-          )}
         </View>
       </View>
+
+      {/* Campos adicionales debajo del receptor (no dentro del cuadro SII) */}
+      {!isPurchase ? (
+        <>
+          {invoiceData.erpVendedor && (
+            <Text style={[styles.fontSize7, { marginTop: 8, marginBottom: 2 }]}>
+              Vendedor: {invoiceData.erpVendedor}
+            </Text>
+          )}
+          {invoiceData.erpGuiaDespacho && (
+            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+              Guía de Despacho: {invoiceData.erpGuiaDespacho}
+            </Text>
+          )}
+        </>
+      ) : null}
     </View>
   );
 }
