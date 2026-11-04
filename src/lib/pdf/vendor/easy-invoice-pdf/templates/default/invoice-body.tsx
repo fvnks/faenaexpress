@@ -2,7 +2,6 @@ import { Text, View } from "@react-pdf/renderer";
 import dayjs from "dayjs";
 
 import { InvoicePdf417 } from "../common/invoice-pdf417";
-import { InvoiceSiiBox } from "../common/invoice-sii-box";
 import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import { type InvoiceData, resolveNumberFormatLocale } from "../../schema";
 
@@ -68,16 +67,6 @@ export const InvoiceBody = ({
     <>
       <InvoiceHeader invoiceData={invoiceData} styles={styles} />
 
-      {/* Recuadro al estilo del SII solo en compras: RUT/tipo/folio + UNIDAD S.I.I.,
-          arriba y a la derecha, encima del receptor. */}
-      {invoiceData.erpIsPurchase ? (
-        <View style={{ width: "100%", marginBottom: 10 }}>
-          <View style={{ display: "flex", justifyContent: "flex-end" }}>
-            <InvoiceSiiBox invoiceData={invoiceData} />
-          </View>
-        </View>
-      ) : null}
-
       <InvoiceSellerBuyerInfo invoiceData={invoiceData} styles={styles} />
 
       <InvoiceItemsTable
@@ -86,8 +75,9 @@ export const InvoiceBody = ({
         styles={styles}
       />
 
-      {/* Debajo de la tabla de ítems: a la izquierda el cuadro de IVA y, bajo él,
-          el total a pagar; a la derecha el PDF417 (donde iba el total a pagar). */}
+      {/* Debajo de la tabla de ítems: a la izquierda el PDF417 (donde iba el
+          total a pagar) y a la derecha el cuadro de IVA con el total a pagar
+          debajo. */}
       <View
         style={{
           display: "flex",
@@ -96,6 +86,16 @@ export const InvoiceBody = ({
           marginTop: vatTableSummaryIsVisible ? 0 : 15,
         }}
       >
+        <View style={{ width: "50%" }}>
+          {/* PDF417 del SII (timbre electrónico) - a la izquierda. */}
+          {isPdf417Visible ? (
+            <InvoicePdf417
+              pdf417DataUrl={invoiceData.qrCodeData!}
+              description={invoiceData.qrCodeDescription}
+            />
+          ) : null}
+        </View>
+
         <View style={{ width: "50%" }}>
           {vatTableSummaryIsVisible ? (
             <InvoiceVATSummaryTable
@@ -106,16 +106,6 @@ export const InvoiceBody = ({
           ) : null}
           {/* El total a pagar va debajo del cuadro de IVA (Neto, IVA, Bruto). */}
           <InvoicePaymentTotals invoiceData={invoiceData} styles={styles} />
-        </View>
-
-        <View style={{ width: "50%" }}>
-          {/* PDF417 del SII (timbre electrónico) - a la derecha, donde iba el total a pagar. */}
-          {isPdf417Visible ? (
-            <InvoicePdf417
-              pdf417DataUrl={invoiceData.qrCodeData!}
-              description={invoiceData.qrCodeDescription}
-            />
-          ) : null}
         </View>
       </View>
 
