@@ -15,7 +15,9 @@ import {
 } from "../../utils/format-amount";
 
 /**
- * To pay, paid, left to pay and amount in words fields
+ * Totales del documento: Neto/Afecto, Exento (si aplica), IVA, Total, Importe en letras.
+ *
+ * Sigue el diseño de referencia del SII chileno.
  */
 export function InvoicePaymentTotals({
   invoiceData,
@@ -29,28 +31,28 @@ export function InvoicePaymentTotals({
 
   const currency = invoiceData.currency;
 
-  // MODIFICACIÓN (vendorizado): el original imprimía siempre "Pagado 0" y daba el
-  // total por pendiente. El ERP sabe cuánto se ha abonado (y cuánto se retuvo o
-  // está exento), así que el bloque dice la verdad del documento: lo que se paga,
-  // lo pagado y lo que queda, con la misma regla que el resto de la app
-  // (total = movido + pendiente).
   const retentionAmount = invoiceData.erpRetentionAmount ?? 0;
   const exemptAmount = invoiceData.erpExemptAmount ?? 0;
   const surchargeAmount = invoiceData.erpSurchargeAmount ?? 0;
-  const paidAmount = invoiceData.erpPaidAmount ?? 0;
+  const ivaAmount = invoiceData.erpIvaAmount ?? 0;
 
-  // Lo que hay que pagar: el total del documento menos la retención (lo retenido no
-  // se cobra). El exento y el recargo ya vienen dentro del total.
+  // Lo que hay que pagar: el total del documento menos la retención.
   const payableAmount = Math.max(invoiceData.total - retentionAmount, 0);
-  const leftToPay = Math.max(payableAmount - paidAmount, 0);
+
+  // Neto gravado: total - IVA - exento - recargo + retención
+  const netoAmount = Math.max(
+    invoiceData.total - ivaAmount - exemptAmount - surchargeAmount + retentionAmount,
+    0,
+  );
 
   const numberFormatLocale = resolveNumberFormatLocale(invoiceData);
+  const fractionDigits = fractionDigitsFor(invoiceData.currency);
 
   const formatMonto = (amount: number) =>
     formatAmount({
       amount,
       numberFormatLocale,
-      fractionDigits: fractionDigitsFor(invoiceData.currency),
+      fractionDigits,
     });
 
   const payableInWords = getAmountInWords({
@@ -84,15 +86,15 @@ export function InvoicePaymentTotals({
         </Text>
       </View>
 
-      {retentionAmount > 0 ? (
-        <Text style={styles.fontSize7}>
-          {invoiceData.erpLabels?.retention ?? "Retención"}:{" "}
-          <Text style={[styles.boldText, styles.fontSize8]}>
-            {formatMonto(retentionAmount)} {currency}
-          </Text>
+      {/* Neto / Afecto */}
+      <Text style={styles.fontSize7}>
+        Neto:{ " " }
+        <Text style={[styles.boldText, styles.fontSize8]}>
+          {formatMonto(netoAmount)} {currency}
         </Text>
-      ) : null}
+      </Text>
 
+      {/* Exento (compras) */}
       {exemptAmount > 0 ? (
         <Text style={styles.fontSize7}>
           {invoiceData.erpLabels?.exempt ?? "Exento"}:{" "}
@@ -102,6 +104,15 @@ export function InvoicePaymentTotals({
         </Text>
       ) : null}
 
+      {/* IVA */}
+      <Text style={styles.fontSize7}>
+        IVA (19%):{" "}
+        <Text style={[styles.boldText, styles.fontSize8]}>
+          {formatMonto(ivaAmount)} {currency}
+        </Text>
+      </Text>
+
+      {/* Recargo (compras) */}
       {surchargeAmount > 0 ? (
         <Text style={styles.fontSize7}>
           {invoiceData.erpLabels?.surcharge ?? "Recargo"}:{" "}
@@ -111,26 +122,15 @@ export function InvoicePaymentTotals({
         </Text>
       ) : null}
 
-      {/* MODIFICACIÓN (vendorizado): en una nota de crédito o débito el documento no
-          se paga, se aplica contra otro: las líneas de saldo no se imprimen. */}
-      {invoiceData.erpBalanceVisible === false ? null : (
-        <>
-          <Text style={styles.fontSize7}>
-            {t.paymentTotals.paid}:{" "}
-            <Text style={[styles.boldText, styles.fontSize8]}>
-              {formatMonto(paidAmount)} {currency}
-            </Text>
-          </Text>
+      {/* Total */}
+      <Text style={[styles.boldText, styles.fontSize8]}>
+        Total:{ " " }
+        <Text style={[styles.boldText, styles.fontSize8]}>
+          {formatMonto(payableAmount)} {currency}
+        </Text>
+      </Text>
 
-          <Text style={[styles.boldText, styles.fontSize7]}>
-            {t.paymentTotals.leftToPay}:{" "}
-            <Text style={[styles.boldText, styles.fontSize8]}>
-              {formatMonto(leftToPay)} {currency}
-            </Text>
-          </Text>
-        </>
-      )}
-
+      {/* Importe en letras */}
       <Text style={styles.fontSize7}>
         {t.paymentTotals.amountInWords}:{" "}
         <Text style={[styles.boldText, styles.fontSize8]}>

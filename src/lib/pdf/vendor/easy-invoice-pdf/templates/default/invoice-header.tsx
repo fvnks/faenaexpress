@@ -10,6 +10,103 @@ import { type InvoiceData } from "../../schema";
 
 import type { PDF_DEFAULT_TEMPLATE_STYLES } from ".";
 
+/**
+ * Encabezado al estilo del SII chileno: empresa emisora a la izquierda con
+ * todos sus datos (nombre, giro, dirección, teléfono, email, web) y a la
+ * derecha el RUT, tipo de documento, folio y unidad SII.
+ */
+function HeaderEmpresa({
+  invoiceData,
+  styles,
+}: {
+  invoiceData: InvoiceData;
+  styles: typeof PDF_DEFAULT_TEMPLATE_STYLES;
+}) {
+  const seller = invoiceData?.seller;
+  if (!seller) return null;
+
+  return (
+    <View
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        marginBottom: 10,
+      }}
+    >
+      {/* Empresa emisora - izquierda */}
+      <View style={{ flex: 1 }}>
+        {seller.name && (
+          <Text style={[styles.fontBold, styles.fontSize11]}>
+            {seller.name}
+          </Text>
+        )}
+        {seller.notes && (
+          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+            {seller.notes}
+          </Text>
+        )}
+        {seller.address && (
+          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+            {seller.address}
+          </Text>
+        )}
+        {seller.city && seller.commune && (
+          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+            {seller.city}, {seller.commune}
+          </Text>
+        )}
+        {seller.city && !seller.commune && (
+          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+            {seller.city}
+          </Text>
+        )}
+        {!seller.city && seller.commune && (
+          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+            {seller.commune}
+          </Text>
+        )}
+        {seller.phone && seller.phoneFieldIsVisible && (
+          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+            Teléfono: {seller.phone}
+          </Text>
+        )}
+        {seller.email && seller.emailFieldIsVisible && (
+          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+            Email: {seller.email}
+          </Text>
+        )}
+        {seller.web && (
+          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+            {seller.web}
+          </Text>
+        )}
+      </View>
+
+      {/* Datos del documento - derecha */}
+      <View style={{ flex: 1, textAlign: "right" }}>
+        {seller.vatNoFieldIsVisible && seller.vatNo && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            R.U.T.: {seller.vatNo}
+          </Text>
+        )}
+        {invoiceData.invoiceType && invoiceData.invoiceTypeFieldIsVisible && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {invoiceData.invoiceType}
+          </Text>
+        )}
+        {invoiceData.invoiceNumberObject?.value && (
+          <Text style={[styles.fontBold, styles.fontSize9]}>
+            Folio N° {invoiceData.invoiceNumberObject.value}
+          </Text>
+        )}
+        <Text style={[styles.fontSize7]}>UNIDAD S.I.I.</Text>
+      </View>
+    </View>
+  );
+}
+
 function HeaderDates({
   invoiceData,
   styles,
@@ -39,7 +136,7 @@ function HeaderDates({
       style={{
         display: "flex",
         flexDirection: "column",
-        alignItems: "flex-end",
+        alignItems: "flex-start",
       }}
     >
       <Text style={styles.fontSize7}>
@@ -67,7 +164,8 @@ function HeaderDates({
 }
 
 /**
- * Invoice number, date of issue and date of service fields on top of the invoice
+ * Encabezado de la factura: empresa emisora arriba (con datos del SII a la
+ * derecha) y fechas debajo.
  */
 export function InvoiceHeader({
   invoiceData,
@@ -79,8 +177,8 @@ export function InvoiceHeader({
   const hasLogo = invoiceData.logo && invoiceData.logo.length > 0;
 
   return (
-    <View style={{ marginBottom: 7 }}>
-      {/* Logo + Dates row */}
+    <View style={{ marginBottom: 8 }}>
+      {/* Logo + Empresa + Datos del documento */}
       {hasLogo ? (
         <View
           style={{
@@ -88,7 +186,7 @@ export function InvoiceHeader({
             flexDirection: "row",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            marginBottom: 15,
+            marginBottom: 10,
           }}
         >
           <View style={{ alignItems: "flex-start" }}>
@@ -102,14 +200,26 @@ export function InvoiceHeader({
               }}
             />
           </View>
-          <HeaderDates invoiceData={invoiceData} styles={styles} />
+          <View style={{ flex: 1, textAlign: "right" }}>
+            <HeaderDates invoiceData={invoiceData} styles={styles} />
+          </View>
         </View>
       ) : null}
 
-      {/* Cuando no hay logo, no mostramos el número de factura aquí:
-          el folio ya aparece en el cuadro rojo del SII (compras) y en el pie. */}
+      {/* Empresa emisora + datos del documento (cuando no hay logo) */}
       {!hasLogo ? (
-        <HeaderDates invoiceData={invoiceData} styles={styles} />
+        <>
+          <HeaderEmpresa invoiceData={invoiceData} styles={styles} />
+          <View
+            style={{
+              marginTop: 4,
+              display: "flex",
+              justifyContent: "flex-end",
+            }}
+          >
+            <HeaderDates invoiceData={invoiceData} styles={styles} />
+          </View>
+        </>
       ) : null}
     </View>
   );

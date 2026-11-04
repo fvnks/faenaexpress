@@ -54,12 +54,8 @@ export function InvoiceItemsTable({
   const taxLabelText = invoiceData.taxLabelText || "VAT";
 
   /**
-   * Column labels
+   * Column labels -- estilo SII chileno.
    */
-  const vatAmountColumnLabel = etiquetaConImpuesto(
-    t.invoiceItemsTable.vatAmount,
-    taxLabelText,
-  );
   const netPriceColumnLabel = etiquetaConImpuesto(
     t.invoiceItemsTable.netPrice,
     taxLabelText,
@@ -72,22 +68,35 @@ export function InvoiceItemsTable({
     t.invoiceItemsTable.preTaxAmount,
     taxLabelText,
   );
+  const vatAmountColumnLabel = etiquetaConImpuesto(
+    t.invoiceItemsTable.vatAmount,
+    taxLabelText,
+  );
+
+  const fractionDigits = fractionDigitsFor(invoiceData.currency);
 
   return (
-    <View style={{ marginBottom: 16, marginTop: 16 }}>
+    <View style={{ marginBottom: 14, marginTop: 14 }}>
       <View style={styles.table}>
-        {/*
-          START: Table header row with columns
-        */}
+        {/* Table header row with columns */}
         <View style={[styles.tableRow, { borderTopWidth: 1 }]} fixed>
-          {/* Number column */}
+          {/* Item column */}
           {isInvoiceItemNumberVisible ? (
             <View style={[styles.tableCol, styles.colNo, styles.center]}>
               <Text style={styles.tableCellBold}>{t.invoiceItemsTable.no}</Text>
             </View>
           ) : null}
 
-          {/* Name of goods/service column */}
+          {/* Code column (CODIGO) */}
+          {isTypeOfGTUFieldVisible ? (
+            <View style={[styles.tableCol, styles.colGTU, styles.center]}>
+              <Text style={styles.tableCellBold}>
+                {t.invoiceItemsTable.typeOfGTU.split("")}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Name/Detail column */}
           {isNameFieldVisible ? (
             <View style={[styles.tableCol, nameColumnStyle, styles.center]}>
               <Text style={styles.tableCellBold}>
@@ -96,19 +105,7 @@ export function InvoiceItemsTable({
             </View>
           ) : null}
 
-          {/* Type of GTU column */}
-          {isTypeOfGTUFieldVisible ? (
-            <View style={[styles.tableCol, styles.colGTU, styles.center]}>
-              <Text style={styles.tableCellBold}>
-                {/* .split("") is used for long text like "Type of Goods/Service" to wrap it in a new line
-                https://github.com/diegomura/react-pdf/issues/2243#issuecomment-1778554041
-                */}
-                {t.invoiceItemsTable.typeOfGTU.split("")}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Amount column */}
+          {/* Quantity column */}
           {isAmountFieldVisible ? (
             <View style={[styles.tableCol, styles.colAmount, styles.center]}>
               <Text style={[styles.tableCellBold]}>
@@ -117,16 +114,7 @@ export function InvoiceItemsTable({
             </View>
           ) : null}
 
-          {/* Unit column */}
-          {isUnitFieldVisible ? (
-            <View style={[styles.tableCol, styles.colUnit, styles.center]}>
-              <Text style={styles.tableCellBold}>
-                {t.invoiceItemsTable.unit.split("")}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Net price column */}
+          {/* Unit price column */}
           {isNetPriceFieldVisible ? (
             <View style={[styles.tableCol, styles.colNetPrice, styles.center]}>
               <Text style={styles.tableCellBold}>{netPriceColumnLabel}</Text>
@@ -156,13 +144,6 @@ export function InvoiceItemsTable({
             </View>
           ) : null}
 
-          {/* VAT amount column */}
-          {isVATAmountFieldVisible ? (
-            <View style={[styles.tableCol, styles.colVATAmount, styles.center]}>
-              <Text style={styles.tableCellBold}>{vatAmountColumnLabel}</Text>
-            </View>
-          ) : null}
-
           {/* Pre-tax amount column */}
           {isPreTaxAmountFieldVisible ? (
             <View
@@ -174,44 +155,39 @@ export function InvoiceItemsTable({
             </View>
           ) : null}
         </View>
-        {/*
-            END: Table header columns
-        */}
-
-        {/*
-          START: Table body rows
-        */}
+        {/* Table body rows */}
         {invoiceData?.items.map((item, index) => {
-          // The quantity column is not money: it carries no forced decimals and allows three
+          // The quantity column: print with up to 6 decimals (Chilean style)
           const amountChunks = formatAmountChunks({
             amount: item.amount,
             numberFormatLocale,
             minimumFractionDigits: 0,
-            maximumFractionDigits: 3,
+            maximumFractionDigits: 6,
+            fractionDigits,
           });
 
           const netPriceChunks = formatAmountChunks({
             amount: item.netPrice,
             numberFormatLocale,
-            fractionDigits: fractionDigitsFor(invoiceData.currency),
+            fractionDigits,
           });
 
           const netAmountChunks = formatAmountChunks({
             amount: item.netAmount,
             numberFormatLocale,
-            fractionDigits: fractionDigitsFor(invoiceData.currency),
+            fractionDigits,
           });
 
           const vatAmountChunks = formatAmountChunks({
             amount: item.vatAmount,
             numberFormatLocale,
-            fractionDigits: fractionDigitsFor(invoiceData.currency),
+            fractionDigits,
           });
 
           const preTaxAmountChunks = formatAmountChunks({
             amount: item.preTaxAmount,
             numberFormatLocale,
-            fractionDigits: fractionDigitsFor(invoiceData.currency),
+            fractionDigits,
           });
 
           const itemHasDiscount = hasItemDiscount(item);
@@ -221,26 +197,22 @@ export function InvoiceItemsTable({
             numberFormatLocale,
           });
 
-          // a percentage reads as itself, a fixed discount as the money it takes off the line
           const discountChunks =
             item.discountType === "percentage"
               ? [formattedDiscountPercent]
               : formatAmountChunks({
                   amount: item.discountAmount,
                   numberFormatLocale,
-                  fractionDigits: fractionDigitsFor(invoiceData.currency),
+                  fractionDigits,
                 });
 
           const customDiscountLabel = item.discountLabel?.trim();
-
-          // the column carries the number, the name cell says what the discount is for
           const discountNote = itemHasDiscount ? customDiscountLabel : null;
 
           const formattedVat = Number.isNaN(Number(item.vat))
             ? item.vat
             : `${Number(item.vat)}%`;
 
-          // Table row
           return (
             <View
               style={styles.tableRow}
@@ -248,14 +220,21 @@ export function InvoiceItemsTable({
               wrap={false}
               minPresenceAhead={60}
             >
-              {/* Number */}
+              {/* Item number */}
               {isInvoiceItemNumberVisible ? (
                 <View style={[styles.tableCol, styles.colNo]}>
                   <Text style={styles.tableCell}>{index + 1}.</Text>
                 </View>
               ) : null}
 
-              {/* Name of goods/service */}
+              {/* Code */}
+              {isTypeOfGTUFieldVisible ? (
+                <View style={[styles.tableCol, styles.colGTU]}>
+                  <Text style={[styles.tableCell]}>{item.typeOfGTU}</Text>
+                </View>
+              ) : null}
+
+              {/* Name/Detail */}
               {isNameFieldVisible ? (
                 <View style={[styles.tableCol, nameColumnStyle]}>
                   <Text
@@ -286,14 +265,7 @@ export function InvoiceItemsTable({
                 </View>
               ) : null}
 
-              {/* Type of GTU */}
-              {isTypeOfGTUFieldVisible ? (
-                <View style={[styles.tableCol, styles.colGTU]}>
-                  <Text style={[styles.tableCell]}>{item.typeOfGTU}</Text>
-                </View>
-              ) : null}
-
-              {/* Amount */}
+              {/* Quantity */}
               {isAmountFieldVisible ? (
                 <View style={[styles.tableCol, styles.colAmount]}>
                   <WrappableAmount
@@ -306,16 +278,7 @@ export function InvoiceItemsTable({
                 </View>
               ) : null}
 
-              {/* Unit */}
-              {isUnitFieldVisible ? (
-                <View style={[styles.tableCol, styles.colUnit]}>
-                  <Text style={[styles.tableCell, { textAlign: "center" }]}>
-                    {item.unit}
-                  </Text>
-                </View>
-              ) : null}
-
-              {/* Net price */}
+              {/* Unit price */}
               {isNetPriceFieldVisible ? (
                 <View style={[styles.tableCol, styles.colNetPrice]}>
                   <WrappableAmount
@@ -343,7 +306,7 @@ export function InvoiceItemsTable({
                 </View>
               ) : null}
 
-              {/* VAT */}
+              {/* VAT rate */}
               {isVATFieldVisible ? (
                 <View
                   style={[
@@ -371,19 +334,6 @@ export function InvoiceItemsTable({
                 </View>
               ) : null}
 
-              {/* VAT amount */}
-              {isVATAmountFieldVisible ? (
-                <View style={[styles.tableCol, styles.colVATAmount]}>
-                  <WrappableAmount
-                    chunks={vatAmountChunks}
-                    style={[
-                      styles.tableCell,
-                      { textAlign: "right", marginRight: 2 },
-                    ]}
-                  />
-                </View>
-              ) : null}
-
               {/* Pre-tax amount */}
               {isPreTaxAmountFieldVisible ? (
                 <View style={[styles.tableCol, styles.colPreTaxAmount]}>
@@ -399,17 +349,10 @@ export function InvoiceItemsTable({
             </View>
           );
         })}
-        {/*
-          END: Table body rows
-        */}
 
-        {/*
-          START: Table footer
-        */}
+        {/* Table footer - total line */}
         <View style={styles.tableRow} wrap={false} minPresenceAhead={60}>
-          {/* This section renders the table footer row that displays the total/sum for the invoice,
-          with the first nine columns as empty.
-          View components serving as placeholders to align the sum to the final column. */}
+          <View style={[styles.tableCol, { borderRightWidth: 0 }]}></View>
           <View style={[styles.tableCol, { borderRightWidth: 0 }]}></View>
           <View style={[styles.tableCol, { borderRightWidth: 0 }]}></View>
           <View style={[styles.tableCol, { borderRightWidth: 0 }]}></View>
@@ -420,7 +363,6 @@ export function InvoiceItemsTable({
           <View style={[styles.tableCol, { borderRightWidth: 0 }]}></View>
           <View style={[styles.tableCol, { borderRightWidth: 0 }]}></View>
 
-          {/* The last cell spans the remaining width and contains the sum label and value */}
           <View style={[styles.tableCol, { width: "100%" }]}>
             <Text
               style={[
@@ -433,7 +375,6 @@ export function InvoiceItemsTable({
                 },
               ]}
             >
-              {/* Renders the sum label (e.g., "Total:") followed by the formatted total */}
               {t.invoiceItemsTable.sum}:{" "}
               <Text style={[styles.boldText, styles.fontSize8]}>
                 {formattedInvoiceTotal}
@@ -441,9 +382,13 @@ export function InvoiceItemsTable({
             </Text>
           </View>
         </View>
-        {/*
-          END: Table footer row
-        */}
+      </View>
+
+      {/* "Cancelado ___ de ___ de ___" line below the table */}
+      <View style={{ width: "100%", marginTop: 6, marginBottom: 6 }}>
+        <Text style={[styles.fontSize7]}>
+          Cancelado ___________ de ___________ de ___________
+        </Text>
       </View>
     </View>
   );

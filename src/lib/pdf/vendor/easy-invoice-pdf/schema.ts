@@ -114,6 +114,7 @@ export type SellerData = {
   emailFieldIsVisible: boolean;
   phone?: string;
   phoneFieldIsVisible?: boolean;
+  web?: string | null;
   accountNumber?: string;
   accountNumberFieldIsVisible: boolean;
   swiftBic?: string;
@@ -254,4 +255,30 @@ export type InvoiceData = {
    * acerca al formato del SII (recuadro RUT/tipo/folio + UNIDAD SII).
    */
   erpIsPurchase?: boolean;
+  /** Fecha de documento (para compras). */
+  erpFechaDocumento?: string | null;
+  /** Ciudad del documento. */
+  erpCiudad?: string | null;
+  /** Tasa de ingreso. */
+  erpTasaIngreso?: number | null;
+  /** Vendedor. */
+  erpVendedor?: string | null;
+  /** Condición de pago. */
+  erpCondicionPago?: string | null;
+  /** Moneda de ingreso. */
+  erpMonedaIngreso?: string | null;
+  /** Orden de compra (referencia). */
+  erpOrdenCompra?: string | null;
+  /** Guía de despacho (referencia). */
+  erpGuiaDespacho?: string | null;
+  /** Folio de la orden de compra. */
+  erpOrdenCompraFolio?: string | null;
+  /** Fecha de la orden de compra. */
+  erpOrdenCompraFecha?: string | null;
+  /** Folio de la guía de despacho. */
+  erpGuiaDespachoFolio?: string | null;
+  /** Fecha de la guía de despacho. */
+  erpGuiaDespachoFecha?: string | null;
+  /** IVA del documento (para mostrar en totales). */
+  erpIvaAmount?: number;
 };

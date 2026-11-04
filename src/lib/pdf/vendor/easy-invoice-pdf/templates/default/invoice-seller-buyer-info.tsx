@@ -1,6 +1,5 @@
 import { Text, View } from "@react-pdf/renderer";
 
-import { InvoiceSiiBox } from "../common/invoice-sii-box";
 import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import type { InvoiceData } from "../../schema";
 
@@ -37,35 +36,36 @@ export function InvoiceSellerBuyerInfo({
   const buyer = invoiceData?.buyer;
   if (!buyer) return null;
 
-  const invoiceNumberValue = invoiceData?.invoiceNumberObject?.value;
-
-  // Dirección + ciudad/comuna del receptor
-  const addressParts = [buyer.address, buyer.city, buyer.commune].filter(
-    Boolean,
-  );
+  const isPurchase = invoiceData.erpIsPurchase;
 
   return (
-    <View
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        maxWidth: "512px",
-        marginBottom: 18,
-      }}
-    >
-      {/* Receptor: nombre y todos sus datos (izquierda) */}
-      <View style={{ width: "55%" }}>
+    <View style={{ width: "100%", marginBottom: 14 }}>
+      {/* Receptor: nombre y todos sus datos */}
+      <View style={{ width: "100%" }}>
         <Text style={styles.subheader}>
           {invoiceData.erpLabels?.buyer ?? "Señor(es):"}
         </Text>
         <Text style={[styles.fontBold, styles.fontSize10]}>
           {buyer.name}
         </Text>
-        {addressParts.length > 0 && (
+        {buyer.address && (
           <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-            {addressParts.join(", ")}
+            {buyer.address}
+          </Text>
+        )}
+        {buyer.city && buyer.commune && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {buyer.city}, {buyer.commune}
+          </Text>
+        )}
+        {buyer.city && !buyer.commune && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {buyer.city}
+          </Text>
+        )}
+        {!buyer.city && buyer.commune && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {buyer.commune}
           </Text>
         )}
         {buyer.notes && (
@@ -73,51 +73,96 @@ export function InvoiceSellerBuyerInfo({
             Giro: {buyer.notes}
           </Text>
         )}
-        {buyer.email && buyer.emailFieldIsVisible && (
-          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-            Correo: {buyer.email}
-          </Text>
-        )}
-        {buyer.phone && buyer.phoneFieldIsVisible && (
-          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-            Teléfono: {buyer.phone}
-          </Text>
-        )}
-        {buyer.vatNoFieldIsVisible && (
-          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-            {buyer.vatNoLabelText}:{" "}
-            <Text style={[styles.boldText, styles.fontSize8]}>
-              {buyer.vatNo}
-            </Text>
-          </Text>
-        )}
-        {/* Forma y fecha de pago bajo del receptor */}
-        <View style={{ marginTop: 10 }}>
-          {invoiceData.erpLabels?.paymentDate &&
-          invoiceData.paymentDue && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              {invoiceData.erpLabels.paymentDate}:{" "}
-              <Text style={[styles.boldText, styles.fontSize8]}>
-                {invoiceData.paymentDue}
-              </Text>
-            </Text>
-          )}
-          {invoiceData.paymentMethodFieldIsVisible &&
-          invoiceData.paymentMethod && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              {INVOICE_PDF_TRANSLATIONS.es.paymentInfo.paymentMethod}:{" "}
-              <Text style={[styles.boldText, styles.fontSize8]}>
-                {invoiceData.paymentMethod}
-              </Text>
-            </Text>
-          )}
-        </View>
       </View>
 
-      {/* Cuadro SII a la derecha: tipo, folio, UNIDAD S.I.I. */}
-      <View style={{ width: "40%", alignSelf: "flex-start" }}>
-        <InvoiceSiiBox invoiceData={invoiceData} />
-      </View>
+      {/* Campos adicionales del documento */}
+      {!isPurchase ? (
+        <>
+          {buyer.notes && fieldLine({
+            label: "Giro",
+            value: buyer.notes,
+            styles,
+          })}
+          {buyer.vatNoFieldIsVisible && fieldTextRut({
+            buyer,
+            styles,
+          })}
+          {invoiceData.erpFechaDocumento && fieldLine({
+            label: "Fecha Documento",
+            value: invoiceData.erpFechaDocumento,
+            styles,
+          })}
+          {buyer.city && fieldLine({
+            label: "Ciudad",
+            value: buyer.city,
+            styles,
+          })}
+          {invoiceData.paymentDue && fieldLine({
+            label: "Fecha de Vencimiento",
+            value: invoiceData.paymentDue,
+            styles,
+          })}
+          {invoiceData.erpTasaIngreso && fieldLine({
+            label: "Tasa de ingreso",
+            value: invoiceData.erpTasaIngreso.toString(),
+            styles,
+          })}
+          {invoiceData.erpVendedor && fieldLine({
+            label: "Vendedor",
+            value: invoiceData.erpVendedor,
+            styles,
+          })}
+          {invoiceData.erpCondicionPago && fieldLine({
+            label: "Condición de pago",
+            value: invoiceData.erpCondicionPago,
+            styles,
+          })}
+          {invoiceData.erpMonedaIngreso && fieldLine({
+            label: "Moneda de ingreso",
+            value: invoiceData.erpMonedaIngreso,
+            styles,
+          })}
+        </>
+      ) : (
+        <>
+          {buyer.notes && fieldLine({
+            label: "Giro",
+            value: buyer.notes,
+            styles,
+          })}
+          {buyer.city && fieldLine({
+            label: "Ciudad",
+            value: buyer.city,
+            styles,
+          })}
+          {buyer.vatNoFieldIsVisible && fieldLine({
+            label: "R.U.T.",
+            value: buyer.vatNo,
+            styles,
+          })}
+          {invoiceData.paymentMethod && fieldLine({
+            label: "Forma de pago",
+            value: invoiceData.paymentMethod,
+            styles,
+          })}
+        </>
+      )}
     </View>
+  );
+}
+
+function fieldTextRut({
+  buyer,
+  styles,
+}: {
+  buyer: InvoiceData["buyer"];
+  styles: typeof PDF_DEFAULT_TEMPLATE_STYLES;
+}) {
+  if (!buyer.vatNoFieldIsVisible || !buyer.vatNo) return null;
+  return (
+    <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+      {buyer.vatNoLabelText}:{" "}
+      <Text style={[styles.boldText, styles.fontSize8]}>{buyer.vatNo}</Text>
+    </Text>
   );
 }

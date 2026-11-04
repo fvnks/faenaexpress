@@ -25,6 +25,7 @@ export type EmpresaPdf = {
   giro: string | null;
   email: string | null;
   phone: string | null;
+  web?: string | null;
   ivaRate: number;
 };
 
@@ -64,6 +65,30 @@ export type DocumentoPdfBase = {
   items: LineaPdf[];
   /** Lo ya abonado (suma de los pagos aplicados). */
   abonado: number;
+  /** Fecha de documento (para impresión en compras). */
+  fechaDocumento?: string | null;
+  /** Ciudad del documento. */
+  ciudad?: string | null;
+  /** Tasa de ingreso. */
+  tasaIngreso?: number | null;
+  /** Vendedor. */
+  vendedor?: string | null;
+  /** Condición de pago. */
+  condicionPago?: string | null;
+  /** Moneda de ingreso. */
+  monedaIngreso?: string | null;
+  /** Número de orden de compra (referencia). */
+  ordenCompra?: string | null;
+  /** Número de guía de despacho (referencia). */
+  guiaDespacho?: string | null;
+  /** Folio de la orden de compra. */
+  ordenCompraFolio?: string | null;
+  /** Fecha de la orden de compra. */
+  ordenCompraFecha?: string | null;
+  /** Folio de la guía de despacho. */
+  guiaDespachoFolio?: string | null;
+  /** Fecha de la guía de despacho. */
+  guiaDespachoFecha?: string | null;
 };
 
 /** Lo que la venta tiene y la compra no. */
@@ -172,6 +197,7 @@ function lineasPdf(
     // Sin código GTU: el ERP no lo guarda.
     typeOfGTU: "",
     typeOfGTUFieldIsVisible: false,
+    // Cantidad: se imprime tal cual (puede tener decimales).
     amount: linea.quantity,
     amountFieldIsVisible: true,
     // Sin unidad: el ERP no la guarda.
@@ -246,6 +272,8 @@ function terceroComoParte(
     vatNoFieldIsVisible: true,
     email: tercero.email ?? "",
     emailFieldIsVisible: Boolean(tercero.email),
+    phone: tercero.phone ?? "",
+    phoneFieldIsVisible: Boolean(tercero.phone),
     notes: tercero.notes ?? undefined,
     notesFieldIsVisible: Boolean(tercero.notes),
     accountNumberFieldIsVisible: false,
@@ -406,13 +434,25 @@ async function baseDocumento({
       // fecha de pago: ahí la que importa es cuándo se pagó.
       paymentDate: documento.paymentDate
         ? "Fecha de pago"
-        : "Fecha de vencimiento"
+        : "Fecha de vencimiento",
     },
-    // En una compra el emisor es el proveedor: el diseño se acerca al formato
-    // del SII (recuadro RUT/tipo/folio + UNIDAD SII).
-    erpIsPurchase: !emisorEsEmpresa,
+    erpBalanceVisible: !esNota,
     // El pie habla del vencimiento (la fecha de pago va en el bloque de pagos).
     erpFooterDueDate: fechaIso(documento.dueDate ?? documento.date),
+    // Extensiones para el diseño de referencia (estilo SII chileno).
+    erpFechaDocumento: documento.fechaDocumento ?? null,
+    erpCiudad: documento.ciudad ?? null,
+    erpTasaIngreso: documento.tasaIngreso ?? null,
+    erpVendedor: documento.vendedor ?? null,
+    erpCondicionPago: documento.condicionPago ?? null,
+    erpMonedaIngreso: documento.monedaIngreso ?? null,
+    erpOrdenCompra: documento.ordenCompra ?? null,
+    erpGuiaDespacho: documento.guiaDespacho ?? null,
+    erpOrdenCompraFolio: documento.ordenCompraFolio ?? null,
+    erpOrdenCompraFecha: documento.ordenCompraFecha ?? null,
+    erpGuiaDespachoFolio: documento.guiaDespachoFolio ?? null,
+    erpGuiaDespachoFecha: documento.guiaDespachoFecha ?? null,
+    erpIvaAmount: documento.ivaAmount,
   };
 }
 
