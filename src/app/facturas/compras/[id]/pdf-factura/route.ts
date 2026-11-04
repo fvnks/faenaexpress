@@ -36,6 +36,12 @@ export async function GET(
   });
   const abonado = pagos.reduce((a, p) => a + Number(p.amount), 0);
 
+  // Obtener el logo de factura configurado para esta empresa
+  const facturaConfig = await db.facturaConfiguracion.findUnique({
+    where: { companyId: ctx.company.id },
+    select: { logo: true, mostrarLogo: true },
+  });
+
   const documento = await documentoCompraPdf({
     empresa: {
       name: ctx.company.name,
@@ -47,6 +53,7 @@ export async function GET(
       email: ctx.company.email,
       phone: ctx.company.phone,
       ivaRate: ctx.company.ivaRate,
+      logo: facturaConfig?.logo ?? null,
     },
     proveedor: {
       name: purchase.partner.name,

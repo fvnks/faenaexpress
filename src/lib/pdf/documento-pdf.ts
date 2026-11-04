@@ -15,7 +15,7 @@ import type {
 } from "./vendor/easy-invoice-pdf/schema";
 import { pdf417SiiDataUrl, tipoDocumentoASii } from "./pdf417-sii";
 
-/** La empresa emisora (la del ERP) con los datos que se imprimen. */
+/** La empresa emisora (la del ERP) con los datos que se imprimen en el encabezado. */
 export type EmpresaPdf = {
   name: string;
   rut: string | null;
@@ -26,6 +26,7 @@ export type EmpresaPdf = {
   email: string | null;
   phone: string | null;
   web?: string | null;
+  logo?: string | null; // data URL del logo configurado por el usuario
   ivaRate: number;
 };
 
@@ -152,7 +153,6 @@ function repartirIvaPorLinea(
   const sumaNeto = netos.reduce((a, b) => a + b, 0);
 
   if (sumaNeto <= 0) {
-    // Sin neto no hay base para repartir: el IVA entero se deja en la primera línea.
     return lineas.map((_, i) => (i === 0 ? ivaTotal : 0));
   }
 
@@ -165,10 +165,6 @@ function repartirIvaPorLinea(
 
 /**
  * Las líneas del PDF.
- *
- * El IVA de cada línea sale del reparto; el bruto es neto + IVA. Si el documento no tiene
- * líneas se inventa una con el total, porque la plantilla no sabe imprimir una factura sin
- * detalle.
  */
 function lineasPdf(
   items: LineaPdf[],
@@ -194,13 +190,10 @@ function lineasPdf(
     invoiceItemNumberIsVisible: true,
     name: linea.name,
     nameFieldIsVisible: true,
-    // Sin código GTU: el ERP no lo guarda.
     typeOfGTU: "",
     typeOfGTUFieldIsVisible: false,
-    // Cantidad: se imprime tal cual (puede tener decimales).
     amount: linea.quantity,
     amountFieldIsVisible: true,
-    // Sin unidad: el ERP no la guarda.
     unit: "",
     unitFieldIsVisible: false,
     netPrice: linea.unitPrice,
@@ -225,13 +218,12 @@ function lineasPdf(
   };
 }
 
-/** Los datos de la empresa, en el papel del emisor o del receptor. */
+/** Los datos de la empresa del ERP (siempre la misma, para el encabezado). */
 function empresaComoParte(
   empresa: EmpresaPdf,
-  rol: "seller" | "buyer",
   etiquetas: { seller: string; buyer: string },
 ) {
-  const base = {
+  return {
     name: empresa.name,
     address: empresa.address ?? "",
     city: empresa.city ?? undefined,
@@ -247,16 +239,11 @@ function empresaComoParte(
     notesFieldIsVisible: Boolean(empresa.giro),
     accountNumberFieldIsVisible: false,
     swiftBicFieldIsVisible: false,
+    label: etiquetas.seller,
   };
-
-  if (rol === "seller") {
-    return { ...base, label: etiquetas.seller };
-  }
-
-  return { ...base, label: etiquetas.buyer };
 }
 
-/** Los datos del tercero, en el papel del emisor o del receptor. */
+/** Los datos del tercero (cliente o proveedor). */
 function terceroComoParte(
   tercero: TerceroPdf,
   rol: "seller" | "buyer",
@@ -302,7 +289,7 @@ async function baseDocumento({
   empresa: EmpresaPdf;
   tercero: TerceroPdf;
   /**
-   * Quién firma el documento. En una venta es la empresa; en una compra es el
+   * Quién emite el documento. En una venta es la empresa; en una compra es el
    * proveedor: la factura que se imprime es la que él entregó.
    */
   emisorEsEmpresa: boolean;
@@ -318,7 +305,6 @@ async function baseDocumento({
   /** El documento está en confirming: el dinero ya entró por otra vía. */
   confirming?: boolean;
 }): Promise<InvoiceData> {
-  // La misma regla del ERP: total = movido + pendiente.
   const totales = calcularTotales([
     {
       documentType: documento.documentType,
@@ -333,15 +319,11 @@ async function baseDocumento({
 
   const pago = documento.paymentMethod ?? "";
 
-  // Una nota de crédito o débito no se paga: se aplica contra otro documento. Por eso
-  // no tiene sentido hablar de "saldo pendiente" en su impreso.
   const esNota =
     documento.documentType === "CREDIT_NOTE" ||
     documento.documentType === "DEBIT_NOTE";
 
-  // PDF417 del SII (timbre electrónico): valida el documento en el portal del
-  // SII con el RUT del emisor, tipo de documento, folio, fecha (AAAA-MM-DD),
-  // monto total y RUT del receptor. Solo se genera cuando hay folio y ambos RUT.
+  // PDF417 del SII (timbre electrónico)
   let qrCodeIsVisible = false;
   let qrCodeData = "";
   if (
@@ -364,7 +346,7 @@ async function baseDocumento({
         qrCodeData = dataUrl;
       }
     } catch {
-      // Si falla la generación del PDF417, el PDF se imprime sin él.
+      // Si falla, el PDF se imprime sin QR.
     }
   }
 
@@ -387,26 +369,23 @@ async function baseDocumento({
     dateOfServiceLabelText: "Fecha de venta",
     invoiceType: descripcion || undefined,
     invoiceTypeFieldIsVisible: Boolean(descripcion),
-    // En una venta firma la empresa; en una compra, el proveedor (la factura es la
-    // que él entregó). De ahí que el mismo documento se arme con los papeles
-    // cambiados según el caso.
+    // seller = quien emite el documento (empresa en venta, proveedor en compra)
     seller: emisorEsEmpresa
-      ? empresaComoParte(empresa, "seller", ETIQUETAS_PARTES)
+      ? empresaComoParte(empresa, ETIQUETAS_PARTES)
       : terceroComoParte(tercero, "seller", ETIQUETAS_PARTES),
+    // buyer = quien recibe (cliente en venta, empresa en compra)
     buyer: emisorEsEmpresa
       ? terceroComoParte(tercero, "buyer", ETIQUETAS_PARTES)
-      : empresaComoParte(empresa, "buyer", ETIQUETAS_PARTES),
+      : empresaComoParte(empresa, ETIQUETAS_PARTES),
+    // Logo de la empresa para el encabezado (configurable por empresa)
+    logo: empresa.logo ?? undefined,
     items: lineas.lineas,
     total: documento.totalAmount,
-    // El resumen de IVA solo se muestra cuando las líneas cierran con el neto del
-    // documento; si no, el cuadro no quadraría con el total.
     vatTableSummaryIsVisible:
       lineas.lineas.length > 0 &&
       Math.abs(lineas.netoLineas - documento.netAmount) <= 1,
     paymentMethod: pago,
     paymentMethodFieldIsVisible: Boolean(pago),
-    // La línea de fecha muestra la fecha de pago cuando la hay; si no, la de
-    // vencimiento (que es lo que el documento tiene entre manos).
     paymentDue: fechaIso(
       documento.paymentDate ?? documento.dueDate ?? documento.date,
     ),
@@ -430,16 +409,12 @@ async function baseDocumento({
       retention: "Retención",
       exempt: "Exento",
       surcharge: "Recargo IVA",
-      // La fecha que se imprime es la de vencimiento, salvo que el documento tenga
-      // fecha de pago: ahí la que importa es cuándo se pagó.
       paymentDate: documento.paymentDate
         ? "Fecha de pago"
         : "Fecha de vencimiento",
     },
     erpBalanceVisible: !esNota,
-    // El pie habla del vencimiento (la fecha de pago va en el bloque de pagos).
     erpFooterDueDate: fechaIso(documento.dueDate ?? documento.date),
-    // Extensiones para el diseño de referencia (estilo SII chileno).
     erpFechaDocumento: documento.fechaDocumento ?? null,
     erpCiudad: documento.ciudad ?? null,
     erpTasaIngreso: documento.tasaIngreso ?? null,
@@ -453,15 +428,22 @@ async function baseDocumento({
     erpGuiaDespachoFolio: documento.guiaDespachoFolio ?? null,
     erpGuiaDespachoFecha: documento.guiaDespachoFecha ?? null,
     erpIvaAmount: documento.ivaAmount,
+    // Si es compra, el emisor es el proveedor (cuadro SII rojo)
+    erpIsPurchase: !emisorEsEmpresa,
+    // Datos de la empresa del ERP para el encabezado del PDF (siempre iguales)
+    erpEmpresaNombre: empresa.name,
+    erpEmpresaRut: empresa.rut ?? null,
+    erpEmpresaAddress: empresa.address ?? null,
+    erpEmpresaCity: empresa.city ?? null,
+    erpEmpresaCommune: empresa.commune ?? null,
+    erpEmpresaGiro: empresa.giro ?? null,
+    erpEmpresaEmail: empresa.email ?? null,
+    erpEmpresaPhone: empresa.phone ?? null,
+    erpEmpresaWeb: empresa.web ?? null,
+    erpEmpresaLogo: empresa.logo ?? null,
   };
 }
 
-/**
- * El PDF de una venta.
- *
- * El emisor es la empresa y el receptor el cliente. La retención (honorarios) se
- * descuenta del total: lo que se cobra es el total menos lo retenido.
- */
 export async function documentoVentaPdf({
   empresa,
   cliente,
@@ -504,12 +486,6 @@ export async function documentoVentaPdf({
   });
 }
 
-/**
- * El PDF de una compra.
- *
- * Acá los papeles se invierten: el emisor es el proveedor y el receptor es la empresa,
- * porque el documento que se imprime es la factura que recibió el proveedor.
- */
 export async function documentoCompraPdf({
   empresa,
   proveedor,

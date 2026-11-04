@@ -281,4 +281,18 @@ export type InvoiceData = {
   erpGuiaDespachoFecha?: string | null;
   /** IVA del documento (para mostrar en totales). */
   erpIvaAmount?: number;
+  /** Datos de la empresa del ERP para el encabezado del PDF (siempre iguales,
+   * tanto en ventas como en compras). */
+  erpEmpresaNombre?: string | null;
+  erpEmpresaRut?: string | null;
+  erpEmpresaAddress?: string | null;
+  erpEmpresaCity?: string | null;
+  erpEmpresaCommune?: string | null;
+  erpEmpresaGiro?: string | null;
+  erpEmpresaEmail?: string | null;
+  erpEmpresaPhone?: string | null;
+  erpEmpresaPhoneFieldIsVisible?: boolean;
+  erpEmpresaEmailFieldIsVisible?: boolean;
+  erpEmpresaWeb?: string | null;
+  erpEmpresaLogo?: string | null;
 };

@@ -1142,6 +1142,7 @@ model Company {
   posKdsOrders          PosKdsOrder[]
   posCafs               PosCaf[]
   posDtes               PosDte[]
+  facturaConfiguracion  FacturaConfiguracion?
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
@@ -3319,4 +3320,18 @@ enum PosKdsItemStatus {
   PREPARING // en preparación
   READY     // listo
   CANCELLED // cancelado
+}
+
+// Configuración de facturación por empresa: logo, texto al pie y otras
+// opciones de impresión de la factura comercial (ventas y compras).
+model FacturaConfiguracion {
+  id             String   @id @default(cuid())
+  companyId      String   @unique(map: "FacturaConfiguracion_companyId_key")
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  logo           String?  // data URL del logo (base64) configurado por el usuario
+  mostrarLogo    Boolean  @default(true)
+  mostrarTimbreSii Boolean  @default(true)
+  textoPie       String?  // texto opcional al pie del PDF
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
 }

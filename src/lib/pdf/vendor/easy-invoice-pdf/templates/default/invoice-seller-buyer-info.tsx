@@ -73,9 +73,17 @@ export function InvoiceSellerBuyerInfo({
             Giro: {buyer.notes}
           </Text>
         )}
+        {buyer.vatNoFieldIsVisible && (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {buyer.vatNoLabelText}:{" "}
+            <Text style={[styles.boldText, styles.fontSize8]}>
+              {buyer.vatNo}
+            </Text>
+          </Text>
+        )}
       </View>
 
-      {/* Campos adicionales del documento */}
+      {/* Campos adicionales del documento (derecha) */}
       {!isPurchase ? (
         <>
           {buyer.notes && fieldLine({
@@ -83,8 +91,9 @@ export function InvoiceSellerBuyerInfo({
             value: buyer.notes,
             styles,
           })}
-          {buyer.vatNoFieldIsVisible && fieldTextRut({
-            buyer,
+          {buyer.vatNoFieldIsVisible && fieldLine({
+            label: "R.U.T.",
+            value: buyer.vatNo,
             styles,
           })}
           {invoiceData.erpFechaDocumento && fieldLine({
@@ -148,21 +157,5 @@ export function InvoiceSellerBuyerInfo({
         </>
       )}
     </View>
-  );
-}
-
-function fieldTextRut({
-  buyer,
-  styles,
-}: {
-  buyer: InvoiceData["buyer"];
-  styles: typeof PDF_DEFAULT_TEMPLATE_STYLES;
-}) {
-  if (!buyer.vatNoFieldIsVisible || !buyer.vatNo) return null;
-  return (
-    <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-      {buyer.vatNoLabelText}:{" "}
-      <Text style={[styles.boldText, styles.fontSize8]}>{buyer.vatNo}</Text>
-    </Text>
   );
 }
