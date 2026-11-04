@@ -1,6 +1,7 @@
 import { Text, View } from "@react-pdf/renderer";
 import dayjs from "dayjs";
 
+import { InvoiceCompanyHeader } from "../common/invoice-company-header";
 import { InvoicePdf417 } from "../common/invoice-pdf417";
 import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import { type InvoiceData, resolveNumberFormatLocale } from "../../schema";
@@ -48,13 +49,7 @@ export const InvoiceBody = ({
     fractionDigits: fractionDigitsFor(invoiceData.currency),
   });
 
-  // The VAT summary prints the total into a 69pt cell and takes the pieces; every other
-  // place prints it into running text and takes them joined back up
   const formattedInvoiceTotal = invoiceTotalChunks.join("");
-
-  const signatureSectionIsVisible =
-    invoiceData.personAuthorizedToReceiveFieldIsVisible ||
-    invoiceData.personAuthorizedToIssueFieldIsVisible;
 
   const vatTableSummaryIsVisible = invoiceData.vatTableSummaryIsVisible;
 
@@ -67,6 +62,10 @@ export const InvoiceBody = ({
     <>
       <InvoiceHeader invoiceData={invoiceData} styles={styles} />
 
+      {/* Datos de la empresa emisora arriba (nombre, dirección, correo, teléfono, giro). */}
+      <InvoiceCompanyHeader invoiceData={invoiceData} />
+
+      {/* Emisor/receptor y cuadro SII (compras). */}
       <InvoiceSellerBuyerInfo invoiceData={invoiceData} styles={styles} />
 
       <InvoiceItemsTable
@@ -75,15 +74,14 @@ export const InvoiceBody = ({
         styles={styles}
       />
 
-      {/* Debajo de la tabla de ítems: a la izquierda el PDF417 (donde iba el
-          total a pagar) y a la derecha el cuadro de IVA con el total a pagar
-          debajo. */}
+      {/* Debajo de la tabla de ítems: a la izquierda el PDF417 y a la derecha
+          el cuadro de IVA con el total a pagar debajo. */}
       <View
         style={{
           display: "flex",
           flexDirection: "row",
           justifyContent: "space-between",
-          marginTop: vatTableSummaryIsVisible ? 0 : 15,
+          marginTop: vatTableSummaryIsVisible ? 0 : 25,
         }}
       >
         <View style={{ width: "50%" }}>
@@ -111,7 +109,7 @@ export const InvoiceBody = ({
 
       {/* Notes */}
       {invoiceData.notesFieldIsVisible ? (
-        <View style={{ marginTop: 10 }}>
+        <View style={{ marginTop: 16 }}>
           <Text style={styles.fontSize8}>{invoiceData?.notes}</Text>
         </View>
       ) : null}

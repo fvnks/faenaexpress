@@ -74,7 +74,7 @@ export function InvoiceItemsTable({
   );
 
   return (
-    <View style={{ marginBottom: 5, marginTop: 14 }}>
+    <View style={{ marginBottom: 16, marginTop: 16 }}>
       <View style={styles.table}>
         {/*
           START: Table header row with columns

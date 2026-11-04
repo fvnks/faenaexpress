@@ -67,7 +67,7 @@ export function InvoicePaymentTotals({
   });
 
   return (
-    <View style={{ maxWidth: "55%" }}>
+    <View style={{ maxWidth: "100%" }}>
       <View style={{ width: "auto", alignSelf: "flex-start", marginTop: 0 }}>
         <Text
           style={[

@@ -45,6 +45,7 @@ export async function GET(
       commune: ctx.company.commune,
       giro: ctx.company.giro,
       email: ctx.company.email,
+      phone: ctx.company.phone,
       ivaRate: ctx.company.ivaRate,
     },
     cliente: {

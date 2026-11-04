@@ -112,6 +112,8 @@ export type SellerData = {
   vatNoFieldIsVisible: boolean;
   email?: string;
   emailFieldIsVisible: boolean;
+  phone?: string;
+  phoneFieldIsVisible?: boolean;
   accountNumber?: string;
   accountNumberFieldIsVisible: boolean;
   swiftBic?: string;

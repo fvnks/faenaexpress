@@ -76,12 +76,6 @@ export function InvoiceHeader({
   invoiceData: InvoiceData;
   styles: typeof PDF_DEFAULT_TEMPLATE_STYLES;
 }) {
-  const invoiceNumberLabel = invoiceData?.invoiceNumberObject?.label;
-
-  const invoiceNumberValue = invoiceData?.invoiceNumberObject?.value;
-
-  const invoiceNumber = `${invoiceNumberLabel} ${invoiceNumberValue}`;
-
   const hasLogo = invoiceData.logo && invoiceData.logo.length > 0;
 
   return (
@@ -112,30 +106,11 @@ export function InvoiceHeader({
         </View>
       ) : null}
 
-      {/* Invoice number + Dates (when no logo) row */}
-      <View
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <View>
-          <Text style={[styles.header]}>{invoiceNumber}</Text>
-
-          {invoiceData?.invoiceType && invoiceData.invoiceTypeFieldIsVisible ? (
-            <Text
-              style={[styles.fontBold, styles.fontSize8, { maxWidth: "250px" }]}
-            >
-              {invoiceData?.invoiceType}
-            </Text>
-          ) : null}
-        </View>
-        {!hasLogo ? (
-          <HeaderDates invoiceData={invoiceData} styles={styles} />
-        ) : null}
-      </View>
+      {/* Cuando no hay logo, no mostramos el número de factura aquí:
+          el folio ya aparece en el cuadro rojo del SII (compras) y en el pie. */}
+      {!hasLogo ? (
+        <HeaderDates invoiceData={invoiceData} styles={styles} />
+      ) : null}
     </View>
   );
 }

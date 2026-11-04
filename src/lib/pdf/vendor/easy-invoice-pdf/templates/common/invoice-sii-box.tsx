@@ -19,12 +19,12 @@ export function InvoiceSiiBox({
     <View
       style={{
         border: "2px solid #ff0000",
-        width: "45%",
-        padding: 10,
+        width: "65%",
+        padding: 12,
         textAlign: "center",
         color: "#ff0000",
         fontWeight: "bold",
-        alignSelf: "flex-end",
+        alignSelf: "flex-start",
         marginTop: 6,
       }}
     >

@@ -24,6 +24,7 @@ export type EmpresaPdf = {
   commune: string | null;
   giro: string | null;
   email: string | null;
+  phone: string | null;
   ivaRate: number;
 };
 
@@ -213,6 +214,8 @@ function empresaComoParte(
     vatNoFieldIsVisible: true,
     email: empresa.email ?? "",
     emailFieldIsVisible: Boolean(empresa.email),
+    phone: empresa.phone ?? "",
+    phoneFieldIsVisible: Boolean(empresa.phone),
     notes: empresa.giro ?? undefined,
     notesFieldIsVisible: Boolean(empresa.giro),
     accountNumberFieldIsVisible: false,
