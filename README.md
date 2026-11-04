@@ -50,8 +50,10 @@ Este proyecto se publica bajo la **GNU Affero General Public License v3.0**
 La AGPL exige que, si el programa se usa a través de una red, se ofrezca el
 código fuente correspondiente. Por eso:
 
-- el código de este ERP está en <https://github.com/fvnks/faenaexpress>, y cada
-  PDF generado enlaza a esa dirección en el pie;
+- el código de este ERP está en <https://github.com/fvnks/faenaexpress>, junto con
+  el `LICENSE` y el `README.md` que satisfacen el requisito del §13 de la AGPL
+  (ofrecer el código fuente cuando el programa se usa en red). La atribución se
+  hace en el repositorio, no se imprime en el pie de cada PDF.
 - la plantilla vendorizada conserva su licencia original (AGPL-3.0) en
   [`src/lib/pdf/vendor/easy-invoice-pdf/LICENSE`](./src/lib/pdf/vendor/easy-invoice-pdf/LICENSE),
   y los cambios que le hicimos están detallados en

@@ -13,6 +13,8 @@ import type {
   InvoiceData,
   InvoiceItemData,
 } from "./vendor/easy-invoice-pdf/schema";
+import { generateQrCodeDataUrl } from "./vendor/easy-invoice-pdf/utils/qr";
+import { qrSiiUrl, tipoDocumentoASii } from "./qr-sii";
 
 /** La empresa emisora (la del ERP) con los datos que se imprimen. */
 export type EmpresaPdf = {
@@ -89,10 +91,6 @@ export type CompraPdfExtra = {
   category?: string | null;
   area?: string | null;
 };
-
-/** Dónde vive el PDF y con qué se generó (la AGPL exige ofrecer el código fuente). */
-export const PDF_FOOTER_NOTE = "Documento generado por Yellow ERP";
-export const PDF_FOOTER_URL = "https://github.com/fvnks/faenaexpress";
 
 /** Los rótulos de las dos partes del documento. */
 const ETIQUETAS_PARTES = { seller: "Emisor", buyer: "Receptor" } as const;
@@ -255,7 +253,7 @@ function terceroComoParte(
 }
 
 /** Lo que la plantilla y el pie necesitan, común a venta y compra. */
-function baseDocumento({
+async function baseDocumento({
   empresa,
   tercero,
   emisorEsEmpresa,
@@ -284,7 +282,7 @@ function baseDocumento({
   };
   /** El documento está en confirming: el dinero ya entró por otra vía. */
   confirming?: boolean;
-}): InvoiceData {
+}): Promise<InvoiceData> {
   // La misma regla del ERP: total = movido + pendiente.
   const totales = calcularTotales([
     {
@@ -305,6 +303,36 @@ function baseDocumento({
   const esNota =
     documento.documentType === "CREDIT_NOTE" ||
     documento.documentType === "DEBIT_NOTE";
+
+  // Código QR del SII: valida el documento en el portal del SII con el RUT del
+  // emisor (sin DV), tipo de documento, folio, fecha (DDMMAAAA), monto total y
+  // RUT del receptor (con DV). Solo se genera cuando hay folio y ambos RUT.
+  let qrCodeIsVisible = false;
+  let qrCodeData = "";
+  if (
+    documento.documentNumber &&
+    empresa.rut &&
+    tercero.rut &&
+    documento.totalAmount > 0
+  ) {
+    try {
+      const url = qrSiiUrl({
+        rutEmisor: empresa.rut,
+        tipoDte: tipoDocumentoASii(documento.documentType),
+        folio: documento.documentNumber,
+        fecha: documento.date,
+        monto: documento.totalAmount,
+        rutReceptor: tercero.rut,
+      });
+      const dataUrl = await generateQrCodeDataUrl(url);
+      if (dataUrl) {
+        qrCodeIsVisible = true;
+        qrCodeData = dataUrl;
+      }
+    } catch {
+      // Si falla la generación del QR, el PDF se imprime sin él.
+    }
+  }
 
   return {
     language: "es",
@@ -350,7 +378,9 @@ function baseDocumento({
     ),
     notes: documento.notes ?? undefined,
     notesFieldIsVisible: Boolean(documento.notes),
-    qrCodeIsVisible: false,
+    qrCodeIsVisible,
+    qrCodeData,
+    qrCodeDescription: "Valida este documento en el SII",
     personAuthorizedToReceiveName: "",
     personAuthorizedToReceiveFieldIsVisible: false,
     personAuthorizedToIssueName: "",
@@ -373,8 +403,6 @@ function baseDocumento({
         : "Fecha de vencimiento",
     },
     erpBalanceVisible: !esNota,
-    erpFooterNote: PDF_FOOTER_NOTE,
-    erpFooterUrl: PDF_FOOTER_URL,
     // El pie habla del vencimiento (la fecha de pago va en el bloque de pagos).
     erpFooterDueDate: fechaIso(documento.dueDate ?? documento.date),
   };
@@ -386,7 +414,7 @@ function baseDocumento({
  * El emisor es la empresa y el receptor el cliente. La retención (honorarios) se
  * descuenta del total: lo que se cobra es el total menos lo retenido.
  */
-export function documentoVentaPdf({
+export async function documentoVentaPdf({
   empresa,
   cliente,
   venta,
@@ -396,7 +424,7 @@ export function documentoVentaPdf({
   cliente: TerceroPdf;
   venta: DocumentoPdfBase;
   ventaExtra: VentaPdfExtra;
-}): InvoiceData {
+}): Promise<InvoiceData> {
   const tasa = ventaExtra.tasaIVA ?? empresa.ivaRate;
   const lineas = lineasPdf(venta.items, venta.ivaAmount, tasa, {
     nombre: ventaExtra.description ?? venta.notes ?? "Venta",
@@ -415,7 +443,7 @@ export function documentoVentaPdf({
     .filter(Boolean)
     .join(" · ");
 
-  return baseDocumento({
+  return await baseDocumento({
     empresa,
     tercero: cliente,
     emisorEsEmpresa: true,
@@ -434,7 +462,7 @@ export function documentoVentaPdf({
  * Acá los papeles se invierten: el emisor es el proveedor y el receptor es la empresa,
  * porque el documento que se imprime es la factura que recibió el proveedor.
  */
-export function documentoCompraPdf({
+export async function documentoCompraPdf({
   empresa,
   proveedor,
   compra,
@@ -444,7 +472,7 @@ export function documentoCompraPdf({
   proveedor: TerceroPdf;
   compra: DocumentoPdfBase;
   compraExtra: CompraPdfExtra;
-}): InvoiceData {
+}): Promise<InvoiceData> {
   const tasa = compraExtra.tasaIVA ?? empresa.ivaRate;
   const lineas = lineasPdf(compra.items, compra.ivaAmount, tasa, {
     nombre: compraExtra.description ?? compra.notes ?? "Compra",
@@ -459,7 +487,7 @@ export function documentoCompraPdf({
     .filter(Boolean)
     .join(" · ");
 
-  return baseDocumento({
+  return await baseDocumento({
     empresa,
     tercero: proveedor,
     emisorEsEmpresa: false,

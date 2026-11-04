@@ -1,4 +1,4 @@
-import { Link, Text, View } from "@react-pdf/renderer";
+import { Text, View } from "@react-pdf/renderer";
 import dayjs from "dayjs";
 
 import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
@@ -59,19 +59,6 @@ export function InvoiceFooter({
           }}
         />
       </View>
-      {invoiceData.erpFooterNote || invoiceData.erpFooterUrl ? (
-        <Text style={[styles.fontSize8, { marginTop: 2 }]}>
-          {invoiceData.erpFooterNote ? `${invoiceData.erpFooterNote} ` : ""}
-          {invoiceData.erpFooterUrl ? (
-            <Link
-              style={[styles.fontSize8, { color: "blue" }]}
-              src={invoiceData.erpFooterUrl}
-            >
-              {invoiceData.erpFooterUrl}
-            </Link>
-          ) : null}
-        </Text>
-      ) : null}
     </View>
   );
 }

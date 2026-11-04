@@ -36,7 +36,7 @@ export async function GET(
   });
   const abonado = pagos.reduce((a, p) => a + Number(p.amount), 0);
 
-  const documento = documentoCompraPdf({
+  const documento = await documentoCompraPdf({
     empresa: {
       name: ctx.company.name,
       rut: ctx.company.rut,

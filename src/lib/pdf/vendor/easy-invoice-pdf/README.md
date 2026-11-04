@@ -38,8 +38,8 @@ correspondiente. El resumen:
   sola plantilla (`default`).
 - Se agregan los campos que el ERP necesita y el original no tenía:
   `erpPaidAmount`, `erpRetentionAmount`, `erpExemptAmount`, `erpSurchargeAmount`,
-  `erpDocumentLabel`, `erpBalanceVisible`, `erpLabels`, `erpFooterNote` y
-  `erpFooterUrl`.
+  `erpDocumentLabel`, `erpBalanceVisible`, `erpLabels`, `erpFooterDueDate`,
+  `qrCodeData`, `qrCodeDescription` y `qrCodeIsVisible`.
 
 ### Plantilla (`templates/default/`)
 
@@ -57,8 +57,10 @@ correspondiente. El resumen:
 - **Fecha de pago:** el original decía siempre «Fecha de pago» y escribía la
   fecha de vencimiento. Acá la etiqueta dice qué fecha es.
 - **Pie de página:** el original ponía su marca («Creado con easyinvoicepdf.com»).
-  Acá va el pie del ERP, con el enlace al código fuente (requisito del §13 de la
-  AGPL para un uso en red).
+  Acá va el pie del ERP con el folio, el total y el vencimiento. La atribución
+  al código fuente (requisito del §13 de la AGPL para un uso en red) no se imprime
+  en el PDF: vive en el `LICENSE` de la raíz, en el `README.md` del proyecto y en
+  `AGENTS.md`.
 - **Espaciado del pie:** el original armaba el pie con varios `<Text>` sueltos y un
   `gap` que `react-pdf` no siempre respeta (el texto salía pegado). Acá el pie es
   un solo texto con los separadores dentro.
@@ -74,8 +76,23 @@ correspondiente. El resumen:
   **Sentry**, **sonner** (los avisos de la interfaz) y **umami** (analítica). Los
   errores se registran en la consola del servidor en vez de enviarse a un tercero.
 - `utils/number-to-words/` quedó con español e inglés.
-- `utils/qr.ts` se conserva para cuando se active el código QR (hoy el ERP lo
-  imprime desactivado: el QR tributario es otro).
+- `utils/qr.ts` (`generateQrCodeDataUrl`) genera el PNG del código QR como data
+  URL. Se usa para el QR tributario del SII: `src/lib/pdf/qr-sii.ts` arma la URL
+  de validación del SII (RUT emisor sin DV, tipo de documento, folio, fecha
+  `DDMMAAAA`, monto total y RUT receptor con DV) y `documento-pdf.ts` la convierte
+  en imagen con `generateQrCodeDataUrl` e imprime el código en la factura.
+
+## Código QR del SII
+
+El ERP imprime el QR tributario del SII en la factura comercial (ventas y
+compras). `src/lib/pdf/qr-sii.ts` arma la URL de validación del SII con los
+parámetros que pide su servicio de consulta (`p` = RUT emisor sin dígito
+verificador, `t` = tipo DTE, `f` = folio, `d` = fecha en `DDMMAAAA`, `v` = monto
+total, `c` = RUT receptor con dígito verificador) y `documento-pdf.ts` la
+convierte en imagen PNG con `utils/qr.ts`.
+
+La URL apunta al endpoint de consulta de validez de documentos del SII
+(`palena.sii.cl/cgi_dte/UPL/QEstadoDTE`).
 
 ## Si se actualiza el original
 
