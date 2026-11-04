@@ -11,9 +11,9 @@ import { type InvoiceData } from "../../schema";
 import type { PDF_DEFAULT_TEMPLATE_STYLES } from ".";
 
 /**
- * Encabezado de la factura: quien emite el documento (empresa en venta,
- * proveedor en compra) arriba a la izquierda con todos sus datos, y fechas a la
- * derecha.
+ * Encabezado al estilo del SII chileno: empresa emisora a la izquierda con
+ * todos sus datos (nombre, giro, dirección, teléfono, email, web) y a la
+ * derecha el RUT, tipo de documento, folio y unidad SII.
  */
 function HeaderEmisor({
   invoiceData,
@@ -94,6 +94,11 @@ function HeaderEmisor({
         {invoiceData.invoiceType && invoiceData.invoiceTypeFieldIsVisible && (
           <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
             {invoiceData.invoiceType}
+          </Text>
+        )}
+        {invoiceData.invoiceNumberObject?.value && (
+          <Text style={[styles.fontBold, styles.fontSize9]}>
+            Folio N° {invoiceData.invoiceNumberObject.value}
           </Text>
         )}
       </View>
@@ -185,7 +190,7 @@ export function InvoiceHeader({
           }}
         >
           <View style={{ alignItems: "flex-start" }}>
-            {invoiceData.erpEmpresaLogo && (
+            {invoiceData.erpEmpresaLogo ? (
               <Image
                 src={invoiceData.erpEmpresaLogo}
                 style={{
@@ -194,7 +199,7 @@ export function InvoiceHeader({
                   objectFit: "contain",
                 }}
               />
-            )}
+            ) : null}
           </View>
           <View style={{ flex: 1, textAlign: "right" }}>
             <HeaderDates invoiceData={invoiceData} styles={styles} />

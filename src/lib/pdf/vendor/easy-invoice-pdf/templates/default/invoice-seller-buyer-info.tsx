@@ -5,6 +5,9 @@ import type { InvoiceData } from "../../schema";
 
 import type { PDF_DEFAULT_TEMPLATE_STYLES } from ".";
 
+/**
+ * Una línea de texto con etiqueta opcional y valor en negrita.
+ */
 function fieldLine({
   label,
   value,
@@ -23,6 +26,10 @@ function fieldLine({
   );
 }
 
+/**
+ * Cuadro rojo SII flotante: muestra RUT del emisor del documento,
+ * tipo de documento, folio y UNIDAD S.I.I.
+ */
 function SiiBox({
   invoiceData,
   styles,
@@ -85,8 +92,8 @@ export function InvoiceSellerBuyerInfo({
           width: "100%",
         }}
       >
-        {/* RECEPTOR (izquierda, 58%): nombre, dirección, RUT, forma de pago, vencimiento, vendedor, guía */}
-        <View style={{ width: "58%" }}>
+        {/* RECEPTOR (izquierda, 55%): nombre, dirección, comuna, ciudad, giro, correo, teléfono, RUT */}
+        <View style={{ width: "55%" }}>
           <Text style={styles.subheader}>
             {invoiceData.erpLabels?.buyer ?? "Señor(es):"}
           </Text>

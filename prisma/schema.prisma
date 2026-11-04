@@ -1143,6 +1143,7 @@ model Company {
   posCafs               PosCaf[]
   posDtes               PosDte[]
   facturaConfiguracion  FacturaConfiguracion?
+  facturaPlantillas     FacturaPlantilla[]
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
@@ -3334,4 +3335,23 @@ model FacturaConfiguracion {
   textoPie       String?  // texto opcional al pie del PDF
   creadoEn       DateTime @default(now())
   actualizadoEn  DateTime @updatedAt
+}
+
+// Configuración de plantillas de facturas por empresa: permite personalizar
+// qué campos se muestran en la factura comercial y en qué orden aparecen.
+model FacturaPlantilla {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  nombre         String     @default("Mi plantilla de factura")
+  esPredeterminada Boolean   @default(false)
+  esActiva       Boolean   @default(true)
+  // JSON con la configuración de la plantilla: qué campos mostrar y en qué orden
+  configuracion  Json
+  creadoEn       DateTime   @default(now())
+  actualizadoEn  DateTime   @updatedAt
+
+  @@unique([companyId, nombre])
+  @@index([companyId])
+  @@index([companyId, esPredeterminada])
 }

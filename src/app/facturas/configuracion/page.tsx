@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { obtenerPlantillasFactura } from "@/app/actions/factura-plantilla";
 import { updateAlertSettings } from "@/app/actions/companies";
 import { CompanyForm } from "@/app/facturas/configuracion/company-form";
 import { AddMemberForm, MemberRow, NewMemberForm } from "@/app/facturas/configuracion/member-forms";
@@ -195,6 +196,22 @@ export default async function ConfigurationPage() {
                   Guardar umbrales
                 </button>
               </form>
+            </section>
+          ) : null}
+
+          {admin ? (
+            <section className={cardClass + " p-5"}>
+              <h2 className="font-semibold">Plantillas de Factura</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Crea y gestiona plantillas de factura para ventas y compras. Cada
+                plantilla define qué campos mostrar en el PDF.
+              </p>
+              <Link
+                href="/facturas/configuracion/factura-plantillas"
+                className={secondaryButtonClass + " inline-flex py-1.5 text-sm"}
+              >
+                Gestionar plantillas
+              </Link>
             </section>
           ) : null}
 
