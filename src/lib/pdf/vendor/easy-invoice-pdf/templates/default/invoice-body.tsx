@@ -1,7 +1,9 @@
 import { Text, View } from "@react-pdf/renderer";
 import dayjs from "dayjs";
 
+import { InvoiceCompanyHeader } from "../common/invoice-company-header";
 import { InvoicePdf417 } from "../common/invoice-pdf417";
+import { InvoiceSiiBox } from "../common/invoice-sii-box";
 import { INVOICE_PDF_TRANSLATIONS } from "../../translations";
 import { type InvoiceData, resolveNumberFormatLocale } from "../../schema";
 
@@ -206,7 +208,7 @@ export const InvoiceBody = ({
     <>
       <InvoiceHeader invoiceData={invoiceData} styles={styles} />
 
-      {/* Emisor/receptor y campos adicionales del documento. */}
+      {/* Emisor/receptor y campos adicionales del documento */}
       <InvoiceSellerBuyerInfo invoiceData={invoiceData} styles={styles} />
 
       {/* Referencias de documento (orden de compra, guía de despacho). */}
@@ -258,4 +260,4 @@ export const InvoiceBody = ({
       <InvoiceFooter invoiceData={invoiceData} styles={styles} />
     </>
   );
-};
+}
