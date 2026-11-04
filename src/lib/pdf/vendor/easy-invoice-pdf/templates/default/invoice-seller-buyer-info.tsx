@@ -15,6 +15,20 @@ export function InvoiceSellerBuyerInfo({
   const language = invoiceData.language;
   const t = INVOICE_PDF_TRANSLATIONS[language];
 
+  /** Una línea de texto con etiqueta opcional y valor en negrita. */
+  const sellerLine = (
+    label: string | undefined,
+    value: string | null | undefined,
+  ) => {
+    if (!value) return null;
+    return (
+      <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+        {label ? `${label}: ` : ""}
+        <Text style={[styles.boldText, styles.fontSize8]}>{value}</Text>
+      </Text>
+    );
+  };
+
   return (
     <View
       style={{
@@ -25,7 +39,7 @@ export function InvoiceSellerBuyerInfo({
         maxWidth: "512px",
       }}
     >
-      {/* Seller info */}
+      {/* Seller info - toda la información disponible del emisor */}
       <View style={{ width: "280px", marginRight: 25 }}>
         {/* MODIFICACIÓN (vendorizado): el original ponía "Vendedor" y "Comprador".
             El ERP imprime "Emisor" y "Receptor", porque en una factura de compra los
@@ -33,60 +47,29 @@ export function InvoiceSellerBuyerInfo({
         <Text style={styles.subheader}>
           {invoiceData.erpLabels?.seller ?? t.seller.name}
         </Text>
-        <View>
-          <Text style={[styles.fontBold, styles.fontSize10]}>
-            {invoiceData?.seller.name}
-          </Text>
-          <Text style={[styles.boldText, styles.fontSize8]}>
-            {invoiceData?.seller.address}
-          </Text>
-
-          <View style={{ marginTop: 2 }}>
-            {invoiceData.seller.vatNoFieldIsVisible ? (
-              <Text style={[styles.fontSize7]}>
-                {invoiceData.seller.vatNoLabelText}:{" "}
-                <Text style={[styles.boldText, styles.fontSize8]}>
-                  {invoiceData?.seller.vatNo}
-                </Text>
-              </Text>
-            ) : null}
-            {invoiceData.seller.emailFieldIsVisible ? (
-              <Text style={styles.fontSize7}>
-                {t.seller.email}:{" "}
-                <Text style={[styles.boldText, styles.fontSize8]}>
-                  {invoiceData?.seller.email}
-                </Text>
-              </Text>
-            ) : null}
-          </View>
-        </View>
-
-        <View style={{ marginTop: 10 }}>
-          {invoiceData.seller.accountNumberFieldIsVisible ? (
-            <Text style={styles.fontSize8}>
-              {t.seller.accountNumber} -{" "}
-              <Text style={[styles.boldText, styles.fontSize8]}>
-                {invoiceData?.seller.accountNumber}
-              </Text>
+        <Text style={[styles.fontBold, styles.fontSize10]}>
+          {invoiceData?.seller.name}
+        </Text>
+        {sellerLine(
+          undefined,
+          invoiceData?.seller.address,
+        )}
+        {sellerLine(
+          undefined,
+          [invoiceData?.seller.city, invoiceData?.seller.commune]
+            .filter(Boolean)
+            .join(", "),
+        )}
+        {sellerLine("Giro", invoiceData?.seller.notes)}
+        {sellerLine("Email", invoiceData?.seller.email)}
+        {invoiceData.seller.vatNoFieldIsVisible ? (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {invoiceData.seller.vatNoLabelText}:{" "}
+            <Text style={[styles.boldText, styles.fontSize8]}>
+              {invoiceData?.seller.vatNo}
             </Text>
-          ) : null}
-          {invoiceData.seller.swiftBicFieldIsVisible ? (
-            <Text style={styles.fontSize8}>
-              {t.seller.swiftBic}:{" "}
-              <Text style={[styles.boldText, styles.fontSize8]}>
-                {invoiceData?.seller.swiftBic}
-              </Text>
-            </Text>
-          ) : null}
-          {invoiceData.seller.notesFieldIsVisible &&
-          invoiceData?.seller.notes ? (
-            <View style={{ marginTop: 10 }}>
-              <Text style={[styles.fontSize8]}>
-                {invoiceData?.seller.notes}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+          </Text>
+        ) : null}
       </View>
 
       {/* Buyer info */}
@@ -97,36 +80,43 @@ export function InvoiceSellerBuyerInfo({
         <Text style={[styles.fontBold, styles.fontSize10]}>
           {invoiceData?.buyer.name}
         </Text>
-        <Text
-          style={[styles.boldText, styles.fontSize8, { maxWidth: "280px" }]}
-        >
-          {invoiceData?.buyer.address}
-        </Text>
-
-        <View style={{ marginTop: 2 }}>
-          {invoiceData.buyer.vatNoFieldIsVisible ? (
-            <Text style={styles.fontSize7}>
-              {invoiceData.buyer.vatNoLabelText}:{" "}
-              <Text style={[styles.boldText, styles.fontSize8]}>
-                {invoiceData?.buyer.vatNo}
-              </Text>
+        {sellerLine(undefined, invoiceData?.buyer.address)}
+        {sellerLine(
+          undefined,
+          [invoiceData?.buyer.city, invoiceData?.buyer.commune]
+            .filter(Boolean)
+            .join(", "),
+        )}
+        {sellerLine("Giro", invoiceData?.buyer.notes)}
+        {sellerLine("Email", invoiceData?.buyer.email)}
+        {invoiceData.buyer.vatNoFieldIsVisible ? (
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {invoiceData.buyer.vatNoLabelText}:{" "}
+            <Text style={[styles.boldText, styles.fontSize8]}>
+              {invoiceData?.buyer.vatNo}
             </Text>
-          ) : null}
-          {invoiceData.buyer.emailFieldIsVisible ? (
-            <Text style={styles.fontSize7}>
-              {t.buyer.email}:{" "}
+          </Text>
+        ) : null}
+
+        {/* Forma y fecha de pago bajo del receptor */}
+        <View style={{ marginTop: 10 }}>
+          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+            {invoiceData.erpLabels?.paymentDate ?? t.paymentInfo.paymentDate}:
+            {" "}
+            <Text style={[styles.boldText, styles.fontSize8]}>
+              {invoiceData.paymentDue}
+            </Text>
+          </Text>
+          {invoiceData.paymentMethodFieldIsVisible &&
+          invoiceData.paymentMethod ? (
+            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+              {t.paymentInfo.paymentMethod}:{" "}
               <Text style={[styles.boldText, styles.fontSize8]}>
-                {invoiceData?.buyer.email}
+                {invoiceData.paymentMethod}
               </Text>
             </Text>
           ) : null}
         </View>
-
-        {invoiceData.buyer.notesFieldIsVisible && invoiceData?.buyer.notes ? (
-          <View style={{ marginTop: 20 }}>
-            <Text style={[styles.fontSize8]}>{invoiceData?.buyer.notes}</Text>
-          </View>
-        ) : null}
       </View>
     </View>
   );

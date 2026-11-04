@@ -105,6 +105,8 @@ export type SellerData = {
   id?: string;
   name: string;
   address: string;
+  city?: string | null;
+  commune?: string | null;
   vatNo?: string;
   vatNoLabelText: string;
   vatNoFieldIsVisible: boolean;
@@ -123,6 +125,8 @@ export type BuyerData = {
   id?: string;
   name: string;
   address: string;
+  city?: string | null;
+  commune?: string | null;
   vatNo?: string;
   vatNoLabelText: string;
   vatNoFieldIsVisible: boolean;

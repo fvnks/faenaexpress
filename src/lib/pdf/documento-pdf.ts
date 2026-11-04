@@ -205,7 +205,9 @@ function empresaComoParte(
 ) {
   const base = {
     name: empresa.name,
-    address: partesDireccion(empresa),
+    address: empresa.address ?? "",
+    city: empresa.city ?? undefined,
+    commune: empresa.commune ?? undefined,
     vatNo: empresa.rut ?? "",
     vatNoLabelText: "RUT",
     vatNoFieldIsVisible: true,
@@ -232,7 +234,9 @@ function terceroComoParte(
 ) {
   const base = {
     name: tercero.name,
-    address: partesDireccion(tercero),
+    address: tercero.address ?? "",
+    city: tercero.city ?? undefined,
+    commune: tercero.commune ?? undefined,
     vatNo: tercero.rut ?? "",
     vatNoLabelText: "RUT",
     vatNoFieldIsVisible: true,

@@ -11,7 +11,6 @@ import { formatAmountChunks, fractionDigitsFor } from "../../utils/format-amount
 import { InvoiceFooter } from "./invoice-footer";
 import { InvoiceHeader } from "./invoice-header";
 import { InvoiceItemsTable } from "./invoice-items-table";
-import { InvoicePaymentInfo } from "./invoice-payment-info";
 import { InvoicePaymentTotals } from "./invoice-payment-totals";
 import { InvoiceSellerBuyerInfo } from "./invoice-seller-buyer-info";
 import { InvoiceVATSummaryTable } from "./invoice-vat-summary-table";
@@ -69,9 +68,8 @@ export const InvoiceBody = ({
     <>
       <InvoiceHeader invoiceData={invoiceData} styles={styles} />
 
-      {/* Recuadro al estilo del SII solo en compras: RUT/tipo/folio del
-          proveedor (emisor) + UNIDAD S.I.I., arriba y a la derecha, encima del
-          receptor. */}
+      {/* Recuadro al estilo del SII solo en compras: RUT/tipo/folio + UNIDAD S.I.I.,
+          arriba y a la derecha, encima del receptor. */}
       {invoiceData.erpIsPurchase ? (
         <View style={{ width: "100%", marginBottom: 10 }}>
           <View style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -88,90 +86,44 @@ export const InvoiceBody = ({
         styles={styles}
       />
 
+      {/* Debajo de la tabla de ítems: a la izquierda el cuadro de IVA y, bajo él,
+          el total a pagar; a la derecha el PDF417 (donde iba el total a pagar). */}
       <View
         style={{
           display: "flex",
           flexDirection: "row",
           justifyContent: "space-between",
+          marginTop: vatTableSummaryIsVisible ? 0 : 15,
         }}
       >
         <View style={{ width: "50%" }}>
-          {/** Payment date and payment method fields */}
-          <InvoicePaymentInfo invoiceData={invoiceData} styles={styles} />
-        </View>
-
-        {vatTableSummaryIsVisible ? (
-          <View style={{ width: "50%" }}>
+          {vatTableSummaryIsVisible ? (
             <InvoiceVATSummaryTable
               invoiceData={invoiceData}
               invoiceTotalChunks={invoiceTotalChunks}
               styles={styles}
             />
-          </View>
-        ) : null}
-      </View>
-
-      {/** To pay, paid, left to pay and amount in words fields */}
-      <View
-        style={{ marginTop: vatTableSummaryIsVisible ? 0 : 15 }}
-        wrap={false}
-        minPresenceAhead={50}
-      >
-        <InvoicePaymentTotals
-          invoiceData={invoiceData}
-          styles={styles}
-        />
-      </View>
-
-      {/* Signature section */}
-      {signatureSectionIsVisible ? (
-        <View
-          style={styles.signatureSection}
-          wrap={false}
-          minPresenceAhead={50}
-        >
-          {invoiceData.personAuthorizedToReceiveFieldIsVisible ? (
-            <View style={styles.signatureColumn}>
-              {invoiceData.personAuthorizedToReceiveName ? (
-                <Text style={[styles.signatureText, { marginTop: -13 }]}>
-                  {invoiceData.personAuthorizedToReceiveName}
-                </Text>
-              ) : null}
-              <View style={styles.signatureLine} />
-              <Text style={styles.signatureText}>
-                {t.personAuthorizedToReceive}
-              </Text>
-            </View>
           ) : null}
-          {invoiceData.personAuthorizedToIssueFieldIsVisible ? (
-            <View style={styles.signatureColumn}>
-              {invoiceData.personAuthorizedToIssueName ? (
-                <Text style={[styles.signatureText, { marginTop: -13 }]}>
-                  {invoiceData.personAuthorizedToIssueName}
-                </Text>
-              ) : null}
-              <View style={styles.signatureLine} />
-              <Text style={styles.signatureText}>
-                {t.personAuthorizedToIssue}
-              </Text>
-            </View>
+          {/* El total a pagar va debajo del cuadro de IVA (Neto, IVA, Bruto). */}
+          <InvoicePaymentTotals invoiceData={invoiceData} styles={styles} />
+        </View>
+
+        <View style={{ width: "50%" }}>
+          {/* PDF417 del SII (timbre electrónico) - a la derecha, donde iba el total a pagar. */}
+          {isPdf417Visible ? (
+            <InvoicePdf417
+              pdf417DataUrl={invoiceData.qrCodeData!}
+              description={invoiceData.qrCodeDescription}
+            />
           ) : null}
         </View>
-      ) : null}
+      </View>
 
       {/* Notes */}
       {invoiceData.notesFieldIsVisible ? (
         <View style={{ marginTop: 10 }}>
           <Text style={styles.fontSize8}>{invoiceData?.notes}</Text>
         </View>
-      ) : null}
-
-      {/* PDF417 del SII (timbre electrónico) - centrado debajo de las notas */}
-      {isPdf417Visible ? (
-        <InvoicePdf417
-          pdf417DataUrl={invoiceData.qrCodeData!}
-          description={invoiceData.qrCodeDescription}
-        />
       ) : null}
 
       {/* Footer  */}
