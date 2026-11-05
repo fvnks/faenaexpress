@@ -10,6 +10,8 @@ import { CAMPOS_PLANTILLA, esCampoPlantillaValido } from "@/lib/factura-plantill
 
 export type FacturaPlantillaState = { error?: string; ok?: boolean } | undefined;
 
+export type FacturaPlantillaTipo = "VENTA" | "COMPRA";
+
 /** Convierte el JSON del formulario en un objeto plano (o `null` si no lo es). */
 function parsearConfiguracion(valor: FormDataEntryValue | null) {
   try {
@@ -24,11 +26,14 @@ function parsearConfiguracion(valor: FormDataEntryValue | null) {
 /**
  * Obtener todas las plantillas de factura de la empresa activa
  */
-export async function obtenerPlantillasFactura() {
+export async function obtenerPlantillasFactura(tipo?: FacturaPlantillaTipo) {
   const ctx = await requireContext();
 
   const plantillas = await db.facturaPlantilla.findMany({
-    where: { companyId: ctx.company.id },
+    where: { 
+      companyId: ctx.company.id,
+      ...(tipo ? { tipo } : {}),
+    },
     orderBy: [{ esPredeterminada: "desc" }, { creadoEn: "desc" }],
   });
 
@@ -61,7 +66,7 @@ export async function guardarPlantillaFactura(
   const nombre = String(formData.get("nombre") ?? "").trim();
   const configuracion = parsearConfiguracion(formData.get("configuracion"));
   const esPredeterminada = formData.get("esPredeterminada") === "on";
-  // El formulario no expone «inactiva»: lo que se crea desde la UI queda activo.
+  const tipo = (formData.get("tipo") as FacturaPlantillaTipo) ?? "VENTA";
   const esActiva = formData.has("esActiva")
     ? formData.get("esActiva") === "on"
     : true;
@@ -72,12 +77,16 @@ export async function guardarPlantillaFactura(
   if (!configuracion) {
     return { error: "La configuración de la plantilla no es válida." };
   }
+  if (!["VENTA", "COMPRA"].includes(tipo)) {
+    return { error: "Tipo de plantilla inválido." };
+  }
 
   try {
     const plantilla = await db.facturaPlantilla.create({
       data: {
         companyId: ctx.company.id,
         nombre,
+        tipo,
         configuracion,
         esPredeterminada,
         esActiva,
@@ -88,7 +97,7 @@ export async function guardarPlantillaFactura(
       action: "CREATE",
       entityType: "FacturaPlantilla",
       entityId: plantilla.id,
-      summary: `Creó plantilla de factura "${plantilla.nombre}"`,
+      summary: `Creó plantilla de factura ${tipo} "${plantilla.nombre}"`,
     });
 
     revalidatePath("/facturas/plantillas");
@@ -145,7 +154,7 @@ export async function actualizarPlantillaFactura(
       action: "UPDATE",
       entityType: "FacturaPlantilla",
       entityId: plantilla.id,
-      summary: `Actualizó plantilla de factura "${plantilla.nombre}"`,
+      summary: `Actualizó plantilla de factura ${plantilla.tipo} "${plantilla.nombre}"`,
     });
 
     revalidatePath("/facturas/plantillas");
@@ -176,7 +185,7 @@ export async function eliminarPlantillaFactura(id: string): Promise<FacturaPlant
       action: "DELETE",
       entityType: "FacturaPlantilla",
       entityId: plantilla.id,
-      summary: `Eliminó plantilla de factura "${plantilla.nombre}"`,
+      summary: `Eliminó plantilla de factura ${plantilla.tipo} "${plantilla.nombre}"`,
     });
 
     revalidatePath("/facturas/plantillas");
@@ -188,16 +197,15 @@ export async function eliminarPlantillaFactura(id: string): Promise<FacturaPlant
 }
 
 /**
- * Crear la plantilla de ejemplo (todos los campos visibles) para la empresa.
- * Sirve para ver en el PDF qué aspectos se reconocen antes de armar la propia.
+ * Crear las plantillas de ejemplo (venta y compra) para la empresa.
  */
-export async function crearPlantillaEjemplo() {
+export async function crearPlantillaEjemplo(): Promise<FacturaPlantillaState> {
   const ctx = await requireContext();
   if (!isAdmin(ctx)) {
     return { error: "Solo un administrador puede crear plantillas de factura." };
   }
 
-  const configuracion: Record<string, boolean> = {
+  const configuracionVenta: Record<string, boolean> = {
     mostrarEmpresa: true,
     mostrarRUT: true,
     mostrarDireccion: true,
@@ -212,7 +220,7 @@ export async function crearPlantillaEjemplo() {
     mostrarTipoDocumento: true,
     mostrarItems: true,
     mostrarTotales: true,
-    mostrarRetencion: false,
+    mostrarRetencion: true,
     mostrarExento: false,
     mostrarRecargo: false,
     mostrarFormaPago: true,
@@ -224,25 +232,33 @@ export async function crearPlantillaEjemplo() {
     mostrarHES: true,
   };
 
-  // Una empresa tiene una sola plantilla (UNIQUE en companyId): si ya existe,
-  // la actualizamos a la de ejemplo en vez de crear otra.
-  const plantilla = await db.facturaPlantilla.upsert({
-    where: { companyId_nombre: { companyId: ctx.company.id, nombre: "Plantilla de ejemplo" } },
-    update: { configuracion, esPredeterminada: true, esActiva: true },
-    create: {
-      companyId: ctx.company.id,
-      nombre: "Plantilla de ejemplo",
-      configuracion,
-      esPredeterminada: true,
-      esActiva: true,
-    },
-  });
+  const configuracionCompra: Record<string, boolean> = {
+    ...configuracionVenta,
+    // En compras: el vendedor no aplica, pero retención/exento/recargo sí
+    mostrarVendedor: false,
+    mostrarRetencion: false,
+    mostrarExento: true,
+    mostrarRecargo: true,
+  };
+
+  const resultados = await Promise.all([
+    db.facturaPlantilla.upsert({
+      where: { companyId_tipo_nombre: { companyId: ctx.company.id, tipo: "VENTA", nombre: "Plantilla de ejemplo" } },
+      update: { configuracion: configuracionVenta, esPredeterminada: true, esActiva: true },
+      create: { companyId: ctx.company.id, tipo: "VENTA", nombre: "Plantilla de ejemplo", configuracion: configuracionVenta, esPredeterminada: true, esActiva: true },
+    }),
+    db.facturaPlantilla.upsert({
+      where: { companyId_tipo_nombre: { companyId: ctx.company.id, tipo: "COMPRA", nombre: "Plantilla de ejemplo" } },
+      update: { configuracion: configuracionCompra, esPredeterminada: true, esActiva: true },
+      create: { companyId: ctx.company.id, tipo: "COMPRA", nombre: "Plantilla de ejemplo", configuracion: configuracionCompra, esPredeterminada: true, esActiva: true },
+    }),
+  ]);
 
   await recordAudit(ctx, {
     action: "CREATE",
     entityType: "FacturaPlantilla",
-    entityId: plantilla.id,
-    summary: `Creó plantilla de ejemplo de factura "${plantilla.nombre}"`,
+    entityId: resultados[0].id,
+    summary: `Creó plantillas de ejemplo VENTA y COMPRA`,
   });
 
   revalidatePath("/facturas/plantillas");
@@ -250,7 +266,7 @@ export async function crearPlantillaEjemplo() {
 }
 
 /**
- * Establecer una plantilla como predeterminada para la empresa
+ * Establecer una plantilla como predeterminada para su tipo (VENTA/COMPRA)
  */
 export async function establecerPlantillaPredeterminada(id: string): Promise<FacturaPlantillaState> {
   const ctx = await requireContext();
@@ -263,13 +279,12 @@ export async function establecerPlantillaPredeterminada(id: string): Promise<Fac
   if (!plantilla) return { error: "Plantilla no encontrada." };
 
   try {
-    // Desactivar todas las plantillas predeterminadas de la empresa
+    // Desactivar solo las del mismo tipo
     await db.facturaPlantilla.updateMany({
-      where: { companyId: ctx.company.id },
+      where: { companyId: ctx.company.id, tipo: plantilla.tipo },
       data: { esPredeterminada: false },
     });
 
-    // Establecer la seleccionada como predeterminada
     await db.facturaPlantilla.update({
       where: { id },
       data: { esPredeterminada: true },
@@ -279,7 +294,7 @@ export async function establecerPlantillaPredeterminada(id: string): Promise<Fac
       action: "UPDATE",
       entityType: "FacturaPlantilla",
       entityId: plantilla.id,
-      summary: `Estableció plantilla "${plantilla.nombre}" como predeterminada`,
+      summary: `Estableció plantilla ${plantilla.tipo} "${plantilla.nombre}" como predeterminada`,
     });
 
     revalidatePath("/facturas/plantillas");
@@ -320,7 +335,6 @@ export async function importarPlantillaExcel(formData: FormData): Promise<Factur
   const sheet = workbook.worksheets[0];
   if (!sheet) return { error: "El archivo no tiene hojas de cálculo." };
 
-  // Las filas: 1 = encabezado (Campo, Etiqueta, Visible), a partir de la 2.
   const configuracion: Record<string, boolean> = {};
   for (const campo of CAMPOS_PLANTILLA) configuracion[campo.campo] = campo.porDefecto;
 
@@ -354,7 +368,7 @@ export async function importarPlantillaExcel(formData: FormData): Promise<Factur
     action: "UPDATE",
     entityType: "FacturaPlantilla",
     entityId: plantillaActualizada.id,
-    summary: `Importó plantilla de factura "${plantillaActualizada.nombre}" desde Excel`,
+    summary: `Importó plantilla de factura ${plantillaActualizada.tipo} "${plantillaActualizada.nombre}" desde Excel`,
   });
 
   revalidatePath("/facturas/plantillas");
@@ -362,17 +376,16 @@ export async function importarPlantillaExcel(formData: FormData): Promise<Factur
 }
 
 /**
- * Obtener la plantilla predeterminada de la empresa (o la primera activa si no hay predeterminada)
+ * Obtener la plantilla predeterminada de la empresa para un tipo (o la primera activa si no hay predeterminada)
  */
-export async function obtenerPlantillaPredeterminada(companyId: string) {
+export async function obtenerPlantillaPredeterminada(companyId: string, tipo: FacturaPlantillaTipo) {
   const plantilla = await db.facturaPlantilla.findFirst({
-    where: { companyId, esActiva: true, esPredeterminada: true },
+    where: { companyId, tipo, esActiva: true, esPredeterminada: true },
   });
 
   if (!plantilla) {
-    // Si no hay predeterminada, devolver la primera activa
     return await db.facturaPlantilla.findFirst({
-      where: { companyId, esActiva: true },
+      where: { companyId, tipo, esActiva: true },
     });
   }
 

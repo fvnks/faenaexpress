@@ -14,6 +14,7 @@ import { CAMPOS_PLANTILLA } from "@/lib/factura-plantilla-campos";
 type Plantilla = {
   id: string;
   nombre: string;
+  tipo: "VENTA" | "COMPRA";
   esPredeterminada: boolean;
   esActiva: boolean;
   configuracion: Record<string, boolean> | null;
@@ -113,8 +114,8 @@ export default function EditarPlantillaPage({
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold tracking-tight">Editar plantilla</h1>
         <p className="text-sm text-muted-foreground">
-          Elija qué datos se imprimen en la factura comercial (ventas y
-          compras). Lo que quede sin marcar no aparece en el PDF.{" "}
+          Tipo: <span className="font-medium">{plantilla.tipo === "VENTA" ? "Venta" : "Compra"}</span> ·
+          Elija qué datos se imprimen en la factura comercial. Lo que quede sin marcar no aparece en el PDF.{" "}
           <Link
             href="/facturas/plantillas/ayuda"
             className="underline underline-offset-4 hover:text-foreground"
@@ -140,6 +141,19 @@ export default function EditarPlantillaPage({
             required
             defaultValue={plantilla.nombre}
             className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="tipo" className="text-sm font-medium">
+            Tipo de documento (no editable)
+          </label>
+          <input
+            id="tipo"
+            type="text"
+            value={plantilla.tipo === "VENTA" ? "Venta" : "Compra"}
+            readOnly
+            className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground"
           />
         </div>
 

@@ -14,6 +14,7 @@ import {
 type PlantillaListada = {
   id: string;
   nombre: string;
+  tipo: "VENTA" | "COMPRA";
   esPredeterminada: boolean;
   esActiva: boolean;
   configuracion: unknown;
@@ -73,7 +74,7 @@ export default function FacturaPlantillasPage() {
     const resultado = await crearPlantillaEjemplo();
     if (resultado?.ok) {
       await cargarPlantillas();
-      alert("Plantilla de ejemplo creada con todos los campos visibles.");
+      alert("Plantillas de ejemplo (Venta y Compra) creadas con todos los campos visibles.");
     } else if (resultado?.error) {
       alert(resultado.error || "Error al crear la plantilla de ejemplo.");
     }
@@ -150,66 +151,79 @@ export default function FacturaPlantillasPage() {
             No hay plantillas creadas aún. Cree su primera plantilla de factura.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plantillas.map((plantilla) => (
-              <div
-                key={plantilla.id}
-                className="border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold">
-                      {plantilla.nombre}
-                    </h3>
-                    <div className="flex items-center gap-1">
-                      {plantilla.esPredeterminada && (
-                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                          Predeterminada
-                        </span>
-                      )}
-                      {!plantilla.esActiva && (
-                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                          Inactiva
-                        </span>
-                      )}
-                    </div>
+          <div className="space-y-6">
+            {["VENTA", "COMPRA"].map((tipo) => {
+              const plantillasTipo = plantillas.filter((p) => p.tipo === tipo);
+              if (plantillasTipo.length === 0) return null;
+              return (
+                <section key={tipo} className="space-y-3">
+                  <h2 className="text-lg font-semibold text-muted-foreground">
+                    {tipo === "VENTA" ? "Plantillas de Venta" : "Plantillas de Compra"}
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {plantillasTipo.map((plantilla) => (
+                      <div
+                        key={plantilla.id}
+                        className="border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="text-sm font-semibold">
+                              {plantilla.nombre}
+                            </h3>
+                            <div className="flex items-center gap-1">
+                              {plantilla.esPredeterminada && (
+                                <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                                  Predeterminada
+                                </span>
+                              )}
+                              {!plantilla.esActiva && (
+                                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                  Inactiva
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {JSON.stringify(plantilla.configuracion || {}).slice(0, 80)}
+                            ...
+                          </p>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <a
+                            href={`/facturas/plantillas/${plantilla.id}/descargar`}
+                            className="flex-1 inline-flex items-center justify-center rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            Descargar Excel
+                          </a>
+                          <Link
+                            href={`/facturas/plantillas/${plantilla.id}`}
+                            className="flex-1 inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90"
+                          >
+                            Editar
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => establecerPredeterminada(plantilla.id)}
+                            disabled={plantilla.esPredeterminada}
+                            className="flex-1 inline-flex items-center justify-center rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+                          >
+                            {plantilla.esPredeterminada ? "Predeterminada" : "Predeterminar"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => eliminarPlantilla(plantilla.id)}
+                            className="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {JSON.stringify(plantilla.configuracion || {}).slice(0, 80)}
-                    ...
-                  </p>
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <a
-                    href={`/facturas/plantillas/${plantilla.id}/descargar`}
-                    className="flex-1 inline-flex items-center justify-center rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-                  >
-                    Descargar Excel
-                  </a>
-                  <Link
-                    href={`/facturas/plantillas/${plantilla.id}`}
-                    className="flex-1 inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90"
-                  >
-                    Editar
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => establecerPredeterminada(plantilla.id)}
-                    disabled={plantilla.esPredeterminada}
-                    className="flex-1 inline-flex items-center justify-center rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
-                  >
-                    {plantilla.esPredeterminada ? "Predeterminada" : "Predeterminar"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => eliminarPlantilla(plantilla.id)}
-                    className="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
+                </section>
+              );
+            })}
           </div>
         )}
       </div>

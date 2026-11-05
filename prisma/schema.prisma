@@ -3343,6 +3343,8 @@ model FacturaPlantilla {
   id             String   @id @default(cuid())
   companyId      String
   company        Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Tipo de documento para el que aplica la plantilla: venta o compra.
+  tipo           FacturaPlantillaTipo @default(VENTA)
   nombre         String     @default("Mi plantilla de factura")
   esPredeterminada Boolean   @default(false)
   esActiva       Boolean   @default(true)
@@ -3351,7 +3353,14 @@ model FacturaPlantilla {
   creadoEn       DateTime   @default(now())
   actualizadoEn  DateTime   @updatedAt
 
-  @@unique([companyId, nombre])
+  @@unique([companyId, tipo, nombre])
+  @@unique([companyId, tipo]) // Una plantilla activa por tipo (predeterminada)
   @@index([companyId])
+  @@index([companyId, tipo])
   @@index([companyId, esPredeterminada])
+}
+
+enum FacturaPlantillaTipo {
+  VENTA
+  COMPRA
 }

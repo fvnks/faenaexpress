@@ -5,31 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { guardarPlantillaFactura } from "@/app/actions/factura-plantilla";
-
-/** Campos que la plantilla permite mostrar u ocultar en el PDF. */
-const CAMPOS: Array<{ clave: string; etiqueta: string }> = [
-  { clave: "mostrarEmpresa", etiqueta: "Nombre de la empresa" },
-  { clave: "mostrarRUT", etiqueta: "RUT del emisor" },
-  { clave: "mostrarDireccion", etiqueta: "Dirección y giro" },
-  { clave: "mostrarTelefono", etiqueta: "Teléfono" },
-  { clave: "mostrarCorreo", etiqueta: "Correo y sitio web" },
-  { clave: "mostrarReceptor", etiqueta: "Receptor" },
-  { clave: "mostrarRUTReceptor", etiqueta: "RUT del receptor" },
-  { clave: "mostrarDireccionReceptor", etiqueta: "Dirección del receptor" },
-  { clave: "mostrarFechaEmision", etiqueta: "Fecha de emisión" },
-  { clave: "mostrarFechaVencimiento", etiqueta: "Fecha de vencimiento" },
-  { clave: "mostrarFolio", etiqueta: "Folio" },
-  { clave: "mostrarTipoDocumento", etiqueta: "Tipo de documento" },
-  { clave: "mostrarItems", etiqueta: "Ítems (detalle)" },
-  { clave: "mostrarTotales", etiqueta: "Totales y timbre" },
-  { clave: "mostrarRetencion", etiqueta: "Retención" },
-  { clave: "mostrarExento", etiqueta: "Exento" },
-  { clave: "mostrarRecargo", etiqueta: "Recargo IVA" },
-  { clave: "mostrarFormaPago", etiqueta: "Forma de pago" },
-  { clave: "mostrarPagado", etiqueta: "Pagado" },
-  { clave: "mostrarPendiente", etiqueta: "Pendiente de pago" },
-  { clave: "mostrarImporteLetras", etiqueta: "Importe en letras" },
-];
+import { CAMPOS_PLANTILLA } from "@/lib/factura-plantilla-campos";
 
 export default function NuevaPlantillaPage() {
   const router = useRouter();
@@ -39,8 +15,8 @@ export default function NuevaPlantillaPage() {
   async function crearPlantilla(formData: FormData) {
     setError(null);
     const configuracion: Record<string, boolean> = {};
-    for (const campo of CAMPOS) {
-      configuracion[campo.clave] = formData.get(campo.clave) === "on";
+    for (const campo of CAMPOS_PLANTILLA) {
+      configuracion[campo.campo] = formData.get(campo.campo) === "on";
     }
     formData.set("configuracion", JSON.stringify(configuracion));
 
@@ -84,18 +60,33 @@ export default function NuevaPlantillaPage() {
           />
         </div>
 
+        <div className="flex flex-col gap-2">
+          <label htmlFor="tipo" className="text-sm font-medium">
+            Tipo de documento
+          </label>
+          <select
+            id="tipo"
+            name="tipo"
+            required
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring"
+          >
+            <option value="VENTA">Venta (facturas, boletas, notas de venta)</option>
+            <option value="COMPRA">Compra (facturas de compra, notas de compra)</option>
+          </select>
+        </div>
+
         <fieldset className="flex flex-col gap-3">
           <legend className="text-sm font-medium">Campos a mostrar</legend>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {CAMPOS.map((campo) => (
+            {CAMPOS_PLANTILLA.map((campo) => (
               <label
-                key={campo.clave}
+                key={campo.campo}
                 className="flex items-center gap-2 text-sm text-muted-foreground"
               >
                 <input
                   type="checkbox"
-                  name={campo.clave}
-                  defaultChecked
+                  name={campo.campo}
+                  defaultChecked={campo.porDefecto}
                   className="size-4 rounded border-border text-primary focus:ring-0"
                 />
                 {campo.etiqueta}
@@ -112,7 +103,7 @@ export default function NuevaPlantillaPage() {
             className="size-4 rounded border-border text-primary focus:ring-0"
           />
           <label htmlFor="esPredeterminada" className="text-sm">
-            Usar esta plantilla en las facturas de la empresa
+            Usar esta plantilla como predeterminada para su tipo
           </label>
         </div>
 

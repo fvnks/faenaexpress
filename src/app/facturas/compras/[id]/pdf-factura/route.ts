@@ -43,7 +43,7 @@ export async function GET(
       select: { logo: true, mostrarLogo: true },
     }),
     db.facturaPlantilla.findFirst({
-      where: { companyId: ctx.company.id, esActiva: true },
+      where: { companyId: ctx.company.id, tipo: "COMPRA", esActiva: true },
       orderBy: { esPredeterminada: "desc" },
     }),
   ]);
