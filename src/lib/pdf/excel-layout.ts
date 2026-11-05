@@ -18,6 +18,12 @@ export interface ExcelCoord {
   row: number;  // 1-based
   col: number;  // 1-based (A=1)
   sheet?: string;
+  style?: {
+    bold?: boolean;
+    color?: string;
+    fontSize?: number;
+    align?: "left" | "center" | "right";
+  };
 }
 
 export interface PdfPosition {

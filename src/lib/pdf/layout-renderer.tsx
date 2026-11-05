@@ -100,19 +100,19 @@ export function LayoutBasedInvoiceRenderer({ invoiceData, layout, styles }: Layo
     const isLabelField = ["mostrarEmpresa", "mostrarReceptor", "mostrarFolio", "mostrarTipoDocumento"].includes(campo);
     const label = isLabelField ? `${campo.replace("mostrar", "").replace(/([A-Z])/g, " $1").trim()}: ` : "";
     
+    // Estilo base + estilo de la celda Excel + estilos externos
+    const cellStyle = (coord as { style?: { bold?: boolean; color?: string; fontSize?: number; align?: "left" | "center" | "right" } }).style || {};
+    const externalStyle = styles?.[campo] || {};
+    
     const fieldStyle = {
       position: "absolute" as const,
       left: pos.x,
       top: pos.y,
-      fontSize: 8,
-      fontFamily: "Helvetica",
-      color: "#000000",
-      // spread custom styles but only known properties
-      ...(styles?.[campo] ? { 
-        fontSize: styles[campo].fontSize, 
-        fontFamily: styles[campo].fontFamily, 
-        color: styles[campo].color 
-      } : {}),
+      fontSize: cellStyle.fontSize ?? externalStyle.fontSize ?? 8,
+      fontFamily: externalStyle.fontFamily ?? "Helvetica",
+      fontWeight: cellStyle.bold ? "bold" : (externalStyle.fontWeight ?? "normal"),
+      color: cellStyle.color ?? externalStyle.color ?? "#000000",
+      textAlign: (cellStyle.align ?? externalStyle.textAlign ?? "left") as "left" | "center" | "right",
     };
 
     children.push(

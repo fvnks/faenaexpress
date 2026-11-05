@@ -68,17 +68,24 @@ export function configuracionPorDefecto(): Record<string, boolean> {
 }
 
 /** Layout de placeholders en la hoja "Diseño" del Excel.
- * Cada entrada: campo -> { sheet, row, col, page? }
+ * Cada entrada: campo -> { sheet, row, col, page?, style? }
  * Row/col son 1-based (como en Excel). */
 export type PlaceholderLayout = Record<string, {
   sheet: string;
   row: number;
   col: number;
   page?: number;
+  style?: {
+    bold?: boolean;
+    color?: string;      // hex "#FF0000"
+    fontSize?: number;   // puntos
+    align?: "left" | "center" | "right";
+  };
 }>;
 
 /** Parsea la hoja "Diseño" buscando placeholders {{campo}} en las celdas.
- * Devuelve mapa campo -> { sheet, row, col }. */
+ * Devuelve mapa campo -> { sheet, row, col, style }.
+ * Extrae formato de la celda: negrita, color, tamaño fuente, alineación. */
 export function parsearLayoutDisenio(workbook: ExcelJS.Workbook): PlaceholderLayout {
   const layout: PlaceholderLayout = {};
   const sheet = workbook.getWorksheet("Diseño");
@@ -94,10 +101,30 @@ export function parsearLayoutDisenio(workbook: ExcelJS.Workbook): PlaceholderLay
         while ((match = placeholderRegex.exec(valor)) !== null) {
           const campo = match[1];
           if (esCampoPlantillaValido(campo)) {
+            // Extraer estilo de la celda
+            const font = cell.font || {};
+            const alignment = cell.alignment || {};
+            
+            const style: PlaceholderLayout[string]["style"] = {};
+            if (font.bold) style.bold = true;
+            if (font.color && font.color.argb) {
+              const argb = font.color.argb;
+              // ARGB -> #RRGGBB (ignorar alpha si es 8 chars)
+              style.color = argb.length === 8 ? "#" + argb.slice(2) : "#" + argb;
+            }
+            if (font.size) style.fontSize = font.size;
+            if (alignment.horizontal) {
+              const align = alignment.horizontal;
+              if (["left", "center", "right"].includes(align)) {
+                style.align = align as "left" | "center" | "right";
+              }
+            }
+            
             layout[campo] = {
               sheet: "Diseño",
               row: rowNumber,
               col: colNumber,
+              style: Object.keys(style).length > 0 ? style : undefined,
             };
           }
         }
