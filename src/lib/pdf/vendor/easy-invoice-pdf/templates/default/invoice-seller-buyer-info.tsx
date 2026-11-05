@@ -98,6 +98,10 @@ export function InvoiceSellerBuyerInfo({
   const mostrarTipoDocumento = config?.mostrarTipoDocumento ?? true;
   const mostrarFormaPago = config?.mostrarFormaPago ?? true;
   const mostrarFechaVencimiento = config?.mostrarFechaVencimiento ?? true;
+  // Documentos de referencia (OC, guía) y vendedor/orden de servicio.
+  const mostrarReferencias = config?.mostrarReferencias ?? true;
+  const mostrarVendedor = config?.mostrarVendedor ?? true;
+  const mostrarHES = config?.mostrarHES ?? true;
 
   if (!mostrarReceptor && !mostrarFolio && !mostrarTipoDocumento) return null;
 
@@ -172,14 +176,19 @@ export function InvoiceSellerBuyerInfo({
               </Text>
             )}
             {/* Vendedor y guía SOLO debajo del receptor (ventas) */}
-            {!isPurchase && invoiceData.erpVendedor && (
+            {!isPurchase && invoiceData.erpVendedor && mostrarVendedor && (
               <Text style={[styles.fontSize7, { marginTop: 6, marginBottom: 2 }]}>
                 Vendedor: {invoiceData.erpVendedor}
               </Text>
             )}
-            {!isPurchase && invoiceData.erpGuiaDespacho && (
+            {!isPurchase && invoiceData.erpGuiaDespacho && mostrarReferencias && (
               <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
                 Guía de Despacho: {invoiceData.erpGuiaDespacho}
+              </Text>
+            )}
+            {invoiceData.erpHesNumber && mostrarHES && (
+              <Text style={[styles.fontSize7, { marginTop: 6, marginBottom: 2 }]}>
+                HES: {invoiceData.erpHesNumber}
               </Text>
             )}
           </View>

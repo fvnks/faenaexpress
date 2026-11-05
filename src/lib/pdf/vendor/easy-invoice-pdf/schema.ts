@@ -251,6 +251,10 @@ export type InvoiceData = {
     total?: string;
   };
   /**
+   * N° de Orden de Servicio (HES) del documento (referencia TpoDocRef/OS).
+   */
+  erpHesNumber?: string | null;
+  /**
    * Si el documento es una compra: el emisor es el proveedor y el diseño se
    * acerca al formato del SII (recuadro RUT/tipo/folio + UNIDAD SII).
    */
@@ -321,7 +325,10 @@ export type InvoiceData = {
         | "mostrarFormaPago"
         | "mostrarPagado"
         | "mostrarPendiente"
-        | "mostrarImporteLetras",
+        | "mostrarImporteLetras"
+        | "mostrarVendedor"
+        | "mostrarReferencias"
+        | "mostrarHES",
         boolean
       >
     >;

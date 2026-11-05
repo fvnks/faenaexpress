@@ -8,6 +8,7 @@ import {
   actualizarPlantillaFactura,
   importarPlantillaExcel,
 } from "@/app/actions/factura-plantilla";
+import { CAMPOS_PLANTILLA } from "@/lib/factura-plantilla-campos";
 
 /** Una plantilla tal como la devuelve la acción. */
 type Plantilla = {
@@ -18,38 +19,9 @@ type Plantilla = {
   configuracion: Record<string, boolean> | null;
 };
 
-/** Campos que la plantilla permite mostrar u ocultar en el PDF. */
-const CAMPOS: Array<{ clave: string; etiqueta: string; porDefecto: boolean }> = [
-  { clave: "mostrarEmpresa", etiqueta: "Nombre de la empresa", porDefecto: true },
-  { clave: "mostrarRUT", etiqueta: "RUT del emisor", porDefecto: true },
-  { clave: "mostrarDireccion", etiqueta: "Dirección y giro", porDefecto: true },
-  { clave: "mostrarTelefono", etiqueta: "Teléfono", porDefecto: true },
-  { clave: "mostrarCorreo", etiqueta: "Correo y sitio web", porDefecto: true },
-  { clave: "mostrarReceptor", etiqueta: "Receptor", porDefecto: true },
-  { clave: "mostrarRUTReceptor", etiqueta: "RUT del receptor", porDefecto: true },
-  {
-    clave: "mostrarDireccionReceptor",
-    etiqueta: "Dirección del receptor",
-    porDefecto: true,
-  },
-  { clave: "mostrarFechaEmision", etiqueta: "Fecha de emisión", porDefecto: true },
-  {
-    clave: "mostrarFechaVencimiento",
-    etiqueta: "Fecha de vencimiento",
-    porDefecto: true,
-  },
-  { clave: "mostrarFolio", etiqueta: "Folio", porDefecto: true },
-  { clave: "mostrarTipoDocumento", etiqueta: "Tipo de documento", porDefecto: true },
-  { clave: "mostrarItems", etiqueta: "Ítems (detalle)", porDefecto: true },
-  { clave: "mostrarTotales", etiqueta: "Totales y timbre", porDefecto: true },
-  { clave: "mostrarRetencion", etiqueta: "Retención", porDefecto: true },
-  { clave: "mostrarExento", etiqueta: "Exento", porDefecto: true },
-  { clave: "mostrarRecargo", etiqueta: "Recargo IVA", porDefecto: true },
-  { clave: "mostrarFormaPago", etiqueta: "Forma de pago", porDefecto: true },
-  { clave: "mostrarPagado", etiqueta: "Pagado", porDefecto: true },
-  { clave: "mostrarPendiente", etiqueta: "Pendiente de pago", porDefecto: true },
-  { clave: "mostrarImporteLetras", etiqueta: "Importe en letras", porDefecto: true },
-];
+/** Campos que la plantilla permite mostrar u ocultar en el PDF. Fuente única:
+ * la misma que usan la descarga en Excel, la importación y el PDF. */
+const CAMPOS = CAMPOS_PLANTILLA;
 
 export default function EditarPlantillaPage({
   params,
@@ -176,13 +148,13 @@ export default function EditarPlantillaPage({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {CAMPOS.map((campo) => (
               <label
-                key={campo.clave}
+                key={campo.campo}
                 className="flex items-center gap-2 text-sm text-muted-foreground"
               >
                 <input
                   type="checkbox"
-                  name={campo.clave}
-                  defaultChecked={config[campo.clave] ?? campo.porDefecto}
+                  name={campo.campo}
+                  defaultChecked={config[campo.campo] ?? campo.porDefecto}
                   className="size-4 rounded border-border text-primary focus:ring-0"
                 />
                 {campo.etiqueta}

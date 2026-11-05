@@ -85,6 +85,12 @@ export async function GET(
       paymentDate: sale.paymentDate,
       notes: sale.notes,
       abonado,
+      // Documento de referencia (OC/guía) y vendedor: llegan al PDF para el
+      // bloque de referencias y la línea de vendedor.
+      ordenCompra: sale.purchaseOrder,
+      guiaDespacho: sale.dispatchGuide,
+      hesNumber: sale.hesNumber,
+      vendedor: sale.salesperson?.name ?? null,
       items: sale.items.map((item) => ({
         name: item.name,
         quantity: Number(item.quantity),

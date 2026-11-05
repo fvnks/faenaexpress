@@ -91,7 +91,7 @@ export async function guardarPlantillaFactura(
       summary: `Creó plantilla de factura "${plantilla.nombre}"`,
     });
 
-    revalidatePath("/facturas/configuracion/factura-plantillas");
+    revalidatePath("/facturas/plantillas");
     return { ok: true };
   } catch (error) {
     console.error("Error creando plantilla de factura:", error);
@@ -148,7 +148,7 @@ export async function actualizarPlantillaFactura(
       summary: `Actualizó plantilla de factura "${plantilla.nombre}"`,
     });
 
-    revalidatePath("/facturas/configuracion/factura-plantillas");
+    revalidatePath("/facturas/plantillas");
     return { ok: true };
   } catch (error) {
     console.error("Error actualizando plantilla de factura:", error);
@@ -179,7 +179,7 @@ export async function eliminarPlantillaFactura(id: string): Promise<FacturaPlant
       summary: `Eliminó plantilla de factura "${plantilla.nombre}"`,
     });
 
-    revalidatePath("/facturas/configuracion/factura-plantillas");
+    revalidatePath("/facturas/plantillas");
     return { ok: true };
   } catch (error) {
     console.error("Error eliminando plantilla de factura:", error);
@@ -219,6 +219,9 @@ export async function crearPlantillaEjemplo() {
     mostrarPagado: true,
     mostrarPendiente: true,
     mostrarImporteLetras: true,
+    mostrarReferencias: true,
+    mostrarVendedor: true,
+    mostrarHES: true,
   };
 
   // Una empresa tiene una sola plantilla (UNIQUE en companyId): si ya existe,
@@ -242,7 +245,7 @@ export async function crearPlantillaEjemplo() {
     summary: `Creó plantilla de ejemplo de factura "${plantilla.nombre}"`,
   });
 
-  revalidatePath("/facturas/configuracion/factura-plantillas");
+  revalidatePath("/facturas/plantillas");
   return { ok: true };
 }
 
@@ -279,7 +282,7 @@ export async function establecerPlantillaPredeterminada(id: string): Promise<Fac
       summary: `Estableció plantilla "${plantilla.nombre}" como predeterminada`,
     });
 
-    revalidatePath("/facturas/configuracion/factura-plantillas");
+    revalidatePath("/facturas/plantillas");
     return { ok: true };
   } catch (error) {
     console.error("Error estableciendo plantilla predeterminada:", error);

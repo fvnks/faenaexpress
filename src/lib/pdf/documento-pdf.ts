@@ -90,6 +90,8 @@ export type DocumentoPdfBase = {
   guiaDespachoFolio?: string | null;
   /** Fecha de la guía de despacho. */
   guiaDespachoFecha?: string | null;
+  /** N° de Orden de Servicio (HES) asociado al documento. */
+  hesNumber?: string | null;
 };
 
 /** Lo que la venta tiene y la compra no. */
@@ -443,6 +445,7 @@ async function baseDocumento({
     erpOrdenCompraFecha: documento.ordenCompraFecha ?? null,
     erpGuiaDespachoFolio: documento.guiaDespachoFolio ?? null,
     erpGuiaDespachoFecha: documento.guiaDespachoFecha ?? null,
+    erpHesNumber: documento.hesNumber ?? null,
     erpIvaAmount: documento.ivaAmount,
     // Si es compra, el emisor es el proveedor (cuadro SII rojo)
     erpIsPurchase: !emisorEsEmpresa,

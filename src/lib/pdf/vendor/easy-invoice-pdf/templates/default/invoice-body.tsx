@@ -210,8 +210,7 @@ export const InvoiceBody = ({
 
   const mostrarItems = mostrar("mostrarItems");
   const mostrarTotales = mostrar("mostrarTotales");
-  const mostrarReferencias =
-    mostrar("mostrarFolio") || mostrar("mostrarTipoDocumento");
+  const mostrarReferencias = mostrar("mostrarReferencias");
 
   return (
     <>

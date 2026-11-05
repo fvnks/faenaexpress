@@ -85,6 +85,11 @@ export async function GET(
       paymentDate: purchase.paymentDate,
       notes: purchase.notes,
       abonado,
+      // Documento de referencia (OC/guía) y HES: llegan al PDF para el bloque
+      // de referencias.
+      ordenCompra: purchase.purchaseOrder,
+      guiaDespacho: purchase.dispatchGuide,
+      hesNumber: purchase.hesNumber,
       items: purchase.items.map((item) => ({
         name: item.name,
         quantity: Number(item.quantity),

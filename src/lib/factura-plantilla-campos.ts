@@ -31,6 +31,12 @@ export const CAMPOS_PLANTILLA: Array<{
   { campo: "mostrarPagado", etiqueta: "Pagado", porDefecto: true },
   { campo: "mostrarPendiente", etiqueta: "Pendiente de pago", porDefecto: true },
   { campo: "mostrarImporteLetras", etiqueta: "Importe en letras", porDefecto: true },
+  // Documentos de referencia de la venta/compra: OC (801) y guía de despacho (52).
+  { campo: "mostrarReferencias", etiqueta: "Documentos de referencia (OC, guía)", porDefecto: true },
+  // Vendedor responsable de la venta (ventas).
+  { campo: "mostrarVendedor", etiqueta: "Vendedor", porDefecto: true },
+  // N° de Orden de Servicio (HES) asociado al documento (servicios).
+  { campo: "mostrarHES", etiqueta: "N° de Orden de Servicio (HES)", porDefecto: true },
 ];
 
 /** Todos los campos conocidos de la plantilla. */

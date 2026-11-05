@@ -119,10 +119,25 @@ const GUIA: Guia[] = [
     lugar: "Pie de página.",
     dato: "Saldo por pagar: total menos retención menos lo abonado.",
   },
+  {
+    campo: "Documentos de referencia",
+    lugar: "Tabla bajo el receptor, con el encabezado de referencias.",
+    dato: "Orden de compra (OC, tipo 801) y guía de despacho (guía, tipo 52) que la venta/compra referencia. Aparece solo si la venta tiene alguna.",
+  },
+  {
+    campo: "Vendedor",
+    lugar: "Bloque del receptor (ventas), bajo el guía o el HES.",
+    dato: "Nombre del vendedor (del catálogo de comisiones) que realizó la venta. En compras no aplica.",
+  },
+  {
+    campo: "N° de Orden de Servicio (HES)",
+    lugar: "Bloque del receptor, junto al vendedor o guía.",
+    dato: "Número de la orden de servicio asociada al documento (servicios).",
+  },
 ];
 
 export default async function AyudaPlantillaPage() {
-  await requireContext("configuracion");
+  await requireContext("plantillas");
 
   return (
     <div className="flex flex-col gap-6">
