@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { obtenerPlantillasFactura } from "@/app/actions/factura-plantilla";
 import { updateAlertSettings } from "@/app/actions/companies";
 import { CompanyForm } from "@/app/facturas/configuracion/company-form";
 import { AddMemberForm, MemberRow, NewMemberForm } from "@/app/facturas/configuracion/member-forms";
@@ -207,7 +206,7 @@ export default async function ConfigurationPage() {
                 plantilla define qué campos mostrar en el PDF.
               </p>
               <Link
-                href="/facturas/configuracion/factura-plantillas"
+                href="/facturas/plantillas"
                 className={secondaryButtonClass + " inline-flex py-1.5 text-sm"}
               >
                 Gestionar plantillas

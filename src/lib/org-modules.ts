@@ -37,7 +37,7 @@ export const ORG_MODULES: OrgModule[] = [
     // gestiona su catálogo desde /pos/productos y no ve nada de /facturas.
     // El inventario avanzado (bodegas, costos, conteos) vive en el módulo
     // Inventario; los datos son compartidos con el POS.
-    sections: ["panel", "compras", "ventas", "gastos", "clientes", "proveedores", "catalogos", "reportes", "auditoria", "importar", "configuracion", "organizacion"],
+    sections: ["panel", "compras", "ventas", "gastos", "clientes", "proveedores", "catalogos", "reportes", "auditoria", "importar", "configuracion", "organizacion", "plantillas"],
     core: false,
   },
   {

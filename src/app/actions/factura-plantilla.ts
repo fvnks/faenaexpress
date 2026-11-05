@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import ExcelJS from "exceljs";
 
 import { requireContext, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { recordAudit } from "@/lib/audit";
+import { CAMPOS_PLANTILLA, esCampoPlantillaValido } from "@/lib/factura-plantilla-campos";
 
 export type FacturaPlantillaState = { error?: string; ok?: boolean } | undefined;
 
@@ -219,8 +221,12 @@ export async function crearPlantillaEjemplo() {
     mostrarImporteLetras: true,
   };
 
-  const plantilla = await db.facturaPlantilla.create({
-    data: {
+  // Una empresa tiene una sola plantilla (UNIQUE en companyId): si ya existe,
+  // la actualizamos a la de ejemplo en vez de crear otra.
+  const plantilla = await db.facturaPlantilla.upsert({
+    where: { companyId_nombre: { companyId: ctx.company.id, nombre: "Plantilla de ejemplo" } },
+    update: { configuracion, esPredeterminada: true, esActiva: true },
+    create: {
       companyId: ctx.company.id,
       nombre: "Plantilla de ejemplo",
       configuracion,
@@ -279,6 +285,77 @@ export async function establecerPlantillaPredeterminada(id: string): Promise<Fac
     console.error("Error estableciendo plantilla predeterminada:", error);
     return { error: "No se pudo establecer la plantilla predeterminada." };
   }
+}
+
+/**
+ * Importar una plantilla de factura desde un archivo Excel (.xlsx) subido por
+ * el usuario. La hoja debe llamarse «Plantilla» y tener las columnas Campo /
+ * Etiqueta / Visible (la descarga la genera automáticamente).
+ */
+export async function importarPlantillaExcel(formData: FormData): Promise<FacturaPlantillaState> {
+  const ctx = await requireContext();
+  if (!isAdmin(ctx)) {
+    return { error: "Solo un administrador puede importar plantillas de factura." };
+  }
+
+  const id = String(formData.get("id") ?? "");
+  const plantilla = await db.facturaPlantilla.findFirst({
+    where: { id, companyId: ctx.company.id },
+  });
+  if (!plantilla) return { error: "Plantilla no encontrada." };
+
+  const archivo = formData.get("archivo");
+  if (!(archivo instanceof File)) {
+    return { error: "Falta el archivo de plantilla." };
+  }
+
+  const buffer = Buffer.from(await archivo.arrayBuffer());
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(
+    buffer as unknown as Parameters<typeof workbook.xlsx.load>[0],
+  );
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return { error: "El archivo no tiene hojas de cálculo." };
+
+  // Las filas: 1 = encabezado (Campo, Etiqueta, Visible), a partir de la 2.
+  const configuracion: Record<string, boolean> = {};
+  for (const campo of CAMPOS_PLANTILLA) configuracion[campo.campo] = campo.porDefecto;
+
+  let leidas = 0;
+  for (let i = 1; i <= sheet.rowCount; i++) {
+    const row = sheet.getRow(i);
+    const campo = String(row.getCell(1).value ?? "").trim();
+    const visibleValue = row.getCell(3).value;
+    const visible =
+      visibleValue === true ||
+      visibleValue === "true" ||
+      visibleValue === 1 ||
+      visibleValue === "TRUE";
+
+    if (!campo) continue;
+    if (!esCampoPlantillaValido(campo)) continue;
+    configuracion[campo] = visible;
+    leidas += 1;
+  }
+
+  if (leidas === 0) {
+    return { error: "El archivo no trajo campos reconocibles." };
+  }
+
+  const plantillaActualizada = await db.facturaPlantilla.update({
+    where: { id: plantilla.id },
+    data: { configuracion },
+  });
+
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "FacturaPlantilla",
+    entityId: plantillaActualizada.id,
+    summary: `Importó plantilla de factura "${plantillaActualizada.nombre}" desde Excel`,
+  });
+
+  revalidatePath("/facturas/plantillas");
+  return { ok: true };
 }
 
 /**

@@ -117,7 +117,7 @@ export default function FacturaPlantillasPage() {
         <p className="text-sm text-muted-foreground">
           Cree y gestione plantillas de factura para ventas y compras.{" "}
           <Link
-            href="/facturas/configuracion/factura-plantilla/ayuda"
+            href="/facturas/plantillas/ayuda"
             className="underline underline-offset-4 hover:text-foreground"
           >
             Ver qué dato va en cada lugar
@@ -130,7 +130,7 @@ export default function FacturaPlantillasPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Link
-              href="/facturas/configuracion/factura-plantilla/nueva"
+              href="/facturas/plantillas/nueva"
               className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90"
             >
               Nueva plantilla
@@ -180,8 +180,14 @@ export default function FacturaPlantillasPage() {
                   </p>
                 </div>
                 <div className="flex gap-2 mt-3">
+                  <a
+                    href={`/facturas/plantillas/${plantilla.id}/descargar`}
+                    className="flex-1 inline-flex items-center justify-center rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Descargar Excel
+                  </a>
                   <Link
-                    href={`/facturas/configuracion/factura-plantilla/${plantilla.id}`}
+                    href={`/facturas/plantillas/${plantilla.id}`}
                     className="flex-1 inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90"
                   >
                     Editar

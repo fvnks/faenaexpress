@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   obtenerPlantillaFactura,
   actualizarPlantillaFactura,
+  importarPlantillaExcel,
 } from "@/app/actions/factura-plantilla";
 
 /** Una plantilla tal como la devuelve la acción. */
@@ -114,7 +115,7 @@ export default function EditarPlantillaPage({
       <div className="flex flex-col items-center justify-center h-64 text-destructive">
         <p>{error || "Plantilla no encontrada."}</p>
         <Link
-          href="/facturas/configuracion/factura-plantillas"
+          href="/facturas/plantillas"
           className="mt-4 text-sm underline"
         >
           Volver
@@ -125,6 +126,16 @@ export default function EditarPlantillaPage({
 
   const config = plantilla.configuracion ?? {};
 
+  async function importarPlantilla(formData: FormData) {
+    const resultado = await importarPlantillaExcel(formData);
+    if (resultado?.ok) {
+      alert("Plantilla importada desde Excel correctamente.");
+      window.location.reload();
+    } else {
+      alert(resultado?.error || "Error al importar la plantilla desde Excel.");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -133,7 +144,7 @@ export default function EditarPlantillaPage({
           Elija qué datos se imprimen en la factura comercial (ventas y
           compras). Lo que quede sin marcar no aparece en el PDF.{" "}
           <Link
-            href="/facturas/configuracion/factura-plantilla/ayuda"
+            href="/facturas/plantillas/ayuda"
             className="underline underline-offset-4 hover:text-foreground"
           >
             Ver qué dato va en cada lugar
@@ -202,12 +213,36 @@ export default function EditarPlantillaPage({
             {guardando ? "Guardando..." : "Guardar cambios"}
           </button>
           <Link
-            href="/facturas/configuracion/factura-plantillas"
+            href="/facturas/plantillas"
             className="inline-flex items-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
             Cancelar
           </Link>
         </div>
+      </form>
+
+      <form action={importarPlantilla} className="flex flex-col gap-4 max-w-2xl">
+        <fieldset className="flex flex-col gap-3">
+          <legend className="text-sm font-medium">Importar desde Excel</legend>
+          <p className="text-sm text-muted-foreground">
+            Subí un archivo .xlsx descargado desde esta misma sección para aplicar
+            nuevos valores a los campos de la plantilla.
+          </p>
+          <input
+            id="archivo"
+            name="archivo"
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+          />
+          <input type="hidden" name="id" value={plantilla.id} />
+        </fieldset>
+        <button
+          type="submit"
+          className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90"
+        >
+          Importar plantilla desde Excel
+        </button>
       </form>
     </div>
   );

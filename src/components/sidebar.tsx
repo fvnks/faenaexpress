@@ -297,6 +297,7 @@ const groups: SidebarGroup[] = [
     items: [
       { href: "/facturas/catalogos", label: "Catálogos", section: "catalogos", icon: "catalogos" },
       { href: "/facturas/importar", label: "Importar", section: "importar", icon: "importar" },
+      { href: "/facturas/plantillas", label: "Plantillas", section: "plantillas", icon: "plantillas" },
       { href: "/facturas/organizacion", label: "Organización", section: "organizacion", icon: "organizacion" },
       { href: "/facturas/facturacion", label: "Plan y facturación", section: "organizacion", icon: "plan" },
       { href: "/facturas/configuracion", label: "Configuración", section: "configuracion", icon: "configuracion" },

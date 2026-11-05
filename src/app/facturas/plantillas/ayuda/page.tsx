@@ -129,7 +129,7 @@ export default async function AyudaPlantillaPage() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Link
-            href="/facturas/configuracion/factura-plantillas"
+            href="/facturas/plantillas"
             className="underline underline-offset-4 hover:text-foreground"
           >
             Plantillas de factura

@@ -1,0 +1,49 @@
+// Campos configurables de la plantilla de factura, compartidos entre la UI,
+// la descarga en Excel y la importación. Es la única fuente de verdad para los
+// flags que el PDF respeta (ver `src/lib/pdf/vendor/.../invoice-*.tsx`).
+//
+// El orden de los campos define el orden en que aparecen los bloques del PDF;
+// la visibilidad (true/false) decide si se imprimen.
+
+export const CAMPOS_PLANTILLA: Array<{
+  campo: string;
+  etiqueta: string;
+  porDefecto: boolean;
+}> = [
+  { campo: "mostrarEmpresa", etiqueta: "Nombre de la empresa", porDefecto: true },
+  { campo: "mostrarRUT", etiqueta: "RUT del emisor", porDefecto: true },
+  { campo: "mostrarDireccion", etiqueta: "Dirección y giro", porDefecto: true },
+  { campo: "mostrarTelefono", etiqueta: "Teléfono", porDefecto: true },
+  { campo: "mostrarCorreo", etiqueta: "Correo y sitio web", porDefecto: true },
+  { campo: "mostrarReceptor", etiqueta: "Receptor", porDefecto: true },
+  { campo: "mostrarRUTReceptor", etiqueta: "RUT del receptor", porDefecto: true },
+  { campo: "mostrarDireccionReceptor", etiqueta: "Dirección del receptor", porDefecto: true },
+  { campo: "mostrarFechaEmision", etiqueta: "Fecha de emisión", porDefecto: true },
+  { campo: "mostrarFechaVencimiento", etiqueta: "Fecha de vencimiento", porDefecto: true },
+  { campo: "mostrarFolio", etiqueta: "Folio", porDefecto: true },
+  { campo: "mostrarTipoDocumento", etiqueta: "Tipo de documento", porDefecto: true },
+  { campo: "mostrarItems", etiqueta: "Ítems (detalle)", porDefecto: true },
+  { campo: "mostrarTotales", etiqueta: "Totales y timbre", porDefecto: true },
+  { campo: "mostrarRetencion", etiqueta: "Retención", porDefecto: true },
+  { campo: "mostrarExento", etiqueta: "Exento", porDefecto: true },
+  { campo: "mostrarRecargo", etiqueta: "Recargo IVA", porDefecto: true },
+  { campo: "mostrarFormaPago", etiqueta: "Forma de pago", porDefecto: true },
+  { campo: "mostrarPagado", etiqueta: "Pagado", porDefecto: true },
+  { campo: "mostrarPendiente", etiqueta: "Pendiente de pago", porDefecto: true },
+  { campo: "mostrarImporteLetras", etiqueta: "Importe en letras", porDefecto: true },
+];
+
+/** Todos los campos conocidos de la plantilla. */
+export const CAMPOS_PLANTILLA_KEYS: string[] = CAMPOS_PLANTILLA.map((c) => c.campo);
+
+/** ¿Es un campo conocido de la plantilla? */
+export function esCampoPlantillaValido(campo: string): boolean {
+  return CAMPOS_PLANTILLA.some((c) => c.campo === campo);
+}
+
+/** Configuración con todos los campos visibles (por defecto o explícito). */
+export function configuracionPorDefecto(): Record<string, boolean> {
+  const config: Record<string, boolean> = {};
+  for (const c of CAMPOS_PLANTILLA) config[c.campo] = c.porDefecto;
+  return config;
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 
@@ -31,6 +32,7 @@ const CAMPOS: Array<{ clave: string; etiqueta: string }> = [
 ];
 
 export default function NuevaPlantillaPage() {
+  const router = useRouter();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +48,7 @@ export default function NuevaPlantillaPage() {
     try {
       const resultado = await guardarPlantillaFactura({}, formData);
       if (resultado?.ok) {
-        window.location.href = "/facturas/configuracion/factura-plantillas";
+        router.push("/facturas/plantillas");
       } else {
         setError(resultado?.error || "Error al guardar la plantilla.");
       }
@@ -123,7 +125,7 @@ export default function NuevaPlantillaPage() {
             {guardando ? "Guardando..." : "Guardar plantilla"}
           </button>
           <Link
-            href="/facturas/configuracion/factura-plantillas"
+            href="/facturas/plantillas"
             className="inline-flex items-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
             Cancelar

@@ -18,6 +18,7 @@ export const sections = [
   "configuracion",
   "organizacion",
   "banco",
+  "plantillas",
 ] as const;
 
 export type Section = (typeof sections)[number];
@@ -50,6 +51,8 @@ const ACCESS: Record<Section, readonly Role[]> = {
   // Los movimientos bancarios exponen la caja real de la empresa: igual que
   // RRHH, solo administración y contabilidad.
   banco: ["ADMIN", "ACCOUNTANT"],
+  // Plantillas de factura (campos configurables del PDF): solo administración.
+  plantillas: ["ADMIN", "ACCOUNTANT"],
 };
 
 // Quién puede crear, editar o eliminar dentro de cada sección.
@@ -76,6 +79,8 @@ const WRITE: Record<Section, readonly Role[]> = {
   organizacion: ["ADMIN"],
   // Conciliar mueve el estado de pago de compras y ventas: ADMIN/ACCOUNTANT.
   banco: ["ADMIN", "ACCOUNTANT"],
+  // Plantillas de factura (campos configurables del PDF): solo administración.
+  plantillas: ["ADMIN", "ACCOUNTANT"],
 };
 
 export function canAccess(role: Role, section: Section): boolean {
