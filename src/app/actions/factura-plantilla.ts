@@ -186,6 +186,61 @@ export async function eliminarPlantillaFactura(id: string): Promise<FacturaPlant
 }
 
 /**
+ * Crear la plantilla de ejemplo (todos los campos visibles) para la empresa.
+ * Sirve para ver en el PDF qué aspectos se reconocen antes de armar la propia.
+ */
+export async function crearPlantillaEjemplo() {
+  const ctx = await requireContext();
+  if (!isAdmin(ctx)) {
+    return { error: "Solo un administrador puede crear plantillas de factura." };
+  }
+
+  const configuracion: Record<string, boolean> = {
+    mostrarEmpresa: true,
+    mostrarRUT: true,
+    mostrarDireccion: true,
+    mostrarTelefono: true,
+    mostrarCorreo: true,
+    mostrarReceptor: true,
+    mostrarRUTReceptor: true,
+    mostrarDireccionReceptor: true,
+    mostrarFechaEmision: true,
+    mostrarFechaVencimiento: true,
+    mostrarFolio: true,
+    mostrarTipoDocumento: true,
+    mostrarItems: true,
+    mostrarTotales: true,
+    mostrarRetencion: false,
+    mostrarExento: false,
+    mostrarRecargo: false,
+    mostrarFormaPago: true,
+    mostrarPagado: true,
+    mostrarPendiente: true,
+    mostrarImporteLetras: true,
+  };
+
+  const plantilla = await db.facturaPlantilla.create({
+    data: {
+      companyId: ctx.company.id,
+      nombre: "Plantilla de ejemplo",
+      configuracion,
+      esPredeterminada: true,
+      esActiva: true,
+    },
+  });
+
+  await recordAudit(ctx, {
+    action: "CREATE",
+    entityType: "FacturaPlantilla",
+    entityId: plantilla.id,
+    summary: `Creó plantilla de ejemplo de factura "${plantilla.nombre}"`,
+  });
+
+  revalidatePath("/facturas/configuracion/factura-plantillas");
+  return { ok: true };
+}
+
+/**
  * Establecer una plantilla como predeterminada para la empresa
  */
 export async function establecerPlantillaPredeterminada(id: string): Promise<FacturaPlantillaState> {

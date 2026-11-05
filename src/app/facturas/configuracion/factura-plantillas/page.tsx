@@ -7,6 +7,7 @@ import {
   obtenerPlantillasFactura,
   eliminarPlantillaFactura,
   establecerPlantillaPredeterminada,
+  crearPlantillaEjemplo,
 } from "@/app/actions/factura-plantilla";
 
 /** Una plantilla tal como la devuelve la acción (configuración es JSON). */
@@ -68,6 +69,16 @@ export default function FacturaPlantillasPage() {
     }
   }
 
+  async function crearEjemplo() {
+    const resultado = await crearPlantillaEjemplo();
+    if (resultado?.ok) {
+      await cargarPlantillas();
+      alert("Plantilla de ejemplo creada con todos los campos visibles.");
+    } else if (resultado?.error) {
+      alert(resultado.error || "Error al crear la plantilla de ejemplo.");
+    }
+  }
+
   if (cargando) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
@@ -124,6 +135,13 @@ export default function FacturaPlantillasPage() {
             >
               Nueva plantilla
             </Link>
+            <button
+              type="button"
+              onClick={crearEjemplo}
+              className="inline-flex items-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              Plantilla de ejemplo
+            </button>
           </div>
         </div>
 
