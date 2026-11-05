@@ -230,6 +230,17 @@ export async function crearPlantillaEjemplo(): Promise<FacturaPlantillaState> {
     mostrarReferencias: true,
     mostrarVendedor: true,
     mostrarHES: true,
+    // Nuevos campos del DTE (default false para no saturar la plantilla base)
+    mostrarCdgVendedor: false,
+    mostrarTipoDespacho: false,
+    mostrarIndServicio: false,
+    mostrarTpoTranVenta: false,
+    mostrarCdgIntRecep: false,
+    mostrarDirPostal: false,
+    mostrarCmnaPostal: false,
+    mostrarCiudadPostal: false,
+    mostrarUnidadItem: false,
+    mostrarCodigoItem: false,
   };
 
   const configuracionCompra: Record<string, boolean> = {

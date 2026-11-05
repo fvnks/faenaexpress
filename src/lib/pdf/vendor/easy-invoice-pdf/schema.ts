@@ -328,7 +328,17 @@ export type InvoiceData = {
         | "mostrarImporteLetras"
         | "mostrarVendedor"
         | "mostrarReferencias"
-        | "mostrarHES",
+        | "mostrarHES"
+        | "mostrarCdgVendedor"
+        | "mostrarTipoDespacho"
+        | "mostrarIndServicio"
+        | "mostrarTpoTranVenta"
+        | "mostrarCdgIntRecep"
+        | "mostrarDirPostal"
+        | "mostrarCmnaPostal"
+        | "mostrarCiudadPostal"
+        | "mostrarUnidadItem"
+        | "mostrarCodigoItem",
         boolean
       >
     >;

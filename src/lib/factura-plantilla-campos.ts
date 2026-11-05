@@ -37,6 +37,17 @@ export const CAMPOS_PLANTILLA: Array<{
   { campo: "mostrarVendedor", etiqueta: "Vendedor", porDefecto: true },
   // N° de Orden de Servicio (HES) asociado al documento (servicios).
   { campo: "mostrarHES", etiqueta: "N° de Orden de Servicio (HES)", porDefecto: true },
+  // Nuevos campos del DTE
+  { campo: "mostrarCdgVendedor", etiqueta: "Código de vendedor (emisor)", porDefecto: false },
+  { campo: "mostrarTipoDespacho", etiqueta: "Tipo de despacho", porDefecto: false },
+  { campo: "mostrarIndServicio", etiqueta: "Indicador de servicio", porDefecto: false },
+  { campo: "mostrarTpoTranVenta", etiqueta: "Tipo de transacción de venta", porDefecto: false },
+  { campo: "mostrarCdgIntRecep", etiqueta: "Código interno receptor", porDefecto: false },
+  { campo: "mostrarDirPostal", etiqueta: "Dirección postal receptor", porDefecto: false },
+  { campo: "mostrarCmnaPostal", etiqueta: "Comuna postal receptor", porDefecto: false },
+  { campo: "mostrarCiudadPostal", etiqueta: "Ciudad postal receptor", porDefecto: false },
+  { campo: "mostrarUnidadItem", etiqueta: "Unidad de medida (ítems)", porDefecto: false },
+  { campo: "mostrarCodigoItem", etiqueta: "Código de item (ítems)", porDefecto: false },
 ];
 
 /** Todos los campos conocidos de la plantilla. */

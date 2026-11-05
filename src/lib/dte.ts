@@ -95,6 +95,9 @@ export type DteDocumento = {
   codRef: string | null; // 1=anula, 2=corrige texto, 3=corrige montos
   razonRef: string | null;
   pagos: DtePago[]; // IdDoc/MntPagos
+  // Nuevos campos IdDoc
+  tipoDespacho: string | null; // TipoDespacho
+  tpoTranVentaCod: string | null; // TpoTranVenta
 
   // --- Emisor ---
   rutEmisor: string;
@@ -107,6 +110,8 @@ export type DteDocumento = {
   telefonoEmisor: string | null;
   emailEmisor: string | null;
   sucursalEmisor: string | null;
+  // Nuevo campo Emisor
+  cdgVendedor: string | null; // CdgVendedor
 
   // --- Receptor ---
   rutReceptor: string;
@@ -118,6 +123,11 @@ export type DteDocumento = {
   ciudadReceptor: string | null;
   telefonoReceptor: string | null;
   emailReceptor: string | null;
+  // Nuevos campos Receptor
+  cdgIntRecep: string | null; // CdgIntRecep
+  direccionPostal: string | null; // DirPostal
+  comunaPostal: string | null; // CmnaPostal
+  ciudadPostal: string | null; // CiudadPostal
 
   // --- Totales ---
   neto: number;
@@ -490,6 +500,9 @@ export function parseDteXml(input: Buffer | string): DteParseResult {
       codRef: firstText(referencias[0]?.codRef, idDoc.CodRef),
       razonRef: firstText(referencias[0]?.razonRef, idDoc.RazonRef),
       pagos,
+      // Nuevos campos IdDoc
+      tipoDespacho: text(idDoc.TipoDespacho),
+      tpoTranVentaCod: text(idDoc.TpoTranVenta),
 
       // Emisor
       rutEmisor,
@@ -502,6 +515,8 @@ export function parseDteXml(input: Buffer | string): DteParseResult {
       telefonoEmisor: firstText(emisor.Telefono, emisor.FonoEmisor, emisor.FonoEmis),
       emailEmisor: firstText(emisor.CorreoEmisor, emisor.EmailEmisor),
       sucursalEmisor: text(emisor.Sucursal),
+      // Nuevo campo Emisor
+      cdgVendedor: firstText(emisor.CdgVendedor, dd.CdgVendedor),
 
       // Receptor
       rutReceptor,
@@ -513,6 +528,11 @@ export function parseDteXml(input: Buffer | string): DteParseResult {
       ciudadReceptor: firstText(receptor.CiudadRecep, dd.CiudadRecep),
       telefonoReceptor: firstText(receptor.FonoRecep, receptor.Telefono),
       emailReceptor: firstText(receptor.CorreoRecep, receptor.EmailRecep),
+      // Nuevos campos Receptor
+      cdgIntRecep: firstText(receptor.CdgIntRecep, dd.CdgIntRecep),
+      direccionPostal: firstText(receptor.DirPostal, dd.DirPostal),
+      comunaPostal: firstText(receptor.CmnaPostal, dd.CmnaPostal),
+      ciudadPostal: firstText(receptor.CiudadPostal, dd.CiudadPostal),
 
       // Totales
       neto: toInt(totales.MntNeto ?? dd.MntNeto),
