@@ -52,8 +52,8 @@ export const DEFAULT_EXCEL_TO_PDF_CONFIG: ExcelToPdfConfig = {
   marginTop: 40,
   defaultColWidth: 8.43,    // ancho estándar Excel en caracteres
   defaultRowHeight: 15,     // alto estándar Excel en puntos
-  scaleX: 7.5,              // ~1 char ≈ 7.5pt (ajustado empíricamente)
-  scaleY: 1.0,              // 1 row ≈ 15pt, pero usamos 1:1 para simplicity
+  scaleX: 4.0,              // ~1 char ≈ 4pt (ajustado: 8.43 chars * 4 ≈ 34pt por columna; ~17 columnas en 515pt)
+  scaleY: 1.0,              // 1 row ≈ 15pt
   pageWidth: 595.28,
   pageHeight: 841.89,
 };

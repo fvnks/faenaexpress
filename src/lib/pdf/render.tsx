@@ -2,14 +2,14 @@ import { renderToBuffer } from "@react-pdf/renderer";
 
 import type { InvoiceData } from "./vendor/easy-invoice-pdf/schema";
 import { InvoicePdfTemplate } from "./vendor/easy-invoice-pdf/templates/default";
-import { LayoutBasedInvoiceRenderer } from "./layout-renderer";
+import { LayoutInvoiceTemplate } from "./layout-template";
 
 /**
  * Genera el PDF de un documento.
  * 
- * Si invoiceData.erpPlantilla?.configuracion._layout existe, usa el renderer
- * basado en layout (Option A: coordenadas absolutas desde Excel).
- * Si no, usa el template estándar (fijo).
+ * Si invoiceData.erpPlantilla?.configuracion._layout existe, usa el template
+ * Option A (LayoutInvoiceTemplate) con coordenadas absolutas desde Excel.
+ * Si no, usa el template estándar (InvoicePdfTemplate).
  */
 export async function renderPdfDocumento(
   invoiceData: InvoiceData,
@@ -19,10 +19,9 @@ export async function renderPdfDocumento(
   if (layout && Object.keys(layout).length > 0) {
     // Modo Option A: layout personalizado desde Excel
     return renderToBuffer(
-      <LayoutBasedInvoiceRenderer
+      <LayoutInvoiceTemplate
         invoiceData={invoiceData}
         layout={layout}
-        styles={{}}
       />
     );
   }

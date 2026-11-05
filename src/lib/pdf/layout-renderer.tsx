@@ -45,6 +45,9 @@ const FIELD_GETTERS: Record<string, (data: InvoiceData) => string | number | nul
   // Pago
   mostrarFormaPago: (d) => d.paymentMethod ?? null,
   
+  // Items
+  mostrarItems: (d) => d.items?.length ? `${d.items.length} items` : null,
+  
   // Totales (usar erp* fields)
   mostrarTotales: (d) => d.total ? `${d.total} ${d.currency}` : null,
   mostrarRetencion: (d) => d.erpRetentionAmount ? `${d.erpRetentionAmount} ${d.currency}` : null,
