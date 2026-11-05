@@ -6,7 +6,7 @@ import ExcelJS from "exceljs";
 import { requireContext, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { recordAudit } from "@/lib/audit";
-import { CAMPOS_PLANTILLA, esCampoPlantillaValido } from "@/lib/factura-plantilla-campos";
+import { CAMPOS_PLANTILLA, esCampoPlantillaValido, PlaceholderLayout, parsearLayoutDisenio } from "@/lib/factura-plantilla-campos";
 
 export type FacturaPlantillaState = { error?: string; ok?: boolean } | undefined;
 
@@ -343,31 +343,42 @@ export async function importarPlantillaExcel(formData: FormData): Promise<Factur
   await workbook.xlsx.load(
     buffer as unknown as Parameters<typeof workbook.xlsx.load>[0],
   );
-  const sheet = workbook.worksheets[0];
-  if (!sheet) return { error: "El archivo no tiene hojas de cálculo." };
 
+  // 1. Hoja "Plantilla" (flags) - compatible con versión anterior
+  const sheetPlantilla = workbook.getWorksheet("Plantilla");
   const configuracion: Record<string, boolean> = {};
   for (const campo of CAMPOS_PLANTILLA) configuracion[campo.campo] = campo.porDefecto;
 
   let leidas = 0;
-  for (let i = 1; i <= sheet.rowCount; i++) {
-    const row = sheet.getRow(i);
-    const campo = String(row.getCell(1).value ?? "").trim();
-    const visibleValue = row.getCell(3).value;
-    const visible =
-      visibleValue === true ||
-      visibleValue === "true" ||
-      visibleValue === 1 ||
-      visibleValue === "TRUE";
+  if (sheetPlantilla) {
+    for (let i = 1; i <= sheetPlantilla.rowCount; i++) {
+      const row = sheetPlantilla.getRow(i);
+      const campo = String(row.getCell(1).value ?? "").trim();
+      const visibleValue = row.getCell(3).value;
+      const visible =
+        visibleValue === true ||
+        visibleValue === "true" ||
+        visibleValue === 1 ||
+        visibleValue === "TRUE";
 
-    if (!campo) continue;
-    if (!esCampoPlantillaValido(campo)) continue;
-    configuracion[campo] = visible;
-    leidas += 1;
+      if (!campo) continue;
+      if (!esCampoPlantillaValido(campo)) continue;
+      configuracion[campo] = visible;
+      leidas += 1;
+    }
+  }
+
+  // 2. Hoja "Diseño" (layout con coordenadas) - NUEVO: Option A
+  const layout = parsearLayoutDisenio(workbook);
+  const layoutKeys = Object.keys(layout);
+  if (layoutKeys.length > 0) {
+    // Guardar layout en la configuración bajo clave especial
+    (configuracion as Record<string, unknown>)._layout = layout;
+    leidas += layoutKeys.length;
   }
 
   if (leidas === 0) {
-    return { error: "El archivo no trajo campos reconocibles." };
+    return { error: "El archivo no trajo campos reconocibles (hojas 'Plantilla' y/o 'Diseño')." };
   }
 
   const plantillaActualizada = await db.facturaPlantilla.update({

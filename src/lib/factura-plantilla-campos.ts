@@ -1,3 +1,5 @@
+import ExcelJS from "exceljs";
+
 // Campos configurables de la plantilla de factura, compartidos entre la UI,
 // la descarga en Excel y la importación. Es la única fuente de verdad para los
 // flags que el PDF respeta (ver `src/lib/pdf/vendor/.../invoice-*.tsx`).
@@ -63,4 +65,44 @@ export function configuracionPorDefecto(): Record<string, boolean> {
   const config: Record<string, boolean> = {};
   for (const c of CAMPOS_PLANTILLA) config[c.campo] = c.porDefecto;
   return config;
+}
+
+/** Layout de placeholders en la hoja "Diseño" del Excel.
+ * Cada entrada: campo -> { sheet, row, col, page? }
+ * Row/col son 1-based (como en Excel). */
+export type PlaceholderLayout = Record<string, {
+  sheet: string;
+  row: number;
+  col: number;
+  page?: number;
+}>;
+
+/** Parsea la hoja "Diseño" buscando placeholders {{campo}} en las celdas.
+ * Devuelve mapa campo -> { sheet, row, col }. */
+export function parsearLayoutDisenio(workbook: ExcelJS.Workbook): PlaceholderLayout {
+  const layout: PlaceholderLayout = {};
+  const sheet = workbook.getWorksheet("Diseño");
+  if (!sheet) return layout;
+
+  const placeholderRegex = /\{\{(\w+)\}\}/g;
+  
+  sheet.eachRow((row, rowNumber) => {
+    row.eachCell((cell, colNumber) => {
+      const valor = cell.value;
+      if (typeof valor === "string") {
+        let match;
+        while ((match = placeholderRegex.exec(valor)) !== null) {
+          const campo = match[1];
+          if (esCampoPlantillaValido(campo)) {
+            layout[campo] = {
+              sheet: "Diseño",
+              row: rowNumber,
+              col: colNumber,
+            };
+          }
+        }
+      }
+    });
+  });
+  return layout;
 }

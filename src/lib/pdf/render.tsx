@@ -2,16 +2,32 @@ import { renderToBuffer } from "@react-pdf/renderer";
 
 import type { InvoiceData } from "./vendor/easy-invoice-pdf/schema";
 import { InvoicePdfTemplate } from "./vendor/easy-invoice-pdf/templates/default";
+import { LayoutBasedInvoiceRenderer } from "./layout-renderer";
 
 /**
  * Genera el PDF de un documento.
- *
- * El render es en el servidor (no en el navegador): el archivo sale igual en cualquier
- * equipo y se puede mandar por correo o archivar tal cual.
+ * 
+ * Si invoiceData.erpPlantilla?.configuracion._layout existe, usa el renderer
+ * basado en layout (Option A: coordenadas absolutas desde Excel).
+ * Si no, usa el template estándar (fijo).
  */
 export async function renderPdfDocumento(
   invoiceData: InvoiceData,
 ): Promise<Buffer> {
+  const layout = (invoiceData.erpPlantilla?.configuracion as Record<string, unknown> | null)?._layout as Record<string, { row: number; col: number }> | undefined;
+  
+  if (layout && Object.keys(layout).length > 0) {
+    // Modo Option A: layout personalizado desde Excel
+    return renderToBuffer(
+      <LayoutBasedInvoiceRenderer
+        invoiceData={invoiceData}
+        layout={layout}
+        styles={{}}
+      />
+    );
+  }
+  
+  // Modo estándar: template fijo
   return renderToBuffer(<InvoicePdfTemplate invoiceData={invoiceData} />);
 }
 
@@ -23,6 +39,6 @@ export function nombreArchivoPdf({
   tipo: string;
   folio: string | null;
 }): string {
-  const numero = (folio ?? "sin-folio").replaceAll(/[/\\]/g, "-");
+  const numero = (folio ?? "sin-folio").replaceAll(/[\\/]/g, "-");
   return `${tipo}-${numero}.pdf`;
 }
