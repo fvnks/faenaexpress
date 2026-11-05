@@ -9,6 +9,7 @@ import {
   importarPlantillaExcel,
 } from "@/app/actions/factura-plantilla";
 import { CAMPOS_PLANTILLA } from "@/lib/factura-plantilla-campos";
+import { LayoutPreview } from "@/components/layout-preview";
 
 /** Una plantilla tal como la devuelve la acción. */
 type Plantilla = {
@@ -17,7 +18,7 @@ type Plantilla = {
   tipo: "VENTA" | "COMPRA";
   esPredeterminada: boolean;
   esActiva: boolean;
-  configuracion: Record<string, boolean> | null;
+  configuracion: Record<string, boolean | Record<string, { row: number; col: number; style?: { bold?: boolean; color?: string; fontSize?: number; align?: "left" | "center" | "right" } }>> | null;
 };
 
 /** Campos que la plantilla permite mostrar u ocultar en el PDF. Fuente única:
@@ -97,7 +98,11 @@ export default function EditarPlantillaPage({
     );
   }
 
-  const config = plantilla.configuracion ?? {};
+  const config = (() => {
+    const c = plantilla.configuracion ?? {};
+    const { _layout, ...flags } = c as Record<string, unknown>;
+    return flags as Record<string, boolean>;
+  })();
 
   async function importarPlantilla(formData: FormData) {
     const resultado = await importarPlantillaExcel(formData);
@@ -156,6 +161,20 @@ export default function EditarPlantillaPage({
             className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground"
           />
         </div>
+
+        {(() => {
+          const rawLayout = plantilla.configuracion?._layout;
+          const layout = rawLayout as Record<string, { row: number; col: number; style?: { bold?: boolean; color?: string; fontSize?: number; align?: "left" | "center" | "right" } }> | undefined;
+          if (layout && Object.keys(layout).length > 0) {
+            return (
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Vista previa del layout</label>
+                <LayoutPreview layout={layout} width={350} height={495} />
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         <fieldset className="flex flex-col gap-3">
           <legend className="text-sm font-medium">Campos a mostrar</legend>
