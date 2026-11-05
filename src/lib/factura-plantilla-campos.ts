@@ -50,6 +50,17 @@ export const CAMPOS_PLANTILLA: Array<{
   { campo: "mostrarCiudadPostal", etiqueta: "Ciudad postal receptor", porDefecto: false },
   { campo: "mostrarUnidadItem", etiqueta: "Unidad de medida (ítems)", porDefecto: false },
   { campo: "mostrarCodigoItem", etiqueta: "Código de item (ítems)", porDefecto: false },
+  // Campos adicionales de documento
+  { campo: "mostrarCondicionPago", etiqueta: "Condición de pago", porDefecto: false },
+  { campo: "mostrarMonedaIngreso", etiqueta: "Moneda de ingreso", porDefecto: false },
+  { campo: "mostrarOrdenCompraFolio", etiqueta: "Folio OC", porDefecto: false },
+  { campo: "mostrarOrdenCompraFecha", etiqueta: "Fecha OC", porDefecto: false },
+  { campo: "mostrarGuiaDespachoFolio", etiqueta: "Folio Guía", porDefecto: false },
+  { campo: "mostrarGuiaDespachoFecha", etiqueta: "Fecha Guía", porDefecto: false },
+  { campo: "mostrarFechaDocumento", etiqueta: "Fecha documento", porDefecto: false },
+  { campo: "mostrarCiudadDocumento", etiqueta: "Ciudad documento", porDefecto: false },
+  { campo: "mostrarTasaIngreso", etiqueta: "Tasa de ingreso", porDefecto: false },
+  { campo: "mostrarIvaAmount", etiqueta: "IVA documento", porDefecto: false },
 ];
 
 /** Todos los campos conocidos de la plantilla. */

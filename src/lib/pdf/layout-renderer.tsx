@@ -53,7 +53,6 @@ const FIELD_GETTERS: Record<string, (data: InvoiceData) => string | number | nul
   mostrarRetencion: (d) => d.erpRetentionAmount ? `${d.erpRetentionAmount} ${d.currency}` : null,
   mostrarExento: (d) => d.erpExemptAmount ? `${d.erpExemptAmount} ${d.currency}` : null,
   mostrarRecargo: (d) => d.erpSurchargeAmount ? `${d.erpSurchargeAmount} ${d.currency}` : null,
-  mostrarImporteLetras: (d) => d.erpPaidAmount ? `${d.erpPaidAmount} ${d.currency}` : null, // placeholder
   
   // Vendedor / Referencias
   mostrarVendedor: (d) => d.erpVendedor ?? null,
@@ -65,7 +64,25 @@ const FIELD_GETTERS: Record<string, (data: InvoiceData) => string | number | nul
   },
   mostrarHES: (d) => d.erpHesNumber ?? null,
   
-  // Nuevos campos DTE - usar unknown + type guard
+  // Pagado / Pendiente / Importe en letras
+  mostrarPagado: (d) => d.erpPaidAmount ? `${d.erpPaidAmount} ${d.currency}` : null,
+  mostrarPendiente: (d) => {
+    const total = d.total ?? 0;
+    const retencion = d.erpRetentionAmount ?? 0;
+    const pagado = d.erpPaidAmount ?? 0;
+    const pendiente = Math.max(total - retencion - pagado, 0);
+    return pendiente > 0 ? `${pendiente} ${d.currency}` : null;
+  },
+  mostrarImporteLetras: (d) => {
+    // Placeholder - el importe en letras se calcula en el componente de totales
+    const total = d.total ?? 0;
+    const retencion = d.erpRetentionAmount ?? 0;
+    const pagado = d.erpPaidAmount ?? 0;
+    const pendiente = Math.max(total - retencion - pagado, 0);
+    return pendiente > 0 ? `${pendiente} ${d.currency} (en letras)` : null;
+  },
+  
+  // Nuevos campos DTE
   mostrarCdgVendedor: (d) => (d as InvoiceData & { erpCdgVendedor?: string }).erpCdgVendedor ?? null,
   mostrarTipoDespacho: (d) => (d as InvoiceData & { erpTipoDespacho?: string }).erpTipoDespacho ?? null,
   mostrarIndServicio: (d) => (d as InvoiceData & { erpIndServicio?: string }).erpIndServicio ?? null,
@@ -74,6 +91,20 @@ const FIELD_GETTERS: Record<string, (data: InvoiceData) => string | number | nul
   mostrarDirPostal: (d) => (d as InvoiceData & { erpDirPostal?: string }).erpDirPostal ?? null,
   mostrarCmnaPostal: (d) => (d as InvoiceData & { erpCmnaPostal?: string }).erpCmnaPostal ?? null,
   mostrarCiudadPostal: (d) => (d as InvoiceData & { erpCiudadPostal?: string }).erpCiudadPostal ?? null,
+  
+  // Campos adicionales de documento
+  mostrarCondicionPago: (d) => (d as InvoiceData & { erpCondicionPago?: string }).erpCondicionPago ?? null,
+  mostrarMonedaIngreso: (d) => (d as InvoiceData & { erpMonedaIngreso?: string }).erpMonedaIngreso ?? null,
+  mostrarOrdenCompraFolio: (d) => (d as InvoiceData & { erpOrdenCompraFolio?: string }).erpOrdenCompraFolio ?? null,
+  mostrarOrdenCompraFecha: (d) => (d as InvoiceData & { erpOrdenCompraFecha?: string }).erpOrdenCompraFecha ?? null,
+  mostrarGuiaDespachoFolio: (d) => (d as InvoiceData & { erpGuiaDespachoFolio?: string }).erpGuiaDespachoFolio ?? null,
+  mostrarGuiaDespachoFecha: (d) => (d as InvoiceData & { erpGuiaDespachoFecha?: string }).erpGuiaDespachoFecha ?? null,
+  mostrarFechaDocumento: (d) => (d as InvoiceData & { erpFechaDocumento?: string }).erpFechaDocumento ?? null,
+  mostrarCiudadDocumento: (d) => (d as InvoiceData & { erpCiudad?: string }).erpCiudad ?? null,
+  mostrarTasaIngreso: (d) => (d as InvoiceData & { erpTasaIngreso?: number }).erpTasaIngreso != null 
+    ? `${(d as InvoiceData & { erpTasaIngreso?: number }).erpTasaIngreso}%` : null,
+  mostrarIvaAmount: (d) => (d as InvoiceData & { erpIvaAmount?: number }).erpIvaAmount != null
+    ? `${(d as InvoiceData & { erpIvaAmount?: number }).erpIvaAmount} ${d.currency}` : null,
 };
 
 /** Estilos por defecto para campos renderizados en layout */

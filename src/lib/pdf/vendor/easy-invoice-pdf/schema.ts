@@ -338,7 +338,17 @@ export type InvoiceData = {
         | "mostrarCmnaPostal"
         | "mostrarCiudadPostal"
         | "mostrarUnidadItem"
-        | "mostrarCodigoItem",
+        | "mostrarCodigoItem"
+        | "mostrarCondicionPago"
+        | "mostrarMonedaIngreso"
+        | "mostrarOrdenCompraFolio"
+        | "mostrarOrdenCompraFecha"
+        | "mostrarGuiaDespachoFolio"
+        | "mostrarGuiaDespachoFecha"
+        | "mostrarFechaDocumento"
+        | "mostrarCiudadDocumento"
+        | "mostrarTasaIngreso"
+        | "mostrarIvaAmount",
         boolean
       >
     >;

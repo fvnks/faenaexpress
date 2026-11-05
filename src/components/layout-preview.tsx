@@ -54,6 +54,16 @@ const FIELD_LABELS: Record<string, string> = {
   mostrarCiudadPostal: "Ciudad Post.",
   mostrarUnidadItem: "Unidad",
   mostrarCodigoItem: "Código Item",
+  mostrarCondicionPago: "Cond. Pago",
+  mostrarMonedaIngreso: "Moneda",
+  mostrarOrdenCompraFolio: "Folio OC",
+  mostrarOrdenCompraFecha: "Fecha OC",
+  mostrarGuiaDespachoFolio: "Folio Guía",
+  mostrarGuiaDespachoFecha: "Fecha Guía",
+  mostrarFechaDocumento: "F. Documento",
+  mostrarCiudadDocumento: "Ciudad Doc.",
+  mostrarTasaIngreso: "Tasa Ingr.",
+  mostrarIvaAmount: "IVA Doc.",
 };
 
 function excelToPreviewCoord(
