@@ -190,10 +190,13 @@ function lineasPdf(
     invoiceItemNumberIsVisible: true,
     name: linea.name,
     nameFieldIsVisible: true,
+    // Sin código GTU: el ERP no lo guarda.
     typeOfGTU: "",
     typeOfGTUFieldIsVisible: false,
+    // Cantidad: se imprime tal cual (puede tener decimales).
     amount: linea.quantity,
     amountFieldIsVisible: true,
+    // Sin unidad: el ERP no la guarda.
     unit: "",
     unitFieldIsVisible: false,
     netPrice: linea.unitPrice,
@@ -221,6 +224,7 @@ function lineasPdf(
 /** Los datos de la empresa del ERP (siempre la misma, para el encabezado). */
 function empresaComoParte(
   empresa: EmpresaPdf,
+  rol: "seller" | "buyer",
   etiquetas: { seller: string; buyer: string },
 ) {
   return {
@@ -239,7 +243,7 @@ function empresaComoParte(
     notesFieldIsVisible: Boolean(empresa.giro),
     accountNumberFieldIsVisible: false,
     swiftBicFieldIsVisible: false,
-    label: etiquetas.seller,
+    label: rol === "seller" ? etiquetas.seller : etiquetas.buyer,
   };
 }
 
@@ -274,7 +278,9 @@ function terceroComoParte(
   return { ...base, label: etiquetas.buyer };
 }
 
-/** Lo que la plantilla y el pie necesitan, común a venta y compra. */
+/** La plantilla de factura configurada por la empresa (fuente: schema del vendor). */
+export type PlantillaFacturaPdf = NonNullable<InvoiceData["erpPlantilla"]>;
+
 async function baseDocumento({
   empresa,
   tercero,
@@ -285,6 +291,8 @@ async function baseDocumento({
   lineas,
   extra,
   confirming = false,
+  /** Plantilla de factura personalizada (opcional) */
+  plantilla = null,
 }: {
   empresa: EmpresaPdf;
   tercero: TerceroPdf;
@@ -304,6 +312,8 @@ async function baseDocumento({
   };
   /** El documento está en confirming: el dinero ya entró por otra vía. */
   confirming?: boolean;
+  /** Plantilla de factura personalizada de la empresa (opcional). */
+  plantilla?: PlantillaFacturaPdf | null;
 }): Promise<InvoiceData> {
   const totales = calcularTotales([
     {
@@ -371,21 +381,25 @@ async function baseDocumento({
     invoiceTypeFieldIsVisible: Boolean(descripcion),
     // seller = quien emite el documento (empresa en venta, proveedor en compra)
     seller: emisorEsEmpresa
-      ? empresaComoParte(empresa, ETIQUETAS_PARTES)
+      ? empresaComoParte(empresa, "seller", ETIQUETAS_PARTES)
       : terceroComoParte(tercero, "seller", ETIQUETAS_PARTES),
     // buyer = quien recibe (cliente en venta, empresa en compra)
     buyer: emisorEsEmpresa
       ? terceroComoParte(tercero, "buyer", ETIQUETAS_PARTES)
-      : empresaComoParte(empresa, ETIQUETAS_PARTES),
+      : empresaComoParte(empresa, "buyer", ETIQUETAS_PARTES),
     // Logo de la empresa para el encabezado (configurable por empresa)
     logo: empresa.logo ?? undefined,
     items: lineas.lineas,
     total: documento.totalAmount,
+    // El resumen de IVA solo se muestra cuando las líneas cierran con el neto del
+    // documento; si no, el cuadro no quadraría con el total.
     vatTableSummaryIsVisible:
       lineas.lineas.length > 0 &&
       Math.abs(lineas.netoLineas - documento.netAmount) <= 1,
     paymentMethod: pago,
     paymentMethodFieldIsVisible: Boolean(pago),
+    // La línea de fecha muestra la fecha de pago cuando la hay; si no, la de
+    // vencimiento (que es lo que el documento tiene entre manos).
     paymentDue: fechaIso(
       documento.paymentDate ?? documento.dueDate ?? documento.date,
     ),
@@ -414,7 +428,9 @@ async function baseDocumento({
         : "Fecha de vencimiento",
     },
     erpBalanceVisible: !esNota,
+    // El pie habla del vencimiento (la fecha de pago va en el bloque de pagos).
     erpFooterDueDate: fechaIso(documento.dueDate ?? documento.date),
+    // Extensiones para el diseño de referencia (estilo SII chileno).
     erpFechaDocumento: documento.fechaDocumento ?? null,
     erpCiudad: documento.ciudad ?? null,
     erpTasaIngreso: documento.tasaIngreso ?? null,
@@ -441,19 +457,29 @@ async function baseDocumento({
     erpEmpresaPhone: empresa.phone ?? null,
     erpEmpresaWeb: empresa.web ?? null,
     erpEmpresaLogo: empresa.logo ?? null,
+    // Plantilla de factura personalizada (opcional)
+    erpPlantilla: plantilla ?? undefined,
   };
 }
 
+/**
+ * El PDF de una venta.
+ *
+ * El emisor es la empresa y el receptor el cliente. La retención (honorarios) se
+ * descuenta del total: lo que se cobra es el total menos lo retenido.
+ */
 export async function documentoVentaPdf({
   empresa,
   cliente,
   venta,
   ventaExtra,
+  plantillaFactura,
 }: {
   empresa: EmpresaPdf;
   cliente: TerceroPdf;
   venta: DocumentoPdfBase;
   ventaExtra: VentaPdfExtra;
+  plantillaFactura?: PlantillaFacturaPdf | null;
 }): Promise<InvoiceData> {
   const tasa = ventaExtra.tasaIVA ?? empresa.ivaRate;
   const lineas = lineasPdf(venta.items, venta.ivaAmount, tasa, {
@@ -473,6 +499,7 @@ export async function documentoVentaPdf({
     lineas,
     extra: { retention: ventaExtra.retentionAmount },
     confirming: ventaExtra.confirming,
+    plantilla: plantillaFactura ?? null,
   });
 }
 
@@ -481,11 +508,13 @@ export async function documentoCompraPdf({
   proveedor,
   compra,
   compraExtra,
+  plantillaFactura,
 }: {
   empresa: EmpresaPdf;
   proveedor: TerceroPdf;
   compra: DocumentoPdfBase;
   compraExtra: CompraPdfExtra;
+  plantillaFactura?: PlantillaFacturaPdf | null;
 }): Promise<InvoiceData> {
   const tasa = compraExtra.tasaIVA ?? empresa.ivaRate;
   const lineas = lineasPdf(compra.items, compra.ivaAmount, tasa, {
@@ -510,5 +539,6 @@ export async function documentoCompraPdf({
     descripcion,
     lineas,
     extra: { exento: compraExtra.exento, recargo: compraExtra.ivaRecargo },
+    plantilla: plantillaFactura ?? null,
   });
 }

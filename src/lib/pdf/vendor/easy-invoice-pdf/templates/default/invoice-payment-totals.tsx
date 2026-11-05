@@ -68,6 +68,13 @@ export function InvoicePaymentTotals({
     fractionalPart,
   });
 
+  // Plantilla de la empresa: cada línea de totales se puede ocultar.
+  const config = invoiceData.erpPlantilla?.configuracion;
+  const mostrarRetencion = config?.mostrarRetencion ?? true;
+  const mostrarExento = config?.mostrarExento ?? true;
+  const mostrarRecargo = config?.mostrarRecargo ?? true;
+  const mostrarImporteLetras = config?.mostrarImporteLetras ?? true;
+
   return (
     <View style={{ maxWidth: "100%" }}>
       <View style={{ width: "auto", alignSelf: "flex-start", marginTop: 0 }}>
@@ -95,7 +102,7 @@ export function InvoicePaymentTotals({
       </Text>
 
       {/* Exento (compras) */}
-      {exemptAmount > 0 ? (
+      {exemptAmount > 0 && mostrarExento ? (
         <Text style={styles.fontSize7}>
           {invoiceData.erpLabels?.exempt ?? "Exento"}:{" "}
           <Text style={[styles.boldText, styles.fontSize8]}>
@@ -113,11 +120,21 @@ export function InvoicePaymentTotals({
       </Text>
 
       {/* Recargo (compras) */}
-      {surchargeAmount > 0 ? (
+      {surchargeAmount > 0 && mostrarRecargo ? (
         <Text style={styles.fontSize7}>
           {invoiceData.erpLabels?.surcharge ?? "Recargo"}:{" "}
           <Text style={[styles.boldText, styles.fontSize8]}>
             {formatMonto(surchargeAmount)} {currency}
+          </Text>
+        </Text>
+      ) : null}
+
+      {/* Retención (honorarios) */}
+      {retentionAmount > 0 && mostrarRetencion ? (
+        <Text style={styles.fontSize7}>
+          {invoiceData.erpLabels?.retention ?? "Retención"}:{" "}
+          <Text style={[styles.boldText, styles.fontSize8]}>
+            -{formatMonto(retentionAmount)} {currency}
           </Text>
         </Text>
       ) : null}
@@ -131,12 +148,14 @@ export function InvoicePaymentTotals({
       </Text>
 
       {/* Importe en letras */}
-      <Text style={styles.fontSize7}>
-        {t.paymentTotals.amountInWords}:{" "}
-        <Text style={[styles.boldText, styles.fontSize8]}>
-          {amountInWordsWithCurrency}
+      {mostrarImporteLetras ? (
+        <Text style={styles.fontSize7}>
+          {t.paymentTotals.amountInWords}:{" "}
+          <Text style={[styles.boldText, styles.fontSize8]}>
+            {amountInWordsWithCurrency}
+          </Text>
         </Text>
-      </Text>
+      ) : null}
     </View>
   );
 }

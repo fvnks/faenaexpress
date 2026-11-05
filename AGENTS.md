@@ -144,6 +144,7 @@ Aún no hay tests. Cuando existan, documenta aquí cómo correr uno solo.
 - Las notas de crédito/débito se imprimen con montos positivos (como en el documento tributario) y **sin** las líneas «Pagado»/«Pendiente de pago»: una nota no se paga, se aplica contra otro documento.
 - Las tipografías se sirven desde `public/fonts/` (Open Sans, SIL OFL): el original las bajaba de `static.easyinvoicepdf.com` y el PDF no puede depender de un tercero.
 - Ojo: **`tsx` en modo CJS no sirve para probar el render** (`@react-pdf/hyphenate/en-us` es ESM-only y rompe). La verificación se hace por la app: el dev server, la ficha y la descarga del PDF.
+- **Plantillas de factura (campos configurables por empresa):** `src/app/actions/factura-plantilla.ts` CRUD + `obtenerPlantillaPredeterminada(companyId)` sobre la tabla `FacturaPlantilla` (JSON de flags). Las rutas `/facturas/ventas/[id]/pdf-factura` y `/facturas/compras/[id]/pdf-factura` leen la plantilla activa (`esPredeterminada` primero, luego la primera activa) y la pasan a `documentoVentaPdf`/`documentoCompraPdf` → `baseDocumento`, que la propagan como `erpPlantilla` en el `InvoiceData`. Los componentes del vendor (`invoice-header`, `invoice-seller-buyer-info`, `invoice-items-table`, `invoice-payment-totals`, `invoice-footer`, `invoice-body`) leen los flags con `?? true` (por defecto) y condicionan su bloque; sin plantilla, todo se imprime como antes. La hoja de ayuda «Qué dato va en cada lugar» vive en `src/app/facturas/configuracion/factura-plantilla/ayuda/page.tsx`.
 
 ## UI y tema
 

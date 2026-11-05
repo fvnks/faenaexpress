@@ -25,6 +25,14 @@ function HeaderEmisor({
   const seller = invoiceData?.seller;
   if (!seller) return null;
 
+  // Plantilla de la empresa (sin plantilla todo se imprime como antes).
+  const config = invoiceData.erpPlantilla?.configuracion;
+  const mostrarNombre = config?.mostrarEmpresa ?? true;
+  const mostrarGiro = config?.mostrarDireccion ?? true;
+  const mostrarDireccion = config?.mostrarDireccion ?? true;
+  const mostrarTelefono = config?.mostrarTelefono ?? true;
+  const mostrarCorreo = config?.mostrarCorreo ?? true;
+
   return (
     <View
       style={{
@@ -37,47 +45,51 @@ function HeaderEmisor({
     >
       {/* Emisor del documento - izquierda */}
       <View style={{ flex: 1 }}>
-        {seller.name && (
+        {mostrarNombre && seller.name && (
           <Text style={[styles.fontBold, styles.fontSize11]}>
             {seller.name}
           </Text>
         )}
-        {seller.notes && (
+        {mostrarGiro && seller.notes && (
           <Text style={[styles.fontSize7, { marginTop: 1 }]}>
             {seller.notes}
           </Text>
         )}
-        {seller.address && (
+        {mostrarDireccion && seller.address && (
           <Text style={[styles.fontSize7, { marginTop: 1 }]}>
             {seller.address}
           </Text>
         )}
-        {seller.city && seller.commune && (
+        {mostrarDireccion && seller.city && seller.commune && (
           <Text style={[styles.fontSize7, { marginTop: 1 }]}>
             {seller.city}, {seller.commune}
           </Text>
         )}
-        {seller.city && !seller.commune && (
+        {mostrarDireccion && seller.city && !seller.commune && (
           <Text style={[styles.fontSize7, { marginTop: 1 }]}>
             {seller.city}
           </Text>
         )}
-        {!seller.city && seller.commune && (
+        {mostrarDireccion && !seller.city && seller.commune && (
           <Text style={[styles.fontSize7, { marginTop: 1 }]}>
             {seller.commune}
           </Text>
         )}
-        {seller.phone && seller.phoneFieldIsVisible !== false && (
-          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
-            Teléfono: {seller.phone}
-          </Text>
-        )}
-        {seller.email && seller.emailFieldIsVisible !== false && (
-          <Text style={[styles.fontSize7, { marginTop: 1 }]}>
-            Correo: {seller.email}
-          </Text>
-        )}
-        {seller.web && (
+        {mostrarTelefono &&
+          seller.phone &&
+          seller.phoneFieldIsVisible !== false && (
+            <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+              Teléfono: {seller.phone}
+            </Text>
+          )}
+        {mostrarCorreo &&
+          seller.email &&
+          seller.emailFieldIsVisible !== false && (
+            <Text style={[styles.fontSize7, { marginTop: 1 }]}>
+              Correo: {seller.email}
+            </Text>
+          )}
+        {mostrarCorreo && seller.web && (
           <Text style={[styles.fontSize7, { marginTop: 1 }]}>
             {seller.web}
           </Text>
@@ -86,21 +98,26 @@ function HeaderEmisor({
 
       {/* Datos del documento - derecha */}
       <View style={{ flex: 1, textAlign: "right" }}>
-        {seller.vatNoFieldIsVisible && seller.vatNo && (
-          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-            R.U.T.: {seller.vatNo}
-          </Text>
-        )}
-        {invoiceData.invoiceType && invoiceData.invoiceTypeFieldIsVisible && (
-          <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-            {invoiceData.invoiceType}
-          </Text>
-        )}
-        {invoiceData.invoiceNumberObject?.value && (
-          <Text style={[styles.fontBold, styles.fontSize9]}>
-            Folio N° {invoiceData.invoiceNumberObject.value}
-          </Text>
-        )}
+        {(config?.mostrarRUT ?? true) &&
+          seller.vatNoFieldIsVisible &&
+          seller.vatNo && (
+            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+              R.U.T.: {seller.vatNo}
+            </Text>
+          )}
+        {(config?.mostrarTipoDocumento ?? true) &&
+          invoiceData.invoiceType &&
+          invoiceData.invoiceTypeFieldIsVisible && (
+            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+              {invoiceData.invoiceType}
+            </Text>
+          )}
+        {(config?.mostrarFolio ?? true) &&
+          invoiceData.invoiceNumberObject?.value && (
+            <Text style={[styles.fontBold, styles.fontSize9]}>
+              Folio N° {invoiceData.invoiceNumberObject.value}
+            </Text>
+          )}
       </View>
     </View>
   );
@@ -130,6 +147,10 @@ function HeaderDates({
   const dateOfServiceLabel =
     invoiceData.dateOfServiceLabelText ?? t.dateOfService;
 
+  const config = invoiceData.erpPlantilla?.configuracion;
+  const mostrarFechaEmision = config?.mostrarFechaEmision ?? true;
+  const mostrarFechaVencimiento = config?.mostrarFechaVencimiento ?? true;
+
   return (
     <View
       style={{
@@ -138,10 +159,12 @@ function HeaderDates({
         alignItems: "flex-start",
       }}
     >
-      <Text style={styles.fontSize7}>
-        {t.dateOfIssue}:{" "}
-        <Text style={[styles.fontBold, styles.fontSize8]}>{dateOfIssue}</Text>
-      </Text>
+      {mostrarFechaEmision && (
+        <Text style={styles.fontSize7}>
+          {t.dateOfIssue}:{" "}
+          <Text style={[styles.fontBold, styles.fontSize8]}>{dateOfIssue}</Text>
+        </Text>
+      )}
       {showServicePeriod ? (
         <Text style={styles.fontSize7}>
           {servicePeriodLabel}:{" "}
@@ -150,7 +173,7 @@ function HeaderDates({
           </Text>
         </Text>
       ) : null}
-      {showDateOfService ? (
+      {showDateOfService && mostrarFechaVencimiento ? (
         <Text style={styles.fontSize7}>
           {dateOfServiceLabel}:{" "}
           <Text style={[styles.fontBold, styles.fontSize8]}>
@@ -192,7 +215,7 @@ export function InvoiceHeader({
           <View style={{ alignItems: "flex-start" }}>
             {invoiceData.erpEmpresaLogo ? (
               <Image
-                src={invoiceData.erpEmpresaLogo}
+                src={invoiceData.erpEmpresaLogo as string}
                 style={{
                   maxWidth: 110,
                   maxHeight: 40,

@@ -295,4 +295,35 @@ export type InvoiceData = {
   erpEmpresaEmailFieldIsVisible?: boolean;
   erpEmpresaWeb?: string | null;
   erpEmpresaLogo?: string | null;
+  /** Plantilla de factura configurada por la empresa (opcional): el nombre y
+   * los flags mostrar/ocultar que el diseño debe respetar. */
+  erpPlantilla?: {
+    nombre?: string;
+    configuracion?: Partial<
+      Record<
+        | "mostrarEmpresa"
+        | "mostrarRUT"
+        | "mostrarDireccion"
+        | "mostrarTelefono"
+        | "mostrarCorreo"
+        | "mostrarReceptor"
+        | "mostrarRUTReceptor"
+        | "mostrarDireccionReceptor"
+        | "mostrarFechaEmision"
+        | "mostrarFechaVencimiento"
+        | "mostrarFolio"
+        | "mostrarTipoDocumento"
+        | "mostrarItems"
+        | "mostrarTotales"
+        | "mostrarRetencion"
+        | "mostrarExento"
+        | "mostrarRecargo"
+        | "mostrarFormaPago"
+        | "mostrarPagado"
+        | "mostrarPendiente"
+        | "mostrarImporteLetras",
+        boolean
+      >
+    >;
+  };
 };

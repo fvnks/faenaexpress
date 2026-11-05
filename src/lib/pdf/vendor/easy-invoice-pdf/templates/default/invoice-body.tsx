@@ -202,6 +202,17 @@ export const InvoiceBody = ({
     invoiceData.qrCodeData &&
     invoiceData.qrCodeData.length > 0;
 
+  // Plantilla de la empresa: cada flag decide si su bloque se imprime. Sin
+  // plantilla, todo se imprime como antes (compatibilidad).
+  const config = invoiceData.erpPlantilla?.configuracion;
+  const mostrar = (flag: keyof NonNullable<typeof config>, porDefecto = true) =>
+    config?.[flag] ?? porDefecto;
+
+  const mostrarItems = mostrar("mostrarItems");
+  const mostrarTotales = mostrar("mostrarTotales");
+  const mostrarReferencias =
+    mostrar("mostrarFolio") || mostrar("mostrarTipoDocumento");
+
   return (
     <>
       <InvoiceHeader invoiceData={invoiceData} styles={styles} />
@@ -210,49 +221,55 @@ export const InvoiceBody = ({
       <InvoiceSellerBuyerInfo invoiceData={invoiceData} styles={styles} />
 
       {/* Referencias de documento (orden de compra, guía de despacho). */}
-      <Referencias invoiceData={invoiceData} styles={styles} />
+      {mostrarItems && mostrarReferencias ? (
+        <Referencias invoiceData={invoiceData} styles={styles} />
+      ) : null}
 
-      <InvoiceItemsTable
-        invoiceData={invoiceData}
-        formattedInvoiceTotal={formattedInvoiceTotal}
-        styles={styles}
-      />
+      {mostrarItems ? (
+        <InvoiceItemsTable
+          invoiceData={invoiceData}
+          formattedInvoiceTotal={formattedInvoiceTotal}
+          styles={styles}
+        />
+      ) : null}
 
-      {/* Debajo de la tabla de ítems: a la izquierda el PDF417 y a la derecha
-          el cuadro de IVA con el total a pagar debajo. */}
-      <View
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: "space-between",
-          marginTop: vatTableSummaryIsVisible ? 0 : 20,
-        }}
-      >
-        <View style={{ width: "50%" }}>
-          {/* PDF417 del SII (timbre electrónico) - a la izquierda. */}
-          {isPdf417Visible ? (
-            <InvoicePdf417
-              pdf417DataUrl={invoiceData.qrCodeData!}
-              description={invoiceData.qrCodeDescription}
-            />
-          ) : null}
+      {mostrarTotales ? (
+        /* Debajo de la tabla de ítems: a la izquierda el PDF417 y a la derecha
+            el cuadro de IVA con el total a pagar debajo. */
+        <View
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginTop: vatTableSummaryIsVisible ? 0 : 20,
+          }}
+        >
+          <View style={{ width: "50%" }}>
+            {/* PDF417 del SII (timbre electrónico) - a la izquierda. */}
+            {isPdf417Visible ? (
+              <InvoicePdf417
+                pdf417DataUrl={invoiceData.qrCodeData!}
+                description={invoiceData.qrCodeDescription}
+              />
+            ) : null}
+          </View>
+
+          <View style={{ width: "50%" }}>
+            {vatTableSummaryIsVisible ? (
+              <InvoiceVATSummaryTable
+                invoiceData={invoiceData}
+                invoiceTotalChunks={invoiceTotalChunks}
+                styles={styles}
+              />
+            ) : null}
+            {/* El total a pagar va debajo del cuadro de IVA (Neto, IVA, Bruto). */}
+            <InvoicePaymentTotals invoiceData={invoiceData} styles={styles} />
+          </View>
         </View>
+      ) : null}
 
-        <View style={{ width: "50%" }}>
-          {vatTableSummaryIsVisible ? (
-            <InvoiceVATSummaryTable
-              invoiceData={invoiceData}
-              invoiceTotalChunks={invoiceTotalChunks}
-              styles={styles}
-            />
-          ) : null}
-          {/* El total a pagar va debajo del cuadro de IVA (Neto, IVA, Bruto). */}
-          <InvoicePaymentTotals invoiceData={invoiceData} styles={styles} />
-        </View>
-      </View>
-
-      {/* Bloque de firma y acuse de recibo */}
-      <FirmaBloque styles={styles} />
+      {/* Bloque de firma y acuse de recibo (solo para documentos con ítems) */}
+      {mostrarItems ? <FirmaBloque styles={styles} /> : null}
 
       {/* Footer  */}
       <InvoiceFooter invoiceData={invoiceData} styles={styles} />

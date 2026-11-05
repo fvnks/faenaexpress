@@ -1,13 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 
 import { requireContext, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { recordAudit } from "@/lib/audit";
 
 export type FacturaPlantillaState = { error?: string; ok?: boolean } | undefined;
+
+/** Convierte el JSON del formulario en un objeto plano (o `null` si no lo es). */
+function parsearConfiguracion(valor: FormDataEntryValue | null) {
+  try {
+    const data = JSON.parse(String(valor ?? "{}"));
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    return data as Record<string, boolean>;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Obtener todas las plantillas de factura de la empresa activa
@@ -47,22 +57,26 @@ export async function guardarPlantillaFactura(
   if (!isAdmin(ctx)) return { error: "Solo un administrador puede gestionar plantillas de factura." };
 
   const nombre = String(formData.get("nombre") ?? "").trim();
-  const configuracion = String(formData.get("configuracion") ?? "{}");
+  const configuracion = parsearConfiguracion(formData.get("configuracion"));
   const esPredeterminada = formData.get("esPredeterminada") === "on";
-  const esActiva = formData.get("esActiva") === "on";
+  // El formulario no expone «inactiva»: lo que se crea desde la UI queda activo.
+  const esActiva = formData.has("esActiva")
+    ? formData.get("esActiva") === "on"
+    : true;
 
   if (!nombre) {
     return { error: "El nombre de la plantilla es requerido." };
   }
+  if (!configuracion) {
+    return { error: "La configuración de la plantilla no es válida." };
+  }
 
   try {
-    JSON.parse(configuracion);
-
     const plantilla = await db.facturaPlantilla.create({
       data: {
         companyId: ctx.company.id,
         nombre,
-        configuracion: JSON.parse(configuracion),
+        configuracion,
         esPredeterminada,
         esActiva,
       },
@@ -101,22 +115,25 @@ export async function actualizarPlantillaFactura(
   if (!plantillaExistente) return { error: "Plantilla no encontrada." };
 
   const nombre = String(formData.get("nombre") ?? "").trim();
-  const configuracion = String(formData.get("configuracion") ?? "{}");
+  const configuracion = parsearConfiguracion(formData.get("configuracion"));
   const esPredeterminada = formData.get("esPredeterminada") === "on";
-  const esActiva = formData.get("esActiva") === "on";
+  const esActiva = formData.has("esActiva")
+    ? formData.get("esActiva") === "on"
+    : plantillaExistente.esActiva;
 
   if (!nombre) {
     return { error: "El nombre de la plantilla es requerido." };
   }
+  if (!configuracion) {
+    return { error: "La configuración de la plantilla no es válida." };
+  }
 
   try {
-    JSON.parse(configuracion);
-
     const plantilla = await db.facturaPlantilla.update({
       where: { id },
       data: {
         nombre,
-        configuracion: JSON.parse(configuracion),
+        configuracion,
         esPredeterminada,
         esActiva,
       },

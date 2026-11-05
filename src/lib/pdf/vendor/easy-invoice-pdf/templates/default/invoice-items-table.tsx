@@ -26,6 +26,11 @@ export function InvoiceItemsTable({
   const numberFormatLocale = resolveNumberFormatLocale(invoiceData);
   const t = INVOICE_PDF_TRANSLATIONS[language];
 
+  // La plantilla de la empresa puede ocultar el detalle: sin ítems no hay tabla.
+  const mostrarItems =
+    invoiceData.erpPlantilla?.configuracion?.mostrarItems ?? true;
+  if (!mostrarItems || invoiceData.items.length === 0) return null;
+
   // we need to check only the first row, because all next rows are the same
   const isInvoiceItemNumberVisible =
     invoiceData.items[0].invoiceItemNumberIsVisible;

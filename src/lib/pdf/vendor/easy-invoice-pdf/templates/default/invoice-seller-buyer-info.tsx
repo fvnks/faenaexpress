@@ -33,9 +33,13 @@ function fieldLine({
 function SiiBox({
   invoiceData,
   styles,
+  mostrarFolio = true,
+  mostrarTipoDocumento = true,
 }: {
   invoiceData: InvoiceData;
   styles: typeof PDF_DEFAULT_TEMPLATE_STYLES;
+  mostrarFolio?: boolean;
+  mostrarTipoDocumento?: boolean;
 }) {
   const seller = invoiceData?.seller;
   const invoiceNumberValue = invoiceData?.invoiceNumberObject?.value;
@@ -60,10 +64,14 @@ function SiiBox({
           {seller?.vatNo ?? ""}
         </Text>
       </Text>
-      <Text style={{ fontSize: 7, marginBottom: 4 }}>{invoiceType}</Text>
-      <Text style={{ fontSize: 8, marginBottom: 2, fontWeight: "bold" }}>
-        Folio N° {invoiceNumberValue ?? ""}
-      </Text>
+      {mostrarTipoDocumento && (
+        <Text style={{ fontSize: 7, marginBottom: 4 }}>{invoiceType}</Text>
+      )}
+      {mostrarFolio && (
+        <Text style={{ fontSize: 8, marginBottom: 2, fontWeight: "bold" }}>
+          Folio N° {invoiceNumberValue ?? ""}
+        </Text>
+      )}
       <Text style={{ fontSize: 6 }}>UNIDAD S.I.I.</Text>
     </View>
   );
@@ -81,6 +89,18 @@ export function InvoiceSellerBuyerInfo({
 
   const isPurchase = invoiceData.erpIsPurchase;
 
+  // Plantilla de la empresa: decide qué se imprime del receptor y del cuadro SII.
+  const config = invoiceData.erpPlantilla?.configuracion;
+  const mostrarReceptor = config?.mostrarReceptor ?? true;
+  const mostrarRUTReceptor = config?.mostrarRUTReceptor ?? true;
+  const mostrarDireccionReceptor = config?.mostrarDireccionReceptor ?? true;
+  const mostrarFolio = config?.mostrarFolio ?? true;
+  const mostrarTipoDocumento = config?.mostrarTipoDocumento ?? true;
+  const mostrarFormaPago = config?.mostrarFormaPago ?? true;
+  const mostrarFechaVencimiento = config?.mostrarFechaVencimiento ?? true;
+
+  if (!mostrarReceptor && !mostrarFolio && !mostrarTipoDocumento) return null;
+
   return (
     <View style={{ width: "100%", marginBottom: 14 }}>
       <View
@@ -93,79 +113,88 @@ export function InvoiceSellerBuyerInfo({
         }}
       >
         {/* RECEPTOR (izquierda, 55%): nombre, dirección, comuna, ciudad, giro, correo, teléfono, RUT */}
-        <View style={{ width: "55%" }}>
-          <Text style={styles.subheader}>
-            {invoiceData.erpLabels?.buyer ?? "Señor(es):"}
-          </Text>
-          <Text style={[styles.fontBold, styles.fontSize10]}>
-            {buyer.name}
-          </Text>
-          {buyer.address && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              {buyer.address}
+        {mostrarReceptor ? (
+          <View style={{ width: "55%" }}>
+            <Text style={styles.subheader}>
+              {invoiceData.erpLabels?.buyer ?? "Señor(es):"}
             </Text>
-          )}
-          {buyer.city && buyer.commune && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              {buyer.city}, {buyer.commune}
+            <Text style={[styles.fontBold, styles.fontSize10]}>
+              {buyer.name}
             </Text>
-          )}
-          {buyer.city && !buyer.commune && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              {buyer.city}
-            </Text>
-          )}
-          {!buyer.city && buyer.commune && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              {buyer.commune}
-            </Text>
-          )}
-          {buyer.notes && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              Giro: {buyer.notes}
-            </Text>
-          )}
-          {buyer.vatNoFieldIsVisible && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              {buyer.vatNoLabelText}:{" "}
-              <Text style={[styles.boldText, styles.fontSize8]}>
-                {buyer.vatNo}
+            {mostrarDireccionReceptor && buyer.address && (
+              <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+                {buyer.address}
               </Text>
-            </Text>
-          )}
-          {invoiceData.paymentDue && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              {invoiceData.erpLabels?.paymentDate ?? "Fecha de vencimiento"}:
-              {" "}
-              <Text style={[styles.boldText, styles.fontSize8]}>
-                {invoiceData.paymentDue}
+            )}
+            {mostrarDireccionReceptor && buyer.city && buyer.commune && (
+              <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+                {buyer.city}, {buyer.commune}
               </Text>
-            </Text>
-          )}
-          {invoiceData.paymentMethod && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              {INVOICE_PDF_TRANSLATIONS[invoiceData.language].paymentInfo.paymentMethod}:{" "}
-              <Text style={[styles.boldText, styles.fontSize8]}>
-                {invoiceData.paymentMethod}
+            )}
+            {mostrarDireccionReceptor && buyer.city && !buyer.commune && (
+              <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+                {buyer.city}
               </Text>
-            </Text>
-          )}
-          {/* Vendedor y guía SOLO debajo del receptor (ventas) */}
-          {!isPurchase && invoiceData.erpVendedor && (
-            <Text style={[styles.fontSize7, { marginTop: 6, marginBottom: 2 }]}>
-              Vendedor: {invoiceData.erpVendedor}
-            </Text>
-          )}
-          {!isPurchase && invoiceData.erpGuiaDespacho && (
-            <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
-              Guía de Despacho: {invoiceData.erpGuiaDespacho}
-            </Text>
-          )}
-        </View>
+            )}
+            {mostrarDireccionReceptor && !buyer.city && buyer.commune && (
+              <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+                {buyer.commune}
+              </Text>
+            )}
+            {buyer.notes && (
+              <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+                Giro: {buyer.notes}
+              </Text>
+            )}
+            {mostrarRUTReceptor && buyer.vatNoFieldIsVisible && (
+              <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+                {buyer.vatNoLabelText}:{" "}
+                <Text style={[styles.boldText, styles.fontSize8]}>
+                  {buyer.vatNo}
+                </Text>
+              </Text>
+            )}
+            {invoiceData.paymentDue && mostrarFechaVencimiento && (
+              <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+                {invoiceData.erpLabels?.paymentDate ?? "Fecha de vencimiento"}:
+                {" "}
+                <Text style={[styles.boldText, styles.fontSize8]}>
+                  {invoiceData.paymentDue}
+                </Text>
+              </Text>
+            )}
+            {invoiceData.paymentMethod && mostrarFormaPago && (
+              <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+                {INVOICE_PDF_TRANSLATIONS[invoiceData.language].paymentInfo.paymentMethod}:{" "}
+                <Text style={[styles.boldText, styles.fontSize8]}>
+                  {invoiceData.paymentMethod}
+                </Text>
+              </Text>
+            )}
+            {/* Vendedor y guía SOLO debajo del receptor (ventas) */}
+            {!isPurchase && invoiceData.erpVendedor && (
+              <Text style={[styles.fontSize7, { marginTop: 6, marginBottom: 2 }]}>
+                Vendedor: {invoiceData.erpVendedor}
+              </Text>
+            )}
+            {!isPurchase && invoiceData.erpGuiaDespacho && (
+              <Text style={[styles.fontSize7, { marginBottom: 2 }]}>
+                Guía de Despacho: {invoiceData.erpGuiaDespacho}
+              </Text>
+            )}
+          </View>
+        ) : (
+          <View style={{ width: "55%" }} />
+        )}
 
         {/* Cuadro rojo SII a la derecha (flotando en paralelo al receptor) */}
         <View style={{ width: "40%", alignSelf: "flex-start" }}>
-          <SiiBox invoiceData={invoiceData} styles={styles} />
+          <SiiBox
+            invoiceData={invoiceData}
+            styles={styles}
+            mostrarFolio={mostrarFolio}
+            mostrarTipoDocumento={mostrarTipoDocumento}
+          />
         </View>
       </View>
     </View>

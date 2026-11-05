@@ -12,7 +12,7 @@ import { notFound } from "next/navigation";
 import { requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { documentTypeLabel } from "@/lib/labels";
-import { documentoVentaPdf } from "@/lib/pdf/documento-pdf";
+import { documentoVentaPdf, type PlantillaFacturaPdf } from "@/lib/pdf/documento-pdf";
 import { nombreArchivoPdf, renderPdfDocumento } from "@/lib/pdf/render";
 import { getSale } from "@/lib/sales";
 
@@ -36,11 +36,17 @@ export async function GET(
   });
   const abonado = pagos.reduce((a, p) => a + Number(p.amount), 0);
 
-  // Obtener el logo de factura configurado para esta empresa
-  const facturaConfig = await db.facturaConfiguracion.findUnique({
-    where: { companyId: ctx.company.id },
-    select: { logo: true, mostrarLogo: true },
-  });
+  // Obtener el logo y plantilla de factura configurados para la empresa
+  const [facturaConfig, plantillaFactura] = await Promise.all([
+    db.facturaConfiguracion.findUnique({
+      where: { companyId: ctx.company.id },
+      select: { logo: true, mostrarLogo: true },
+    }),
+    db.facturaPlantilla.findFirst({
+      where: { companyId: ctx.company.id, esActiva: true },
+      orderBy: { esPredeterminada: "desc" },
+    }),
+  ]);
 
   const documento = await documentoVentaPdf({
     empresa: {
@@ -98,6 +104,13 @@ export async function GET(
       category: sale.category?.name,
       area: sale.area?.name,
     },
+    plantillaFactura: plantillaFactura
+      ? {
+          nombre: plantillaFactura.nombre,
+          configuracion: (plantillaFactura.configuracion ??
+            {}) as PlantillaFacturaPdf["configuracion"],
+        }
+      : null,
   });
 
   const pdf = await renderPdfDocumento(documento);
