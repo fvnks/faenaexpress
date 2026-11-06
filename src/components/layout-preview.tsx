@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { ExcelCoord } from "@/lib/pdf/excel-layout";
 
 /**
@@ -15,8 +15,6 @@ interface LayoutPreviewProps {
   /** Alto del canvas en px */
   height?: number;
 }
-
-const A4_ASPECT = 210 / 297; // ancho/alto
 
 // Mapeo de nombres de campo a etiquetas cortas para la preview
 const FIELD_LABELS: Record<string, string> = {
@@ -101,11 +99,9 @@ function excelToPreviewCoord(
 
 export function LayoutPreview({ layout, width = 300, height = 425 }: LayoutPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [layoutKeys, setLayoutKeys] = useState<string[]>([]);
-
-  useEffect(() => {
-    setLayoutKeys(Object.keys(layout));
-  }, [layout]);
+  // Derivado del layout: no se guarda en estado (guardarlo en un efecto
+  // provoca un render extra en cada carga).
+  const layoutKeys = useMemo(() => Object.keys(layout), [layout]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

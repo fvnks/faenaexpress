@@ -44,7 +44,6 @@ export function LayoutInvoiceTemplate({ invoiceData, layout }: LayoutTemplatePro
           <LayoutBasedInvoiceRenderer
             invoiceData={invoiceData}
             layout={layout}
-            styles={{}}
           />
         </View>
       </Page>
