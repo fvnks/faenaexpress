@@ -139,7 +139,7 @@ export default async function ExpensesReportPage(props: PageProps<"/facturas/rep
       </section>
 
       {/* ---------------- Detalle por área y trabajador ---------------- */}
-      <section className={cardClass + " overflow-hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section className={`${cardClass} overflow-hidden grid grid-cols-1 lg:grid-cols-2 gap-6`}>
         <div className="border-b border-border px-4 py-3 flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="font-semibold">Por área</h3>
         </div>

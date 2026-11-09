@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { issueGuardianCode, type PortalFormState } from "@/app/actions/portal";
 import { FormattedDate } from "@/components/formatted-date";
 import { SubmitButton } from "@/components/submit-button";
-import { listGuardianPortalAccess } from "@/lib/access-log";
+import { listGuardianPortalAccess } from "@/lib/access-log-guardian";
 
 /**
  * Acceso de una familia al portal.
