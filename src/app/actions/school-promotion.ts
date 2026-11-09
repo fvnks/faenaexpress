@@ -16,7 +16,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { faltantesDeliberacion } from "@/lib/school-promotion";
-import { parsearFechaCalendario } from "@/app/actions/schools";
+import { parsearFechaCalendario } from "@/lib/school-grades";
 
 export type PromotionFormState = { error?: string; ok?: boolean } | undefined;
 

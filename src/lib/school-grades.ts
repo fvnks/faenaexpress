@@ -414,3 +414,23 @@ export function situaciónPromocion(input: {
     fundamento: `${detalle}. No cumple la regla de promoción del Art. 10: requiere el análisis deliberativo con informe del jefe técnico-pedagógico (Art. 11).`,
   };
 }
+
+/**
+ * Parsea una fecha de calendario en formato DD-MM-AAAA o DD-MM (formato
+ * visual chileno). Si falta el año, se usa el año en curso. Devuelve null si
+ * no es válida.
+ *
+ * Vive acá (y no en un archivo de Server Actions) porque es una función pura
+ * de parsing: Next.js trata todas las exportaciones de archivos con
+ * "use server" como Server Actions, y esas deben ser async.
+ */
+export function parsearFechaCalendario(valor: string): Date | null {
+  const match = /^(\d{2})-(\d{2})(?:-(\d{4}))?$/.exec(valor.trim());
+  if (!match) return null;
+  const dia = Number(match[1]);
+  const mes = Number(match[2]);
+  const anio = match[3] ? Number(match[3]) : new Date().getFullYear();
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia, 12, 0, 0, 0));
+  return Number.isNaN(fecha.getTime()) ? null : fecha;
+}

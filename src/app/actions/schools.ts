@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import type { EvaluationType, GradeStatus, GradingPeriodType } from "@/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parsearFechaCalendario } from "@/lib/school-grades";
 import { requireSchoolContext, schoolCanWrite, SCHOOL_COOKIE } from "@/lib/school-auth";
 import { invalidarFirmas } from "@/lib/school-signatures";
 import {
@@ -783,20 +784,4 @@ export async function createGradingPeriod(
   revalidatePath("/colegios/calificaciones");
   revalidatePath("/colegios/promocion");
   return { ok: true };
-}
-
-/**
- * Parsea una fecha de calendario en formato DD-MM-AAAA o DD-MM (formato
- * visual chileno). Si falta el año, se usa el año en curso. Devuelve null si
- * no es válida.
- */
-export function parsearFechaCalendario(valor: string): Date | null {
-  const match = /^(\d{2})-(\d{2})(?:-(\d{4}))?$/.exec(valor.trim());
-  if (!match) return null;
-  const dia = Number(match[1]);
-  const mes = Number(match[2]);
-  const anio = match[3] ? Number(match[3]) : new Date().getFullYear();
-  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
-  const fecha = new Date(Date.UTC(anio, mes - 1, dia, 12, 0, 0, 0));
-  return Number.isNaN(fecha.getTime()) ? null : fecha;
 }
