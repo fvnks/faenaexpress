@@ -14,6 +14,8 @@ const ETIQUETA_TIPO: Record<string, string> = {
   EMERGENCIA: "Emergencia",
 };
 
+const PAGE_SIZE = 20;
+
 /**
  * Acceso de las familias al portal.
  *
@@ -23,13 +25,68 @@ const ETIQUETA_TIPO: Record<string, string> = {
  * código solo se veía en el instante en que se generaba. Rotarlo para volver
  * a leerlo cortaba el acceso de la familia.
  */
-export default async function ApoderadosPage() {
+export default async function ApoderadosPage({
+  searchParams,
+}: PageProps<"/colegios/apoderados">) {
   const ctx = await requireSchoolContext("apoderados");
   const puedeEditar = schoolCanWrite(ctx, "apoderados");
+  const schoolId = ctx.school.id;
+  const params = await searchParams;
 
+  // Filtros desde la URL
+  const buscar = (params.q ?? "").toString().trim();
+  const pagina = Math.max(1, Number(params.pagina ?? 1));
+  const skip = (pagina - 1) * PAGE_SIZE;
+
+  // Construir filtros de base de datos
+  const where: {
+    schoolId: string;
+    OR?: Array<{
+      name?: { contains: string };
+      rut?: { contains: string };
+      email?: { contains: string };
+      phone?: { contains: string };
+    }>;
+  } = { schoolId };
+
+  if (buscar) {
+    where.OR = [
+      { name: { contains: buscar } },
+      { rut: { contains: buscar } },
+      { email: { contains: buscar } },
+      { phone: { contains: buscar } },
+    ];
+  }
+
+  // Contar totales para estadísticas
+  const [todos, conCodigo, sinCodigo, conAlumnos, sinAlumnos, nuncaEntraron] =
+    await Promise.all([
+      db.guardian.count({ where: { schoolId } }),
+      db.guardian.count({ where: { schoolId, accessCode: { not: null } } }),
+      db.guardian.count({ where: { schoolId, accessCode: null } }),
+      db.guardian.count({
+        where: {
+          schoolId,
+          guardianships: { some: {} },
+        },
+      }),
+      db.guardian.count({
+        where: {
+          schoolId,
+          guardianships: { none: {} },
+        },
+      }),
+      db.guardian.count({
+        where: { schoolId, lastAccessAt: null },
+      }),
+    ]);
+
+  // Traer apoderados paginados
   const apoderados = await db.guardian.findMany({
-    where: { schoolId: ctx.school.id },
+    where,
     orderBy: { name: "asc" },
+    take: PAGE_SIZE,
+    skip,
     include: {
       guardianships: {
         orderBy: { createdAt: "asc" },
@@ -40,15 +97,14 @@ export default async function ApoderadosPage() {
     },
   });
 
-  // El enlace que el colegio reparte junto con el código. Es absoluto porque
-  // la secretaría lo copia y lo manda por WhatsApp.
+  const totalPaginas = Math.ceil(todos / PAGE_SIZE);
+
+  // El enlace que el colegio reparte junto con el código.
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const esLocal = host.startsWith("localhost") || host.startsWith("127.");
   const proto = h.get("x-forwarded-proto") ?? (esLocal ? "http" : "https");
   const portalUrl = ctx.school.slug ? `${proto}://${host}/c/${ctx.school.slug}` : null;
-
-  const conAlumnos = apoderados.filter((a) => a.guardianships.length > 0).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -59,6 +115,40 @@ export default async function ApoderadosPage() {
           de apoderados o en la secretaría.
         </p>
       </div>
+
+      {/* ── Estadísticas ──────────────────────────────────────────────── */}
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+        <li className={cardClass + " p-4"}>
+          <p className="text-xs text-muted-foreground font-medium">Total</p>
+          <p className="text-2xl leading-none tabular-nums font-semibold">{todos}</p>
+        </li>
+        <li className={cardClass + " p-4"}>
+          <p className="text-xs text-success/80 font-medium">Con código</p>
+          <p className="text-2xl leading-none tabular-nums text-success">{conCodigo}</p>
+        </li>
+        <li className={cardClass + " p-4"}>
+          <p className="text-xs text-muted-foreground font-medium">Sin código</p>
+          <p className="text-2xl leading-none tabular-nums text-muted-foreground">
+            {sinCodigo}
+          </p>
+        </li>
+        <li className={cardClass + " p-4"}>
+          <p className="text-xs text-success/80 font-medium">Con alumnos</p>
+          <p className="text-2xl leading-none tabular-nums text-success">{conAlumnos}</p>
+        </li>
+        <li className={cardClass + " p-4"}>
+          <p className="text-xs text-muted-foreground font-medium">Sin alumnos</p>
+          <p className="text-2xl leading-none tabular-nums text-muted-foreground">
+            {sinAlumnos}
+          </p>
+        </li>
+        <li className={cardClass + " p-4"}>
+          <p className="text-xs text-accent/80 font-medium">Nunca entraron</p>
+          <p className="text-2xl leading-none tabular-nums text-accent">
+            {nuncaEntraron}
+          </p>
+        </li>
+      </ul>
 
       {portalUrl ? (
         <section className={cardClass + " p-5"}>
@@ -84,14 +174,72 @@ export default async function ApoderadosPage() {
         </section>
       )}
 
+      {/* ── Búsqueda y paginación ──────────────────────────────────────── */}
+      <section className={cardClass + " p-5"}>
+        <form className="flex flex-wrap items-end gap-4">
+          <div className="flex-1 min-w-[240px]">
+            <label className="block text-xs text-muted-foreground mb-1">
+              Buscar por nombre, RUT, correo o teléfono
+            </label>
+            <input
+              name="q"
+              defaultValue={buscar}
+              placeholder="Ej: María González o 12.345.678-9"
+              className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-control border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5"
+          >
+            Buscar
+          </button>
+          {(buscar || pagina > 1) && puedeEditar && (
+            <Link
+              href="/colegios/apoderados"
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground ml-2"
+            >
+              Limpiar
+            </Link>
+          )}
+        </form>
+
+        {todos > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              Mostrando {skip + 1} a {Math.min(skip + PAGE_SIZE, todos)} de {todos} apoderados
+            </p>
+            <div className="flex items-center gap-1">
+              {pagina > 1 && (
+                <Link
+                  href={`/colegios/apoderados?q=${buscar}&pagina=${pagina - 1}`}
+                  className="rounded-control border border-border px-3 py-1.5 text-sm hover:bg-background"
+                >
+                  Anterior
+                </Link>
+              )}
+              {pagina < totalPaginas && (
+                <Link
+                  href={`/colegios/apoderados?q=${buscar}&pagina=${pagina + 1}`}
+                  className="rounded-control border border-border px-3 py-1.5 text-sm hover:bg-background"
+                >
+                  Siguiente
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+
       {apoderados.length === 0 ? (
         <section className={cardClass + " p-5"}>
           <FaltaEsto href="/colegios/estudiantes" accion="Ir a Alumnos">
-            Todavía no hay apoderados registrados. Se crean desde la ficha de cada alumno.
+            Todavía no hay apoderados registrados{" " + (buscar ? "con esos filtros" : "")}. Se
+            crean desde la ficha de cada alumno.
           </FaltaEsto>
         </section>
       ) : (
-        <section className={cardClass + " p-5"}>
+        <section className={cardClass + " overflow-hidden"}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-semibold">Apoderados ({apoderados.length})</h2>
             <p className="text-xs text-muted-foreground">
