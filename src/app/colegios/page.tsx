@@ -1,10 +1,22 @@
 import Link from "next/link";
 
 import { Kpi04 } from "@/components/ui/studio-blocks";
+import { AsistenciaLineChart } from "@/components/school-charts";
+import { DistribucionNotasCard } from "@/components/school-charts";
+import { FormattedDate } from "@/components/formatted-date";
+import { RendimientoCursoBars } from "@/components/school-charts";
 import { db } from "@/lib/db";
 import { todayISO } from "@/lib/money";
 import { schoolLevelLabel, canAccessSchool, type SchoolSection } from "@/lib/school-permissions";
 import { requireSchoolContext } from "@/lib/school-auth";
+import {
+  resumenAsistenciaColegio,
+  asistenciaDiaria,
+  rendimientoPorCurso,
+  rendimientoPorAsignatura,
+  resumenConvivenciaPanel,
+  ultimasClasesFirmadas,
+} from "@/lib/school-panel";
 import { resumenConvivencia } from "@/lib/school-convivencia";
 import { cardClass } from "@/lib/ui";
 
@@ -61,6 +73,7 @@ export default async function ColegiosPage() {
     return <TeacherHome userId={ctx.user.id} schoolId={schoolId} nombre={ctx.user.name} />;
   }
 
+  // ── Métricas generales ───────────────────────────────────────────────────
   const [alumnos, cursos, docentes, apoderados, matriculas, asignaturas, cursosConPlan] =
     await Promise.all([
       db.student.count({ where: { schoolId, status: "ACTIVE" } }),
@@ -71,6 +84,24 @@ export default async function ColegiosPage() {
       db.subject.count({ where: { schoolId } }),
       db.course.count({ where: { schoolId, active: true, assignments: { some: {} } } }),
     ]);
+
+  const [
+    resumenAsistencia,
+    datosAsistenciaDiaria,
+    rendimientoCursos,
+    rendimientoAsignaturas,
+    convivenciaPanel,
+    firmasEstado,
+    ultimasFirmas,
+  ] = await Promise.all([
+    resumenAsistenciaColegio(schoolId),
+    asistenciaDiaria(schoolId),
+    rendimientoPorCurso(schoolId),
+    rendimientoPorAsignatura(schoolId),
+    resumenConvivenciaPanel(schoolId),
+    estadoDeFirmas(schoolId),
+    ultimasClasesFirmadas(schoolId, 5),
+  ]);
 
   // Los pasos, en orden. El panel solo lista los que faltan: el checklist se
   // achica a medida que el colegio se arma y no vuelve a mostrar lo hecho.
@@ -122,20 +153,19 @@ export default async function ColegiosPage() {
     (paso) => !paso.listo && canAccessSchool(ctx.role, paso.seccion),
   );
 
+  // ── Métricas KPI del panel ───────────────────────────────────────────────
   const metricas = [
     { label: "Alumnos", valor: alumnos, href: "/colegios/estudiantes", seccion: "estudiantes" as SchoolSection },
     { label: "Matrículas", valor: matriculas, href: "/colegios/estudiantes", seccion: "estudiantes" as SchoolSection },
     { label: "Cursos", valor: cursos, href: "/colegios/cursos", seccion: "cursos" as SchoolSection },
     { label: "Docentes", valor: docentes, href: "/colegios/docentes", seccion: "docentes" as SchoolSection },
     { label: "Apoderados", valor: apoderados, href: "/colegios/apoderados", seccion: "apoderados" as SchoolSection },
+    { label: "Tasa de asistencia", valor: resumenAsistencia.porcentajeAsistencia, href: "/colegios/asistencia", seccion: "asistencia" as SchoolSection, format: "number" as const },
+    { label: "Clases firmadas", valor: resumenAsistencia.clasesFirmadas, href: "/colegios/libro", seccion: "libro" as SchoolSection },
+    { label: "Sin firmar", valor: resumenAsistencia.clasesSinFirmar, href: "/colegios/libro", seccion: "libro" as SchoolSection },
   ];
 
   // ── Lo que pasa hoy ──────────────────────────────────────────────────────
-  // Solo con el colegio armado: sin cursos ni matrículas no hay clases que
-  // mirar, y ahorrarle las consultas a un colegio recién creado es gratis.
-  //
-  // Las fechas de calendario del colegio se guardan al mediodía UTC (igual
-  // que teacher-home), para que "hoy" no se corra de día.
   const armado = matriculas > 0 && cursos > 0;
   const hoy = new Date(`${todayISO()}T12:00:00.000Z`);
 
@@ -192,8 +222,6 @@ export default async function ColegiosPage() {
     }
   }
 
-  // Con esperados indefinido (curso sin matrículas) la cobertura es 0: lo
-  // raro es un curso sin alumnos con clases registradas, y se trata igual.
   const clasesHoy: SesionHoy[] = clasesCrudas.map((c) => ({
     id: c.id,
     period: c.period,
@@ -207,8 +235,6 @@ export default async function ColegiosPage() {
     firmada: Boolean(c.signature),
   }));
 
-  // Las que piden acción van primero: incompletas, después sin firmar. El
-  // resto (día al día) da lo mismo en qué orden se vea.
   const rango = (c: SesionHoy) =>
     c.firmada ? 2 : c.registrados >= c.esperados && c.esperados > 0 ? 1 : 0;
   clasesHoy.sort((a, b) => rango(a) - rango(b));
@@ -281,9 +307,44 @@ export default async function ColegiosPage() {
         </section>
       )}
 
-      {/* Hoy en el colegio: la operación del día, derivada al abrir la página.
-          Sin nada que mirar, no se pinta: un tablero con tarjetas en cero
-          angustia en vez de ayudar. */}
+      {/* ── KPIs del panel ──────────────────────────────────────────────── */}
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {metricas.map((m) => {
+          const puedeEntrar = canAccessSchool(ctx.role, m.seccion);
+          const props: {
+            title?: string;
+            value: number;
+            format?: "currency" | "number";
+            footer?: string;
+          } = {
+            title: m.label,
+            value: m.valor,
+            format: m.format ?? "number",
+          };
+          if (m.label === "Tasa de asistencia") {
+            props.footer = `${resumenAsistencia.totalClases} clases · ${resumenAsistencia.inasistencias} inasistencias`;
+          }
+          if (m.label === "Clases firmadas") {
+            props.footer = `${resumenAsistencia.clasesSinFirmar} pendientes de firma`;
+          }
+          if (m.label === "Sin firmar") {
+            props.footer = `De ${firmasEstado.sesiones} clases registradas`;
+          }
+          return (
+            <li key={m.label}>
+              {puedeEntrar ? (
+                <Link href={m.href} className="block rounded-card hover:opacity-90">
+                  <Kpi04 {...props} />
+                </Link>
+              ) : (
+                <Kpi04 {...props} />
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* ── Hoy en el colegio ────────────────────────────────────────────── */}
       {hayHoy ? (
         <section className={cardClass + " p-5"}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -353,10 +414,28 @@ export default async function ColegiosPage() {
         </section>
       ) : null}
 
-      {/* Convivencia: el plazo legal del caso es lo que la dirección necesita
-          ver todas las mañanas (Ley 21.809: la investigación no pasa de dos
-          meses). Sin casos abiertos, no se pinta. */}
-      {convivencia.abiertos > 0 ? (
+      {/* ── Gráficos: asistencia y rendimiento ───────────────────────────── */}
+      <section className={cardClass + " p-5"}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-semibold">Evolución y rendimiento</h2>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="lg:col-span-2">
+            <AsistenciaLineChart data={datosAsistenciaDiaria} />
+          </div>
+          <div className="lg:col-span-2">
+            <RendimientoCursoBars data={rendimientoCursos} />
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <DistribucionNotasCard data={rendimientoCursos} />
+        </div>
+      </section>
+
+      {/* ── Convivencia ──────────────────────────────────────────────────── */}
+      {convivenciaPanel.abiertos > 0 ? (
         <section className={cardClass + " p-5"}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-semibold">Convivencia</h2>
@@ -369,32 +448,75 @@ export default async function ColegiosPage() {
               </Link>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {convivencia.abiertos} {convivencia.abiertos === 1 ? "caso abierto" : "casos abiertos"}
-            {urgenciasConvivencia > 0
-              ? convivencia.vencidos > 0
-                ? `, ${convivencia.vencidos} ${convivencia.vencidos === 1 ? "con la investigación vencida" : "con la investigación vencida"}`
-                : `, ${convivencia.urgentes} ${convivencia.urgentes === 1 ? "con la investigación por vencer" : "con la investigación por vencer"} en menos de 15 días`
+          <div className="mt-1 grid grid-cols-3 gap-3 text-sm">
+            <div className="rounded-card border border-accent/50 bg-accent-soft p-3">
+              <p className="text-xs text-accent/80 font-medium">Casos abiertos</p>
+              <p className="text-xl leading-none tabular-nums font-semibold text-accent">
+                {convivenciaPanel.abiertos}
+              </p>
+            </div>
+            <div className="rounded-card border border-danger/50 bg-danger-soft p-3">
+              <p className="text-xs text-danger/80 font-medium">Vencidos</p>
+              <p className="text-xl leading-none tabular-nums font-semibold text-danger">
+                {convivenciaPanel.vencidos}
+              </p>
+            </div>
+            <div className="rounded-card border border-warning/50 bg-warning-soft p-3">
+              <p className="text-xs text-warning/80 font-medium">Por vencer (≤30 días)</p>
+              <p className="text-xl leading-none tabular-nums font-semibold text-warning">
+                {convivenciaPanel.proximos}
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {convivenciaPanel.abiertos} {convivenciaPanel.abiertos === 1 ? "caso abierto" : "casos abiertos"}
+            {convivenciaPanel.vencidos > 0
+              ? `, ${convivenciaPanel.vencidos} ${convivenciaPanel.vencidos === 1 ? "con la investigación vencida" : "con la investigación vencida"}`
               : ""}
-            {urgenciasConvivencia > 0 ? " (plazo de la Ley 21.809)" : ""}
+            {convivenciaPanel.proximos > 0
+              ? `, ${convivenciaPanel.proximos} ${convivenciaPanel.proximos === 1 ? "con la investigación por vencer" : "con la investigación por vencer"} en menos de 30 días`
+              : ""}
+            {(convivenciaPanel.vencidos > 0 || convivenciaPanel.proximos > 0) ? " (plazo de la Ley 21.809)" : ""}
           </p>
         </section>
       ) : null}
 
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {metricas.map((m) => (
-          <li key={m.label}>
-            {canAccessSchool(ctx.role, m.seccion) ? (
-              <Link href={m.href} className="block rounded-card hover:opacity-90">
-                <Kpi04 title={m.label} value={m.valor} format="number" />
+      {/* ── Últimas clases firmadas ──────────────────────────────────────── */}
+      {ultimasFirmas.length > 0 ? (
+        <section className={cardClass + " p-5"}>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-semibold">Últimas clases firmadas</h2>
+            {canAccessSchool(ctx.role, "libro") ? (
+              <Link
+                href="/colegios/libro"
+                className="text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary/80"
+              >
+                Ver libro de clases
               </Link>
-            ) : (
-              <Kpi04 title={m.label} value={m.valor} format="number" />
-            )}
-          </li>
-        ))}
-      </ul>
+            ) : null}
+          </div>
+          <ul className="mt-3 divide-y divide-border">
+            {ultimasFirmas.map((f) => (
+              <li key={f.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">
+                    {f.curso} · {f.asignatura}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Firmado por {f.firmante} ·
+                    <FormattedDate iso={f.fecha.toISOString()} />
+                  </p>
+                </div>
+                <span className="rounded-full px-2.5 py-1 text-xs font-semibold bg-success-soft text-success">
+                  Firmada
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
+      {/* ── Cursos ───────────────────────────────────────────────────────── */}
       <section className={cardClass + " p-5"}>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-semibold">Cursos</h2>
