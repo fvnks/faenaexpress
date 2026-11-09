@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import type { StudentStatus } from "@/generated/prisma/client";
+
 import {
   EnrollExistingForm,
   EnrollForm,
@@ -35,9 +37,15 @@ export default async function EstudiantesPage({
   const filtroEstado = (params.estado ?? "todos") as "todos" | "activo" | "inactivo";
 
   // Construir filtros de base de datos
-  const where: { schoolId: string; status?: string; OR?: Array<{ firstName?: { contains: string }; lastName?: { contains: string }; rut?: { contains: string } }> } = { schoolId };
+  const where: {
+    schoolId: string;
+    status?: StudentStatus | { not: StudentStatus };
+    OR?: Array<{ firstName?: { contains: string }; lastName?: { contains: string }; rut?: { contains: string } }>;
+  } = { schoolId };
   if (filtroEstado !== "todos") {
-    where.status = filtroEstado === "activo" ? "ACTIVE" : { not: "ACTIVE" };
+    where.status = filtroEstado === "activo"
+      ? ("ACTIVE" as StudentStatus)
+      : { not: "ACTIVE" as StudentStatus };
   }
   if (buscar) {
     where.OR = [
@@ -65,8 +73,8 @@ export default async function EstudiantesPage({
         select: { id: true, name: true, year: true },
       }),
       db.student.count({ where: { schoolId } }),
-      db.student.count({ where: { schoolId, status: "ACTIVE" } }),
-      db.student.count({ where: { schoolId, status: { not: "ACTIVE" } } }),
+      db.student.count({ where: { schoolId, status: "ACTIVE" as StudentStatus } }),
+      db.student.count({ where: { schoolId, status: { not: "ACTIVE" as StudentStatus } } }),
     ]);
 
   const cursando = totalActivos;
