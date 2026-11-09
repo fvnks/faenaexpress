@@ -59,7 +59,8 @@ export async function casosArt11(courseId: string, year?: number): Promise<CasoA
   });
   const porAlumno = new Map(resoluciones.map((r) => [r.studentId, r]));
 
-  return marcados.map((alumno: ParteAlumno) => {    const r = porAlumno.get(alumno.studentId);
+  return marcados.map((alumno: ParteAlumno) => {
+    const r = porAlumno.get(alumno.studentId);
     return {
       studentId: alumno.studentId,
       nombre: alumno.nombre,
