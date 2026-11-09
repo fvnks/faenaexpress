@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 import { formatCLP } from "@/lib/money";
 import type { MonthlyDocBucket } from "@/lib/reports";
 
@@ -174,8 +176,6 @@ export function DocSparkline({
     })
     .join(" ");
 
-  const maxVal = Math.max(...values);
-  const minVal = Math.min(...values);
   const total = values.reduce((acc, v) => acc + v, 0);
 
   return (

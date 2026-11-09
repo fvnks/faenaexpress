@@ -22,6 +22,14 @@ import {
 
 export type PortalFormState = { error?: string; ok?: boolean; codigo?: string } | undefined;
 
+/** Estado de la verificación pública de un código de acceso. */
+export type PortalCodeState = {
+  error?: string;
+  ok?: boolean;
+  codigo?: string;
+  valido?: boolean;
+} | undefined;
+
 // Límite de intentos de acceso al portal, por IP. Es el mismo criterio del
 // login: en memoria, y a mover a Redis si el producto crece a varias
 // instancias.
@@ -147,9 +155,9 @@ export async function portalLogout(): Promise<void> {
  * colegio le entregó.
  */
 export async function verificarCodigoAcceso(
-  _prev: { error?: string; ok?: boolean; codigo?: string; valido?: boolean },
+  _prev: PortalCodeState,
   formData: FormData,
-): Promise<{ error?: string; ok?: boolean; codigo?: string; valido?: boolean }> {
+): Promise<PortalCodeState> {
   const crudo = String(formData.get("codigo") ?? "").trim();
   if (!crudo) {
     return { error: "Escribe el código que te dio el colegio." };
@@ -176,7 +184,10 @@ export async function verificarCodigoAcceso(
   return {
     ok: true,
     valido: true,
-    codigo: apoderado.accessCode,
+    // El acceso encontrado es el mismo código que se buscó (la consulta fue
+    // por `accessCode`), pero el campo es nullable en el schema: se usa el
+    // código normalizado como respaldo para no devolver null.
+    codigo: apoderado.accessCode ?? codigo,
   };
 }
 

@@ -1,9 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { toast } from "sonner";
+import { useActionState } from "react";
 
-import { verificarCodigoAcceso } from "@/app/actions/portal";
+import { verificarCodigoAcceso, type PortalCodeState } from "@/app/actions/portal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -15,7 +14,7 @@ import { Input } from "@/components/ui/input";
  * pedir uno nuevo en la secretaría.
  */
 export default function VerificarCodigoPage() {
-  const [state, action] = useActionState<{ error?: string; ok?: boolean; codigo?: string; valido?: boolean }, FormData>(
+  const [state, action] = useActionState<PortalCodeState, FormData>(
     verificarCodigoAcceso,
     undefined,
   );

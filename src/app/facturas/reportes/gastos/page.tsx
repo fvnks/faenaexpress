@@ -1,6 +1,5 @@
 import { requireContext } from "@/lib/auth";
 import { formatCLP, formatPeriod, currentPeriod, monthRange } from "@/lib/money";
-import type { MonthlyCategoryResult } from "@/lib/reports";
 import { expensesBreakdown, expensesMonthlyByCategory, purchasesBreakdown } from "@/lib/reports";
 import { AnnualExpenseBars } from "@/components/annual-expense-bars";
 import { ExpenseHeatmap } from "@/components/expense-heatmap";

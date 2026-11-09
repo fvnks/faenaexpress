@@ -1020,7 +1020,13 @@ export async function expensesMonthlyByCategory(
   }
 
   // Agrupar por categoría → mes → monto.
-  const byCategory = new Map<string, { name: string; byMonth: Record<string, number> }>();
+  // La clave del mapa es un string, pero la categoría puede no existir: se usa
+  // una clave aparte para ese grupo y se conserva el id real (null) en la fila.
+  const SIN_CATEGORIA = "__sin_categoria__";
+  const byCategory = new Map<
+    string,
+    { categoryId: string | null; name: string; byMonth: Record<string, number> }
+  >();
   let grandTotal = 0;
 
   for (const expense of expenses) {
@@ -1028,18 +1034,19 @@ export async function expensesMonthlyByCategory(
     const catName = expense.category?.name ?? "Sin categoría";
     const d = new Date(expense.date);
     const monthKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    const mapKey = catId ?? SIN_CATEGORIA;
 
-    if (!byCategory.has(catId)) {
-      byCategory.set(catId, { name: catName, byMonth: {} });
+    if (!byCategory.has(mapKey)) {
+      byCategory.set(mapKey, { categoryId: catId, name: catName, byMonth: {} });
     }
-    const entry = byCategory.get(catId)!;
+    const entry = byCategory.get(mapKey)!;
     entry.byMonth[monthKey] = (entry.byMonth[monthKey] ?? 0) + expense.totalAmount;
     grandTotal += expense.totalAmount;
   }
 
   // Construir filas ordenadas por total anual descendente.
   const rows: MonthlyCategoryRow[] = [];
-  for (const [catId, entry] of byCategory.entries()) {
+  for (const [, entry] of byCategory.entries()) {
     const monthlyTotal = Object.values(entry.byMonth).reduce((acc, v) => acc + v, 0);
     const monthsWithData = Object.keys(entry.byMonth).length;
     const peakEntry = Object.entries(entry.byMonth).reduce(
@@ -1048,7 +1055,7 @@ export async function expensesMonthlyByCategory(
     );
 
     rows.push({
-      categoryId: catId,
+      categoryId: entry.categoryId,
       categoryName: entry.name,
       byMonth: entry.byMonth,
       annualTotal: monthlyTotal,
