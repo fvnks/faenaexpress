@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 // El flujo de excepciones del Art. 11 del Decreto 67/2018.
 //
@@ -16,6 +16,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { faltantesDeliberacion } from "@/lib/school-promotion";
+import { parsearFechaCalendario } from "@/app/actions/schools";
 
 export type PromotionFormState = { error?: string; ok?: boolean } | undefined;
 
@@ -25,10 +26,7 @@ function texto(formData: FormData, campo: string): string {
 
 /** Una fecha del formulario, al mediodía UTC (ninguna zona horaria la corre). */
 function fechaMediodia(valor: string): Date | null {
-  if (!valor) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return null;
-  const fecha = new Date(`${valor}T12:00:00.000Z`);
-  return Number.isNaN(fecha.getTime()) ? null : fecha;
+  return parsearFechaCalendario(valor);
 }
 
 /**

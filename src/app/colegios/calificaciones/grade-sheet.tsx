@@ -116,9 +116,11 @@ export function GradeSheet({
               const promedio = promedioAlVivo(alumno.id);
               return (
                 <tr key={alumno.id} className="border-b border-border/60">
+                  <td className="hidden">
+                    <input name="studentId" value={alumno.id} />
+                  </td>
                   <th scope="row" className="px-2 py-2 text-left font-normal">
                     {alumno.nombre}
-                    <input type="hidden" name="studentId" value={alumno.id} />
                   </th>
                   <td className="px-2 py-2">
                     <label className="sr-only" htmlFor={`nota-${alumno.id}`}>

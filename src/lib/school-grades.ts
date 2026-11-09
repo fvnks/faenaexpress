@@ -64,7 +64,7 @@ export type NotaAsignatura = {
   final: number | null;
   /** Reproba: la nota final es menor a 4.0 (Art. 8). */
   reprobada: boolean;
-  /** Cuántas evaluaciones se Hana aplicado y cuántas están pendientes. */
+  /** Cuántas evaluaciones se han aplicado y cuántas están pendientes. */
   aplicadas: number;
   pendientes: number;
 };

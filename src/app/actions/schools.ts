@@ -681,9 +681,10 @@ export async function createEvaluation(
   }
 
   // Las fechas son de calendario, sin hora: se guardan al mediodía UTC para
-  // que ningún cambio de zona horaria las corra de día.
-  const date = dateCruda ? new Date(`${dateCruda}T12:00:00.000Z`) : new Date();
-  if (Number.isNaN(date.getTime())) return { error: "La fecha no es válida." };
+  // que ningún cambio de zona horaria las corra de día. Se acepta DD-MM-AAAA
+  // (formato visual chileno) y, si falta el año, se usa el año en curso.
+  const date = dateCruda ? parsearFechaCalendario(dateCruda) : new Date();
+  if (!date || Number.isNaN(date.getTime())) return { error: "La fecha no es válida." };
 
   await db.evaluation.create({
     data: {
@@ -758,9 +759,9 @@ export async function createGradingPeriod(
     return { error: "La ponderación del período va de 0 a 100." };
   }
 
-  const inicio = new Date(`${startDate}T12:00:00.000Z`);
-  const termino = new Date(`${endDate}T12:00:00.000Z`);
-  if (Number.isNaN(inicio.getTime()) || Number.isNaN(termino.getTime())) {
+  const inicio = parsearFechaCalendario(startDate);
+  const termino = parsearFechaCalendario(endDate);
+  if (!inicio || !termino) {
     return { error: "Las fechas del período no son válidas." };
   }
   if (termino < inicio) return { error: "El período termina antes de empezar." };
@@ -782,4 +783,20 @@ export async function createGradingPeriod(
   revalidatePath("/colegios/calificaciones");
   revalidatePath("/colegios/promocion");
   return { ok: true };
+}
+
+/**
+ * Parsea una fecha de calendario en formato DD-MM-AAAA o DD-MM (formato
+ * visual chileno). Si falta el año, se usa el año en curso. Devuelve null si
+ * no es válida.
+ */
+export function parsearFechaCalendario(valor: string): Date | null {
+  const match = /^(\d{2})-(\d{2})(?:-(\d{4}))?$/.exec(valor.trim());
+  if (!match) return null;
+  const dia = Number(match[1]);
+  const mes = Number(match[2]);
+  const anio = match[3] ? Number(match[3]) : new Date().getFullYear();
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia, 12, 0, 0, 0));
+  return Number.isNaN(fecha.getTime()) ? null : fecha;
 }
