@@ -137,3 +137,45 @@ export async function portalLogout(): Promise<void> {
   // sesión ya cerrada, hasta que se recargara a mano.
   redirect("/apoderado");
 }
+
+/**
+ * Verifica si un código de acceso al portal sigue vigente.
+ *
+ * Es una acción pública: cualquier apoderado puede escribir su código para
+ * saber si sigue activo. No requiere sesión de colegio ni de empleado, porque
+ * el apoderado no tiene sesión de empleado: solo tiene el código que el
+ * colegio le entregó.
+ */
+export async function verificarCodigoAcceso(
+  _prev: { error?: string; ok?: boolean; codigo?: string; valido?: boolean },
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean; codigo?: string; valido?: boolean }> {
+  const crudo = String(formData.get("codigo") ?? "").trim();
+  if (!crudo) {
+    return { error: "Escribe el código que te dio el colegio." };
+  }
+
+  const codigo = crudo.toUpperCase();
+
+  const apoderado = await db.guardian.findFirst({
+    where: { accessCode: codigo },
+    select: {
+      id: true,
+      name: true,
+      accessCode: true,
+      accessCodeCreatedAt: true,
+      lastAccessAt: true,
+      schoolId: true,
+    },
+  });
+
+  if (!apoderado) {
+    return { error: "El código no es válido. Si no lo tienes, pídelo en la secretaría." };
+  }
+
+  return {
+    ok: true,
+    valido: true,
+    codigo: apoderado.accessCode,
+  };
+}

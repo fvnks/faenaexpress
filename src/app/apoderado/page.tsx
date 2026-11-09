@@ -64,6 +64,19 @@ export default async function PortalPage() {
         where: { status: "ACTIVE" },
         include: { course: { select: { id: true, name: true, year: true, schoolId: true } } },
       },
+      documents: {
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          description: true,
+          fileName: true,
+          sizeBytes: true,
+          createdAt: true,
+        },
+      },
     },
   });
 
@@ -329,6 +342,43 @@ export default async function PortalPage() {
                     </section>
                   );
                 })}
+                
+                {/* Documentos del alumno */}
+                {hijo.documents.length > 0 && (
+                  <section className={cardClass + " p-5"}>
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h2 className="font-semibold">Documentos</h2>
+                      <p className="text-xs text-muted-foreground">
+                        Documentos del expediente de {hijo.firstName}
+                      </p>
+                    </div>
+                    <ul className="mt-3 divide-y divide-border text-sm">
+                      {hijo.documents.map((doc) => (
+                        <li key={doc.id} className="flex items-center justify-between gap-3 py-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium">{doc.title}</p>
+                            {doc.description && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {doc.description}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {doc.fileName} · {doc.type} ·
+                              <FormattedDate iso={doc.createdAt.toISOString()} />
+                            </p>
+                          </div>
+                          <a
+                            href={`/apoderado/documentos/${doc.id}/descarga`}
+                            className="text-sm text-primary underline underline-offset-2 hover:text-primary/80"
+                          >
+                            Descargar
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+                
               </div>
             );
           })

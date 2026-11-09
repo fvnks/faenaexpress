@@ -4,7 +4,9 @@ import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { issueGuardianCode, type PortalFormState } from "@/app/actions/portal";
+import { FormattedDate } from "@/components/formatted-date";
 import { SubmitButton } from "@/components/submit-button";
+import { listGuardianPortalAccess } from "@/lib/access-log";
 
 /**
  * Acceso de una familia al portal.
@@ -36,6 +38,13 @@ export function GuardianAccess({
     undefined,
   );
   const [copiado, setCopiado] = useState(false);
+  const [historial, setHistorial] = useState<{
+    id: string;
+    createdAt: Date;
+    ip: string | null;
+    userAgent: string | null;
+  }[] | null>(null);
+  const [historialAbierto, setHistorialAbierto] = useState(false);
 
   // El código recién emitido se muestra al instante, sin esperar el refresco.
   const vigente = state?.codigo ?? codigo;
@@ -55,6 +64,16 @@ export function GuardianAccess({
     }
   };
 
+  const cargarHistorial = async () => {
+    if (historial !== null) return;
+    const datos = await listGuardianPortalAccess(codigo ?? null, nombre);
+    setHistorial(datos);
+  };
+
+  const fechaFormateada = (fecha: Date) => {
+    return new Date(fecha).toISOString();
+  };
+
   return (
     <div className="flex w-full flex-col items-end gap-2 sm:w-auto sm:min-w-[19rem]">
       {vigente ? (
@@ -72,8 +91,20 @@ export function GuardianAccess({
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Emitido {emitido ? emitido.toLocaleDateString("es-CL") : "sin fecha"}
-            {ultimoAcceso ? ` · entró por última vez el ${ultimoAcceso.toLocaleDateString("es-CL")}` : " · nunca ha entrado"}
+            Emitido{" "}
+            {emitido ? (
+              <FormattedDate iso={emitido.toISOString()} />
+            ) : (
+              "sin fecha"
+            )}
+            {ultimoAcceso ? (
+              <>
+                · entró por última vez{" "}
+                <FormattedDate iso={ultimoAcceso.toISOString()} />
+              </>
+            ) : (
+              " · nunca ha entrado"
+            )}
           </p>
         </div>
       ) : (
@@ -83,18 +114,69 @@ export function GuardianAccess({
       )}
 
       {puedeEditar ? (
-        <form action={action} className="flex items-center gap-2">
-          <input type="hidden" name="guardianId" value={guardianId} />
-          <SubmitButton
-            className="rounded-control border border-primary bg-transparent px-3 py-1.5 text-xs font-semibold text-primary"
-            pendingLabel="Generando..."
+        <>
+          <form action={action} className="flex items-center gap-2">
+            <input type="hidden" name="guardianId" value={guardianId} />
+            <SubmitButton
+              className="rounded-control border border-primary bg-transparent px-3 py-1.5 text-xs font-semibold text-primary"
+              pendingLabel="Generando..."
+            >
+              {vigente ? "Rotar código" : "Dar acceso al portal"}
+            </SubmitButton>
+            {vigente ? (
+              <span className="text-xs text-muted-foreground">
+                Corta el acceso del código anterior
+              </span>
+            ) : null}
+          </form>
+
+          {/* Historial de accesos al portal */}
+          <details
+            open={historialAbierto}
+            onToggle={() => {
+              setHistorialAbierto(!historialAbierto);
+              if (!historialAbierto) cargarHistorial();
+            }}
+            className="mt-2 flex w-full flex-col items-end gap-1"
           >
-            {vigente ? "Rotar código" : "Dar acceso al portal"}
-          </SubmitButton>
-          {vigente ? (
-            <span className="text-xs text-muted-foreground">Corta el acceso del código anterior</span>
-          ) : null}
-        </form>
+            <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
+              {historialAbierto ? "Ocultar" : "Ver historial de accesos"}
+              {historial ? ` (${historial.length})` : ""}
+            </summary>
+            <div className="mt-1 w-full">
+              {historial === null ? (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  Cargando…
+                </p>
+              ) : historial.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  Sin accesos registrados al portal.
+                </p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-2 py-1 font-medium">Fecha y hora</th>
+                      <th className="px-2 py-1 font-medium text-right">IP</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {historial.map((a) => (
+                      <tr key={a.id} className="hover:bg-background">
+                        <td className="px-2 py-1">
+                          <FormattedDate iso={fechaFormateada(a.createdAt)} />
+                        </td>
+                        <td className="px-2 py-1 text-right text-muted-foreground">
+                          {a.ip ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </details>
+        </>
       ) : null}
 
       {state?.error ? <p className="text-xs text-danger">{state.error}</p> : null}

@@ -174,6 +174,25 @@ export default async function ApoderadosPage({
         </section>
       )}
 
+      {/* ── Exportar a CSV ──────────────────────────────────────────────── */}
+      {puedeEditar && todos > 0 ? (
+        <section className={cardClass + " p-5"}>
+          <form action="/colegios/apoderados/export" method="GET">
+            <button
+              type="submit"
+              className="rounded-control border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5 flex items-center gap-2"
+            >
+              📥 Exportar lista a CSV
+            </button>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Se descarga un archivo CSV con todos los apoderados de este
+              colegio: nombre, RUT, correo, teléfono, tipo, alumnos vinculados,
+              código de acceso y fechas.
+            </p>
+          </form>
+        </section>
+      ) : null}
+
       {/* ── Búsqueda y paginación ──────────────────────────────────────── */}
       <section className={cardClass + " p-5"}>
         <form className="flex flex-wrap items-end gap-4">
