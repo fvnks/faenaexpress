@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PrintButton } from "@/components/print-button";
+import { FormattedDate } from "@/components/formatted-date";
 import { db } from "@/lib/db";
 import { requireSchoolContext } from "@/lib/school-auth";
 import { attendanceSummary } from "@/lib/school-attendance";
@@ -83,7 +84,11 @@ export default async function ExpedientePage({
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {student.rut ?? "sin RUT"}
-            {student.birthDate ? ` · nacido el ${student.birthDate.toLocaleDateString("es-CL")}` : ""}
+            {student.birthDate ? (
+              <>
+                · nacido el <FormattedDate iso={student.birthDate.toISOString()} />
+              </>
+            ) : null}
             {` · ${ETIQUETA_ALUMNO[student.status] ?? student.status}`}
           </p>
         </header>
@@ -98,7 +103,11 @@ export default async function ExpedientePage({
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {ETIQUETA_MATRICULA[m.status] ?? m.status}
-                  {m.endedAt ? ` · hasta ${m.endedAt.toLocaleDateString("es-CL")}` : ""}
+                  {m.endedAt ? (
+                    <>
+                      · hasta <FormattedDate iso={m.endedAt.toISOString()} />
+                    </>
+                  ) : null}
                   {m.statusReason ? ` · ${m.statusReason}` : ""}
                 </span>
               </li>
@@ -205,7 +214,7 @@ export default async function ExpedientePage({
         })}
 
         <footer className="border-t border-border pt-4 text-xs text-muted-foreground">
-          Expediente generado el {new Date().toLocaleDateString("es-CL")}. Las calificaciones siguen
+          Expediente generado el <FormattedDate iso={new Date().toISOString()} />. Las calificaciones siguen
           el Decreto 67/2018 del MINEDUC.
         </footer>
       </article>

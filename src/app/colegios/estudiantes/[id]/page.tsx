@@ -7,6 +7,7 @@ import {
 } from "@/app/colegios/estudiantes/enrollment-forms";
 import { ConsentForms, DocumentForm } from "@/app/colegios/estudiantes/document-forms";
 import { GuardianForms } from "@/app/colegios/estudiantes/guardian-form";
+import { FormattedDate } from "@/components/formatted-date";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { attendanceSummary } from "@/lib/school-attendance";
@@ -137,7 +138,11 @@ export default async function EstudiantePage({
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {student.rut ?? "sin RUT"}
-          {student.birthDate ? ` · ${student.birthDate.toLocaleDateString("es-CL")}` : ""}
+          {student.birthDate && (
+            <>
+              · <FormattedDate iso={student.birthDate.toISOString()} />
+            </>
+          )}
           {` · ${ETIQUETA_ALUMNO[student.status] ?? student.status}`}
         </p>
       </div>
@@ -166,8 +171,12 @@ export default async function EstudiantePage({
                     {m.course.name} · {m.course.year}
                   </span>
                   <span className="ml-2 text-xs text-muted-foreground">
-                    desde {m.enrolledAt.toLocaleDateString("es-CL")}
-                    {m.endedAt ? ` hasta ${m.endedAt.toLocaleDateString("es-CL")}` : ""}
+                    desde <FormattedDate iso={m.enrolledAt.toISOString()} />
+                    {m.endedAt ? (
+                      <>
+                        · hasta <FormattedDate iso={m.endedAt.toISOString()} />
+                      </>
+                    ) : null}
                   </span>
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -404,7 +413,7 @@ export default async function EstudiantePage({
             {ultima.map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                 <span>
-                  {r.session.date.toLocaleDateString("es-CL")} · {r.session.subject.name}
+                  <FormattedDate iso={r.session.date.toISOString()} /> · {r.session.subject.name}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {ETIQUETA_ESTADO[r.status] ?? r.status}
