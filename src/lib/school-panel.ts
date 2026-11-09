@@ -9,6 +9,7 @@
 
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/money";
+import { courseReport } from "@/lib/school-grades";
 import { resumenConvivencia } from "@/lib/school-convivencia";
 import { estadoDeFirmas } from "@/lib/school-signatures";
 

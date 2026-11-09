@@ -18,6 +18,7 @@ import {
   ultimasClasesFirmadas,
 } from "@/lib/school-panel";
 import { resumenConvivencia } from "@/lib/school-convivencia";
+import { estadoDeFirmas } from "@/lib/school-signatures";
 import { cardClass } from "@/lib/ui";
 
 type Paso = {
@@ -496,7 +497,7 @@ export default async function ColegiosPage() {
             ) : null}
           </div>
           <ul className="mt-3 divide-y divide-border">
-            {ultimasFirmas.map((f) => (
+            {ultimasFirmas.map((f: { id: string; curso: string; asignatura: string; firmante: string; fecha: Date }) => (
               <li key={f.id} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import type { AsistenciaDia, RendimientoCurso } from "@/lib/school-panel";
 
 /**
