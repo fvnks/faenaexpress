@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireSchoolContext } from "@/lib/school-auth";
 import { docenteDeUsuario } from "@/lib/school-team";
+import { FormattedDate } from "@/components/formatted-date";
 import { cardClass } from "@/lib/ui";
 
 /** Historial de correcciones de notas para una evaluación y alumno. */
@@ -100,12 +101,15 @@ export default async function HistorialNotasPage({
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Cambiado por {c.changedBy.name} el{" "}
-                      {c.changedAt.toLocaleString("es-CL", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      <FormattedDate
+                        iso={c.changedAt.toISOString()}
+                        options={{
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }}
+                      />
                     </p>
                     {c.reason ? (
                       <p className="text-xs text-muted-foreground">

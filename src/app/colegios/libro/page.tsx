@@ -1,6 +1,7 @@
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { db } from "@/lib/db";
 import { estadoDeFirmas } from "@/lib/school-signatures";
+import { FormattedDate } from "@/components/formatted-date";
 import { cardClass } from "@/lib/ui";
 
 // La pantalla de exportación: de aquí baja el colegio el archivo que entrega al
@@ -57,7 +58,7 @@ export default async function LibroPage() {
             <p className="text-xs text-muted-foreground">Último registro</p>
             <p className="mt-1 text-sm font-medium">
               {ultimoRegistro
-                ? ultimoRegistro.recordedAt.toLocaleString("es-CL")
+                ? <FormattedDate iso={ultimoRegistro.recordedAt.toISOString()} />
                 : "sin registro"}
             </p>
           </li>
@@ -65,7 +66,7 @@ export default async function LibroPage() {
             <li className="sm:col-span-4">
               <p className="text-xs text-muted-foreground">Última firma</p>
               <p className="mt-1 text-sm font-medium">
-                {firmas.ultimaFirma.toLocaleString("es-CL")}
+                <FormattedDate iso={firmas.ultimaFirma.toISOString()} />
               </p>
             </li>
           )}

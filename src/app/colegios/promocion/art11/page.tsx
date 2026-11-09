@@ -6,6 +6,7 @@ import {
   HearingForm,
   UtpReportForm,
 } from "@/app/colegios/promocion/art11/promotion-forms";
+import { FormattedDate } from "@/components/formatted-date";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { casosArt11 } from "@/lib/school-promotion-store";
@@ -174,7 +175,7 @@ export default async function Art11Page({ searchParams }: PageProps<"/colegios/p
                       {caso.resolucion.utpReportedAt ? (
                         <p className="mt-1 text-xs text-muted-foreground">
                           Informado el{" "}
-                          {new Date(caso.resolucion.utpReportedAt).toLocaleDateString("es-CL")}
+                          <FormattedDate iso={caso.resolucion.utpReportedAt} />
                         </p>
                       ) : null}
                       {puedeResolver ? (
@@ -221,7 +222,7 @@ export default async function Art11Page({ searchParams }: PageProps<"/colegios/p
                     <div className="mt-2">
                       <p className="text-sm">
                         Se realizó el{" "}
-                        {new Date(caso.resolucion.hearingHeldAt).toLocaleDateString("es-CL")}
+                        <FormattedDate iso={caso.resolucion.hearingHeldAt} />
                         {caso.resolucion.hearingNotes ? `: ${caso.resolucion.hearingNotes}` : "."}
                       </p>
                       {puedeResolver ? (
@@ -271,9 +272,14 @@ export default async function Art11Page({ searchParams }: PageProps<"/colegios/p
                       <p className="whitespace-pre-line text-sm">{caso.resolucion.decision}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {outcomeLabel(caso.resolucion.outcome)}
-                        {caso.resolucion.decidedAt
-                          ? ` · resuelto el ${new Date(caso.resolucion.decidedAt).toLocaleDateString("es-CL")}`
-                          : "."}
+                        {caso.resolucion.decidedAt ? (
+                          <>
+                            · resuelto el{" "}
+                            <FormattedDate iso={caso.resolucion.decidedAt} />
+                          </>
+                        ) : (
+                          "."
+                        )}
                       </p>
                       {caso.resolucion.attendanceException ? (
                         <p className="mt-1 text-xs text-muted-foreground">

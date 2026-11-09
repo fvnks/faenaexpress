@@ -4,6 +4,7 @@ import { EvaluationForm } from "@/app/colegios/calificaciones/evaluation-form";
 import { GradeSheet } from "@/app/colegios/calificaciones/grade-sheet";
 import { PeriodForm } from "@/app/colegios/calificaciones/period-form";
 import { FaltaEsto } from "@/app/colegios/falta-esto";
+import { FormattedDate } from "@/components/formatted-date";
 import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { courseReport, courseSubjects, listPeriods } from "@/lib/school-grades";
@@ -296,7 +297,9 @@ export default async function CalificacionesPage({
                   <span className="min-w-0 flex-1 text-sm">
                     <span className="font-medium">{ev.name}</span>
                     <span className="ml-2 text-xs text-muted-foreground">
-                      {ev.date.toLocaleDateString("es-CL")}
+                      {ev.date.toISOString() ? (
+                        <FormattedDate iso={ev.date.toISOString()} />
+                      ) : null}
                       {ev.weight > 0 ? ` · peso ${ev.weight}%` : ""}
                       {ev.isFinal ? " · final" : ""}
                     </span>
