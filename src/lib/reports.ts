@@ -844,6 +844,124 @@ export async function cashFlowProjection(companyId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Gastos y ventas mensuales (últimos N meses) para gráficos de libros
+// ---------------------------------------------------------------------------
+
+export type MonthlyDocBucket = {
+  /** AAAA-MM */
+  month: string;
+  net: number;
+  iva: number;
+  total: number;
+  count: number;
+};
+
+/**
+ * Compras agrupadas por mes, últimos N meses (más antiguo → más reciente).
+ * Las notas de crédito restan (signo −1).
+ */
+export async function purchasesMonthly(
+  companyId: string,
+  months = 12,
+  tipo?: DocumentType | null,
+): Promise<MonthlyDocBucket[]> {
+  const now = new Date();
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
+
+  const rows = await db.purchase.findMany({
+    where: {
+      companyId,
+      date: { gte: from },
+      ...(tipo ? { documentType: tipo } : { documentType: { not: "QUOTATION" } }),
+    },
+    select: { date: true, netAmount: true, ivaAmount: true, totalAmount: true, documentType: true },
+  });
+
+  const buckets: MonthlyDocBucket[] = [];
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    buckets.push({
+      month: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
+      net: 0,
+      iva: 0,
+      total: 0,
+      count: 0,
+    });
+  }
+  const index = new Map(buckets.map((b) => [b.month, b]));
+
+  for (const row of rows) {
+    const month = `${row.date.getUTCFullYear()}-${String(row.date.getUTCMonth() + 1).padStart(2, "0")}`;
+    const bucket = index.get(month);
+    if (!bucket) continue;
+    const sign = documentSign(row.documentType);
+    bucket.net += sign * row.netAmount;
+    bucket.iva += sign * row.ivaAmount;
+    bucket.total += sign * row.totalAmount;
+    bucket.count += 1;
+  }
+
+  return buckets;
+}
+
+/**
+ * Ventas agrupadas por mes, últimos N meses (más antiguo → más reciente).
+ * Las notas de crédito restan (signo −1). El total usa neto − retención.
+ */
+export async function salesMonthly(
+  companyId: string,
+  months = 12,
+  tipo?: DocumentType | null,
+): Promise<MonthlyDocBucket[]> {
+  const now = new Date();
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
+
+  const rows = await db.sale.findMany({
+    where: {
+      companyId,
+      date: { gte: from },
+      ...(tipo ? { documentType: tipo } : { documentType: { not: "QUOTATION" } }),
+    },
+    select: {
+      date: true,
+      netAmount: true,
+      ivaAmount: true,
+      totalAmount: true,
+      documentType: true,
+      retentionAmount: true,
+    },
+  });
+
+  const buckets: MonthlyDocBucket[] = [];
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    buckets.push({
+      month: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
+      net: 0,
+      iva: 0,
+      total: 0,
+      count: 0,
+    });
+  }
+  const index = new Map(buckets.map((b) => [b.month, b]));
+
+  for (const row of rows) {
+    const month = `${row.date.getUTCFullYear()}-${String(row.date.getUTCMonth() + 1).padStart(2, "0")}`;
+    const bucket = index.get(month);
+    if (!bucket) continue;
+    const sign = documentSign(row.documentType);
+    const net = Math.max(row.netAmount - row.retentionAmount, 0);
+    bucket.net += sign * net;
+    bucket.iva += sign * row.ivaAmount;
+    bucket.total += sign * Math.max(row.totalAmount - row.retentionAmount, 0);
+    bucket.count += 1;
+  }
+
+  return buckets;
+}
+
+
+// ---------------------------------------------------------------------------
 // Gastos mensuales por categoría (heatmap mensual × categoría)
 // ---------------------------------------------------------------------------
 
