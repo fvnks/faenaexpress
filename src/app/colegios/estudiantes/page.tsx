@@ -22,37 +22,61 @@ const ETIQUETA_MATRICULA: Record<string, string> = {
 };
 
 // Listado de alumnos del colegio, con su matrícula y su estado.
-export default async function EstudiantesPage() {
+export default async function EstudiantesPage({
+  searchParams,
+}: PageProps<"/colegios/estudiantes">) {
   const ctx = await requireSchoolContext("estudiantes");
   const schoolId = ctx.school.id;
   const puedeEditar = schoolCanWrite(ctx, "estudiantes");
+  const params = await searchParams;
 
-  const [alumnos, cursos] = await Promise.all([
-    db.student.findMany({
-      where: { schoolId },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      include: {
-        enrollments: {
-          orderBy: [{ status: "asc" }, { enrolledAt: "desc" }],
-          include: { course: { select: { id: true, name: true, year: true } } },
+  // Filtros desde la URL
+  const buscar = (params.q ?? "").toString().trim();
+  const filtroEstado = (params.estado ?? "todos") as "todos" | "activo" | "inactivo";
+
+  // Construir filtros de base de datos
+  const where: { schoolId: string; status?: string; OR?: Array<{ firstName?: { contains: string }; lastName?: { contains: string }; rut?: { contains: string } }> } = { schoolId };
+  if (filtroEstado !== "todos") {
+    where.status = filtroEstado === "activo" ? "ACTIVE" : { not: "ACTIVE" };
+  }
+  if (buscar) {
+    where.OR = [
+      { firstName: { contains: buscar } },
+      { lastName: { contains: buscar } },
+      { rut: { contains: buscar } },
+    ];
+  }
+
+  const [alumnos, cursos, totalTodos, totalActivos, totalInactivos] =
+    await Promise.all([
+      db.student.findMany({
+        where,
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        include: {
+          enrollments: {
+            orderBy: [{ status: "asc" }, { enrolledAt: "desc" }],
+            include: { course: { select: { id: true, name: true, year: true } } },
+          },
         },
-      },
-    }),
-    db.course.findMany({
-      where: { schoolId, active: true },
-      orderBy: [{ year: "desc" }, { name: "asc" }],
-      select: { id: true, name: true, year: true },
-    }),
-  ]);
+      }),
+      db.course.findMany({
+        where: { schoolId, active: true },
+        orderBy: [{ year: "desc" }, { name: "asc" }],
+        select: { id: true, name: true, year: true },
+      }),
+      db.student.count({ where: { schoolId } }),
+      db.student.count({ where: { schoolId, status: "ACTIVE" } }),
+      db.student.count({ where: { schoolId, status: { not: "ACTIVE" } } }),
+    ]);
 
-  const cursando = alumnos.filter((a) => a.status === "ACTIVE").length;
+  const cursando = totalActivos;
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Alumnos</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {cursando} cursando de {alumnos.length} en {ctx.school.name}.
+          {cursando} cursando de {totalTodos} en {ctx.school.name}.
         </p>
       </div>
 
@@ -75,10 +99,60 @@ export default async function EstudiantesPage() {
         </section>
       ) : null}
 
+      {/* ── Búsqueda y filtros ───────────────────────────────────────────── */}
+      <section className={cardClass + " p-5"}>
+        <form className="flex flex-wrap items-end gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs text-muted-foreground mb-1">
+              Buscar alumno o RUT
+            </label>
+            <input
+              name="q"
+              defaultValue={buscar}
+              placeholder="Nombre, apellido o RUT"
+              className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs text-muted-foreground mb-1">
+              Estado
+            </label>
+            <select
+              name="estado"
+              defaultValue={filtroEstado}
+              className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm"
+            >
+              <option value="todos">Todos</option>
+              <option value="activo">Cursando</option>
+              <option value="inactivo">No cursando</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            className="rounded-control border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5"
+          >
+            Filtrar
+          </button>
+          {(buscar || filtroEstado !== "todos") && puedeEditar && (
+            <Link
+              href="/colegios/estudiantes"
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground ml-2"
+            >
+              Limpiar filtros
+            </Link>
+          )}
+        </form>
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          {totalActivos} cursando · {totalInactivos} no cursando de {totalTodos} totales
+        </p>
+      </section>
+
+      {/* ── Listado ──────────────────────────────────────────────────────── */}
       <section className={cardClass + " overflow-hidden"}>
         {alumnos.length === 0 ? (
           <p className="px-5 py-6 text-sm text-muted-foreground">
-            Todavía no hay alumnos en este colegio.
+            Todavía no hay alumnos{" " + (buscar || filtroEstado !== "todos" ? "con esos filtros" : "")}en este colegio.
           </p>
         ) : (
           <table className="w-full text-sm">
