@@ -842,3 +842,111 @@ export async function cashFlowProjection(companyId: string) {
     vencidoSalidas: vencido.salidas,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Gastos mensuales por categoría (heatmap mensual × categoría)
+// ---------------------------------------------------------------------------
+
+export type MonthlyCategoryRow = {
+  categoryId: string | null;
+  categoryName: string;
+  /** Gastos por mes: mes "YYYY-MM" → monto total. */
+  byMonth: Record<string, number>;
+  /** Total anual (suma de todos los meses). */
+  annualTotal: number;
+  /** Promedio mensual. */
+  monthlyAverage: number;
+  /** Mes con mayor gasto. */
+  peakMonth: { month: string; total: number } | null;
+};
+
+export type MonthlyCategoryResult = {
+  rows: MonthlyCategoryRow[];
+  months: string[]; // "YYYY-MM" ordenados de más reciente a más antiguo
+  grandTotal: number;
+  grandMonthlyAverage: number;
+};
+
+/**
+ * Gastos agrupados por categoría y mes, para los últimos N meses (default 12).
+ *
+ * Devuelve una matriz categoría × mes para render un heatmap o tabla de calor,
+ * con totales anuales y promedios mensuales por categoría.
+ */
+export async function expensesMonthlyByCategory(
+  companyId: string,
+  months = 12,
+): Promise<MonthlyCategoryResult> {
+  const now = new Date();
+  // Primer día del mes más antiguo incluido.
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
+
+  const expenses = await db.expense.findMany({
+    where: {
+      companyId,
+      date: { gte: from },
+    },
+    select: {
+      totalAmount: true,
+      date: true,
+      category: { select: { id: true, name: true } },
+      area: { select: { id: true, name: true } },
+    },
+  });
+
+  // Generar lista de meses "YYYY-MM" de más reciente a más antiguo.
+  const monthLabels: string[] = [];
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    monthLabels.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+  }
+
+  // Agrupar por categoría → mes → monto.
+  const byCategory = new Map<string, { name: string; byMonth: Record<string, number> }>();
+  let grandTotal = 0;
+
+  for (const expense of expenses) {
+    const catId = expense.category?.id ?? null;
+    const catName = expense.category?.name ?? "Sin categoría";
+    const d = new Date(expense.date);
+    const monthKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+
+    if (!byCategory.has(catId)) {
+      byCategory.set(catId, { name: catName, byMonth: {} });
+    }
+    const entry = byCategory.get(catId)!;
+    entry.byMonth[monthKey] = (entry.byMonth[monthKey] ?? 0) + expense.totalAmount;
+    grandTotal += expense.totalAmount;
+  }
+
+  // Construir filas ordenadas por total anual descendente.
+  const rows: MonthlyCategoryRow[] = [];
+  for (const [catId, entry] of byCategory.entries()) {
+    const monthlyTotal = Object.values(entry.byMonth).reduce((acc, v) => acc + v, 0);
+    const monthsWithData = Object.keys(entry.byMonth).length;
+    const peakEntry = Object.entries(entry.byMonth).reduce(
+      (best, [month, total]) => (total > (best?.total ?? -1) ? { month, total } : best),
+      null as { month: string; total: number } | null,
+    );
+
+    rows.push({
+      categoryId: catId,
+      categoryName: entry.name,
+      byMonth: entry.byMonth,
+      annualTotal: monthlyTotal,
+      monthlyAverage: monthsWithData > 0 ? monthlyTotal / monthsWithData : 0,
+      peakMonth: peakEntry,
+    });
+  }
+
+  rows.sort((a, b) => b.annualTotal - a.annualTotal);
+
+  const grandMonthlyAverage = months > 0 ? grandTotal / months : 0;
+
+  return {
+    rows,
+    months: monthLabels,
+    grandTotal,
+    grandMonthlyAverage,
+  };
+}

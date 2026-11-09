@@ -1,63 +1,21 @@
 import { requireContext } from "@/lib/auth";
 import { formatCLP, formatPeriod, currentPeriod, monthRange } from "@/lib/money";
-import type { Breakdown } from "@/lib/reports";
-import { expensesBreakdown, purchasesBreakdown } from "@/lib/reports";
+import type { MonthlyCategoryResult } from "@/lib/reports";
+import { expensesBreakdown, expensesMonthlyByCategory, purchasesBreakdown } from "@/lib/reports";
+import { AnnualExpenseBars } from "@/components/annual-expense-bars";
+import { ExpenseHeatmap } from "@/components/expense-heatmap";
 import { cardClass } from "@/lib/ui";
 import { PeriodFilter, ReportNav } from "../report-shell";
 
-function BreakdownTable({ rows, total, label }: { rows: Breakdown[]; total: number; label: string }) {
-  if (rows.length === 0) {
-    return <p className="px-4 py-6 text-sm text-muted-foreground">No hay gastos en este período.</p>;
-  }
-
-  return (
-    <table className="w-full text-sm">
-      <caption className="sr-only">{label}</caption>
-      <thead>
-        <tr className="border-b border-border text-left text-muted-foreground">
-          <th scope="col" className="px-4 py-3 font-medium">
-            {label}
-          </th>
-          <th scope="col" className="px-4 py-3 text-right font-medium">
-            N°
-          </th>
-          <th scope="col" className="px-4 py-3 text-right font-medium">
-            Total
-          </th>
-          <th scope="col" className="px-4 py-3 text-right font-medium">
-            Participación
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => {
-          const share = total > 0 ? Math.round((row.total / total) * 100) : 0;
-          return (
-            <tr key={row.id ?? row.name} className="border-b border-border last:border-0">
-              <td className="px-4 py-2.5">{row.name}</td>
-              <td className="px-4 py-2.5 text-right tabular">{row.count}</td>
-              <td className="px-4 py-2.5 text-right tabular">{formatCLP(row.total)}</td>
-              <td className="px-4 py-2.5 text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <span className="w-24">
-                    <span className="block h-2 overflow-hidden rounded-full bg-border">
-                      <span
-                        className="block h-full rounded-full bg-primary"
-                        style={{ width: `${share}%` }}
-                      />
-                    </span>
-                  </span>
-                  <span className="w-10 text-right tabular">{share}%</span>
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
-}
-
+/**
+ * Gastos por categoría y área — rediseño.
+ *
+ * Muestra dos vistas en una sola página:
+ *   1. Barras anuales por categoría (qué tanto se gasta en cada categoría al año)
+ *   2. Heatmap mensual × categoría (cómo varía el gasto mes a mes)
+ *
+ * Ambas responden a "¿en qué categorías se gasta y cómo cambia cada mes?".
+ */
 export default async function ExpensesReportPage(props: PageProps<"/facturas/reportes/gastos">) {
   const ctx = await requireContext("reportes");
   const searchParams = await props.searchParams;
@@ -65,16 +23,24 @@ export default async function ExpensesReportPage(props: PageProps<"/facturas/rep
   const period = raw && monthRange(raw) ? raw : currentPeriod();
   const range = monthRange(period) ?? { from: new Date(), to: new Date() };
 
-  const data = await expensesBreakdown(ctx.company.id, range);
-  const compras = await purchasesBreakdown(ctx.company.id, range);
+  const [data, compras, monthly] = await Promise.all([
+    expensesBreakdown(ctx.company.id, range),
+    purchasesBreakdown(ctx.company.id, range),
+    expensesMonthlyByCategory(ctx.company.id, 12),
+  ]);
+
+  const topCategory = monthly.rows[0];
+  const hasData = monthly.rows.length > 0;
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Gastos por categoría, área y trabajador</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Gastos por categoría y área
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Distribución de los gastos de {formatPeriod(period)}. Las compras (facturas de
-          proveedor) se muestran aparte como centro de costo.
+          Evolución mensual y gasto anual por categoría de {formatPeriod(period)} en{" "}
+          <span className="font-medium">{ctx.company.name}</span>.
         </p>
       </div>
 
@@ -84,61 +50,136 @@ export default async function ExpensesReportPage(props: PageProps<"/facturas/rep
         <PeriodFilter period={period} />
         <a
           href={`/facturas/reportes/gastos/export?periodo=${period}`}
-          className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-2 text-sm text-foreground"
+          className="rounded-control border border-primary bg-transparent px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/5"
         >
           Exportar Excel
         </a>
       </div>
 
+      {/* ---------------- KPIs del período ---------------- */}
       <section className={cardClass + " p-5"}>
-        <div className="text-sm text-muted-foreground">Total del período</div>
-        <div className="mt-1 text-2xl font-semibold tabular">{formatCLP(data.total)}</div>
+        <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div>
+            <dt className="text-[11px] font-medium text-muted-foreground tracking-tight uppercase">
+              Total del período
+            </dt>
+            <dd className="mt-1 text-2xl font-semibold tabular text-primary">
+              {formatCLP(data.total)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-medium text-muted-foreground tracking-tight uppercase">
+              Promedio mensual (12m)
+            </dt>
+            <dd className="mt-1 text-2xl font-semibold tabular">
+              {formatCLP(monthly.grandMonthlyAverage)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-medium text-muted-foreground tracking-tight uppercase">
+              Categorías activas
+            </dt>
+            <dd className="mt-1 text-2xl font-semibold tabular">
+              {monthly.rows.length}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-medium text-muted-foreground tracking-tight uppercase">
+              Mes con mayor gasto
+            </dt>
+            <dd className="mt-1 text-2xl font-semibold tabular text-primary">
+              {topCategory?.peakMonth ? topCategory.peakMonth.month : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-medium text-muted-foreground tracking-tight uppercase">
+              Compras (centro de costo)
+            </dt>
+            <dd className="mt-1 text-2xl font-semibold tabular">
+              {formatCLP(compras.total)}
+            </dd>
+          </div>
+        </dl>
       </section>
 
-      {/* ---------------- Compras por categoría (centro de costo) ---------------- */}
+      {/* ---------------- Barras anuales por categoría ---------------- */}
       <section className={cardClass + " overflow-hidden"}>
-        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 className="font-semibold">Compras por categoría</h2>
-          <span className="text-xs text-muted-foreground">{compras.count} documento(s)</span>
+        <div className="border-b border-border px-4 py-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-semibold">Gasto anual por categoría</h2>
+          <span className="text-xs text-muted-foreground">
+            {monthly.rows.length} categoría{monthly.rows.length !== 1 ? "s" : ""}
+          </span>
         </div>
-        {compras.count === 0 ? (
+
+        {monthly.rows.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted-foreground">
-            No hay compras en este período. Las facturas de proveedor se ven acá agrupadas
-            por categoría, para saber cuánto se gasta en cada una.
+            Sin gastos registrados en los últimos 12 meses.
           </p>
         ) : (
-          <div className="flex flex-col gap-4 p-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="text-sm text-muted-foreground">Total compras</span>
-              <span className="tabular text-lg font-semibold">{formatCLP(compras.total)}</span>
-            </div>
-            <BreakdownTable rows={compras.byCategory} total={compras.total} label="Categoría" />
-            <div className="border-t border-border pt-3">
-              <div className="mb-2 text-sm font-medium">Por área</div>
-              <BreakdownTable rows={compras.byArea} total={compras.total} label="Área" />
-            </div>
-          </div>
+          <AnnualExpenseBars rows={monthly.rows} grandTotal={monthly.grandTotal} />
         )}
       </section>
 
+      {/* ---------------- Heatmap mensual × categoría ---------------- */}
       <section className={cardClass + " overflow-hidden"}>
-        <h2 className="border-b border-border px-4 py-3 font-semibold">Por categoría</h2>
-        <BreakdownTable rows={data.byCategory} total={data.total} label="Categoría" />
+        <div className="border-b border-border px-4 py-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-semibold">Evolución mensual por categoría</h2>
+          <span className="text-xs text-muted-foreground">
+            Últimos 12 meses · intensidad de color = monto gastado
+          </span>
+        </div>
+
+        {hasData ? (
+          <ExpenseHeatmap data={monthly} />
+        ) : (
+          <p className="px-4 py-6 text-sm text-muted-foreground">
+            Sin gastos registrados en los últimos 12 meses.
+          </p>
+        )}
       </section>
 
-      <section className={cardClass + " overflow-hidden"}>
-        <h2 className="border-b border-border px-4 py-3 font-semibold">Por área</h2>
-        <BreakdownTable rows={data.byArea} total={data.total} label="Área" />
-      </section>
+      {/* ---------------- Detalle por área y trabajador ---------------- */}
+      <section className={cardClass + " overflow-hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="border-b border-border px-4 py-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="font-semibold">Por área</h3>
+        </div>
+        {data.byArea.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-muted-foreground">
+            Sin gastos asignados a áreas en este período.
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th scope="col" className="px-4 py-3 font-medium">Área</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">N°</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {data.byArea.map((row) => {
+                const share = data.total > 0 ? Math.round((row.total / data.total) * 100) : 0;
+                return (
+                  <tr key={row.id ?? row.name} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5">{row.name}</td>
+                    <td className="px-4 py-2.5 text-right tabular">{row.count}</td>
+                    <td className="px-4 py-2.5 text-right tabular">
+                      {formatCLP(row.total)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">
+                      {share}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
 
-      <section className={cardClass + " overflow-hidden"}>
-        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 className="font-semibold">Por trabajador</h2>
-          <span className="tabular text-sm text-muted-foreground">
+        <div className="border-b border-border px-4 py-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="font-semibold">Por trabajador</h3>
+          <span className="text-xs text-muted-foreground">
             Personal: {formatCLP(data.totalPersonal)}
-            {data.total > 0
-              ? ` (${Math.round((data.totalPersonal / data.total) * 100)}% del total)`
-              : ""}
           </span>
         </div>
         {data.byWorker.length === 0 ? (
@@ -147,7 +188,32 @@ export default async function ExpensesReportPage(props: PageProps<"/facturas/rep
             aguinaldos, elige el trabajador en el formulario de gasto.
           </p>
         ) : (
-          <BreakdownTable rows={data.byWorker} total={data.totalPersonal} label="Trabajador" />
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th scope="col" className="px-4 py-3 font-medium">Trabajador</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">N°</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {data.byWorker.map((row) => {
+                const share = data.totalPersonal > 0 ? Math.round((row.total / data.totalPersonal) * 100) : 0;
+                return (
+                  <tr key={row.id ?? row.name} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5">{row.name}</td>
+                    <td className="px-4 py-2.5 text-right tabular">{row.count}</td>
+                    <td className="px-4 py-2.5 text-right tabular">
+                      {formatCLP(row.total)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">
+                      {share}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </section>
     </div>
