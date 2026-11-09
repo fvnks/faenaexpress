@@ -70,7 +70,7 @@ export default async function SuppliersPage(props: PageProps) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Proveedores</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            A quién le compras y con quién registras las compras.
+            {total} proveedor{total !== 1 ? "es" : ""} registrados{hasFilters ? `, ${partners.length} coinciden con el filtro` : ""}.
           </p>
         </div>
         {writable ? (

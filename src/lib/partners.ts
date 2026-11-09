@@ -44,7 +44,11 @@ export async function listPartners(
   };
   if (opts?.active !== undefined) where.active = opts.active;
   if (opts?.q?.trim()) {
-    where.OR = [{ rut: { contains: opts.q.trim() } }, { name: { contains: opts.q.trim() } }];
+    const q = opts.q.trim();
+    where.OR = [
+      { rut: { contains: q, mode: "insensitive" } },
+      { name: { contains: q, mode: "insensitive" } },
+    ];
   }
 
   const [partners, total] = await Promise.all([
@@ -235,8 +239,8 @@ export async function searchPartners(companyId: string, q: string, kind: "custom
       companyId,
       type: { in: types },
       OR: [
-        { rut: { contains: q } },
-        { name: { contains: q } },
+        { rut: { contains: q, mode: "insensitive" } },
+        { name: { contains: q, mode: "insensitive" } },
       ],
     },
     orderBy: [{ active: "desc" }, { name: "asc" }],
