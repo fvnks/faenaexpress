@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
 import { listAllAppointments, respondAnyAppointment } from "@/app/actions/school-appointments";
 import { serverAction } from "@/lib/server-action";
+import { FormattedDate } from "@/components/formatted-date";
 import { SubmitButton } from "@/components/submit-button";
 import { cardClass, controlClass, labelClass } from "@/lib/ui";
 
@@ -128,13 +129,7 @@ export default async function CitasComunicacionPage() {
               {citasFiltradas.map((cita) => (
                 <tr key={cita.id} className="border-b border-border">
                   <td className="px-3 py-2">
-                    <div className="text-sm">{cita.scheduledAt.toLocaleString("es-CL", {
-                      weekday: "short",
-                      day: "2-digit",
-                      month: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}</div>
+                    <div className="text-sm"><FormattedDate iso={cita.scheduledAt.toISOString()} options={{ weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }} /></div>
                     {cita.durationMin > 0 && (
                       <div className="text-xs text-muted-foreground">
                         {cita.durationMin} min

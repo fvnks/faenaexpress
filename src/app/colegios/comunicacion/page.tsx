@@ -4,6 +4,7 @@ import {
   DeleteCircularButton,
   ResolveJustificationButton,
 } from "@/app/colegios/comunicacion/communication-forms";
+import { FormattedDate } from "@/components/formatted-date";
 import { db } from "@/lib/db";
 import { todayISO } from "@/lib/money";
 import { requireSchoolContext, schoolCanWrite } from "@/lib/school-auth";
@@ -107,12 +108,12 @@ export default async function ComunicacionPage() {
                           {j.session.subject.name}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {j.session.date.toLocaleDateString("es-CL")} · motivo: {j.reason}
+                          <FormattedDate iso={j.session.date.toISOString()} /> · motivo: {j.reason}
                           {j.note ? ` · ${j.note}` : ""}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           Lo propuso {j.guardian.name} el{" "}
-                          {j.requestedAt.toLocaleDateString("es-CL")}
+                          <FormattedDate iso={j.requestedAt.toISOString()} />
                         </p>
                       </div>
                       {puedeEditar ? <ResolveJustificationButton requestId={j.id} /> : null}
@@ -134,13 +135,7 @@ export default async function ComunicacionPage() {
                         <p className="text-sm font-medium">{c.title}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {c.student.firstName} {c.student.lastName} ·{" "}
-                          {c.scheduledAt.toLocaleString("es-CL", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            timeZone: "UTC",
-                          })}
+                          <FormattedDate iso={c.scheduledAt.toISOString()} options={{ weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }} />
                           {c.guardian ? ` · ${c.guardian.name}` : ""}
                         </p>
                       </div>
@@ -168,9 +163,12 @@ export default async function ComunicacionPage() {
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {a.inasistenciasSinJustificar} inasistencias sin justificar ·{" "}
                           {a.porcentajeAsistencia}% asistencia
-                          {a.ultimaFalta
-                            ? ` · última falta: ${a.ultimaFalta.toLocaleDateString("es-CL")}`
-                            : ""}
+                          {a.ultimaFalta && (
+                            <>
+                              · última falta{" "}
+                              <FormattedDate iso={a.ultimaFalta.toISOString()} />
+                            </>
+                          )}
                         </p>
                       </div>
                       {puedeEditar ? (
@@ -208,7 +206,7 @@ export default async function ComunicacionPage() {
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-sm font-medium">{c.title}</p>
                   <span className="text-xs text-muted-foreground">
-                    {c.publishedAt.toLocaleDateString("es-CL")} ·{" "}
+                    <FormattedDate iso={c.publishedAt.toISOString()} /> ·{" "}
                     {c.audience === "COLEGIO"
                       ? "todo el colegio"
                       : c.audience === "CURSO"

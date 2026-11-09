@@ -6,6 +6,7 @@ import {
   PortalCirculars,
   PortalJustifications,
 } from "@/app/apoderado/portal-communication";
+import { FormattedDate } from "@/components/formatted-date";
 import { db } from "@/lib/db";
 import { attendanceSummary } from "@/lib/school-attendance";
 import {
@@ -224,7 +225,7 @@ export default async function PortalPage() {
                         {ultimos.map((r) => (
                           <li key={r.id} className="flex items-center justify-between gap-3 py-1.5">
                             <span>
-                              {r.session.date.toLocaleDateString("es-CL")} · {r.session.subject.name}
+                              <FormattedDate iso={r.session.date.toISOString()} /> · {r.session.subject.name}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {r.status === "PRESENT"
