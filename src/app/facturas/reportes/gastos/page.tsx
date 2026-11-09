@@ -139,10 +139,11 @@ export default async function ExpensesReportPage(props: PageProps<"/facturas/rep
       </section>
 
       {/* ---------------- Detalle por área y trabajador ---------------- */}
-      <section className={`${cardClass} overflow-hidden grid grid-cols-1 lg:grid-cols-2 gap-6`}>
-        <div className="border-b border-border px-4 py-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="font-semibold">Por área</h3>
-        </div>
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className={cardClass + " overflow-hidden"}>
+          <div className="border-b border-border px-4 py-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-semibold">Por área</h3>
+          </div>
         {data.byArea.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted-foreground">
             Sin gastos asignados a áreas en este período.
@@ -175,9 +176,11 @@ export default async function ExpensesReportPage(props: PageProps<"/facturas/rep
             </tbody>
           </table>
         )}
+        </div>
 
-        <div className="border-b border-border px-4 py-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="font-semibold">Por trabajador</h3>
+        <div className={cardClass + " overflow-hidden"}>
+          <div className="border-b border-border px-4 py-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-semibold">Por trabajador</h3>
           <span className="text-xs text-muted-foreground">
             Personal: {formatCLP(data.totalPersonal)}
           </span>
@@ -215,6 +218,7 @@ export default async function ExpensesReportPage(props: PageProps<"/facturas/rep
             </tbody>
           </table>
         )}
+        </div>
       </section>
     </div>
   );

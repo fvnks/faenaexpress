@@ -179,3 +179,48 @@ export async function verificarCodigoAcceso(
     codigo: apoderado.accessCode,
   };
 }
+
+/**
+ * Historial de accesos al portal de una familia.
+ *
+ * Es una Server Action porque la pantalla de apoderados es un Client
+ * Component: importar `db` desde ahí arrastraría `pg` y los módulos de Node
+ * (`fs`, `net`, `tls`, `dns`) al bundle del navegador y el build falla.
+ *
+ * Valida que el apoderado sea del colegio abierto y que el rol pueda editar
+ * apoderados: el panel solo se muestra a quien puede, pero las acciones son
+ * alcanzables por POST directo.
+ */
+export async function listGuardianPortalAccessAction(
+  guardianId: string,
+  limit = 20,
+): Promise<{ id: string; createdAt: string; ip: string | null }[]> {
+  const ctx = await requireSchoolContext("apoderados");
+  if (!schoolCanWrite(ctx, "apoderados")) return [];
+
+  const apoderado = await db.guardian.findFirst({
+    where: { id: guardianId, schoolId: ctx.school.id },
+    select: { email: true, name: true },
+  });
+  if (!apoderado) return [];
+
+  // El registro guarda como `userEmail` el correo del apoderado o, si no
+  // tiene, su nombre. Se busca por ambos y se filtra por accesos al portal.
+  const condiciones: { userEmail: { contains: string } }[] = [];
+  if (apoderado.email) condiciones.push({ userEmail: { contains: apoderado.email } });
+  if (apoderado.name.trim()) condiciones.push({ userEmail: { contains: apoderado.name.trim() } });
+  if (condiciones.length === 0) return [];
+
+  const filas = await db.accessLog.findMany({
+    where: { kind: "portal_login", OR: condiciones },
+    orderBy: { createdAt: "desc" },
+    take: Math.min(50, Math.max(1, limit)),
+    select: { id: true, ip: true, createdAt: true },
+  });
+
+  return filas.map((fila) => ({
+    id: fila.id,
+    createdAt: fila.createdAt.toISOString(),
+    ip: fila.ip,
+  }));
+}

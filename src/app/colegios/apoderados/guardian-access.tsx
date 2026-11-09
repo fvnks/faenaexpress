@@ -3,10 +3,20 @@
 import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { issueGuardianCode, type PortalFormState } from "@/app/actions/portal";
+import {
+  issueGuardianCode,
+  listGuardianPortalAccessAction,
+  type PortalFormState,
+} from "@/app/actions/portal";
 import { FormattedDate } from "@/components/formatted-date";
 import { SubmitButton } from "@/components/submit-button";
-import { listGuardianPortalAccess } from "@/lib/access-log-guardian";
+
+/** Un acceso al portal, tal como lo devuelve la Server Action. */
+type HistorialAcceso = {
+  id: string;
+  createdAt: string;
+  ip: string | null;
+};
 
 /**
  * Acceso de una familia al portal.
@@ -38,13 +48,8 @@ export function GuardianAccess({
     undefined,
   );
   const [copiado, setCopiado] = useState(false);
-  const [historial, setHistorial] = useState<{
-    id: string;
-    createdAt: Date;
-    ip: string | null;
-    userAgent: string | null;
-  }[] | null>(null);
-  const [historialAbierto, setHistorialAbierto] = useState(false);
+  const [historial, setHistorial] = useState<HistorialAcceso[] | null>(null);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
   // El código recién emitido se muestra al instante, sin esperar el refresco.
   const vigente = state?.codigo ?? codigo;
@@ -65,13 +70,17 @@ export function GuardianAccess({
   };
 
   const cargarHistorial = async () => {
-    if (historial !== null) return;
-    const datos = await listGuardianPortalAccess(codigo ?? null, nombre);
-    setHistorial(datos);
-  };
-
-  const fechaFormateada = (fecha: Date) => {
-    return new Date(fecha).toISOString();
+    if (historial !== null || cargandoHistorial) return;
+    setCargandoHistorial(true);
+    try {
+      const datos = await listGuardianPortalAccessAction(guardianId);
+      setHistorial(datos);
+    } catch {
+      toast.error("No se pudo cargar el historial de accesos.");
+      setHistorial([]);
+    } finally {
+      setCargandoHistorial(false);
+    }
   };
 
   return (
@@ -130,23 +139,21 @@ export function GuardianAccess({
             ) : null}
           </form>
 
-          {/* Historial de accesos al portal */}
+          {/* Historial de accesos al portal: se carga la primera vez que se abre. */}
           <details
-            open={historialAbierto}
-            onToggle={() => {
-              setHistorialAbierto(!historialAbierto);
-              if (!historialAbierto) cargarHistorial();
+            onToggle={(event) => {
+              if (event.currentTarget.open && historial === null) void cargarHistorial();
             }}
             className="mt-2 flex w-full flex-col items-end gap-1"
           >
             <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
-              {historialAbierto ? "Ocultar" : "Ver historial de accesos"}
+              Historial de accesos
               {historial ? ` (${historial.length})` : ""}
             </summary>
             <div className="mt-1 w-full">
               {historial === null ? (
                 <p className="text-xs text-muted-foreground text-center py-2">
-                  Cargando…
+                  {cargandoHistorial ? "Cargando…" : "Abre el historial para cargarlo."}
                 </p>
               ) : historial.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2">
@@ -164,7 +171,7 @@ export function GuardianAccess({
                     {historial.map((a) => (
                       <tr key={a.id} className="hover:bg-background">
                         <td className="px-2 py-1">
-                          <FormattedDate iso={fechaFormateada(a.createdAt)} />
+                          <FormattedDate iso={a.createdAt} />
                         </td>
                         <td className="px-2 py-1 text-right text-muted-foreground">
                           {a.ip ?? "—"}
