@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import Link from "next/link";
 
-import { ContactoSection } from "@/components/landing/contacto-section";
+import { ContactoSection } from "@/components/landing/contacto";
 import Footer from "@/components/shadcn-space/blocks/footer-02/footer";
 
 export const metadata: Metadata = {

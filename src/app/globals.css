@@ -4,59 +4,61 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Tokens de DESIGN.md. Claro por defecto, .dark los reemplaza. */
+/* Tokens de diseño radical de Facturas.
+ * Fondo carbón oscuro, azul acero como marca, ámbar solo para CTA.
+ * No hay sutileza: cada color tiene un trabajo claro. */
 :root {
-  --background: #f4f6f8;
-  --surface: #ffffff;
-  --foreground: #181b1e;
-  --muted-foreground: #5a6165;
-  --border: #d8dee3;
-  --primary: #1b5fa8;
-  --primary-foreground: #ffffff;
-  --primary-soft: #dde9f5;
-  --accent: #8a5408;
-  --accent-soft: #f4e4c4;
-  --success: #1e6b8a;
-  --success-soft: #dcf2f5;
-  --danger: #b42318;
-  --danger-soft: #fbe3e0;
-  --danger-foreground: #ffffff;
-  --ring: #1b5fa8;
-  --sidebar: hsl(0 0% 98%);
-  --sidebar-foreground: hsl(240 5.3% 26.1%);
-  --sidebar-primary: hsl(240 5.9% 10%);
-  --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-accent: hsl(240 4.8% 95.9%);
-  --sidebar-accent-foreground: hsl(240 5.9% 10%);
-  --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --background: #0B0D12;
+  --surface: #141A24;
+  --foreground: #F4F6F8;
+  --muted-foreground: #9BA1A5;
+  --border: #232D35;
+  --primary: #1B5FA8;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #1A2E3D;
+  --accent: #C58F2E;
+  --accent-soft: #2A2214;
+  --success: #5AB8D8;
+  --success-soft: #0E2E3D;
+  --danger: #F2857C;
+  --danger-soft: #3A1B18;
+  --danger-foreground: #080808;
+  --ring: #1B5FA8;
+  --sidebar: #0E1418;
+  --sidebar-foreground: #E8EDF1;
+  --sidebar-primary: #1B5FA8;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1A2E3D;
+  --sidebar-accent-foreground: #E8EDF1;
+  --sidebar-border: #232D35;
+  --sidebar-ring: #1B5FA8;
 }
 
 .dark {
-  --background: #0e1418;
-  --surface: #141c22;
-  --foreground: #e8edf1;
-  --muted-foreground: #9ba1a5;
-  --border: #232d35;
-  --primary: #4a9fd8;
+  --background: #0B0D12;
+  --surface: #141A24;
+  --foreground: #F4F6F8;
+  --muted-foreground: #9BA1A5;
+  --border: #232D35;
+  --primary: #4A9FD8;
   --primary-foreground: #081820;
-  --primary-soft: #1a2e3d;
-  --accent: #e0a94a;
-  --accent-soft: #3a2e14;
-  --success: #5ab8d8;
-  --success-soft: #0e2e3d;
-  --danger: #f2857c;
-  --danger-soft: #3a1b18;
-  --danger-foreground: #2a0d0a;
-  --ring: #4a9fd8;
-  --sidebar: hsl(240 5.9% 10%);
-  --sidebar-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-primary: hsl(224.3 76.3% 48%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(240 3.7% 15.9%);
-  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-border: hsl(240 3.7% 15.9%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --primary-soft: #1A2E3D;
+  --accent: #C58F2E;
+  --accent-soft: #2A2214;
+  --success: #5AB8D8;
+  --success-soft: #0E2E3D;
+  --danger: #F2857C;
+  --danger-soft: #3A1B18;
+  --danger-foreground: #080808;
+  --ring: #4A9FD8;
+  --sidebar: #0E1418;
+  --sidebar-foreground: #E8EDF1;
+  --sidebar-primary: #4A9FD8;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1A2E3D;
+  --sidebar-accent-foreground: #E8EDF1;
+  --sidebar-border: #232D35;
+  --sidebar-ring: #4A9FD8;
 }
 
 @theme inline {
