@@ -3,6 +3,7 @@
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const iconCls = "h-4 w-4 shrink-0 text-muted-foreground";
 
@@ -22,6 +23,7 @@ const months = [
 export function PeriodPicker({ period }: { period: string }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const [date, setDate] = useState<Date | undefined>(() => {
     const range = /^\d{4}-\d{2}$/.exec(period);
@@ -50,9 +52,14 @@ export function PeriodPicker({ period }: { period: string }) {
     setDate(d);
     const year = d.getUTCFullYear();
     const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+    // Se leen los parámetros de la URL en el momento del clic (no con
+    // useSearchParams) para no obligar a un Suspense en las pantallas donde
+    // se usa, y se navega del lado del cliente: el resto de los filtros de la
+    // barra se aplican sin recargar la página.
     const params = new URLSearchParams(window.location.search);
     params.set("periodo", `${year}-${month}`);
-    window.location.href = `${window.location.pathname}?${params.toString()}`;
+    router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false });
+    setOpen(false);
   }
 
   const match = /^(\d{4})-(\d{2})$/.exec(period);

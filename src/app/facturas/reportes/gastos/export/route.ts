@@ -1,6 +1,12 @@
 import { requireContext } from "@/lib/auth";
 import { currentPeriod, formatPeriod, monthRange } from "@/lib/money";
 import { expensesBreakdown, purchasesBreakdown } from "@/lib/reports";
+import { parseFiltrosGastos } from "@/lib/report-filters";
+import {
+  listAreasForFilter,
+  listCategoriesForFilter,
+  listWorkersForFilter,
+} from "@/lib/catalogs";
 import { createWorkbook, addStyledSheet, xlsxResponse } from "@/lib/xlsx";
 
 function breakdownRows(rows: { name: string; total: number; count: number }[], total: number) {
@@ -9,18 +15,47 @@ function breakdownRows(rows: { name: string; total: number; count: number }[], t
 
 export async function GET(request: Request) {
   const ctx = await requireContext("reportes");
-  const raw = new URL(request.url).searchParams.get("periodo") ?? "";
+  const params = new URL(request.url).searchParams;
+  const raw = params.get("periodo") ?? "";
   const period = monthRange(raw) ? raw : currentPeriod();
   const range = monthRange(period) ?? { from: new Date(), to: new Date() };
 
-  const data = await expensesBreakdown(ctx.company.id, range);
-  const compras = await purchasesBreakdown(ctx.company.id, range);
+  // El export lee los mismos filtros que la pantalla: lo que se ve en los
+  // gráficos es exactamente lo que baja el archivo.
+  const filtros = parseFiltrosGastos(params);
 
-  const workbook = createWorkbook("Gastos por categoría");
+  const [data, compras, areas, categorias, trabajadores] = await Promise.all([
+    expensesBreakdown(ctx.company.id, range, filtros),
+    purchasesBreakdown(ctx.company.id, range, filtros),
+    listAreasForFilter(ctx.company.id),
+    listCategoriesForFilter(ctx.company.id),
+    listWorkersForFilter(ctx.company.id),
+  ]);
+
+  // El subtítulo del archivo dice con qué filtros se armó: el Excel se puede
+  // archivar y leer más tarde sin adivinar.
+  const detalle: string[] = [];
+  if (filtros.q) detalle.push(`Búsqueda: ${filtros.q}`);
+  if (filtros.areaId) {
+    detalle.push(`Área: ${areas.find((area) => area.id === filtros.areaId)?.name ?? "—"}`);
+  }
+  if (filtros.categoriaId) {
+    detalle.push(
+      `Categoría: ${categorias.find((categoria) => categoria.id === filtros.categoriaId)?.name ?? "—"}`,
+    );
+  }
+  if (filtros.trabajadorId) {
+    detalle.push(
+      `Trabajador: ${trabajadores.find((trabajador) => trabajador.id === filtros.trabajadorId)?.name ?? "—"}`,
+    );
+  }
+  const subtitulo = [formatPeriod(period), ...detalle].join(" · ");
+
+  const workbook = createWorkbook("Gastos por área");
 
   addStyledSheet(workbook, "Gastos total", {
     title: `${ctx.company.name} - Gastos del período`,
-    subtitle: `${formatPeriod(period)} · CLP`,
+    subtitle: `${subtitulo} · CLP`,
     columns: [
       { header: "Concepto", width: 34, style: "text" },
       { header: "Valor", width: 18, style: "currency" },
@@ -35,7 +70,7 @@ export async function GET(request: Request) {
 
   addStyledSheet(workbook, "Gastos categoría", {
     title: "Gastos por categoría",
-    subtitle: formatPeriod(period),
+    subtitle: subtitulo,
     columns: [
       { header: "Categoría", width: 34, style: "text" },
       { header: "N°", width: 10, style: "number" },
@@ -48,7 +83,7 @@ export async function GET(request: Request) {
 
   addStyledSheet(workbook, "Gastos área", {
     title: "Gastos por área",
-    subtitle: formatPeriod(period),
+    subtitle: subtitulo,
     columns: [
       { header: "Área", width: 34, style: "text" },
       { header: "N°", width: 10, style: "number" },
@@ -61,7 +96,7 @@ export async function GET(request: Request) {
 
   addStyledSheet(workbook, "Gastos trabajador", {
     title: "Gastos por trabajador",
-    subtitle: formatPeriod(period),
+    subtitle: subtitulo,
     columns: [
       { header: "Trabajador", width: 34, style: "text" },
       { header: "N°", width: 10, style: "number" },
@@ -74,7 +109,7 @@ export async function GET(request: Request) {
 
   addStyledSheet(workbook, "Compras categoría", {
     title: "Compras por categoría",
-    subtitle: formatPeriod(period),
+    subtitle: subtitulo,
     columns: [
       { header: "Categoría", width: 34, style: "text" },
       { header: "N°", width: 10, style: "number" },
@@ -87,7 +122,7 @@ export async function GET(request: Request) {
 
   addStyledSheet(workbook, "Compras área", {
     title: "Compras por área",
-    subtitle: formatPeriod(period),
+    subtitle: subtitulo,
     columns: [
       { header: "Área", width: 34, style: "text" },
       { header: "N°", width: 10, style: "number" },

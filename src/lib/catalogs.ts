@@ -67,6 +67,44 @@ export async function listPaymentMethods(companyId: string) {
   });
 }
 
+// --- Listas para los filtros de los reportes ---------------------------------
+//
+// Incluyen los registros desactivados: sus documentos siguen en el libro y
+// hay que poder encontrarlos. El nombre de los desactivados va marcado para
+// que se entienda por qué aparecen.
+
+export async function listAreasForFilter(companyId: string) {
+  return db.area.findMany({
+    where: { companyId },
+    orderBy: [{ active: "desc" }, { name: "asc" }],
+    select: { id: true, name: true, active: true },
+  });
+}
+
+export async function listCategoriesForFilter(companyId: string) {
+  return db.category.findMany({
+    where: { companyId },
+    orderBy: [{ active: "desc" }, { name: "asc" }],
+    select: { id: true, name: true, active: true },
+  });
+}
+
+export async function listSalespeopleForFilter(companyId: string) {
+  return db.salesperson.findMany({
+    where: { companyId },
+    orderBy: [{ active: "desc" }, { name: "asc" }],
+    select: { id: true, name: true, active: true },
+  });
+}
+
+export async function listWorkersForFilter(companyId: string) {
+  return db.worker.findMany({
+    where: { companyId },
+    orderBy: [{ active: "desc" }, { name: "asc" }],
+    select: { id: true, name: true, active: true },
+  });
+}
+
 export async function listPaymentMethodsAdmin(companyId: string) {
   return db.paymentMethodCatalog.findMany({ where: { companyId }, orderBy: [{ active: "desc" }, { name: "asc" }] });
 }

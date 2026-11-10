@@ -1,7 +1,9 @@
-import type { DocumentType } from "@/generated/prisma/client";
+import type { DocumentType, PaymentStatus, Prisma, SaleStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { calcularTotales } from "@/lib/ledger";
 import { documentSign, formatPeriod } from "@/lib/money";
+import type { FiltrosGastos, FiltrosLibro } from "@/lib/report-filters";
+import { rutSearchPatterns } from "@/lib/rut";
 
 export type Period = { from: Date; to: Date };
 
@@ -158,19 +160,118 @@ export async function ivaSummary(companyId: string, period: Period) {
 
 // --- Libros de compras y ventas ----------------------------------------------
 
-export async function libroCompras(companyId: string, period: Period, documentType?: DocumentType | null) {
+/** Filtro neutro: sin tipos, sin estados, sin búsqueda, sin área. */
+const SIN_FILTROS: FiltrosLibro = {
+  tipos: [],
+  estados: [],
+  q: "",
+  areaId: null,
+  vendedorId: null,
+};
+
+/**
+ * Filtro de tipo de documento.
+ *
+ * Sin tipos: todo menos la cotización (que no es una venta ni una compra).
+ * Con tipos: solo los elegidos, y la cotización se ignora igual.
+ */
+function filtroTipo(tipos?: DocumentType[]): Prisma.EnumDocumentTypeFilter {
+  const utiles = (tipos ?? []).filter((tipo) => tipo !== "QUOTATION");
+  if (utiles.length === 0) return { not: "QUOTATION" };
+  return { in: utiles };
+}
+
+/** Búsqueda libre: folio, razón social o RUT (con y sin puntos). */
+function filtroBusqueda(q: string): Prisma.PurchaseWhereInput["OR"] {
+  return [
+    { partner: { name: { contains: q, mode: "insensitive" } } },
+    { partner: { rut: { contains: q, mode: "insensitive" } } },
+    ...rutSearchPatterns(q).map((pattern) => ({ partner: { rut: { contains: pattern } } })),
+    { documentNumber: { contains: q, mode: "insensitive" } },
+  ];
+}
+
+/** Parte del filtro que no depende del período (la comparten el libro y la serie mensual). */
+function purchaseFiltrosWhere(filtros: FiltrosLibro): Prisma.PurchaseWhereInput {
+  const where: Prisma.PurchaseWhereInput = { documentType: filtroTipo(filtros.tipos) };
+  if (filtros.estados.length > 0) {
+    where.status = { in: filtros.estados as PaymentStatus[] };
+  }
+  if (filtros.areaId) where.areaId = filtros.areaId;
+  if (filtros.q) where.OR = filtroBusqueda(filtros.q);
+  return where;
+}
+
+/** Parte del filtro que no depende del período. */
+function saleFiltrosWhere(filtros: FiltrosLibro): Prisma.SaleWhereInput {
+  const where: Prisma.SaleWhereInput = { documentType: filtroTipo(filtros.tipos) };
+  if (filtros.estados.length > 0) {
+    where.status = { in: filtros.estados as SaleStatus[] };
+  }
+  if (filtros.areaId) where.areaId = filtros.areaId;
+  if (filtros.vendedorId) where.salespersonId = filtros.vendedorId;
+  if (filtros.q) {
+    where.OR = [
+      { partner: { name: { contains: filtros.q, mode: "insensitive" } } },
+      { partner: { rut: { contains: filtros.q, mode: "insensitive" } } },
+      ...rutSearchPatterns(filtros.q).map((pattern) => ({ partner: { rut: { contains: pattern } } })),
+      { documentNumber: { contains: filtros.q, mode: "insensitive" } },
+    ];
+  }
+  return where;
+}
+
+function libroPurchaseWhere(
+  companyId: string,
+  period: Period,
+  filtros: FiltrosLibro,
+): Prisma.PurchaseWhereInput {
+  return {
+    companyId,
+    date: { gte: period.from, lt: period.to },
+    ...purchaseFiltrosWhere(filtros),
+  };
+}
+
+function libroSaleWhere(
+  companyId: string,
+  period: Period,
+  filtros: FiltrosLibro,
+): Prisma.SaleWhereInput {
+  return {
+    companyId,
+    date: { gte: period.from, lt: period.to },
+    ...saleFiltrosWhere(filtros),
+  };
+}
+
+export async function libroCompras(
+  companyId: string,
+  period: Period,
+  filtros: FiltrosLibro = SIN_FILTROS,
+) {
   const purchases = await db.purchase.findMany({
-    where: {
-      companyId,
-      date: { gte: period.from, lt: period.to },
-      documentType: documentType ?? { not: "QUOTATION" },
-    },
+    where: libroPurchaseWhere(companyId, period, filtros),
     orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-    include: { partner: { select: { name: true, rut: true } }, category: { select: { name: true } } },
+    include: {
+      partner: { select: { name: true, rut: true } },
+      category: { select: { name: true } },
+      area: { select: { name: true } },
+      payments: { select: { amount: true } },
+    },
   });
 
   const rows = purchases.map((purchase) => {
     const sign = documentSign(purchase.documentType);
+    const total = sign * purchase.totalAmount;
+    const abonado = purchase.payments.reduce((acc, pago) => acc + pago.amount, 0);
+    // El saldo sigue la misma regla que el resto de la app: solo pesa en los
+    // documentos que están pendientes o parciales. Un documento pagado no
+    // cuenta, aunque el RCV lo haya marcado pagado sin dejar abonos.
+    const pendiente =
+      purchase.status === "PENDING" || purchase.status === "PARTIAL"
+        ? Math.max(purchase.totalAmount - abonado, 0)
+        : 0;
     return {
       id: purchase.id,
       date: purchase.date,
@@ -180,9 +281,13 @@ export async function libroCompras(companyId: string, period: Period, documentTy
       partnerName: purchase.partner.name,
       partnerRut: purchase.partner.rut,
       categoryName: purchase.category?.name ?? null,
+      areaName: purchase.area?.name ?? null,
+      status: purchase.status,
+      /** Saldo pendiente de pago (lo que falta por abonar). */
+      saldo: sign * pendiente,
       net: sign * purchase.netAmount,
       iva: sign * purchase.ivaAmount,
-      total: sign * purchase.totalAmount,
+      total,
     };
   });
 
@@ -191,22 +296,39 @@ export async function libroCompras(companyId: string, period: Period, documentTy
     { net: 0, iva: 0, total: 0 },
   );
 
-  return { rows, totals };
+  // Lo que queda por pagar del período: el foco del libro es el estado del
+  // negocio, no solo lo facturado.
+  const saldo = rows.reduce((acc, row) => acc + row.saldo, 0);
+
+  return { rows, totals, saldo };
 }
 
-export async function libroVentas(companyId: string, period: Period, documentType?: DocumentType | null) {
+export async function libroVentas(
+  companyId: string,
+  period: Period,
+  filtros: FiltrosLibro = SIN_FILTROS,
+) {
   const [sales, contraparte] = await Promise.all([
     db.sale.findMany({
-      where: {
-        companyId,
-        date: { gte: period.from, lt: period.to },
-        documentType: documentType ?? { not: "QUOTATION" },
-      },
+      where: libroSaleWhere(companyId, period, filtros),
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-      include: {
+      select: {
+        id: true,
+        date: true,
+        documentType: true,
+        documentNumber: true,
+        referenceDocumentNumber: true,
+        netAmount: true,
+        ivaAmount: true,
+        totalAmount: true,
+        retentionAmount: true,
+        status: true,
+        confirmingAt: true,
         partner: { select: { name: true, rut: true } },
         category: { select: { name: true } },
+        area: { select: { name: true } },
         salesperson: { select: { name: true } },
+        payments: { select: { amount: true } },
       },
     }),
     notasContrapartida(companyId),
@@ -227,6 +349,18 @@ export async function libroVentas(companyId: string, period: Period, documentTyp
     )
     .map((sale) => {
       const sign = documentSign(sale.documentType);
+      const total = sign * sale.totalAmount;
+      const abonado = sale.payments.reduce((acc, pago) => acc + pago.amount, 0);
+      // Lo que se le cobra al cliente es el total menos la retención. La
+      // retención no se le pide: por eso no es saldo.
+      const neto = Math.max(sale.totalAmount - sale.retentionAmount, 0);
+      // Igual que en ledger.ts: solo pesa lo que está pendiente, parcial o
+      // vencido, y una venta en confirming ya tiene el dinero adentro.
+      const pendiente =
+        sale.confirmingAt === null &&
+        (sale.status === "PENDING" || sale.status === "PARTIAL" || sale.status === "OVERDUE")
+          ? Math.max(neto - abonado, 0)
+          : 0;
       return {
         id: sale.id,
         date: sale.date,
@@ -236,10 +370,14 @@ export async function libroVentas(companyId: string, period: Period, documentTyp
         partnerName: sale.partner.name,
         partnerRut: sale.partner.rut,
         categoryName: sale.category?.name ?? null,
+        areaName: sale.area?.name ?? null,
         salespersonName: sale.salesperson?.name ?? null,
+        status: sale.status,
+        /** Saldo por cobrar (lo que falta por cobrar, sin la retención). */
+        saldo: sign * pendiente,
         net: sign * sale.netAmount,
         iva: sign * sale.ivaAmount,
-        total: sign * sale.totalAmount,
+        total,
         retention: sign * sale.retentionAmount,
       };
     });
@@ -254,7 +392,9 @@ export async function libroVentas(companyId: string, period: Period, documentTyp
     { net: 0, iva: 0, total: 0, retention: 0 },
   );
 
-  return { rows, totals };
+  const saldo = rows.reduce((acc, row) => acc + row.saldo, 0);
+
+  return { rows, totals, saldo };
 }
 
 // --- Pagado vs adeudado (con detalle) ----------------------------------------
@@ -451,9 +591,33 @@ function groupBy(
   return [...map.values()].sort((a, b) => b.total - a.total);
 }
 
-export async function expensesBreakdown(companyId: string, period: Period) {
+/** Filtro de gastos: área, categoría, trabajador o texto libre. */
+function expenseFiltrosWhere(filtros: FiltrosGastos): Prisma.ExpenseWhereInput {
+  const where: Prisma.ExpenseWhereInput = {};
+  if (filtros.areaId) where.areaId = filtros.areaId;
+  if (filtros.categoriaId) where.categoryId = filtros.categoriaId;
+  if (filtros.trabajadorId) where.workerId = filtros.trabajadorId;
+  if (filtros.q) {
+    where.OR = [
+      { description: { contains: filtros.q, mode: "insensitive" } },
+      { notes: { contains: filtros.q, mode: "insensitive" } },
+      { documentNumber: { contains: filtros.q, mode: "insensitive" } },
+    ];
+  }
+  return where;
+}
+
+export async function expensesBreakdown(
+  companyId: string,
+  period: Period,
+  filtros?: FiltrosGastos,
+) {
   const expenses = await db.expense.findMany({
-    where: { companyId, date: { gte: period.from, lt: period.to } },
+    where: {
+      companyId,
+      date: { gte: period.from, lt: period.to },
+      ...(filtros ? expenseFiltrosWhere(filtros) : {}),
+    },
     select: {
       totalAmount: true,
       category: { select: { id: true, name: true } },
@@ -499,9 +663,18 @@ export async function expensesBreakdown(companyId: string, period: Period) {
 // Las compras (facturas de proveedor) son gasto de capital, no del día a día.
 // Se separan de `expenses` porque se quieren ver por separado: cuánto se gasta
 // en cada categoría de compra es la pregunta de centro de costo.
-export async function purchasesBreakdown(companyId: string, period: Period) {
+export async function purchasesBreakdown(
+  companyId: string,
+  period: Period,
+  filtros?: FiltrosGastos,
+) {
   const purchases = await db.purchase.findMany({
-    where: { companyId, date: { gte: period.from, lt: period.to } },
+    where: {
+      companyId,
+      date: { gte: period.from, lt: period.to },
+      ...(filtros?.areaId ? { areaId: filtros.areaId } : {}),
+      ...(filtros?.categoriaId ? { categoryId: filtros.categoriaId } : {}),
+    },
     select: {
       totalAmount: true,
       documentType: true,
@@ -773,6 +946,89 @@ export async function salesByClient(companyId: string, period: Period) {
   return { rows, total };
 }
 
+// --- Ventas por área -----------------------------------------------------------
+
+export type SalesByAreaRow = {
+  /** `null` cuando el documento no tiene área asignada. */
+  id: string | null;
+  name: string;
+  count: number;
+  net: number;
+  iva: number;
+  total: number;
+  retention: number;
+};
+
+/**
+ * Ventas agrupadas por área en el período.
+ *
+ * Una venta sin área no se esconde: aparece como «Sin área», porque un
+ * documento que nadie clasificó es justo lo que el dueño necesita ver.
+ */
+export async function salesByArea(
+  companyId: string,
+  period: Period,
+  filtros: FiltrosLibro = SIN_FILTROS,
+) {
+  const [sales, contraparte] = await Promise.all([
+    db.sale.findMany({
+      where: {
+        companyId,
+        date: { gte: period.from, lt: period.to },
+        ...saleFiltrosWhere(filtros),
+      },
+      select: {
+        areaId: true,
+        netAmount: true,
+        ivaAmount: true,
+        totalAmount: true,
+        retentionAmount: true,
+        documentType: true,
+        documentNumber: true,
+        status: true,
+        area: { select: { name: true } },
+      },
+    }),
+    notasContrapartida(companyId),
+  ]);
+
+  const map = new Map<string, SalesByAreaRow>();
+  for (const sale of sales) {
+    // Mismas reglas que el libro: una factura anulada no se facturó, y la nota
+    // de crédito que la dejó sin efecto es la otra cara de esa anulación.
+    if (sale.status === "CANCELLED") continue;
+    if (
+      sale.documentType === "CREDIT_NOTE" &&
+      sale.documentNumber !== null &&
+      contraparte.has(sale.documentNumber)
+    ) {
+      continue;
+    }
+
+    const key = sale.areaId ?? "__sin_area__";
+    const entry = map.get(key) ?? {
+      id: sale.areaId,
+      name: sale.area?.name ?? "Sin área",
+      count: 0,
+      net: 0,
+      iva: 0,
+      total: 0,
+      retention: 0,
+    };
+    const sign = documentSign(sale.documentType);
+    entry.count += 1;
+    entry.net += sign * sale.netAmount;
+    entry.iva += sign * sale.ivaAmount;
+    entry.total += sign * sale.totalAmount;
+    entry.retention += sign * sale.retentionAmount;
+    map.set(key, entry);
+  }
+
+  const rows = [...map.values()].sort((a, b) => b.total - a.total);
+  const total = rows.reduce((acc, row) => acc + row.total, 0);
+  return { rows, total };
+}
+
 // --- Flujo de caja proyectado --------------------------------------------------
 
 export type CashBucket = { key: string; label: string; entradas: number; salidas: number; countEntradas: number; countSalidas: number };
@@ -857,37 +1113,73 @@ export type MonthlyDocBucket = {
 };
 
 /**
- * Compras agrupadas por mes, últimos N meses (más antiguo → más reciente).
+ * Los N meses que terminan en el mes ancla (incluido), del más antiguo al más
+ * reciente.
+ *
+ * La serie se ancla en el período que el usuario está mirando: el gráfico
+ * siempre termina en el mes abierto, así que el último mes es el que se
+ * compara con la tabla de al lado.
+ */
+function mesesHasta(ancla: string | null, months: number): {
+  labels: string[];
+  desde: Date;
+  hasta: Date;
+} {
+  const ahora = new Date();
+  let base = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1));
+
+  if (ancla) {
+    const coincidencia = /^(\d{4})-(\d{2})$/.exec(ancla);
+    if (coincidencia) {
+      base = new Date(Date.UTC(Number(coincidencia[1]), Number(coincidencia[2]) - 1, 1));
+    }
+  }
+
+  const labels: string[] = [];
+  let desde = base;
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() - i, 1));
+    if (i === months - 1) desde = d;
+    labels.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+  }
+
+  // El primer día del mes siguiente: la ventana es medio abierta.
+  const hasta = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 1));
+
+  return { labels, desde, hasta };
+}
+
+/**
+ * Compras agrupadas por mes, los N meses que terminan en el mes ancla.
  * Las notas de crédito restan (signo −1).
+ *
+ * Respeta los mismos filtros que el libro: si no, el gráfico contaría
+ * documentos que la tabla de al lado no muestra.
  */
 export async function purchasesMonthly(
   companyId: string,
   months = 12,
-  tipo?: DocumentType | null,
+  filtros?: FiltrosLibro,
+  ancla?: string | null,
 ): Promise<MonthlyDocBucket[]> {
-  const now = new Date();
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
+  const { labels, desde, hasta } = mesesHasta(ancla ?? null, months);
 
   const rows = await db.purchase.findMany({
     where: {
       companyId,
-      date: { gte: from },
-      ...(tipo ? { documentType: tipo } : { documentType: { not: "QUOTATION" } }),
+      date: { gte: desde, lt: hasta },
+      ...(filtros ? purchaseFiltrosWhere(filtros) : { documentType: { not: "QUOTATION" } }),
     },
     select: { date: true, netAmount: true, ivaAmount: true, totalAmount: true, documentType: true },
   });
 
-  const buckets: MonthlyDocBucket[] = [];
-  for (let i = months - 1; i >= 0; i -= 1) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    buckets.push({
-      month: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
-      net: 0,
-      iva: 0,
-      total: 0,
-      count: 0,
-    });
-  }
+  const buckets: MonthlyDocBucket[] = labels.map((month) => ({
+    month,
+    net: 0,
+    iva: 0,
+    total: 0,
+    count: 0,
+  }));
   const index = new Map(buckets.map((b) => [b.month, b]));
 
   for (const row of rows) {
@@ -905,22 +1197,29 @@ export async function purchasesMonthly(
 }
 
 /**
- * Ventas agrupadas por mes, últimos N meses (más antiguo → más reciente).
- * Las notas de crédito restan (signo −1). El total usa neto − retención.
+ * Ventas agrupadas por mes, los N meses que terminan en el mes ancla.
+ * Las notas de crédito restan (signo −1).
+ *
+ * El total es el monto del documento, igual que en el libro: la retención se
+ * muestra aparte en la tabla, así que el gráfico y la tabla del mismo período
+ * no pueden contradecirse.
+ *
+ * Respeta los mismos filtros que el libro: si no, el gráfico contaría
+ * documentos que la tabla de al lado no muestra.
  */
 export async function salesMonthly(
   companyId: string,
   months = 12,
-  tipo?: DocumentType | null,
+  filtros?: FiltrosLibro,
+  ancla?: string | null,
 ): Promise<MonthlyDocBucket[]> {
-  const now = new Date();
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
+  const { labels, desde, hasta } = mesesHasta(ancla ?? null, months);
 
   const rows = await db.sale.findMany({
     where: {
       companyId,
-      date: { gte: from },
-      ...(tipo ? { documentType: tipo } : { documentType: { not: "QUOTATION" } }),
+      date: { gte: desde, lt: hasta },
+      ...(filtros ? saleFiltrosWhere(filtros) : { documentType: { not: "QUOTATION" } }),
     },
     select: {
       date: true,
@@ -928,21 +1227,16 @@ export async function salesMonthly(
       ivaAmount: true,
       totalAmount: true,
       documentType: true,
-      retentionAmount: true,
     },
   });
 
-  const buckets: MonthlyDocBucket[] = [];
-  for (let i = months - 1; i >= 0; i -= 1) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    buckets.push({
-      month: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
-      net: 0,
-      iva: 0,
-      total: 0,
-      count: 0,
-    });
-  }
+  const buckets: MonthlyDocBucket[] = labels.map((month) => ({
+    month,
+    net: 0,
+    iva: 0,
+    total: 0,
+    count: 0,
+  }));
   const index = new Map(buckets.map((b) => [b.month, b]));
 
   for (const row of rows) {
@@ -950,10 +1244,9 @@ export async function salesMonthly(
     const bucket = index.get(month);
     if (!bucket) continue;
     const sign = documentSign(row.documentType);
-    const net = Math.max(row.netAmount - row.retentionAmount, 0);
-    bucket.net += sign * net;
+    bucket.net += sign * row.netAmount;
     bucket.iva += sign * row.ivaAmount;
-    bucket.total += sign * Math.max(row.totalAmount - row.retentionAmount, 0);
+    bucket.total += sign * row.totalAmount;
     bucket.count += 1;
   }
 
@@ -965,113 +1258,168 @@ export async function salesMonthly(
 // Gastos mensuales por categoría (heatmap mensual × categoría)
 // ---------------------------------------------------------------------------
 
-export type MonthlyCategoryRow = {
-  categoryId: string | null;
-  categoryName: string;
-  /** Gastos por mes: mes "YYYY-MM" → monto total. */
+export type MonthlyMatrixRow = {
+  /** `null` cuando la fila no tiene registro real (por ejemplo, "Sin área"). */
+  id: string | null;
+  name: string;
+  /** Monto por mes: mes "YYYY-MM" → total. */
   byMonth: Record<string, number>;
-  /** Total anual (suma de todos los meses). */
-  annualTotal: number;
-  /** Promedio mensual. */
+  /** Total de todos los meses. */
+  periodTotal: number;
+  /** Promedio mensual (sobre los meses con datos). */
   monthlyAverage: number;
-  /** Mes con mayor gasto. */
+  /** Mes con mayor monto. */
   peakMonth: { month: string; total: number } | null;
 };
 
-export type MonthlyCategoryResult = {
-  rows: MonthlyCategoryRow[];
-  months: string[]; // "YYYY-MM" ordenados de más reciente a más antiguo
+export type MonthlyMatrixResult = {
+  rows: MonthlyMatrixRow[];
+  /** "YYYY-MM", del mes más antiguo al más reciente. */
+  months: string[];
   grandTotal: number;
   grandMonthlyAverage: number;
 };
 
 /**
- * Gastos agrupados por categoría y mes, para los últimos N meses (default 12).
+ * Arma la matriz filas × meses y calcula los totales de cada fila.
  *
- * Devuelve una matriz categoría × mes para render un heatmap o tabla de calor,
- * con totales anuales y promedios mensuales por categoría.
+ * La comparten los gastos por categoría y las ventas por área: el gráfico es
+ * el mismo, solo cambia qué se está desglosando.
  */
-export async function expensesMonthlyByCategory(
-  companyId: string,
-  months = 12,
-): Promise<MonthlyCategoryResult> {
-  const now = new Date();
-  // Primer día del mes más antiguo incluido.
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
-
-  const expenses = await db.expense.findMany({
-    where: {
-      companyId,
-      date: { gte: from },
-    },
-    select: {
-      totalAmount: true,
-      date: true,
-      category: { select: { id: true, name: true } },
-      area: { select: { id: true, name: true } },
-    },
-  });
-
-  // Generar lista de meses "YYYY-MM" de más reciente a más antiguo.
-  const monthLabels: string[] = [];
-  for (let i = months - 1; i >= 0; i -= 1) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    monthLabels.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
-  }
-
-  // Agrupar por categoría → mes → monto.
-  // La clave del mapa es un string, pero la categoría puede no existir: se usa
-  // una clave aparte para ese grupo y se conserva el id real (null) en la fila.
-  const SIN_CATEGORIA = "__sin_categoria__";
-  const byCategory = new Map<
-    string,
-    { categoryId: string | null; name: string; byMonth: Record<string, number> }
-  >();
+function construirMatriz(
+  filas: { id: string | null; name: string; month: string; amount: number }[],
+  monthLabels: string[],
+): MonthlyMatrixResult {
+  const mapa = new Map<string, { id: string | null; name: string; byMonth: Record<string, number> }>();
   let grandTotal = 0;
 
-  for (const expense of expenses) {
-    const catId = expense.category?.id ?? null;
-    const catName = expense.category?.name ?? "Sin categoría";
-    const d = new Date(expense.date);
-    const monthKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-    const mapKey = catId ?? SIN_CATEGORIA;
-
-    if (!byCategory.has(mapKey)) {
-      byCategory.set(mapKey, { categoryId: catId, name: catName, byMonth: {} });
-    }
-    const entry = byCategory.get(mapKey)!;
-    entry.byMonth[monthKey] = (entry.byMonth[monthKey] ?? 0) + expense.totalAmount;
-    grandTotal += expense.totalAmount;
+  for (const fila of filas) {
+    // La clave incluye el nombre: dos filas sin id ("Sin área") siguen siendo
+    // la misma fila, pero no se pisan con otra que comparta nombre.
+    const key = fila.id ?? `__sin_id__:${fila.name}`;
+    const entry = mapa.get(key) ?? { id: fila.id, name: fila.name, byMonth: {} };
+    entry.byMonth[fila.month] = (entry.byMonth[fila.month] ?? 0) + fila.amount;
+    mapa.set(key, entry);
+    grandTotal += fila.amount;
   }
 
-  // Construir filas ordenadas por total anual descendente.
-  const rows: MonthlyCategoryRow[] = [];
-  for (const [, entry] of byCategory.entries()) {
-    const monthlyTotal = Object.values(entry.byMonth).reduce((acc, v) => acc + v, 0);
+  const rows: MonthlyMatrixRow[] = [];
+  for (const entry of mapa.values()) {
+    const periodTotal = Object.values(entry.byMonth).reduce((acc, v) => acc + v, 0);
     const monthsWithData = Object.keys(entry.byMonth).length;
-    const peakEntry = Object.entries(entry.byMonth).reduce(
+    const peak = Object.entries(entry.byMonth).reduce(
       (best, [month, total]) => (total > (best?.total ?? -1) ? { month, total } : best),
       null as { month: string; total: number } | null,
     );
-
     rows.push({
-      categoryId: entry.categoryId,
-      categoryName: entry.name,
+      id: entry.id,
+      name: entry.name,
       byMonth: entry.byMonth,
-      annualTotal: monthlyTotal,
-      monthlyAverage: monthsWithData > 0 ? monthlyTotal / monthsWithData : 0,
-      peakMonth: peakEntry,
+      periodTotal,
+      monthlyAverage: monthsWithData > 0 ? periodTotal / monthsWithData : 0,
+      peakMonth: peak,
     });
   }
-
-  rows.sort((a, b) => b.annualTotal - a.annualTotal);
-
-  const grandMonthlyAverage = months > 0 ? grandTotal / months : 0;
+  rows.sort((a, b) => b.periodTotal - a.periodTotal);
 
   return {
     rows,
     months: monthLabels,
     grandTotal,
-    grandMonthlyAverage,
+    grandMonthlyAverage: monthLabels.length > 0 ? grandTotal / monthLabels.length : 0,
   };
+}
+
+/**
+ * Gastos agrupados por categoría y mes, para los últimos N meses (default 12)
+ * que terminan en el mes ancla.
+ *
+ * Devuelve una matriz categoría × mes para render un heatmap o tabla de calor,
+ * con totales y promedios mensuales por categoría.
+ */
+export async function expensesMonthlyByCategory(
+  companyId: string,
+  months = 12,
+  filtros?: FiltrosGastos,
+  ancla?: string | null,
+): Promise<MonthlyMatrixResult> {
+  const { labels, desde, hasta } = mesesHasta(ancla ?? null, months);
+
+  const expenses = await db.expense.findMany({
+    where: {
+      companyId,
+      date: { gte: desde, lt: hasta },
+      ...(filtros ? expenseFiltrosWhere(filtros) : {}),
+    },
+    select: {
+      totalAmount: true,
+      date: true,
+      category: { select: { id: true, name: true } },
+    },
+  });
+
+  return construirMatriz(
+    expenses.map((expense) => ({
+      id: expense.category?.id ?? null,
+      name: expense.category?.name ?? "Sin categoría",
+      month: `${expense.date.getUTCFullYear()}-${String(expense.date.getUTCMonth() + 1).padStart(2, "0")}`,
+      amount: expense.totalAmount,
+    })),
+    labels,
+  );
+}
+
+/**
+ * Ventas agrupadas por área y mes, para los últimos N meses que terminan en
+ * el mes ancla.
+ *
+ * Responde "¿en qué área creces cada mes?", que es la pregunta que un cuadro
+ * de áreas tiene que responder y que un total por área no muestra.
+ */
+export async function salesMonthlyByArea(
+  companyId: string,
+  months = 12,
+  filtros: FiltrosLibro = SIN_FILTROS,
+  ancla?: string | null,
+): Promise<MonthlyMatrixResult> {
+  const { labels, desde, hasta } = mesesHasta(ancla ?? null, months);
+
+  const [sales, contraparte] = await Promise.all([
+    db.sale.findMany({
+      where: {
+        companyId,
+        date: { gte: desde, lt: hasta },
+        ...saleFiltrosWhere(filtros),
+      },
+      select: {
+        areaId: true,
+        totalAmount: true,
+        date: true,
+        documentType: true,
+        documentNumber: true,
+        status: true,
+        area: { select: { name: true } },
+      },
+    }),
+    notasContrapartida(companyId),
+  ]);
+
+  const filas = sales
+    .filter((sale) => sale.status !== "CANCELLED")
+    .filter(
+      (sale) =>
+        !(
+          sale.documentType === "CREDIT_NOTE" &&
+          sale.documentNumber !== null &&
+          contraparte.has(sale.documentNumber)
+        ),
+    )
+    .map((sale) => ({
+      id: sale.areaId,
+      name: sale.area?.name ?? "Sin área",
+      month: `${sale.date.getUTCFullYear()}-${String(sale.date.getUTCMonth() + 1).padStart(2, "0")}`,
+      amount: documentSign(sale.documentType) * sale.totalAmount,
+    }));
+
+  return construirMatriz(filas, labels);
 }

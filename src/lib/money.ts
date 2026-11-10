@@ -16,6 +16,32 @@ export function toNumber(amount: number | string | { toString(): string }): numb
   return typeof amount === "number" ? amount : Number(amount.toString());
 }
 
+/**
+ * Montos abreviados para ejes y etiquetas: 850.000 → "850k",
+ * 1.250.000 → "1,25M", 12.000.000 → "12M", 1.200.000.000 → "1,2MM".
+ *
+ * Es para leer de un vistazo, no para citar un monto: el número exacto va
+ * siempre en el texto o en la tabla, con `formatCLP`.
+ */
+export function formatCLPCompact(amount: number): string {
+  if (!Number.isFinite(amount)) return "—";
+  const abs = Math.abs(amount);
+  const signo = amount < 0 ? "-" : "";
+
+  if (abs >= 1_000_000_000) {
+    const valor = abs / 1_000_000_000;
+    return `${signo}${valor.toFixed(valor >= 10 ? 0 : 1).replace(".", ",")}MM`;
+  }
+  if (abs >= 1_000_000) {
+    const valor = abs / 1_000_000;
+    return `${signo}${valor.toFixed(valor >= 10 ? 0 : 1).replace(".", ",")}M`;
+  }
+  if (abs >= 1_000) {
+    return `${signo}${Math.round(abs / 1_000)}k`;
+  }
+  return `${signo}${Math.round(abs)}`;
+}
+
 // Las fechas del dominio son días de calendario. Se guardan a medianoche UTC y
 // se formatean en UTC para que no se corran un día en Chile (UTC-3/-4).
 export const dateFormatter = new Intl.DateTimeFormat("es-CL", {

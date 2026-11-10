@@ -287,6 +287,7 @@ const groups: SidebarGroup[] = [
           { href: "/facturas/reportes/libro-ventas", label: "Libro de ventas" },
           { href: "/facturas/reportes/pagos", label: "Pagos y deudas" },
           { href: "/facturas/reportes/gastos", label: "Gastos por área" },
+          { href: "/facturas/reportes/ventas-por-area", label: "Ventas por área" },
         ],
       },
       { href: "/facturas/auditoria", label: "Auditoría", section: "auditoria", icon: "auditoria" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { DateRangeFilter } from "@/components/date-range-filter";
@@ -43,7 +43,23 @@ const DATE_KEYS = ["desde", "hasta"];
 export function FilterBar({
   fields,
   showDateRange = true,
-}: { fields: FilterField[]; showDateRange?: boolean }) {
+  leading,
+  keepKeys = [],
+}: {
+  fields: FilterField[];
+  showDateRange?: boolean;
+  /**
+   * Control que va al principio de la barra, por ejemplo el selector de
+   * período de los reportes.
+   */
+  leading?: ReactNode;
+  /**
+   * Claves que "Limpiar" no debe borrar. En los reportes el período se
+   * conserva: limpiar los filtros no debe sacar al usuario del mes que está
+   * revisando.
+   */
+  keepKeys?: string[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -55,7 +71,10 @@ export function FilterBar({
     base.current = searchParams.toString();
   }, [searchParams]);
 
-  const filterKeys = [...fields.map((field) => field.name), ...DATE_KEYS];
+  const filterKeys = [
+    ...fields.map((field) => field.name),
+    ...(showDateRange ? DATE_KEYS : []),
+  ].filter((key) => !keepKeys.includes(key));
 
   const navigate = (params: URLSearchParams, mode: "push" | "replace") => {
     const query = params.toString();
@@ -84,6 +103,8 @@ export function FilterBar({
 
   return (
     <div className={cardClass + " flex flex-wrap items-end gap-3 p-4"}>
+      {leading}
+
       {fields.map((field) =>
         field.kind === "text" ? (
           <div
