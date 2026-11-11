@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 
 import { LandingNavbar } from "@/components/landing/navbar";
 import { ContactoSection } from "@/components/landing/contacto-section";
-import { LandingFooter } from "@/components/landing/footer";
 
 export const metadata: Metadata = {
   title: "Contacto — Yellow ERP",
@@ -14,10 +13,9 @@ export default function ContactoPage() {
   return (
     <div className="min-h-dvh bg-background">
       <LandingNavbar />
-      <main className="relative">
+      <main className="relative pt-20">
         <ContactoSection />
       </main>
-      <LandingFooter />
     </div>
   );
 }

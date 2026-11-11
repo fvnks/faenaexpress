@@ -1,8 +1,12 @@
 "use client";
 
+import { SectionReveal } from "@/components/motion/section-reveal";
+
 /**
  * Sección de confianza: lo que realmente somos y cómo trabajamos.
  * Sin logos de clientes inventados, sin testimonios fabricados.
+ *
+ * Fondo: textura sutil de papel de factura.
  */
 export function LandingConfianza() {
   const puntos = [
@@ -24,25 +28,39 @@ export function LandingConfianza() {
   ];
 
   return (
-    <section id="confianza" className="bg-background scroll-mt-24 border-t border-border">
-      <div className="mx-auto max-w-5xl px-6 py-24 lg:py-36">
-        <div className="text-center max-w-2xl mx-auto mb-20 lg:mb-28">
-          <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6 tracking-tight">
-            Empresa chilena, reglas claras
-          </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">
-            Sin sorpresas, sin letras pequeñas, sin datos escondidos.
-          </p>
-        </div>
+    <section id="confianza" className="bg-background scroll-mt-24 border-t border-border relative overflow-hidden">
+      {/* Textura sutil de papel */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none opacity-25"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, rgba(27, 95, 168, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(27, 95, 168, 0.03) 1px, transparent 1px)",
+          backgroundSize: "28px 28px",
+        }}
+      />
+
+      <div className="relative z-10 mx-auto max-w-5xl px-6 py-24 lg:py-36">
+        <SectionReveal delay={0}>
+          <div className="text-center max-w-2xl mx-auto mb-20 lg:mb-28">
+            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6 tracking-tight">
+              Empresa chilena, reglas claras
+            </h2>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              Sin sorpresas, sin letras pequeñas, sin datos escondidos.
+            </p>
+          </div>
+        </SectionReveal>
 
         <div className="grid gap-16 lg:grid-cols-3">
-          {puntos.map((p) => (
-            <div key={p.titulo} className="flex flex-col gap-4">
-              <h3 className="text-lg font-bold text-foreground">{p.titulo}</h3>
-              <p className="text-base leading-relaxed text-muted-foreground">
-                {p.descripcion}
-              </p>
-            </div>
+          {puntos.map((p, index) => (
+            <SectionReveal key={p.titulo} delay={index * 40 + 60}>
+              <div className="flex flex-col gap-4">
+                <h3 className="text-lg font-bold text-foreground">{p.titulo}</h3>
+                <p className="text-base leading-relaxed text-muted-foreground">
+                  {p.descripcion}
+                </p>
+              </div>
+            </SectionReveal>
           ))}
         </div>
 
