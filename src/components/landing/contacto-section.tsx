@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { enviarContacto } from "@/app/actions/contacto";
-import { controlClass, fieldClass, labelClass } from "@/lib/ui";
+import { Button } from "@/components/astryx/button";
+import Card from "@/components/astryx/card";
+import { Grid } from "@/components/astryx/layout";
+import { Heading, Label, Text } from "@/components/astryx/typography";
 
-/**
- * Sección de contacto completa: información de contacto + formulario funcional.
- * Sin datos inventados, sin ilustraciones genéricas.
- */
+import { enviarContacto } from "@/app/actions/contacto";
+
 export function ContactoSection() {
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">(
     "idle"
@@ -44,32 +44,24 @@ export function ContactoSection() {
 
   return (
     <section className="py-16 lg:py-24 relative overflow-hidden">
-      {/* Decoración sutil sin glassmorphism */}
       <div className="absolute top-0 right-0 w-72 h-72 bg-primary/10 rounded-full blur-[100px] -mr-24 -mt-24" />
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/10 rounded-full blur-[100px] -ml-24 -mb-24" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mb-12 lg:mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border bg-surface text-muted-foreground text-xs font-medium uppercase tracking-wider mb-4 inline-block lg:mb-6">
-            Contacto
-          </span>
-          <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-4 tracking-tight">
-            Escríbenos
-          </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed max-w-lg">
-            Para dudas sobre el ERP, diseño web corporativo o cualquier otra cosa.
-            Respondemos a la brevedad.
-          </p>
-        </div>
+        <Grid cols="1 lg:2" gap="16">
+          <div className="lg:col-span-1">
+            <Heading level={2} className="text-3xl lg:text-4xl mb-4 tracking-tight">
+              Escríbenos
+            </Heading>
+            <Text as="p" className="text-lg text-muted-foreground leading-relaxed">
+              Para dudas sobre el ERP, diseño web corporativo o cualquier otra
+              cosa. Respondemos a la brevedad.
+            </Text>
+          </div>
 
-        <div className="grid gap-16 lg:grid-cols-2">
-          {/* Información de contacto */}
-          <div className="space-y-8">
+          <div className="grid gap-16 lg:grid-cols-2">
             {infoContacto.map((item) => (
-              <div
-                key={item.label}
-                className="flex items-start gap-4"
-              >
+              <div key={item.label} className="flex items-start gap-4">
                 <div className="flex shrink-0 items-center justify-center w-12 h-12 rounded-lg border border-border bg-surface">
                   <svg
                     width="22"
@@ -122,75 +114,65 @@ export function ContactoSection() {
                       {item.value}
                     </span>
                   )}
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <Text as="p" className="mt-0.5 text-xs text-muted-foreground">
                     {item.label}
-                  </p>
+                  </Text>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Formulario */}
           <form action={handleSubmit} className="space-y-6 lg:space-y-8">
-            <div className={fieldClass}>
-              <label htmlFor="contacto-nombre" className={labelClass}>
-                Nombre completo
-              </label>
-              <input
-                id="contacto-nombre"
-                name="nombre"
-                type="text"
-                maxLength={100}
-                className={controlClass}
-                required
-                placeholder="Tu nombre"
-              />
-            </div>
-
-            <div className={fieldClass}>
-              <label htmlFor="contacto-email" className={labelClass}>
-                Correo electrónico
-              </label>
-              <input
-                id="contacto-email"
-                name="email"
-                type="email"
-                maxLength={200}
-                className={controlClass}
-                required
-                placeholder="tú@empresa.cl"
-              />
-            </div>
-
-            <div className={fieldClass}>
-              <label htmlFor="contacto-empresa" className={labelClass}>
-                Empresa
-              </label>
-              <input
-                id="contacto-empresa"
-                name="empresa"
-                type="text"
-                maxLength={200}
-                className={controlClass}
-                required
-                placeholder="Nombre de tu empresa"
-              />
-            </div>
-
-            <div className={fieldClass}>
-              <label htmlFor="contacto-mensaje" className={labelClass}>
-                Mensaje
-              </label>
-              <textarea
-                id="contacto-mensaje"
-                name="mensaje"
-                rows={5}
-                maxLength={1000}
-                className={controlClass}
-                required
-                placeholder="Cuéntanos qué necesitas…"
-              />
-            </div>
+            <Grid cols="1 lg:2" gap="6">
+              <div className="lg:col-span-2">
+                <Label htmlFor="contacto-nombre">Nombre completo</Label>
+                <input
+                  id="contacto-nombre"
+                  name="nombre"
+                  type="text"
+                  maxLength={100}
+                  className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                  required
+                  placeholder="Tu nombre"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <Label htmlFor="contacto-email">Correo electrónico</Label>
+                <input
+                  id="contacto-email"
+                  name="email"
+                  type="email"
+                  maxLength={200}
+                  className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                  required
+                  placeholder="tú@empresa.cl"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <Label htmlFor="contacto-empresa">Empresa</Label>
+                <input
+                  id="contacto-empresa"
+                  name="empresa"
+                  type="text"
+                  maxLength={200}
+                  className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                  required
+                  placeholder="Nombre de tu empresa"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <Label htmlFor="contacto-mensaje">Mensaje</Label>
+                <textarea
+                  id="contacto-mensaje"
+                  name="mensaje"
+                  rows={5}
+                  maxLength={1000}
+                  className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                  required
+                  placeholder="Cuéntanos qué necesitas…"
+                />
+              </div>
+            </Grid>
 
             {status === "ok" ? (
               <p className="rounded-control border border-success/40 bg-success-soft px-4 py-3 text-sm text-success">
@@ -202,15 +184,17 @@ export function ContactoSection() {
               </p>
             ) : null}
 
-            <button
+            <Button
               type="submit"
               disabled={status === "sending"}
-              className="relative inline-flex items-center justify-center gap-2 px-10 py-3 text-sm font-semibold text-white bg-primary border border-transparent rounded-control hover:bg-primary/90 transition-colors shadow-lg shadow-black/20"
+              variant="primary"
+              size="md"
+              className="w-full lg:w-auto"
             >
               {status === "sending" ? "Enviando…" : "Enviar mensaje"}
-            </button>
+            </Button>
           </form>
-        </div>
+        </Grid>
       </div>
     </section>
   );

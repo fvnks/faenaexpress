@@ -1,9 +1,8 @@
 import Link from "next/link";
 
-/**
- * Footer profesional: marca, enlaces organizados por categoría, contacto
- * y legal. Sin columnas vacías ni relleno template.
- */
+import { Stack, Grid } from "@/components/astryx/layout";
+import { Text } from "@/components/astryx/typography";
+
 export function LandingFooter() {
   const productoLinks = [
     { href: "/facturas/compras", label: "Compras" },
@@ -22,7 +21,6 @@ export function LandingFooter() {
   return (
     <footer className="bg-surface border-t border-border">
       <div className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
-        {/* Marca + descripción corta */}
         <div className="mb-16 lg:mb-20 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
           <div className="flex items-center gap-2 font-semibold tracking-tight">
             <span
@@ -35,51 +33,47 @@ export function LandingFooter() {
               Yellow ERP
             </span>
           </div>
-          <p className="text-sm text-muted-foreground max-w-xs lg:max-w-none">
+          <Text as="p" className="text-sm max-w-xs lg:max-w-none">
             ERP para empresas chilenas · montos en CLP · IVA 19 % · todo en español
-          </p>
+          </Text>
         </div>
 
-        {/* Enlaces organizados */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 mb-16 lg:mb-20">
+        <Grid cols="1" gap="12" className="mb-16 lg:mb-20 lg:grid-cols-4">
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6">
+            <Text as="p" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6">
               Producto
-            </p>
-            <ul className="space-y-4">
+            </Text>
+            <Stack space="4">
               {productoLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {link.label}
+                </Link>
               ))}
-            </ul>
+            </Stack>
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6">
+            <Text as="p" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6">
               Empresa
-            </p>
-            <ul className="space-y-4">
+            </Text>
+            <Stack space="4">
               {empresaLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {link.label}
+                </Link>
               ))}
-            </ul>
+            </Stack>
           </div>
-        </div>
+        </Grid>
 
-        {/* Línea inferior con marca y legal */}
         <div className="border-t border-border pt-12 flex flex-col lg:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2 font-semibold tracking-tight">
             <span
@@ -92,9 +86,9 @@ export function LandingFooter() {
           </div>
 
           <div className="flex items-center gap-8 text-xs text-muted-foreground">
-            <span>Hecho en Chile</span>
-            <span>·</span>
-            <span>© 2026 Yellow ERP</span>
+            <Text as="span">Hecho en Chile</Text>
+            <Text as="span" className="text-muted-foreground">·</Text>
+            <Text as="span">© 2026 Yellow ERP</Text>
           </div>
         </div>
       </div>

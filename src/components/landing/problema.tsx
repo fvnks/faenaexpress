@@ -1,14 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { SectionReveal } from "@/components/motion/section-reveal";
+import Card from "@/components/astryx/card";
+import { Grid } from "@/components/astryx/layout";
+import { Heading, Text } from "@/components/astryx/typography";
 
-/**
- * Sección de problemas reales: libros que no cuadran, gastos sin responsable,
- * sin visibilidad real. Sin estadísticas inventadas, sin "Sarah Chen".
- *
- * Fondo: textura sutil de papel de factura.
- */
 export function LandingProblema() {
   const problemas = [
     {
@@ -32,68 +27,60 @@ export function LandingProblema() {
   ];
 
   return (
-    <section id="problema" className="bg-surface scroll-mt-24 border-t border-border relative overflow-hidden">
-      {/* Textura sutil de papel */}
-      <div
-        className="absolute inset-0 z-0 pointer-events-none opacity-30"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, rgba(27, 95, 168, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(27, 95, 168, 0.03) 1px, transparent 1px)",
-          backgroundSize: "28px 28px",
-        }}
-      />
-
-      <div className="relative z-10 mx-auto max-w-5xl px-6 py-24 lg:py-36">
-        <SectionReveal delay={0}>
-          <div className="text-center max-w-2xl mx-auto mb-20 lg:mb-28">
-            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6 tracking-tight">
+    <section id="problema" className="bg-surface scroll-mt-24 border-t border-border">
+      <div className="mx-auto max-w-5xl px-6 py-24 lg:py-36">
+        <Grid cols="1" gap="10">
+          <div className="lg:col-span-1">
+            <Heading level={2} className="text-center max-w-2xl mx-auto mb-4">
               Fin de mes sin sorpresas
-            </h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            </Heading>
+            <Text as="p" className="text-center max-w-2xl mx-auto">
               Yellow ERP nació para resolver problemas que las empresas reales
               enfrentan cada mes.
-            </p>
+            </Text>
           </div>
-        </SectionReveal>
 
-        <div className="grid gap-12 lg:grid-cols-3">
-          {problemas.map((p) => (
-            <SectionReveal key={p.id} delay={60}>
-              <div className="rounded-card border border-border bg-background p-8 lg:p-10 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-soft text-accent mb-6 shrink-0">
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="text-accent"
-                  >
-                    {p.id === "libros" ? (
-                      <>
-                        <path d="M9 11H3v2h6v-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 0-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </>
-                    ) : p.id === "gastos" ? (
-                      <>
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 8 8 10 8 10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </>
-                    ) : (
-                      <>
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M12 6v6m4 6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </>
-                    )}
-                  </svg>
-                </div>
-                <h3 className="text-lg font-bold text-foreground mb-3">{p.titulo}</h3>
-                <p className="text-base leading-relaxed text-muted-foreground">
-                  {p.descripcion}
-                </p>
-              </div>
-            </SectionReveal>
-          ))}
-        </div>
+          <Grid cols="1 lg:3" gap="8">
+            {problemas.map((p) => (
+              <Card key={p.id}>
+                <Card.Header className="pb-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-soft text-accent mb-6 shrink-0">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="text-accent"
+                    >
+                      {p.id === "libros" ? (
+                        <>
+                          <path d="M9 11H3v2h6v-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 0-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </>
+                      ) : p.id === "gastos" ? (
+                        <>
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 8 8 10 8 10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </>
+                      ) : (
+                        <>
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M12 6v6m4 6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </>
+                      )}
+                    </svg>
+                  </div>
+                </Card.Header>
+                <Card.Content>
+                  <Heading level={3} className="text-lg mb-2">
+                    {p.titulo}
+                  </Heading>
+                  <Text as="p">{p.descripcion}</Text>
+                </Card.Content>
+              </Card>
+            ))}
+          </Grid>
+        </Grid>
       </div>
     </section>
   );

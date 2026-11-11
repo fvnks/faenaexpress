@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { SectionReveal } from "@/components/motion/section-reveal";
+
+import { Button } from "@/components/astryx/button";
+import Card from "@/components/astryx/card";
+import { Stack } from "@/components/astryx/layout";
+import { Text, Heading } from "@/components/astryx/typography";
 
 export function LandingHero() {
   return (
@@ -18,40 +22,35 @@ export function LandingHero() {
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary/10 rounded-full blur-[100px]" />
 
       <div className="relative z-30 mx-auto max-w-7xl px-6 py-24 lg:py-36">
-        <SectionReveal delay={0}>
+        <Stack space="8">
           <div className="lg:grid lg:grid-cols-2 lg:gap-12 items-start">
             <div className="lg:col-span-1">
-              <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border bg-surface text-muted-foreground text-xs font-medium uppercase tracking-wider mb-6 inline-block lg:mb-10">
-                ERP para empresas chilenas
-              </span>
-              <h1 className="text-4xl lg:text-6xl font-bold text-foreground leading-tight mb-8 lg:mb-12 tracking-tight">
-                Tus cuentas al día, sin Excel
-              </h1>
-              <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-lg mb-12 lg:mb-16">
-                Registra compras, ventas y gastos. Concilia el banco. Lleva el libro
-                de compras y de ventas. Y siempre sabrás quién pagó cada gasto. Montos
-                en pesos, IVA al 19 %, todo en español.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  href="/login"
-                  className="relative inline-flex items-center justify-center gap-2 px-8 py-4 text-sm font-semibold text-white bg-primary border border-transparent rounded-control hover:bg-primary/90 transition-colors shadow-lg shadow-black/20"
-                >
-                  Entrar a mi cuenta
-                </Link>
-                <Link
-                  href="#servicios"
-                  className="relative inline-flex items-center justify-center gap-2 px-8 py-4 text-sm font-semibold text-foreground border border-border bg-transparent rounded-control hover:bg-surface/50 transition-colors"
-                >
-                  Conocer los servicios
-                </Link>
-              </div>
+              <Stack space="4">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border bg-surface text-muted-foreground text-xs font-medium uppercase tracking-wider inline-block">
+                  ERP para empresas chilenas
+                </span>
+                <Heading level={1}>
+                  Tus cuentas al día, sin Excel
+                </Heading>
+                <Text as="p" className="text-lg lg:text-xl max-w-lg">
+                  Registra compras, ventas y gastos. Concilia el banco. Lleva el
+                  libro de compras y de ventas. Y siempre sabrás quién pagó cada
+                  gasto. Montos en pesos, IVA al 19 %, todo en español.
+                </Text>
+                <Stack space="4" direction="row">
+                  <Button variant="primary" size="lg" href="/login">
+                    Entrar a mi cuenta
+                  </Button>
+                  <Button variant="outline" size="lg" href="#servicios">
+                    Conocer los servicios
+                  </Button>
+                </Stack>
+              </Stack>
             </div>
             <div className="lg:col-span-1 flex items-center justify-center">
-              <div className="relative w-full max-w-[520px]">
-                <div className="absolute inset-0 bg-black/30 blur-xl rounded-[16px] -translate-y-4" />
-                <div className="relative rounded-[16px] border border-border bg-surface shadow-2xl overflow-hidden">
-                  <div className="border-b border-border bg-surface/50 px-5 py-4 flex items-center justify-between">
+              <Card className="w-full max-w-[520px] shadow-2xl">
+                <Card.Header className="pb-0">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="h-7 w-7 rounded-lg bg-primary" />
                       <span className="text-xs font-semibold text-foreground tracking-tight">
@@ -64,11 +63,13 @@ export function LandingHero() {
                       <span>ACTIVO</span>
                     </div>
                   </div>
+                </Card.Header>
+                <Card.Content className="p-0">
                   <div className="p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-semibold text-foreground">
+                      <Heading level={3} className="text-sm mb-0">
                         Libro de ventas
-                      </h3>
+                      </Heading>
                       <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                         2026-11
                       </span>
@@ -128,24 +129,26 @@ export function LandingHero() {
                       </table>
                     </div>
                   </div>
-                  <div className="border-t border-border bg-surface/50 px-5 py-4 flex items-center justify-between">
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                </Card.Content>
+                <Card.Footer>
+                  <Stack space="2">
+                    <Text as="span" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                       Total del período
-                    </span>
+                    </Text>
                     <div className="text-right">
-                      <span className="text-xl font-bold tabular text-foreground">
+                      <Text as="span" className="text-xl font-bold tabular text-foreground">
                         $4.920.000
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
+                      </Text>
+                      <Text as="span" className="text-[10px] text-muted-foreground">
                         IVA incluido
-                      </span>
+                      </Text>
                     </div>
-                  </div>
-                </div>
-              </div>
+                  </Stack>
+                </Card.Footer>
+              </Card>
             </div>
           </div>
-        </SectionReveal>
+        </Stack>
       </div>
     </section>
   );
