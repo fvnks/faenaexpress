@@ -11,11 +11,8 @@ import { Button } from "@/components/ui/button";
 
 export function LandingCTA() {
   return (
-    <section className="bg-primary border-t border-primary/20 relative overflow-hidden section">
-      {/* Círculo sutil para profundidad */}
-      <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl" aria-hidden="true" />
-
-      <div className="relative z-10 mx-auto max-w-4xl px-6 py-24 lg:py-32">
+    <section className="bg-primary border-t border-primary/20 section">
+      <div className="mx-auto max-w-4xl px-6 py-24 lg:py-32">
         <SectionReveal delay={0}>
           <div className="text-center">
             <h2 className="text-3xl lg:text-4xl font-bold text-primary-foreground mb-6 lg:mb-10 tracking-tight">
@@ -29,7 +26,7 @@ export function LandingCTA() {
               <Link href="/login" className="btn-secondary w-full sm:w-auto">
                 Entrar a mi cuenta
               </Link>
-              <Link href="/contacto" className="btn-ghost w-full sm:w-auto border-border hover:bg-white/10">
+              <Link href="/contacto" className="btn-ghost w-full sm:w-auto border-border hover:bg-primary-foreground/10">
                 Diseño web corporativo
               </Link>
             </div>

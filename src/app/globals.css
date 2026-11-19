@@ -4,6 +4,66 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root {
+  /* Light mode (default) — from DESIGN.md */
+  --background: #F4F6F8;
+  --surface: #FFFFFF;
+  --foreground: #181B1E;
+  --muted-foreground: #5A6165;
+  --border: #D8DEE3;
+  --primary: #1B5FA8;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #1E40AF;
+  --primary-soft: #DDE9F5;
+  --secondary: #64748B;
+  --secondary-foreground: #FFFFFF;
+  --secondary-soft: #F1F5F9;
+  --accent: #8A5408;
+  --accent-foreground: #FFFFFF;
+  --accent-soft: #F6E7C8;
+  --success: #1E6B8A;
+  --success-foreground: #FFFFFF;
+  --success-soft: #DCF2F5;
+  --warning: #8A5408;
+  --warning-foreground: #FFFFFF;
+  --warning-soft: #F6E7C8;
+  --danger: #B42318;
+  --danger-foreground: #FFFFFF;
+  --danger-soft: #FEF2F2;
+  --ring: #1B5FA8;
+  --muted-foreground: #5A6165;
+}
+
+.dark {
+  /* Dark mode — from DESIGN.md */
+  --background: #0E1418;
+  --surface: #141C22;
+  --foreground: #E8EDF1;
+  --muted-foreground: #9BA1A5;
+  --border: #232D35;
+  --primary: #4A9FD8;
+  --primary-foreground: #081820;
+  --primary-hover: #60A5FA;
+  --primary-soft: #1A2E3D;
+  --secondary: #94A3B8;
+  --secondary-foreground: #0F172A;
+  --secondary-soft: #1E293B;
+  --accent: #E0A94A;
+  --accent-foreground: #0F172A;
+  --accent-soft: #3D3100;
+  --success: #5AB8D8;
+  --success-foreground: #0F172A;
+  --success-soft: #0E2E3D;
+  --warning: #E0A94A;
+  --warning-foreground: #0F172A;
+  --warning-soft: #3D3100;
+  --danger: #F2857C;
+  --danger-foreground: #FFFFFF;
+  --danger-soft: #3A1B18;
+  --ring: #4A9FD8;
+  --muted-foreground: #9BA1A5;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);

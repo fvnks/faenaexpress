@@ -2,25 +2,22 @@
 
 import Link from "next/link";
 import { SectionReveal } from "@/components/motion/section-reveal";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export function LandingHero() {
   return (
     <section className="relative border-b border-border overflow-hidden bg-surface/50 section">
-      {/* Background pattern */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-30" style={{
-        backgroundImage: `
-          linear-gradient(to right, rgba(29, 78, 216, 0.03) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(29, 78, 216, 0.03) 1px, transparent 1px)
-        `,
-        backgroundSize: "32px 32px",
-      }} />
-
-      {/* Gradient orbs */}
-      <div className="absolute -top-40 -right-40 w-[24rem] h-[24rem] bg-primary/5 rounded-full blur-3xl" aria-hidden="true" />
-      <div className="absolute -bottom-40 -left-40 w-[24rem] h-[24rem] bg-accent/5 rounded-full blur-3xl" aria-hidden="true" />
+      {/* Subtle gradient background - single, not cartoonish orbs */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          background: `
+            radial-gradient(ellipse 80% 50% at 50% -20%, rgba(27, 95, 168, 0.06), transparent),
+            radial-gradient(ellipse 60% 40% at 100% 100%, rgba(138, 84, 8, 0.04), transparent)
+          `,
+        }}
+      />
 
       <div className="relative z-10 mx-auto max-w-7xl px-6 py-20 lg:py-32">
         <div className="lg:grid lg:grid-cols-2 lg:gap-16 items-start">
@@ -78,27 +75,17 @@ export function LandingHero() {
             </div>
           </div>
 
-          {/* Dashboard preview */}
+          {/* Dashboard preview - clean, professional */}
           <div className="lg:col-span-1">
             <div className="relative w-full max-w-[520px] mx-auto lg:ml-auto">
-              {/* Glow effect */}
-              <div className="absolute inset-0 bg-black/20 blur-2xl rounded-2xl -translate-y-2" aria-hidden="true" />
-              
-              {/* Dashboard mockup */}
-              <div className="relative rounded-2xl border border-border bg-surface shadow-2xl overflow-hidden shadow-black/30">
+              {/* Dashboard mockup - clean card */}
+              <div className="rounded-2xl border border-border bg-surface shadow-xl overflow-hidden">
                 {/* Header bar */}
                 <div className="flex items-center justify-between border-b border-border bg-surface/50 px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1.5">
-                      <div className="h-3 w-3 rounded bg-danger/60" />
-                      <div className="h-3 w-3 rounded bg-warning/60" />
-                      <div className="h-3 w-3 rounded bg-success/60" />
-                    </div>
-                    <span className="text-xs font-semibold text-foreground">Facturas ERP</span>
-                  </div>
+                  <span className="text-xs font-semibold text-foreground">Facturas ERP</span>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>CHILE</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-hidden="true" />
                     <span>ACTIVO</span>
                   </div>
                 </div>
@@ -126,7 +113,7 @@ export function LandingHero() {
                           <td className="px-4 py-3 text-right text-foreground">$1.250.000</td>
                           <td className="px-4 py-3">
                             <Badge variant="success" className="text-[10px]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
                               Pagada
                             </Badge>
                           </td>
@@ -137,7 +124,7 @@ export function LandingHero() {
                           <td className="px-4 py-3 text-right text-foreground">$2.100.000</td>
                           <td className="px-4 py-3">
                             <Badge variant="warning" className="text-[10px]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden="true" />
                               Pendiente
                             </Badge>
                           </td>
@@ -148,7 +135,7 @@ export function LandingHero() {
                           <td className="px-4 py-3 text-right text-foreground">$680.000</td>
                           <td className="px-4 py-3">
                             <Badge variant="warning" className="text-[10px]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden="true" />
                               Parcial
                             </Badge>
                           </td>
@@ -159,7 +146,7 @@ export function LandingHero() {
                           <td className="px-4 py-3 text-right text-foreground">$890.000</td>
                           <td className="px-4 py-3">
                             <Badge variant="success" className="text-[10px]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
                               Pagada
                             </Badge>
                           </td>

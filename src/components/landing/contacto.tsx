@@ -109,7 +109,7 @@ export function ContactoSection() {
           <button
             type="submit"
             disabled={status === "sending"}
-            className="relative inline-flex items-center justify-center gap-2 px-10 py-3 text-sm font-semibold text-black bg-white border border-transparent rounded-control hover:bg-gray-200 transition-colors"
+            className="btn-primary px-10 py-3"
           >
             {status === "sending" ? "Enviando…" : "Enviar mensaje"}
           </button>
