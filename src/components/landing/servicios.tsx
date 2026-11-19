@@ -15,7 +15,7 @@ export function LandingServicios() {
   return (
     <section
       id="servicios"
-      className="border-t border-border bg-surface/50"
+      className="border-t border-border bg-surface/50 section"
       aria-labelledby="servicios-heading"
     >
       <div className="mx-auto max-w-6xl px-6 py-24 lg:py-32 lg:px-8">
@@ -36,7 +36,7 @@ export function LandingServicios() {
           {/* ERP: servicio principal, más ancho */}
           <SectionReveal delay={40}>
             <Card className="lg:p-10">
-              <CardContent className="p-0">
+              <div className="p-0">
                 <article>
                   <div className="flex items-start gap-4 mb-8">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
@@ -56,9 +56,9 @@ export function LandingServicios() {
                       </svg>
                     </div>
                     <div>
-                      <Badge variant="primary" className="mb-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium uppercase tracking-wider mb-3 block">
                         Producto principal
-                      </Badge>
+                      </span>
                       <h3 className="text-2xl font-bold text-foreground mb-2">
                         Facturas ERP
                       </h3>
@@ -88,21 +88,21 @@ export function LandingServicios() {
                       </li>
                     ))}
                   </ul>
-                  <Link
+                  <a
                     href="/login"
                     className="btn-primary w-full sm:w-auto"
                   >
                     Entrar al ERP
-                  </Link>
+                  </a>
                 </article>
-              </CardContent>
+              </div>
             </Card>
           </SectionReveal>
 
           {/* Diseño web: servicio complementario */}
           <SectionReveal delay={100}>
             <Card className="border border-border bg-surface">
-              <CardContent className="p-8 lg:p-10">
+              <div className="p-8 lg:p-10">
                 <article>
                   <div className="flex items-start gap-4 mb-8">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
@@ -121,9 +121,9 @@ export function LandingServicios() {
                       </svg>
                     </div>
                     <div>
-                      <Badge variant="secondary" className="mb-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent/10 text-accent text-[10px] font-medium uppercase tracking-wider mb-3 block">
                         Complementario
-                      </Badge>
+                      </span>
                       <h3 className="text-2xl font-bold text-foreground mb-2">
                         Diseño web corporativo
                       </h3>
@@ -152,14 +152,14 @@ export function LandingServicios() {
                       </li>
                     ))}
                   </ul>
-                  <Link
+                  <a
                     href="/contacto"
                     className="inline-flex items-center justify-center gap-2 px-7 py-3 text-sm font-semibold text-accent border border-accent bg-transparent rounded-control hover:bg-accent/10 transition-colors"
                   >
                     Ver proyectos
-                  </Link>
+                  </a>
                 </article>
-              </CardContent>
+              </div>
             </Card>
           </SectionReveal>
         </div>

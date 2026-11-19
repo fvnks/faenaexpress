@@ -84,11 +84,13 @@ export function LandingFooter() {
           <div className="flex items-center gap-2 font-semibold tracking-tight">
             <span
               aria-hidden="true"
-              className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-[12px] font-bold"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold"
             >
               Y
             </span>
-            Yellow ERP
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              Yellow ERP
+            </span>
           </div>
 
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6 text-xs text-muted-foreground">

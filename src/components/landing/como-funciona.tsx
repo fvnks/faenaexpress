@@ -33,7 +33,7 @@ export function LandingComoFunciona() {
   return (
     <section
       id="como-funciona"
-      className="border-t border-border bg-surface/50"
+      className="border-t border-border bg-surface/50 section"
       aria-labelledby="como-funciona-heading"
     >
       <div className="mx-auto max-w-5xl px-6 py-24 lg:py-32 lg:px-8">

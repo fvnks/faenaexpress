@@ -29,7 +29,7 @@ export function LandingConfianza() {
   return (
     <section
       id="confianza"
-      className="border-t border-border bg-surface/50"
+      className="border-t border-border bg-surface/50 section"
       aria-labelledby="confianza-heading"
     >
       <div className="mx-auto max-w-5xl px-6 py-24 lg:py-32 lg:px-8">

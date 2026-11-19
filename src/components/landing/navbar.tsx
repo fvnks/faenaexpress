@@ -27,7 +27,7 @@ export function LandingNavbar() {
           {/* Marca */}
           <Link
             href="/"
-            className="flex items-center gap-2 focus-ring"
+            className="flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             aria-label="Yellow ERP - Inicio"
           >
             <span
@@ -81,7 +81,7 @@ export function LandingNavbar() {
           {/* Menú móvil */}
           <button
             type="button"
-            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-foreground hover:bg-secondary-soft transition-colors focus-ring"
+            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-foreground hover:bg-secondary-soft transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
             aria-expanded={mobileOpen}

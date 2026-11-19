@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SectionReveal } from "@/components/motion/section-reveal";
+import { Button } from "@/components/ui/button";
 
 /**
  * CTA final: entrar al ERP o escribirnos para diseño web.
@@ -10,9 +11,9 @@ import { SectionReveal } from "@/components/motion/section-reveal";
 
 export function LandingCTA() {
   return (
-    <section className="bg-primary scroll-mt-24 border-t border-primary/20 relative overflow-hidden">
+    <section className="bg-primary border-t border-primary/20 relative overflow-hidden section">
       {/* Círculo sutil para profundidad */}
-      <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-[80px]" />
+      <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl" aria-hidden="true" />
 
       <div className="relative z-10 mx-auto max-w-4xl px-6 py-24 lg:py-32">
         <SectionReveal delay={0}>
@@ -25,16 +26,10 @@ export function LandingCTA() {
               O escríbenos si necesitas diseño web corporativo.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                href="/login"
-                className="btn-secondary w-full sm:w-auto"
-              >
+              <Link href="/login" className="btn-secondary w-full sm:w-auto">
                 Entrar a mi cuenta
               </Link>
-              <Link
-                href="/contacto"
-                className="btn-ghost w-full sm:w-auto border-border hover:bg-white/10"
-              >
+              <Link href="/contacto" className="btn-ghost w-full sm:w-auto border-border hover:bg-white/10">
                 Diseño web corporativo
               </Link>
             </div>
