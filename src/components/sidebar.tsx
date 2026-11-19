@@ -1194,7 +1194,7 @@ export function Sidebar(props: SidebarProps) {
             role="dialog"
             aria-modal="true"
             aria-label="Menú de navegación"
-            className="absolute left-0 top-0 flex h-full w-72 flex-col border-r border-border bg-surface"
+            className="absolute left-0 top-0 z-50 flex h-full w-72 flex-col border-r border-border bg-surface"
           >
             {nav}
           </aside>
