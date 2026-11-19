@@ -44,6 +44,106 @@
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
+:root {
+  /* Light mode (default) */
+  --background: #FAFAFA;
+  --surface: #FFFFFF;
+  --foreground: #0F172A;
+  --muted-foreground: #64748B;
+  --border: #E2E8F0;
+  --primary: #1D4ED8;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #1E40AF;
+  --primary-soft: #DBEAFE;
+  --secondary: #64748B;
+  --secondary-foreground: #FFFFFF;
+  --secondary-soft: #F1F5F9;
+  --accent: #D97706;
+  --accent-foreground: #FFFFFF;
+  --accent-soft: #FEF3C7;
+  --success: #059669;
+  --success-foreground: #FFFFFF;
+  --success-soft: #D1FAE5;
+  --warning: #D97706;
+  --warning-foreground: #FFFFFF;
+  --warning-soft: #FEF3C7;
+  --danger: #DC2626;
+  --danger-foreground: #FFFFFF;
+  --danger-soft: #FEF2F2;
+  --ring: #1D4ED8;
+  --muted-foreground: #64748B;
+}
+
+.dark {
+  /* Dark mode */
+  --background: #0F172A;
+  --surface: #1E293B;
+  --foreground: #F1F5F9;
+  --muted-foreground: #94A3B8;
+  --border: #334155;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #60A5FA;
+  --primary-soft: #1E3A5F;
+  --secondary: #94A3B8;
+  --secondary-foreground: #0F172A;
+  --secondary-soft: #1E293B;
+  --accent: #F59E0B;
+  --accent-foreground: #0F172A;
+  --accent-soft: #3D3100;
+  --success: #10B981;
+  --success-foreground: #0F172A;
+  --success-soft: #0E4D3B;
+  --warning: #F59E0B;
+  --warning-foreground: #0F172A;
+  --warning-soft: #3D3100;
+  --danger: #EF4444;
+  --danger-foreground: #FFFFFF;
+  --danger-soft: #7F1D1D;
+  --ring: #3B82F6;
+  --muted-foreground: #94A3B8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-soft: var(--secondary-soft);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-soft: var(--danger-soft);
+  --color-ring: var(--ring);
+  --color-muted-foreground: var(--muted-foreground);
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
 @layer base {
   * {
     border-color: var(--border);
@@ -424,9 +524,8 @@
     border-bottom: 1px solid var(--border);
   }
 
-  .table tbody tr:hover {
-    background-color: color-mix(in srgb, var(--secondary-soft) 50%, transparent);
-    transition: background-color 0.2s;
+  .table tbody tr {
+    hover:bg-secondary-soft/50 transition-colors;
   }
 
   .table tbody tr:last-child td {
