@@ -8,7 +8,7 @@ import clsx from "clsx";
 import type { InventoryAccess, Role } from "@/generated/prisma/client";
 import { canAccess, canAccessSection, type Section, type SectionAccessMap } from "@/lib/permissions";
 
-const iconCls = "h-5 w-5 shrink-0";
+const iconCls = "h-5 w-5 shrink-0 stroke-[1.5px]";
 
 // El colapso del sidebar vive en localStorage. Leerlo durante el render (como
 // se hacía antes) daba un HTML de cliente distinto al del servidor y React

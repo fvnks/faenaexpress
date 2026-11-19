@@ -1,26 +1,31 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DateFieldsNormalizer } from "@/components/date-fields-normalizer";
 import { ThemeInitializer } from "@/components/theme-initializer";
 
-const plex = IBM_Plex_Sans({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
+  variable: "--font-space-grotesk",
   weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-plex-sans",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  // El nombre de la plataforma, no el de un módulo: la raíz la comparten
-  // Facturas, Colegios y la puerta de entrada.
   title: "Yellow ERP",
   description: "Sistemas de gestión para tu empresa y tu colegio.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es-CL" className={plex.variable} suppressHydrationWarning>
+    <html lang="es-CL" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
         <ThemeInitializer />
         <DateFieldsNormalizer />
