@@ -96,6 +96,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
   const [actionSalespersonId, setActionSalespersonId] = useState<string>("");
   const [bulkVendedorId, setBulkVendedorId] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [bulkXmlLoading, setBulkXmlLoading] = useState(false);
   /** Qué facturas tienen el árbol de notas desplegado (por id). */
   const [notasAbiertas, setNotasAbiertas] = useState(() => new Set<string>());
   const [, startTransition] = useTransition();
@@ -264,13 +265,28 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                   if (!checkboxes.length) return;
                   const formData = new FormData();
                   checkboxes.forEach((cb) => formData.append("ids", cb.value));
-                  startTransition(async () => {
-                    await bulkFetchSaleXmlAction(formData);
-                  });
+                  setBulkXmlLoading(true);
+                  try {
+                    startTransition(async () => {
+                      await bulkFetchSaleXmlAction(formData);
+                    });
+                  } finally {
+                    setBulkXmlLoading(false);
+                  }
                 }}
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Traer XML de Defontana
+                {bulkXmlLoading ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Procesando…
+                  </>
+                ) : (
+                  "Traer XML de Defontana"
+                )}
               </button>
             </div>
           </div>

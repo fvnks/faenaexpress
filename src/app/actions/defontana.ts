@@ -650,7 +650,16 @@ export async function bulkFetchSaleXmlAction(
   }
 
   const okCount = resultados.filter((r) => r.ok).length;
-  return { ok: okCount > 0, results: resultados, message: `${okCount} de ${pendientes.length} XML guardados.` };
+  const message = `${okCount} de ${pendientes.length} XML guardados.`;
+  
+  if (okCount > 0) {
+    setFlash("success", message);
+    revalidatePath("/facturas/ventas");
+  } else {
+    setFlash("error", message);
+  }
+  
+  return { ok: okCount > 0, results: resultados, message };
 }
 
 // ── Guías de despacho desde Defontana ────────────────────────────────────────
