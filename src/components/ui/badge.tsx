@@ -1,36 +1,53 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
+"use client";
 
-import { cn } from "@/lib/utils"
+import { forwardRef } from "react";
 
-const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-  {
-    variants: {
-      variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
-        outline: "text-foreground",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-)
-
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
-
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
-  )
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  variant?: "primary" | "secondary" | "success" | "warning" | "danger" | "neutral";
+  size?: "sm" | "md";
 }
 
-export { Badge, badgeVariants }
+const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
+  (
+    {
+      className,
+      variant = "neutral",
+      size = "md",
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    const variants = {
+      primary: "bg-primary/10 text-primary",
+      secondary: "bg-secondary/10 text-secondary",
+      success: "bg-success/10 text-success",
+      warning: "bg-warning/10 text-warning",
+      danger: "bg-danger/10 text-danger",
+      neutral: "bg-secondary/10 text-muted-foreground",
+    };
+
+    const sizes = {
+      sm: "px-2 py-0.5 text-xs",
+      md: "px-2.5 py-0.5 text-xs",
+    };
+
+    return (
+      <span
+        ref={ref}
+        className={[
+          "inline-flex items-center gap-1 rounded-full font-medium",
+          variants[variant],
+          sizes[size],
+          "font-medium",
+        ].join(" ")}
+      >
+        {children}
+      </span>
+    );
+  }
+);
+
+Badge.displayName = "Badge";
+
+export { Badge };

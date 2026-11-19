@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import clsx from "clsx";
 
 import type { InventoryAccess, Role } from "@/generated/prisma/client";
 import { canAccess, canAccessSection, type Section, type SectionAccessMap } from "@/lib/permissions";
@@ -330,7 +331,12 @@ function Chevron({ open }: { open: boolean }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={"h-3.5 w-3.5 shrink-0 opacity-60 transition-transform duration-200 " + (open ? "rotate-90" : "")}
+      className="h-3.5 w-3.5 shrink-0 opacity-60 motion-reduce:transition-none transition-transform duration-200"
+      style={{
+        transformBox: "fill-box",
+        transformOrigin: "center",
+        transform: open ? "rotate(90deg)" : "none"
+      }}
       aria-hidden="true"
     >
       <path d="M9 18l6-6-6-6" />
@@ -378,17 +384,20 @@ function CollapsibleList({
       id={id}
       aria-hidden={!expanded}
       inert={!expanded}
-      className="overflow-hidden transition-[height] duration-[180ms] ease-out motion-reduce:transition-none"
-      style={{ height }}
+      className="overflow-hidden motion-reduce:transition-none"
+      style={{
+        height,
+        transition: "height 180ms ease-out"
+      }}
     >
       <ul
         ref={listRef}
-        className={
-          "transition-[opacity,transform] duration-[180ms] ease-out motion-reduce:transition-none " +
-          (expanded ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0") +
-          " " +
-          innerClass
-        }
+        className="motion-reduce:transition-none"
+        style={{
+          opacity: expanded ? 1 : 0,
+          transform: expanded ? "translateY(0)" : "translateY(-4px)",
+          transition: "opacity 180ms ease-out, transform 180ms ease-out"
+        }}
       >
         {children}
       </ul>
@@ -583,6 +592,7 @@ function groupPending(group: SidebarGroup, pendingSales: number, pendingBank: nu
 function rowClass(active: boolean) {
   return (
     "flex items-center gap-3 rounded-control px-2 py-2 text-sm transition-colors " +
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 " +
     (active
       ? "bg-primary-soft font-medium text-primary"
       : "text-muted-foreground hover:bg-background hover:text-foreground")
@@ -621,7 +631,13 @@ function SidebarNavItem({
           href={item.href}
           aria-current={active ? "page" : undefined}
           onClick={onNavigate}
-          className={rowClass(active)}
+          className={clsx(
+            "flex items-center gap-3 rounded-control px-2 py-2 text-sm transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
+            active
+              ? "bg-primary-soft font-medium text-primary"
+              : "text-muted-foreground hover:bg-background hover:text-foreground"
+          )}
         >
           <Icon name={item.icon} />
           <span className="min-w-0 flex-1 truncate">{item.label}</span>

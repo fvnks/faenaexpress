@@ -21,14 +21,14 @@ export function LandingNavbar() {
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-background/80 backdrop-blur-sm">
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+    <nav className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm" role="navigation" aria-label="Navegación principal">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Marca */}
           <Link
             href="/"
-            className="flex items-center gap-2"
-            aria-label="Yellow ERP"
+            className="flex items-center gap-2 focus-ring"
+            aria-label="Yellow ERP - Inicio"
           >
             <span
               aria-hidden="true"
@@ -44,7 +44,7 @@ export function LandingNavbar() {
           {/* Enlaces de navegación */}
           <div className="hidden lg:flex items-center gap-8">
             {navLinks.map((link) => {
-              const active = pathname === link.href;
+              const active = pathname === link.href || pathname.startsWith(link.href + "/");
               return (
                 <Link
                   key={link.href}
@@ -54,6 +54,7 @@ export function LandingNavbar() {
                       ? "text-primary"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
+                  aria-current={active ? "page" : undefined}
                 >
                   {link.label}
                 </Link>
@@ -62,28 +63,29 @@ export function LandingNavbar() {
           </div>
 
           {/* Botones de acción */}
-          <div className="hidden lg:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-3">
             <Link
               href="/login"
-              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-foreground border border-border bg-transparent rounded-control hover:bg-surface/50 transition-colors"
+              className="btn-ghost text-sm px-4 py-2"
             >
               Entrar
             </Link>
-            <a
+            <Link
               href="/login"
-              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-primary border border-transparent rounded-control hover:bg-primary/90 transition-colors"
+              className="btn-primary text-sm"
             >
               Crear cuenta
-            </a>
+            </Link>
           </div>
 
           {/* Menú móvil */}
           <button
             type="button"
-            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-control text-foreground hover:bg-surface/50 transition-colors"
+            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-foreground hover:bg-secondary-soft transition-colors focus-ring"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
             aria-expanded={mobileOpen}
+            aria-controls="mobile-menu"
           >
             <svg
               width="24"
@@ -92,8 +94,13 @@ export function LandingNavbar() {
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               className="text-foreground"
+              aria-hidden="true"
             >
-              <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              {mobileOpen ? (
+                <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              ) : (
+                <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              )}
             </svg>
           </button>
         </div>
@@ -101,9 +108,13 @@ export function LandingNavbar() {
 
       {/* Menú móvil desplegable */}
       {mobileOpen ? (
-        <div className="lg:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-foreground/90 backdrop-blur-sm" />
-          <div className="absolute left-0 top-16 right-0 bottom-0 p-6 overflow-y-auto">
+        <div className="lg:hidden fixed inset-0 z-50" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menú de navegación">
+          <div
+            className="absolute inset-0 bg-foreground/90 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="absolute left-0 top-16 right-0 bottom-0 p-6 overflow-y-auto bg-surface border-l border-border lg:fixed lg:top-0 lg:bottom-0 lg:w-80">
             <div className="flex flex-col gap-1 border-b border-border pb-6">
               {navLinks.map((link) => (
                 <Link
@@ -115,22 +126,22 @@ export function LandingNavbar() {
                   {link.label}
                 </Link>
               ))}
-              <div className="mt-8 flex flex-col gap-3">
-                <Link
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="block py-4 px-6 text-lg font-medium text-foreground border border-border rounded-card bg-surface hover:bg-surface/50 transition-colors"
-                >
-                  Entrar
-                </Link>
-                <a
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="block py-4 px-6 text-lg font-medium text-white bg-primary border border-transparent rounded-card hover:bg-primary/90 transition-colors"
-                >
-                  Crear cuenta
-                </a>
-              </div>
+            </div>
+            <div className="mt-8 flex flex-col gap-3">
+              <Link
+                href="/login"
+                onClick={() => setMobileOpen(false)}
+                className="btn-secondary text-lg py-3"
+              >
+                Entrar
+              </Link>
+              <Link
+                href="/login"
+                onClick={() => setMobileOpen(false)}
+                className="btn-primary text-lg py-3"
+              >
+                Crear cuenta
+              </Link>
             </div>
           </div>
         </div>

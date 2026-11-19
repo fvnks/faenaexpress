@@ -27,7 +27,7 @@ export function LandingFooter() {
           <div className="flex items-center gap-2 font-semibold tracking-tight">
             <span
               aria-hidden="true"
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-black text-lg font-bold"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold"
             >
               Y
             </span>
@@ -91,9 +91,9 @@ export function LandingFooter() {
             Yellow ERP
           </div>
 
-          <div className="flex items-center gap-8 text-xs text-muted-foreground">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-6 text-xs text-muted-foreground">
             <span>Hecho en Chile</span>
-            <span>·</span>
+            <span aria-hidden="true">·</span>
             <span>© 2026 Yellow ERP</span>
           </div>
         </div>
