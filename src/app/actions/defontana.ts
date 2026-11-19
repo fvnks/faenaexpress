@@ -536,6 +536,123 @@ export async function fetchSaleXmlAction(
 
 export type FetchSaleXmlState = { error?: string; ok?: boolean; message?: string } | undefined;
 
+export type BulkFetchSaleXmlState = { error?: string; ok?: boolean; message?: string; results?: Array<{ id: string; folio: string; ok: boolean; message: string }> } | undefined;
+
+/**
+ * Trae XML de Defontana para múltiples ventas seleccionadas (bulk).
+ * Procesa en lote: inicia sesión una vez y recorre los IDs.
+ */
+export async function bulkFetchSaleXmlAction(
+  formData: FormData,
+): Promise<BulkFetchSaleXmlState> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) {
+    return { error: "Solo contabilidad o administración puede traer el XML." };
+  }
+
+  const ids = formData.getAll("ids") as string[];
+  if (!ids.length) return { error: "No se seleccionaron ventas." };
+
+  // Cargar todas las ventas de una vez
+  const sales = await db.sale.findMany({
+    where: { id: { in: ids }, companyId: ctx.company.id },
+    select: {
+      id: true,
+      date: true,
+      documentType: true,
+      documentNumber: true,
+      xmlContent: true,
+      partner: { select: { name: true, rut: true } },
+    },
+  });
+
+  if (!sales.length) return { error: "No se encontraron las ventas seleccionadas." };
+
+  // Filtrar las que ya tienen XML
+  const pendientes = sales.filter((s) => !s.xmlContent);
+  if (!pendientes.length) return { ok: true, message: "Todas las ventas seleccionadas ya tienen XML.", results: [] };
+
+  const resultados: Array<{ id: string; folio: string; ok: boolean; message: string }> = [];
+
+  try {
+    await withDefontanaSession(ctx.company.id, async (session) => {
+      const masterData = await getMasterData(session.token);
+      const lista = (r: { desde: string; hasta: string }, f: string | null) =>
+        listSaleDocuments(session.token, masterData, { ...r, folio: f, limite: 500 });
+
+      for (const sale of pendientes) {
+        const folio = sinCeros(sale.documentNumber ?? "");
+        const rutCliente = sale.partner.rut ? normalizeRut(sale.partner.rut) : "";
+        if (!folio || !rutCliente) {
+          resultados.push({ id: sale.id, folio: folio ?? "—", ok: false, message: "Folio o RUT cliente faltante." });
+          continue;
+        }
+
+        const tipos = TIPOS_POR_DOCUMENTO[sale.documentType ?? "INVOICE"];
+        const rango = {
+          desde: new Date(sale.date.getTime() - 366 * 864e5).toISOString().slice(0, 10),
+          hasta: new Date(sale.date.getTime() + 366 * 864e5).toISOString().slice(0, 10),
+        };
+
+        let documento;
+        try {
+          const conFolio = await lista(rango, folio);
+          documento = elegirDocumento(conFolio, folio, tipos, rutCliente);
+          if (!documento) {
+            const cerca = {
+              desde: new Date(sale.date.getTime() - 45 * 864e5).toISOString().slice(0, 10),
+              hasta: new Date(sale.date.getTime() + 45 * 864e5).toISOString().slice(0, 10),
+            };
+            const sinFolio = await lista(cerca, null);
+            documento = elegirDocumento(sinFolio, folio, tipos, rutCliente);
+          }
+        } catch (e) {
+          resultados.push({ id: sale.id, folio, ok: false, message: e instanceof Error ? e.message : "Error consultando Defontana." });
+          continue;
+        }
+
+        if (!documento) {
+          resultados.push({ id: sale.id, folio, ok: false, message: "No encontrado en Defontana." });
+          continue;
+        }
+        if (!documento.platformId) {
+          resultados.push({ id: sale.id, folio, ok: false, message: "Documento sin XML de plataforma." });
+          continue;
+        }
+
+        try {
+          const xml = decodeDteXml(await downloadXml(session.token, documento.platformId));
+          const parsed = parseDteXml(xml);
+          const doc = parsed.documentos.find(
+            (d) => sinCeros(String(d.folio)) === folio && (!tipos.length || tipos.includes(d.tipoDTE)),
+          ) ?? parsed.documentos.find((d) => sinCeros(String(d.folio)) === folio);
+
+          if (!doc) {
+            resultados.push({ id: sale.id, folio, ok: false, message: "XML no contiene el folio esperado." });
+            continue;
+          }
+
+          await db.sale.update({
+            where: { id: sale.id },
+            data: { xmlContent: xml },
+          });
+
+          resultados.push({ id: sale.id, folio, ok: true, message: "XML guardado." });
+        } catch (e) {
+          resultados.push({ id: sale.id, folio, ok: false, message: e instanceof Error ? e.message : "Error guardando XML." });
+        }
+      }
+    });
+  } catch (error) {
+    return {
+      error: error instanceof DefontanaError ? error.message : "No se pudo consultar Defontana.",
+    };
+  }
+
+  const okCount = resultados.filter((r) => r.ok).length;
+  return { ok: okCount > 0, results: resultados, message: `${okCount} de ${pendientes.length} XML guardados.` };
+}
+
 // ── Guías de despacho desde Defontana ────────────────────────────────────────
 // Las guías no están en el RCV del SII: el Registro de Compras y Ventas es el
 // libro del IVA y la guía no genera IVA, así que vive en un libro aparte que no

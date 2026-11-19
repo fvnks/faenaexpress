@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 
 import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
-import { fetchSaleXmlAction, type FetchSaleXmlState } from "@/app/actions/defontana";
+import { fetchSaleXmlAction, type FetchSaleXmlState, bulkFetchSaleXmlAction, type BulkFetchSaleXmlState } from "@/app/actions/defontana";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
@@ -254,6 +254,23 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Marcar anuladas
+              </button>
+              <button
+                type="button"
+                data-bulk
+                disabled
+                onClick={async () => {
+                  const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="ids"]:checked');
+                  if (!checkboxes.length) return;
+                  const formData = new FormData();
+                  checkboxes.forEach((cb) => formData.append("ids", cb.value));
+                  startTransition(async () => {
+                    await bulkFetchSaleXmlAction(formData);
+                  });
+                }}
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Traer XML de Defontana
               </button>
             </div>
           </div>
