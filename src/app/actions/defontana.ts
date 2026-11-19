@@ -28,6 +28,8 @@ import { setFlash } from "@/lib/flash";
 import { syncPurchaseItemsToInventory, syncSaleItemsToInventory } from "@/lib/inventory-sync";
 import { formatRut, normalizeRut } from "@/lib/rut";
 import { secretsKeyConfigured } from "@/lib/secrets";
+import { createAppRuntime } from "@/lib/sii/runtime";
+import { dteEmitidos, type DteEmitidosFiltro } from "@albertomarturelo/sii-core";
 
 // ── Credenciales por empresa ────────────────────────────────────────────────
 // La cuenta de Defontana se guarda con la clave CIFRADA (ver src/lib/secrets.ts)
@@ -735,4 +737,186 @@ export async function fetchDefontanaGuidesAction(
     ok: true,
     message: `${importadas} ${importadas === 1 ? "guía importada" : "guías importadas"}. ${diagnostico}${aviso}`,
   };
+}
+
+// ── Estado de DTE emitidos desde MIPYME (SII) ───────────────────────────────────
+// Consulta el estado de los DTE emitidos (aceptados, rechazados, etc.) desde el
+// portal MIPYME del SII. Útil para verificar el estado real de las facturas de venta.
+
+export type SaleStatusResult = {
+  id: string;
+  folio: string | null;
+  estado: "ACEPTADO" | "RECHAZADO" | "PREVIEW" | "DESCONOCIDO" | "ERROR";
+  estadoRaw: string | null;
+  fecha: string | null;
+  monto: number | null;
+  receptorRut: string | null;
+  receptorNombre: string | null;
+  message: string;
+};
+
+export type BulkSaleStatusState =
+  | { error?: string; ok?: boolean; results?: SaleStatusResult[]; message?: string }
+  | undefined;
+
+/**
+ * Consulta el estado de los DTE emitidos desde el portal MIPYME del SII para
+ * las ventas seleccionadas. Usa el endpoint dteEmitidos del core.
+ */
+export async function bulkCheckSaleStatusAction(
+  formData: FormData,
+): Promise<BulkSaleStatusState> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) {
+    return { error: "Solo contabilidad o administración puede consultar estados." };
+  }
+
+  const ids = formData.getAll("ids") as string[];
+  if (!ids.length) return { error: "No se seleccionaron ventas." };
+
+  // Cargar todas las ventas de una vez
+  const sales = await db.sale.findMany({
+    where: { id: { in: ids }, companyId: ctx.company.id },
+    select: {
+      id: true,
+      documentNumber: true,
+      documentType: true,
+      date: true,
+      partner: { select: { rut: true, name: true } },
+    },
+  });
+
+  if (!sales.length) return { error: "No se encontraron las ventas seleccionadas." };
+
+  // Crear runtime para la empresa
+  const runtime = createAppRuntime(ctx.company.id);
+
+  // Normalizar RUT de la empresa para el filtro
+  const rutEmpresa = ctx.company.rut ? normalizeRut(ctx.company.rut) : "";
+
+  const results: SaleStatusResult[] = [];
+
+  try {
+    // Consultar dteEmitidos con filtros por folio y rango de fechas
+    // Como dteEmitidos no filtra por múltiples folios a la vez, haremos una
+    // consulta por período amplio y filtraremos localmente
+    const ventasConFolio = sales.filter((s) => s.documentNumber);
+    if (!ventasConFolio.length) {
+      return { error: "Ninguna de las ventas seleccionadas tiene folio." };
+    }
+
+    // Determinar rango de fechas para la consulta
+    const timestamps = ventasConFolio.map((s) => s.date.getTime());
+    const minTs = Math.min(...timestamps);
+    const maxTs = Math.max(...timestamps);
+    const desde = new Date(minTs - 7 * 864e5); // 1 semana antes
+    const hasta = new Date(maxTs + 7 * 864e5); // 1 semana después
+
+    const filtro: DteEmitidosFiltro = {
+      desde: desde.toISOString().slice(0, 10),
+      hasta: hasta.toISOString().slice(0, 10),
+      // tipoDte: 33, // Factura electrónica (opcional)
+    };
+
+    const { documentos } = await dteEmitidos(runtime, {
+      empresa: rutEmpresa,
+      ...filtro,
+    });
+
+    // Crear mapa de folios a documentos del SII
+    const siiByFolio = new Map<string, (typeof documentos)[0]>();
+    for (const doc of documentos) {
+      if (doc.folio) {
+        siiByFolio.set(String(doc.folio), doc);
+      }
+    }
+
+    // Mapear resultados para cada venta seleccionada
+    for (const sale of sales) {
+      const folio = sale.documentNumber ? String(sale.documentNumber) : null;
+      
+      if (!folio) {
+        results.push({
+          id: sale.id,
+          folio: null,
+          estado: "ERROR",
+          estadoRaw: null,
+          fecha: null,
+          monto: null,
+          receptorRut: null,
+          receptorNombre: null,
+          message: "La venta no tiene folio.",
+        });
+        continue;
+      }
+
+      const siiDoc = siiByFolio.get(folio);
+      
+      if (!siiDoc) {
+        results.push({
+          id: sale.id,
+          folio,
+          estado: "DESCONOCIDO",
+          estadoRaw: null,
+          fecha: null,
+          monto: null,
+          receptorRut: null,
+          receptorNombre: null,
+          message: `Folio ${folio} no encontrado en MIPYME (puede estar en otra página o no emitido aún).`,
+        });
+        continue;
+      }
+
+      // Mapear estado del SII
+      let estado: SaleStatusResult["estado"] = "DESCONOCIDO";
+      const estadoRaw = siiDoc.estado ?? null;
+      
+      switch (estadoRaw) {
+        case "EMI":
+          estado = "ACEPTADO";
+          break;
+        case "PRV":
+          estado = "PREVIEW";
+          break;
+        case "REC": // Rechazado (si existe)
+        case "RCH":
+          estado = "RECHAZADO";
+          break;
+        default:
+          estado = "DESCONOCIDO";
+      }
+
+      results.push({
+        id: sale.id,
+        folio,
+        estado,
+        estadoRaw,
+        fecha: siiDoc.fecha,
+        monto: siiDoc.monto,
+        receptorRut: siiDoc.receptorRut,
+        receptorNombre: siiDoc.receptorNombre,
+        message: `Estado SII: ${estadoRaw ?? "sin datos"} (${estado}).`,
+      });
+    }
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("NotAuthenticatedError") || message.includes("expiró")) {
+      return { error: "La sesión del SII expiró. Vuelve a iniciarla en Importar." };
+    }
+    return { error: `Error consultando SII: ${message}` };
+  }
+
+  const aceptados = results.filter((r) => r.estado === "ACEPTADO").length;
+  const rechazados = results.filter((r) => r.estado === "RECHAZADO").length;
+  const previews = results.filter((r) => r.estado === "PREVIEW").length;
+  const desconocidos = results.filter((r) => r.estado === "DESCONOCIDO").length;
+  const errores = results.filter((r) => r.estado === "ERROR").length;
+
+  const message = `Consultados ${results.length}: ${aceptados} aceptados, ${rechazados} rechazados, ${previews} preview, ${desconocidos} no encontrados, ${errores} errores.`;
+
+  setFlash(aceptados + rechazados > 0 ? "success" : "error", message);
+  revalidatePath("/facturas/ventas");
+
+  return { ok: true, results, message };
 }
