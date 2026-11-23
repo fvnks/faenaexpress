@@ -20,9 +20,9 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ) => {
     const variants = {
       primary: "bg-primary-soft text-primary",
-      secondary: "bg-secondary-soft text-secondary",
+      secondary: "bg-surface text-foreground border border-border",
       success: "bg-success-soft text-success",
-      warning: "bg-warning-soft text-warning",
+      warning: "bg-accent-soft text-accent",
       danger: "bg-danger-soft text-danger",
       neutral: "bg-surface text-muted-foreground border border-border",
     };
@@ -33,7 +33,8 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
     };
 
     const variantClasses = variants[variant] || variants.neutral;
-    const isNeutral = variant === "neutral";
+    const isNeutral = variant === "neutral" || variant === "secondary";
+    const dotColor = variant === "warning" ? "accent" : variant === "secondary" ? "border-strong" : variant;
 
     return (
       <span
@@ -44,20 +45,21 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
           sizes[size],
           className,
         ].join(" ")}
+        {...props}
       >
         {!isNeutral && (
           <span
             aria-hidden="true"
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
             style={{
-              backgroundColor: `var(--color-${variant === "warning" ? "accent" : variant})`,
+              backgroundColor: `var(--color-${dotColor})`,
             }}
           />
         )}
         {children}
       </span>
     );
-  }
+  },
 );
 
 Badge.displayName = "Badge";

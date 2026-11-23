@@ -538,7 +538,7 @@ export async function fetchSaleXmlAction(
 
 export type FetchSaleXmlState = { error?: string; ok?: boolean; message?: string } | undefined;
 
-export type BulkFetchSaleXmlState = { error?: string; ok?: boolean; message?: string; results?: Array<{ id: string; folio: string; ok: boolean; message: string }> } | undefined;
+export type BulkFetchSaleXmlState = { error?: string; ok?: boolean; message?: string; results?: Array<{ id: string; folio: string; ok: boolean; message: string }>; redirectTo?: string } | undefined;
 
 /**
  * Trae XML de Defontana para múltiples ventas seleccionadas (bulk).
@@ -554,6 +554,8 @@ export async function bulkFetchSaleXmlAction(
 
   const ids = formData.getAll("ids") as string[];
   if (!ids.length) return { error: "No se seleccionaron ventas." };
+
+  const returnTo = String(formData.get("returnTo") ?? "/facturas/ventas");
 
   // Cargar todas las ventas de una vez
   const sales = await db.sale.findMany({
@@ -646,22 +648,18 @@ export async function bulkFetchSaleXmlAction(
       }
     });
   } catch (error) {
-    return {
-      error: error instanceof DefontanaError ? error.message : "No se pudo consultar Defontana.",
-    };
+    const message = error instanceof DefontanaError ? error.message : "No se pudo consultar Defontana. Revisa las credenciales en Configuración.";
+    return { error: message, redirectTo: returnTo };
   }
 
   const okCount = resultados.filter((r) => r.ok).length;
   const message = `${okCount} de ${pendientes.length} XML guardados.`;
   
   if (okCount > 0) {
-    setFlash("success", message);
-    revalidatePath("/facturas/ventas");
+    return { ok: true, message, results: resultados, redirectTo: returnTo };
   } else {
-    setFlash("error", message);
+    return { error: message, redirectTo: returnTo };
   }
-  
-  return { ok: okCount > 0, results: resultados, message };
 }
 
 // ── Guías de despacho desde Defontana ────────────────────────────────────────
@@ -756,7 +754,7 @@ export type SaleStatusResult = {
 };
 
 export type BulkSaleStatusState =
-  | { error?: string; ok?: boolean; results?: SaleStatusResult[]; message?: string }
+  | { error?: string; ok?: boolean; results?: SaleStatusResult[]; message?: string; redirectTo?: string }
   | undefined;
 
 /**
@@ -773,6 +771,8 @@ export async function bulkCheckSaleStatusAction(
 
   const ids = formData.getAll("ids") as string[];
   if (!ids.length) return { error: "No se seleccionaron ventas." };
+
+  const returnTo = String(formData.get("returnTo") ?? "/facturas/ventas");
 
   // Cargar todas las ventas de una vez
   const sales = await db.sale.findMany({
@@ -901,10 +901,13 @@ export async function bulkCheckSaleStatusAction(
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    let flashMessage = message;
     if (message.includes("NotAuthenticatedError") || message.includes("expiró")) {
-      return { error: "La sesión del SII expiró. Vuelve a iniciarla en Importar." };
+      flashMessage = "La sesión del SII expiró. Vuelve a iniciarla en Importar.";
+    } else {
+      flashMessage = `Error consultando SII: ${message}`;
     }
-    return { error: `Error consultando SII: ${message}` };
+    return { error: flashMessage, redirectTo: returnTo };
   }
 
   const aceptados = results.filter((r) => r.estado === "ACEPTADO").length;
@@ -915,8 +918,9 @@ export async function bulkCheckSaleStatusAction(
 
   const message = `Consultados ${results.length}: ${aceptados} aceptados, ${rechazados} rechazados, ${previews} preview, ${desconocidos} no encontrados, ${errores} errores.`;
 
-  setFlash(aceptados + rechazados > 0 ? "success" : "error", message);
-  revalidatePath("/facturas/ventas");
-
-  return { ok: true, results, message };
+  if (aceptados + rechazados > 0) {
+    return { ok: true, message, results, redirectTo: returnTo };
+  } else {
+    return { error: message, redirectTo: returnTo };
+  }
 }

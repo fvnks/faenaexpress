@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 
-import { bulkAssignSalesperson, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
-import { fetchSaleXmlAction, type FetchSaleXmlState, bulkFetchSaleXmlAction, type BulkFetchSaleXmlState, bulkCheckSaleStatusAction } from "@/app/actions/defontana";
+import { bulkSalesAction, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
+import { fetchSaleXmlAction, type FetchSaleXmlState } from "@/app/actions/defontana";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
@@ -96,8 +96,6 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
   const [actionSalespersonId, setActionSalespersonId] = useState<string>("");
   const [bulkVendedorId, setBulkVendedorId] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
-  const [bulkXmlLoading, setBulkXmlLoading] = useState(false);
-  const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
   /** Qué facturas tienen el árbol de notas desplegado (por id). */
   const [notasAbiertas, setNotasAbiertas] = useState(() => new Set<string>());
   const [, startTransition] = useTransition();
@@ -136,6 +134,8 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [localModalOpen]);
+
+  
 
   // Árbol de notas de una fila: las vinculadas por FK (relatedSaleId) más
   // —en anuladas— la nota que las anuló, cruzada por folio en listSales.
@@ -198,7 +198,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
 
   return (
     <>
-      <form id="ventas-bulk" action={bulkSetSaleStatus} className={cardClass}>
+      <form id="ventas-bulk" action={bulkSalesAction} className={cardClass}>
         <input type="hidden" name="returnTo" value={returnTo} />
         {writable ? (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
@@ -208,6 +208,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                 type="submit"
                 data-bulk
                 disabled
+                form="ventas-bulk"
                 name="status"
                 value="PAID"
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
@@ -218,6 +219,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                 type="submit"
                 data-bulk
                 disabled
+                form="ventas-bulk"
                 name="status"
                 value="PENDING"
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
@@ -228,16 +230,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                 type="submit"
                 data-bulk
                 disabled
-                name="status"
-                value="PARTIAL"
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Marcar parciales
-              </button>
-              <button
-                type="submit"
-                data-bulk
-                disabled
+                form="ventas-bulk"
                 name="status"
                 value="OVERDUE"
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
@@ -258,68 +251,26 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                 Marcar anuladas
               </button>
               <button
-                type="button"
+                type="submit"
+                name="bulkAction"
+                value="fetch_xml"
+                form="ventas-bulk"
                 data-bulk
                 disabled
-                onClick={async () => {
-                  const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="ids"]:checked');
-                  if (!checkboxes.length) return;
-                  const formData = new FormData();
-                  checkboxes.forEach((cb) => formData.append("ids", cb.value));
-                  setBulkXmlLoading(true);
-                  try {
-                    startTransition(async () => {
-                      await bulkFetchSaleXmlAction(formData);
-                    });
-                  } finally {
-                    setBulkXmlLoading(false);
-                  }
-                }}
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {bulkXmlLoading ? (
-                  <>
-                    <svg className="h-4 w-4 animate-spin mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Procesando…
-                  </>
-                ) : (
-                  "Traer XML de Defontana"
-                )}
+                Traer XML de Defontana
               </button>
               <button
-                type="button"
+                type="submit"
+                name="bulkAction"
+                value="check_status"
+                form="ventas-bulk"
                 data-bulk
                 disabled
-                onClick={async () => {
-                  const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="ids"]:checked');
-                  if (!checkboxes.length) return;
-                  const formData = new FormData();
-                  checkboxes.forEach((cb) => formData.append("ids", cb.value));
-                  setBulkStatusLoading(true);
-                  try {
-                    startTransition(async () => {
-                      await bulkCheckSaleStatusAction(formData);
-                    });
-                  } finally {
-                    setBulkStatusLoading(false);
-                  }
-                }}
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {bulkStatusLoading ? (
-                  <>
-                    <svg className="h-4 w-4 animate-spin mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Consultando…
-                  </>
-                ) : (
-                  "Consultar estado SII"
-                )}
+                Consultar estado SII
               </button>
             </div>
           </div>
@@ -353,12 +304,14 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                     calzaba, el botón no hacía nada ni avisaba. */}
                 <button
                   type="submit"
-                  formAction={bulkAssignSalesperson}
+                  name="bulkAction"
+                  value="assign_salesperson"
+                  form="ventas-bulk"
                   data-bulk
                   disabled
                   className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Asignar
+                  Asignar vendedor
                 </button>
               </>
             ) : (

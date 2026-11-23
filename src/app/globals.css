@@ -5,34 +5,34 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* === MODO CLARO (Light) === */
-  /* Ground: Gris muy claro */
-  --background: #F4F6F8;
+  /* === MODO CLARO TRADICIONAL (Light) === */
+  /* Ground: Blanco hueso / gris muy claro */
+  --background: #FAFAFA;
   --surface: #FFFFFF;
-  --surface-elevated: #F8FAFC;
+  --surface-elevated: #F0F0F0;
 
-  /* Ink: Gris muy oscuro */
-  --foreground: #181B1E;
-  --foreground-muted: #5A6165;
-  --foreground-subtle: #94A3B8;
+  /* Ink: Carbón oscuro */
+  --foreground: #1A1A1A;
+  --foreground-muted: #666666;
+  --foreground-subtle: #999999;
 
   /* Reglas finas */
-  --border: #D8DEE3;
-  --border-strong: #CBD5E1;
+  --border: #E0E0E0;
+  --border-strong: #CCCCCC;
 
-  /* Acento estructural: Azul profundo */
-  --primary: #1B5FA8;
+  /* Acento estructural: Cobre/terracota */
+  --primary: #C45A2A;
   --primary-foreground: #FFFFFF;
-  --primary-soft: #DDE9F5;
-  --primary-ring: #1B5FA8;
+  --primary-soft: #FDF3F0;
+  --primary-ring: #C45A2A;
 
   /* Estados */
-  --accent: #8A5408;        /* Atención: ámbar */
-  --accent-soft: #FEF3C7;
-  --success: #1E6B8A;       /* Verde mineral */
-  --success-soft: #DCF2F5;
-  --danger: #B42318;        /* Rojo */
-  --danger-soft: #FEF2F2;
+  --accent: #C49028;        /* Atención: amarillo mostaza (más oscuro para modo claro) */
+  --accent-soft: #FDF8E8;
+  --success: #2E7D4A;       /* Verde mineral */
+  --success-soft: #EFF8F0;
+  --danger: #A83C2E;        /* Rojo óxido */
+  --danger-soft: #FDF0EF;
 
   /* Tipografía */
   --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
@@ -44,49 +44,92 @@
   --radius-full: 9999px;
 
   /* Sombras (solo overlays) */
+  --shadow-elevated: 0 8px 32px -8px rgb(0 0 0 / 0.08);
+}
+
+/* === MODO ALTO CONTRASTE (High Contrast) - antes "light" === */
+.high-contrast {
+  /* Ground: Negro mate (inverted, high-contrast) */
+  --background: #0D0D0D;
+  --surface: #141414;
+  --surface-elevated: #1A1A1A;
+
+  /* Ink: Blanco hueso */
+  --foreground: #E8E8E8;
+  --foreground-muted: #8A8A8A;
+  --foreground-subtle: #5A5A5A;
+
+  /* Reglas finas */
+  --border: #2A2A2A;
+  --border-strong: #3A3A3A;
+
+  /* Acento estructural: Cobre/terracota */
+  --primary: #C45A2A;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #2A1A14;
+  --primary-ring: #C45A2A;
+
+  /* Estados */
+  --accent: #E8A838;
+  --accent-soft: #2A2410;
+  --success: #2E7D4A;
+  --success-soft: #0F1A10;
+  --danger: #A83C2E;
+  --danger-soft: #1A0F0E;
+
+  /* Tipografía */
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Radios */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-full: 9999px;
+
+  /* Sombras */
   --shadow-elevated: 0 8px 32px -8px rgb(0 0 0 / 0.1);
 }
 
+/* === MODO OSCURO (Dark) - aún más oscuro === */
 .dark {
-  /* === MODO OSCURO (Dark) === */
   /* Ground: Negro mate */
-  --background: #0E1418;
-  --surface: #141C22;
-  --surface-elevated: #1E293B;
+  --background: #080808;
+  --surface: #0F0F0F;
+  --surface-elevated: #141414;
 
   /* Ink: Blanco hueso */
-  --foreground: #E8EDF1;
-  --foreground-muted: #94A3B8;
-  --foreground-subtle: #64748B;
+  --foreground: #F0F0F0;
+  --foreground-muted: #9A9A9A;
+  --foreground-subtle: #6A6A6A;
 
   /* Reglas finas */
-  --border: #232D35;
-  --border-strong: #334155;
+  --border: #1F1F1F;
+  --border-strong: #2A2A2A;
 
-  /* Acento estructural: Azul brillante */
-  --primary: #4A9FD8;
-  --primary-foreground: #081820;
-  --primary-soft: #1E3A5F;
-  --primary-ring: #4A9FD8;
+  /* Acento estructural: Cobre/terracota */
+  --primary: #D47A4A;
+  --primary-foreground: #0D0D0D;
+  --primary-soft: #2A1A14;
+  --primary-ring: #D47A4A;
 
   /* Estados */
-  --accent: #E0A94A;        /* Atención: ámbar */
-  --accent-soft: #3D3100;
-  --success: #5AB8D8;       /* Verde mineral */
-  --success-soft: #0E2E3D;
-  --danger: #F2857C;        /* Rojo */
-  --danger-soft: #7F1D1D;
+  --accent: #F0C058;
+  --accent-soft: #2A2410;
+  --success: #4AA86A;
+  --success-soft: #0F1A10;
+  --danger: #C85C4E;
+  --danger-soft: #1A0F0E;
 
   /* Tipografía */
   --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   /* Radios */
-  --radius-sm: 0.25rem;   /* 4px */
-  --radius-md: 0.5rem;    /* 8px */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
   --radius-full: 9999px;
 
-  /* Sombras (solo overlays) */
+  /* Sombras */
   --shadow-elevated: 0 8px 32px -8px rgb(0 0 0 / 0.4);
 }
 
@@ -287,6 +330,47 @@
 
 .btn-destructive:hover:not(:disabled) {
   filter: brightness(1.1);
+}
+
+/* === Botones "líquidos": transparentes con borde, se rellenan al hover === */
+.btn-liquid-primary {
+  background-color: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.btn-liquid-primary:hover:not(:disabled) {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.btn-liquid-secondary {
+  background-color: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.btn-liquid-secondary:hover:not(:disabled) {
+  background-color: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.btn-liquid-danger {
+  background-color: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.btn-liquid-danger:hover:not(:disabled) {
+  background-color: var(--danger);
+  color: #FFFFFF;
+}
+
+.btn-liquid-primary:disabled,
+.btn-liquid-secondary:disabled,
+.btn-liquid-danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .btn-sm {
@@ -501,9 +585,21 @@
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  /* Sin sombra: la elevación se marca con --surface-elevated + borde fuerte */
 }
 
 .card:hover {
+  border-color: var(--border-strong);
+}
+
+.card-hover {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 120ms;
+}
+
+.card-hover:hover {
   border-color: var(--border-strong);
 }
 

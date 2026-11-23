@@ -28,23 +28,23 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
 
     const baseStyles =
-      "inline-flex items-center justify-center gap-2 font-semibold rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+      "inline-flex items-center justify-center gap-2 font-semibold rounded-[4px] transition-all duration-120 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 disabled:cursor-not-allowed";
 
     const variants = {
-      primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/20",
-      secondary: "bg-surface text-foreground border border-border hover:bg-secondary-soft hover:text-foreground",
-      ghost: "bg-transparent text-foreground hover:bg-secondary-soft",
-      destructive: "bg-danger text-danger-foreground hover:bg-danger/90 shadow-sm shadow-danger/20",
-      outline: "bg-transparent border border-border text-foreground hover:bg-secondary-soft",
-      link: "bg-transparent text-primary hover:text-primary-hover underline-offset-4 hover:underline",
+      primary: "bg-primary text-primary-foreground hover:brightness-110 active:brightness-95",
+      secondary: "bg-surface text-foreground border border-border hover:border-border-strong hover:bg-surface-elevated active:bg-background",
+      ghost: "bg-transparent text-foreground hover:bg-surface active:bg-surface-elevated",
+      destructive: "bg-danger text-white hover:brightness-110 active:brightness-95",
+      outline: "bg-transparent border border-border text-foreground hover:border-border-strong hover:bg-surface active:bg-surface-elevated",
+      link: "bg-transparent text-primary underline-offset-2 hover:underline",
     };
 
     const sizes = {
-      sm: "px-3 py-1.5 text-xs rounded-md gap-1.5",
-      md: "px-4 py-2.5 text-sm rounded-md gap-2",
-      lg: "px-6 py-3 text-base rounded-lg gap-2",
-      icon: "p-2 rounded-md",
-      "icon-sm": "p-1.5 rounded-md",
+      sm: "px-3 py-1.5 text-xs rounded-[4px] gap-1.5 h-8",
+      md: "px-4 py-2 text-sm rounded-[4px] gap-2 h-10",
+      lg: "px-6 py-2.5 text-base rounded-[4px] gap-2 h-12",
+      icon: "p-2 rounded-[4px] h-10 w-10",
+      "icon-sm": "p-1.5 rounded-[4px] h-8 w-8",
     };
 
     return (
@@ -80,7 +80,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {children}
       </button>
     );
-  }
+  },
 );
 
 Button.displayName = "Button";

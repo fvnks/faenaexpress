@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /**
  * Navegación principal con botones de entrada y registro.
  * Sin glassmorphism, sin gradientes decorativos, sin embellecimientos.
  * Enlaces reales que llevan a destinos existentes.
+ * Primary = Solicitar cuenta (→ /contacto), Secondary = Entrar (→ /login)
  */
 export function LandingNavbar() {
   const pathname = usePathname();
@@ -27,12 +30,12 @@ export function LandingNavbar() {
           {/* Marca */}
           <Link
             href="/"
-            className="flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-[4px]"
             aria-label="Yellow ERP - Inicio"
           >
             <span
               aria-hidden="true"
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold"
+              className="flex h-8 w-8 items-center justify-center rounded-[4px] bg-primary text-primary-foreground text-lg font-bold"
             >
               Y
             </span>
@@ -49,11 +52,7 @@ export function LandingNavbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`text-sm font-medium transition-colors ${
-                    active
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`text-sm font-medium transition-colors ${active ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
                   aria-current={active ? "page" : undefined}
                 >
                   {link.label}
@@ -64,24 +63,23 @@ export function LandingNavbar() {
 
           {/* Botones de acción */}
           <div className="hidden lg:flex items-center gap-3">
-            <Link
-              href="/login"
-              className="btn-ghost text-sm px-4 py-2"
-            >
-              Entrar
+            <ThemeToggle />
+            <Link href="/login">
+              <Button variant="ghost" size="sm">
+                Entrar
+              </Button>
             </Link>
-            <Link
-              href="/login"
-              className="btn-primary text-sm"
-            >
-              Crear cuenta
+            <Link href="/contacto">
+              <Button size="sm">
+                Solicitar cuenta
+              </Button>
             </Link>
           </div>
 
           {/* Menú móvil */}
           <button
             type="button"
-            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-foreground hover:bg-secondary-soft transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-[4px] text-foreground hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
             aria-expanded={mobileOpen}
@@ -110,7 +108,7 @@ export function LandingNavbar() {
       {mobileOpen ? (
         <div className="lg:hidden fixed inset-0 z-50" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menú de navegación">
           <div
-            className="absolute inset-0 bg-foreground/90 backdrop-blur-sm"
+            className="absolute inset-0 bg-background/90 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
@@ -128,19 +126,22 @@ export function LandingNavbar() {
               ))}
             </div>
             <div className="mt-8 flex flex-col gap-3">
+              <ThemeToggle className="justify-center" />
               <Link
                 href="/login"
                 onClick={() => setMobileOpen(false)}
-                className="btn-secondary text-lg py-3"
               >
-                Entrar
+                <Button variant="ghost" size="lg" className="w-full justify-center">
+                  Entrar
+                </Button>
               </Link>
               <Link
-                href="/login"
+                href="/contacto"
                 onClick={() => setMobileOpen(false)}
-                className="btn-primary text-lg py-3"
               >
-                Crear cuenta
+                <Button size="lg" className="w-full justify-center">
+                  Solicitar cuenta
+                </Button>
               </Link>
             </div>
           </div>

@@ -44,7 +44,7 @@ export default async function TwoFactorPage() {
       {recomendado && !yaActivo ? (
         <p
           role="status"
-          className="mt-6 rounded-[10px] border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-foreground"
+          className="mt-6 rounded-[8px] border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-foreground"
         >
           Tu rol puede ver todas las cuentas de la organización. Te recomendamos activar el
           segundo factor.

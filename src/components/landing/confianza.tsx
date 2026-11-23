@@ -1,6 +1,6 @@
 "use client";
 
-import { SectionReveal } from "@/components/motion/section-reveal";
+import Link from "next/link";
 
 /**
  * Sección de confianza: lo que realmente somos y cómo trabajamos.
@@ -46,16 +46,14 @@ export function LandingConfianza() {
         </div>
 
         <div className="grid gap-12 lg:grid-cols-3">
-          {puntos.map((p, index) => (
-            <article key={p.titulo} className="group">
-              <SectionReveal delay={index * 40 + 60}>
-                <div className="flex flex-col gap-4">
-                  <h3 className="text-lg font-bold text-foreground">{p.titulo}</h3>
-                  <p className="text-base leading-relaxed text-muted-foreground">
-                    {p.descripcion}
-                  </p>
-                </div>
-              </SectionReveal>
+          {puntos.map((p) => (
+            <article key={p.titulo}>
+              <div className="flex flex-col gap-4">
+                <h3 className="text-lg font-bold text-foreground">{p.titulo}</h3>
+                <p className="text-base leading-relaxed text-muted-foreground">
+                  {p.descripcion}
+                </p>
+              </div>
             </article>
           ))}
         </div>
@@ -64,7 +62,7 @@ export function LandingConfianza() {
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium text-foreground">¿Tienes preguntas?</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Escríbenos a <a href="mailto:contacto@yellow-erp.cl" className="link">contacto@yellow-erp.cl</a>
+              Escríbenos a <Link href="mailto:contacto@yellow-erp.cl" className="text-primary hover:underline underline-offset-2">contacto@yellow-erp.cl</Link>
             </p>
           </div>
           <div className="flex flex-col lg:flex-row items-center justify-center lg:justify-end gap-4 text-sm text-muted-foreground">

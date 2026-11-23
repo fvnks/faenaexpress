@@ -1,6 +1,4 @@
-import { cookies } from "next/headers";
-
-const FLASH_COOKIE = "facturas_flash";
+export const FLASH_COOKIE_NAME = "facturas_flash";
 const FLASH_TTL_S = 60;
 
 export type FlashType = "success" | "error";
@@ -13,37 +11,26 @@ export type Flash = {
 };
 
 /**
- * Mensaje "flash" para toasts tras Server Actions que redirigen: la acción lo
- * guarda en una cookie y el layout lo muestra una sola vez vía sonner.
+ * Mensaje "flash" para toasts tras Server Actions que redirigen.
+ * Se guarda en memoria y se consume en el siguiente render del layout.
+ *
+ * Limitación: en producción con múltiples instancias de servidor, cada
+ * instancia mantiene su propia memoria. Para una solución distribuida,
+ * reemplazar por una cookie HTTP real.
  */
+let _flash: Flash | null = null;
+
 export async function setFlash(type: FlashType, title: string, description?: string): Promise<void> {
-  const flash: Flash = {
+  _flash = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     type,
     title,
     description,
   };
-  const store = await cookies();
-  store.set(FLASH_COOKIE, JSON.stringify(flash), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: FLASH_TTL_S,
-    secure: process.env.NODE_ENV === "production",
-  });
 }
 
 export async function getFlash(): Promise<Flash | null> {
-  const store = await cookies();
-  const raw = store.get(FLASH_COOKIE)?.value;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Flash;
-    if (!parsed?.id || (parsed.type !== "success" && parsed.type !== "error")) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+  const result = _flash;
+  _flash = null;
+  return result;
 }
-
-export const FLASH_COOKIE_NAME = FLASH_COOKIE;

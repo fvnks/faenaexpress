@@ -11,14 +11,14 @@ const Label = forwardRef<HTMLLabelElement, LabelProps>(
     return (
       <label
         ref={ref}
-        className={`block text-sm font-medium text-foreground ${className || ""}`}
+        className={`block text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2 ${className || ""}`}
         {...props}
       >
         {children}
         {required && <span className="text-danger ml-1" aria-hidden="true">*</span>}
       </label>
     );
-  }
+  },
 );
 
 Label.displayName = "Label";

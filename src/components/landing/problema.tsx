@@ -1,8 +1,6 @@
 "use client";
 
-import { SectionReveal } from "@/components/motion/section-reveal";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 /**
  * Sección de problemas reales: libros que no cuadran, gastos sin responsable,
@@ -81,7 +79,7 @@ export function LandingProblema() {
   return (
     <section
       id="problema"
-      className="scroll-mt-24 border-t border-border bg-surface/50"
+      className="border-t border-border bg-surface/50 section"
       aria-labelledby="problema-heading"
     >
       <div className="mx-auto max-w-7xl px-6 py-24 lg:py-32 lg:px-8">
@@ -99,10 +97,10 @@ export function LandingProblema() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
-          {problemas.map((p, index) => (
+          {problemas.map((p) => (
             <article key={p.id} className="group">
-              <div className="card-hover">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary mb-6 shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <Card className="p-6 hover:border-border-strong transition-colors">
+                <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-primary/10 text-primary mb-6 shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                   {p.icon}
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-3">
@@ -111,7 +109,7 @@ export function LandingProblema() {
                 <p className="text-base leading-relaxed text-muted-foreground">
                   {p.descripcion}
                 </p>
-              </div>
+              </Card>
             </article>
           ))}
         </div>

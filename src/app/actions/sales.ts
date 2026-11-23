@@ -13,6 +13,10 @@ import { reverseStockForDocument } from "@/lib/inventory-sync";
 import { recomputeStatus } from "@/lib/payments";
 import { safeReturnTo } from "@/lib/return-to";
 import { saleSchema, type SaleInput } from "@/lib/validation";
+import {
+  bulkFetchSaleXmlAction,
+  bulkCheckSaleStatusAction,
+} from "@/app/actions/defontana";
 
 export type SaleFormState = { error?: string } | undefined;
 
@@ -626,5 +630,135 @@ export async function assignSaleSalesperson(formData: FormData): Promise<void> {
   await setFlash("success", "Vendedor actualizado.");
   revalidatePath("/facturas/ventas", "page");
   revalidatePath(`/facturas/ventas/${id}`);
+}
+
+/**
+ * Acción unificada para todas las operaciones masivas en ventas.
+ * Recibe un campo `bulkAction` que indica qué operación realizar:
+ * - "set_status": cambiar estado (PAID, PENDING, PARTIAL, OVERDUE, CANCELLED)
+ * - "fetch_xml": traer XML de Defontana
+ * - "check_status": consultar estado SII
+ * - "assign_salesperson": asignar vendedor
+ * 
+ * Para compatibilidad con botones de estado antiguos, también acepta el campo `status`
+ * cuando `bulkAction` no está presente pero `status` sí.
+ */
+export async function bulkSalesAction(formData: FormData): Promise<void> {
+  const ctx = await requireContext("ventas");
+  if (!canWrite(ctx, "ventas")) redirect("/facturas/ventas");
+
+  const bulkAction = String(formData.get("bulkAction") ?? "");
+  const statusFallback = String(formData.get("status") ?? "");
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  const returnTo = safeReturnTo(formData.get("returnTo"), "/facturas/ventas");
+
+  if (ids.length === 0) {
+    await setFlash("error", "No hay ventas seleccionadas.", "Selecciona al menos una venta.");
+    redirect(returnTo);
+  }
+
+  // Determinar la acción: prioridad a bulkAction, fallback a status
+  let action = String(formData.get("bulkAction") ?? "");
+  if (!action && String(formData.get("status") ?? "")) {
+    action = "set_status";
+  }
+
+  if (!action) {
+    await setFlash("error", "Acción masiva no reconocida.");
+    redirect(returnTo);
+  }
+
+  switch (action) {
+    case "set_status": {
+      const rawStatus = String(formData.get("status") ?? "");
+      const validStatuses = ["PENDING", "PAID", "PARTIAL", "OVERDUE", "CANCELLED"] as const;
+      const status = validStatuses.find((s) => s === rawStatus) ?? "PENDING";
+
+      const result = await db.sale.updateMany({
+        where: { id: { in: ids }, companyId: ctx.company.id, payments: { none: {} } },
+        data: {
+          status,
+          paymentDate: status === "PAID" ? todayDate() : null,
+          paymentMethod: status === "PAID" ? "Otro" : null,
+        },
+      });
+
+      if (result.count > 0) {
+        const statusLabels: Record<string, string> = {
+          PENDING: "por cobrar",
+          PAID: "cobradas",
+          PARTIAL: "parciales",
+          OVERDUE: "vencidas",
+          CANCELLED: "anuladas",
+        };
+        await recordAudit(ctx, {
+          action: "UPDATE",
+          entityType: "Sale",
+          entityId: "bulk",
+          summary: `Marcó ${result.count} ${result.count === 1 ? "venta" : "ventas"} como ${statusLabels[status]}.`,
+        });
+        await setFlash(
+          "success",
+          `${result.count} ${result.count === 1 ? "venta actualizada" : "ventas actualizadas"}`,
+          `Marcadas como ${statusLabels[status]}.`,
+        );
+      }
+      break;
+    }
+
+    case "fetch_xml": {
+      await bulkFetchSaleXmlAction(formData);
+      break;
+    }
+
+    case "check_status": {
+      await bulkCheckSaleStatusAction(formData);
+      break;
+    }
+
+    case "assign_salesperson": {
+      const salespersonId = String(formData.get("salespersonId") ?? "").trim();
+      if (!salespersonId) {
+        await setFlash("error", "Debes seleccionar un vendedor.");
+        redirect(returnTo);
+      }
+
+      const salesperson = await db.salesperson.findFirst({
+        where: { id: salespersonId, companyId: ctx.company.id },
+      });
+      if (!salesperson) {
+        await setFlash("error", "Vendedor no encontrado.");
+        redirect(returnTo);
+      }
+
+      const result = await db.sale.updateMany({
+        where: { id: { in: ids }, companyId: ctx.company.id },
+        data: { salespersonId },
+      });
+
+      if (result.count > 0) {
+        await recordAudit(ctx, {
+          action: "UPDATE",
+          entityType: "Sale",
+          entityId: "bulk",
+          summary: `Asignó vendedor ${salesperson.name} a ${result.count} ${result.count === 1 ? "venta" : "ventas"}.`,
+        });
+        await setFlash(
+          "success",
+          `${result.count} ${result.count === 1 ? "venta actualizada" : "ventas actualizadas"}`,
+          `Vendedor asignado: ${salesperson.name}.`,
+        );
+      } else {
+        await setFlash("error", "Ninguna venta fue actualizada.", "Las ventas ya tenían ese vendedor o no existen.");
+      }
+      break;
+    }
+
+    default:
+      await setFlash("error", "Acción masiva no reconocida.");
+  }
+
+  revalidatePath("/facturas/ventas");
+  redirect(returnTo);
 }
 

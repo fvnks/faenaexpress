@@ -1,25 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { SectionReveal } from "@/components/motion/section-reveal";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export function LandingHero() {
   return (
-    <section className="relative border-b border-border overflow-hidden bg-surface/50 section">
-      {/* Subtle gradient background - single, not cartoonish orbs */}
-      <div
-        className="absolute inset-0 z-0 pointer-events-none"
-        aria-hidden="true"
-        style={{
-          background: `
-            radial-gradient(ellipse 80% 50% at 50% -20%, rgba(27, 95, 168, 0.06), transparent),
-            radial-gradient(ellipse 60% 40% at 100% 100%, rgba(138, 84, 8, 0.04), transparent)
-          `,
-        }}
-      />
-
-      <div className="relative z-10 mx-auto max-w-7xl px-6 py-20 lg:py-32">
+    <section className="border-b border-border bg-surface/50 section">
+      <div className="mx-auto max-w-7xl px-6 py-20 lg:py-32">
         <div className="lg:grid lg:grid-cols-2 lg:gap-16 items-start">
           {/* Content */}
           <div className="lg:col-span-1">
@@ -41,19 +29,23 @@ export function LandingHero() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link href="/login" className="btn-primary group">
-                Entrar a mi cuenta
-                <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
+              <Link href="/contacto">
+                <Button size="lg">
+                  Solicitar cuenta
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </Button>
               </Link>
-              <a href="#servicios" className="btn-secondary">
-                Conocer los servicios
-              </a>
+              <Link href="/login">
+                <Button variant="secondary" size="lg">
+                  Entrar a mi cuenta
+                </Button>
+              </Link>
             </div>
 
-            {/* Trust indicators */}
-            <div className="mt-16 flex flex-wrap items-center gap-8 text-sm text-muted-foreground">
+            {/* Trust indicators - elevated as the proof strip */}
+            <div className="mt-16 flex flex-wrap items-center gap-6 lg:gap-8 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <svg className="h-4 w-4 text-success" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 12.586 7.293 10.879a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 000-1.414z" clipRule="evenodd" />
@@ -75,13 +67,12 @@ export function LandingHero() {
             </div>
           </div>
 
-          {/* Dashboard preview - clean, professional */}
+          {/* Dashboard preview - aligned to the app's card system */}
           <div className="lg:col-span-1">
             <div className="relative w-full max-w-[520px] mx-auto lg:ml-auto">
-              {/* Dashboard mockup - clean card */}
-              <div className="rounded-2xl border border-border bg-surface shadow-xl overflow-hidden">
+              <div className="card overflow-hidden">
                 {/* Header bar */}
-                <div className="flex items-center justify-between border-b border-border bg-surface/50 px-5 py-4">
+                <div className="flex items-center justify-between border-b border-border bg-background/50 px-5 py-4">
                   <span className="text-xs font-semibold text-foreground">Facturas ERP</span>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>CHILE</span>
@@ -96,7 +87,7 @@ export function LandingHero() {
                     <h3 className="text-sm font-semibold text-foreground">Libro de ventas</h3>
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">2026-11</span>
                   </div>
-                  <div className="overflow-hidden rounded-lg border border-border bg-surface/50">
+                  <div className="overflow-hidden rounded-[8px] border border-border bg-background/50">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border text-left text-xs font-semibold text-muted-foreground uppercase">
@@ -112,8 +103,7 @@ export function LandingHero() {
                           <td className="px-4 py-3 text-foreground">Constructora del Sur</td>
                           <td className="px-4 py-3 text-right text-foreground">$1.250.000</td>
                           <td className="px-4 py-3">
-                            <Badge variant="success" className="text-[10px]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
+                            <Badge variant="success" size="sm">
                               Pagada
                             </Badge>
                           </td>
@@ -123,8 +113,7 @@ export function LandingHero() {
                           <td className="px-4 py-3 text-foreground">Retail Mayorista S.A.</td>
                           <td className="px-4 py-3 text-right text-foreground">$2.100.000</td>
                           <td className="px-4 py-3">
-                            <Badge variant="warning" className="text-[10px]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden="true" />
+                            <Badge variant="warning" size="sm">
                               Pendiente
                             </Badge>
                           </td>
@@ -134,8 +123,7 @@ export function LandingHero() {
                           <td className="px-4 py-3 text-foreground">Distribuciones ABC</td>
                           <td className="px-4 py-3 text-right text-foreground">$680.000</td>
                           <td className="px-4 py-3">
-                            <Badge variant="warning" className="text-[10px]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden="true" />
+                            <Badge variant="warning" size="sm">
                               Parcial
                             </Badge>
                           </td>
@@ -145,8 +133,7 @@ export function LandingHero() {
                           <td className="px-4 py-3 text-foreground">Servicios Integrales</td>
                           <td className="px-4 py-3 text-right text-foreground">$890.000</td>
                           <td className="px-4 py-3">
-                            <Badge variant="success" className="text-[10px]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
+                            <Badge variant="success" size="sm">
                               Pagada
                             </Badge>
                           </td>
@@ -155,7 +142,7 @@ export function LandingHero() {
                     </table>
                   </div>
                 </div>
-                <div className="border-t border-border bg-surface/50 px-5 py-4 flex items-center justify-between">
+                <div className="border-t border-border bg-background/50 px-5 py-4 flex items-center justify-between">
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total del período</span>
                   <div className="text-right">
                     <span className="text-xl font-bold tabular text-foreground">$4.920.000</span>
@@ -167,6 +154,6 @@ export function LandingHero() {
           </div>
         </div>
       </div>
-      </section>
-    );
-  }
+    </section>
+  );
+}

@@ -9,8 +9,8 @@ import {
   regenerateRecoveryCodes,
   type TwoFactorState,
 } from "@/app/actions/profile";
-import { SubmitButton } from "@/components/submit-button";
-import { controlClass, labelClass } from "@/lib/ui";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /**
  * Sección del segundo factor dentro del perfil.
@@ -19,11 +19,11 @@ import { controlClass, labelClass } from "@/lib/ui";
  * pueda dejar la cuenta desprotegida con el celular en la mano.
  */
 export function TwoFactorSettings({ activo }: { activo: boolean }) {
-  const [state, action] = useActionState<TwoFactorState, FormData>(
+  const [state, action, disablePending] = useActionState<TwoFactorState, FormData>(
     disableMyTwoFactor,
     undefined,
   );
-  const [recuperacion, recuperarAction] = useActionState<TwoFactorState, FormData>(
+  const [recuperacion, recuperarAction, recuperarPending] = useActionState<TwoFactorState, FormData>(
     regenerateRecoveryCodes,
     undefined,
   );
@@ -40,7 +40,7 @@ export function TwoFactorSettings({ activo }: { activo: boolean }) {
   return (
     <div className="flex flex-col gap-3">
       {recuperacion?.recoveryCodes ? (
-        <div className="rounded-[10px] border border-primary/40 bg-primary-soft px-3 py-2">
+        <div className="rounded-[8px] border border-primary/40 bg-primary-soft px-3 py-2">
           <p className="text-sm font-medium text-primary">
             Códigos de recuperación (se muestran una sola vez):
           </p>
@@ -62,12 +62,9 @@ export function TwoFactorSettings({ activo }: { activo: boolean }) {
           <div className="flex flex-wrap items-center gap-4">
             <form action={recuperarAction}>
               <input type="hidden" name="accion" value="recuperacion" />
-              <button
-                type="submit"
-                className="text-sm text-primary underline-offset-2 hover:underline"
-              >
+              <Button type="submit" variant="ghost" size="sm" className="h-auto px-0" disabled={recuperarPending}>
                 Generar códigos de recuperación nuevos
-              </button>
+              </Button>
             </form>
 
             <button
@@ -81,24 +78,30 @@ export function TwoFactorSettings({ activo }: { activo: boolean }) {
 
           {desactivando ? (
             <form action={action} className="flex max-w-xs flex-col gap-2">
-              <label htmlFor="disable2faPassword" className={labelClass}>
+              <label htmlFor="disable2faPassword" className="input-label">
                 Tu contraseña
               </label>
-              <input
+              <Input
                 id="disable2faPassword"
                 name="password"
                 type="password"
                 required
                 autoComplete="current-password"
-                className={controlClass}
               />
-              {state?.error ? <p className="text-sm text-danger">{state.error}</p> : null}
-              <SubmitButton
-                className="self-start rounded-control border border-danger bg-transparent px-3 py-1.5 text-sm font-semibold text-danger"
-                pendingLabel="Desactivando..."
+              {state?.error ? (
+                <p className="rounded-[4px] border border-danger/50 bg-danger-soft px-3 py-2 text-sm text-danger">
+                  {state.error}
+                </p>
+              ) : null}
+              <Button
+                type="submit"
+                variant="destructive"
+                size="sm"
+                className="self-start"
+                disabled={disablePending}
               >
-                Desactivar
-              </SubmitButton>
+                {disablePending ? "Desactivando..." : "Desactivar"}
+              </Button>
             </form>
           ) : null}
         </>
@@ -117,7 +120,7 @@ export function TwoFactorSettings({ activo }: { activo: boolean }) {
 
 /** Cierra las otras sesiones abiertas de la cuenta. */
 export function CloseSessionsButton({ otras }: { otras: number }) {
-  const [state, action] = useActionState<TwoFactorState, FormData>(
+  const [state, action, pending] = useActionState<TwoFactorState, FormData>(
     closeOtherSessions,
     undefined,
   );
@@ -136,12 +139,15 @@ export function CloseSessionsButton({ otras }: { otras: number }) {
       <p className="text-sm text-muted-foreground">
         Hay {otras} {otras === 1 ? "sesión abierta" : "sesiones abiertas"} aparte de esta.
       </p>
-      <SubmitButton
-        className="self-start rounded-control border border-border px-3 py-1.5 text-sm hover:bg-background"
-        pendingLabel="Cerrando..."
+      <Button
+        type="submit"
+        variant="secondary"
+        size="sm"
+        className="self-start"
+        disabled={pending}
       >
-        Cerrar las otras sesiones
-      </SubmitButton>
+        {pending ? "Cerrando..." : "Cerrar las otras sesiones"}
+      </Button>
     </form>
   );
 }

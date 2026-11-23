@@ -51,7 +51,7 @@ export default async function PerfilPage() {
           {user.mustChangePassword ? (
             <p
               role="alert"
-              className="mt-6 rounded-[10px] border border-primary/40 bg-primary-soft px-3 py-2 text-sm text-primary"
+              className="mt-6 rounded-[8px] border border-primary/40 bg-primary-soft px-3 py-2 text-sm text-primary"
             >
               Estás usando una contraseña provisional de una invitación. Elige una nueva para
               continuar.
@@ -61,7 +61,7 @@ export default async function PerfilPage() {
           {bloqueoPassword ? (
             <p
               role="alert"
-              className="mt-6 rounded-[10px] border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-foreground"
+              className="mt-6 rounded-[8px] border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-foreground"
             >
               {bloqueoPassword}
             </p>
@@ -78,7 +78,7 @@ export default async function PerfilPage() {
               <TwoFactorSettings activo={dosFactorActivo} />
             </div>
             {recomendado && !dosFactorActivo ? (
-              <p className="mt-3 rounded-[10px] border border-accent/40 bg-accent-soft px-3 py-2 text-xs text-foreground">
+              <p className="mt-3 rounded-[8px] border border-accent/40 bg-accent-soft px-3 py-2 text-xs text-foreground">
                 Tu rol puede ver todas las cuentas de la organización: te recomendamos activarlo.
               </p>
             ) : null}

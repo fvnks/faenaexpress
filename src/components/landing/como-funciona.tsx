@@ -1,8 +1,5 @@
 "use client";
 
-import { SectionReveal } from "@/components/motion/section-reveal";
-import { Badge } from "@/components/ui/badge";
-
 /**
  * Cómo funciona: flujo real del producto, paso a paso.
  * Sin el template genérico de "1, 2, 3" con iconos redondos idénticos.
@@ -49,29 +46,22 @@ export function LandingComoFunciona() {
           </p>
         </div>
 
-        <div className="relative grid gap-12 lg:grid-cols-3">
-          {/* Línea vertical sutil entre pasos */}
-          <div className="hidden lg:block absolute left-1/2 top-20 bottom-20 w-px bg-border" />
-
-          {pasos.map((paso, index) => (
+        <div className="grid gap-12 lg:grid-cols-3">
+          {pasos.map((paso) => (
             <article key={paso.numero} className="group">
-              <SectionReveal delay={index * 40 + 60}>
-                <div className="relative z-10">
-                  <div className="flex items-start gap-4 mb-6">
-                    <div className="flex shrink-0 items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                      {paso.numero}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground mb-1">
-                        {paso.titulo}
-                      </h3>
-                    </div>
-                  </div>
-                  <p className="text-base leading-relaxed text-muted-foreground">
-                    {paso.descripcion}
-                  </p>
+              <div className="flex items-start gap-4 mb-6">
+                <div className="flex shrink-0 items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  {paso.numero}
                 </div>
-              </SectionReveal>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground mb-1">
+                    {paso.titulo}
+                  </h3>
+                </div>
+              </div>
+              <p className="text-base leading-relaxed text-muted-foreground">
+                {paso.descripcion}
+              </p>
             </article>
           ))}
         </div>

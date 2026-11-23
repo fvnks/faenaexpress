@@ -26,7 +26,7 @@ export function PlatformVisual() {
         }}
       />
       {/* Velo diagonal sutil para dar profundidad */}
-      <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-primary/25" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/25" />
 
       <div className="relative flex h-full flex-col justify-center gap-10 px-8 py-10 lg:px-14">
         <div>
@@ -42,7 +42,7 @@ export function PlatformVisual() {
           {PRODUCTOS_PUBLICOS.map((producto) => (
             <li
               key={producto.code}
-              className="float-soft motion-reduce:animate-none rounded-xl border border-border/70 bg-surface/95 p-4 shadow-[0_18px_40px_-24px_rgb(0_0_0/0.4)] backdrop-blur-sm"
+              className="rounded-[8px] border border-border/70 bg-surface/95 p-4 shadow-elevated backdrop-blur-sm transition-colors hover:border-border-strong"
             >
               <p className="text-sm font-semibold tracking-tight">{producto.name}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{producto.tagline}</p>

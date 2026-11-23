@@ -19,6 +19,18 @@ export function LandingFooter() {
     { href: "/terminos", label: "Términos" },
   ];
 
+  const recursosLinks = [
+    { href: "/blog", label: "Blog" },
+    { href: "/documentacion", label: "Documentación" },
+    { href: "/changelog", label: "Changelog" },
+  ];
+
+  const legalLinks = [
+    { href: "/privacidad", label: "Privacidad" },
+    { href: "/terminos", label: "Términos" },
+    { href: "/cookies", label: "Cookies" },
+  ];
+
   return (
     <footer className="bg-surface border-t border-border">
       <div className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
@@ -27,7 +39,7 @@ export function LandingFooter() {
           <div className="flex items-center gap-2 font-semibold tracking-tight">
             <span
               aria-hidden="true"
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold"
+              className="flex h-8 w-8 items-center justify-center rounded-[4px] bg-primary text-primary-foreground text-lg font-bold"
             >
               Y
             </span>
@@ -77,27 +89,49 @@ export function LandingFooter() {
               ))}
             </ul>
           </div>
+
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6">
+              Recursos
+            </p>
+            <ul className="space-y-4">
+              {recursosLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-6">
+              Legal
+            </p>
+            <ul className="space-y-4">
+              {legalLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        {/* Línea inferior con marca y legal */}
+        {/* Línea inferior con legal */}
         <div className="border-t border-border pt-12 flex flex-col lg:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2 font-semibold tracking-tight">
-            <span
-              aria-hidden="true"
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold"
-            >
-              Y
-            </span>
-            <span className="text-lg font-bold tracking-tight text-foreground">
-              Yellow ERP
-            </span>
-          </div>
-
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-6 text-xs text-muted-foreground">
-            <span>Hecho en Chile</span>
-            <span aria-hidden="true">·</span>
-            <span>© 2026 Yellow ERP</span>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Hecho en Chile · © 2026 Yellow ERP
+          </p>
         </div>
       </div>
     </footer>

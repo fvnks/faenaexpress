@@ -13,7 +13,7 @@ export function PlatformMark({ compact = false }: { compact?: boolean }) {
       className="flex items-center gap-2 text-base font-semibold tracking-tight"
       aria-label="Yellow ERP — inicio"
     >
-      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+      <span className="flex h-7 w-7 items-center justify-center rounded-[4px] bg-primary text-primary-foreground">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -49,7 +49,7 @@ export function SchoolMark({ name }: { name: string }) {
 
   return (
     <div className="flex items-center gap-3">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-base font-bold text-primary-foreground">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] bg-primary text-base font-bold text-primary-foreground">
         {iniciales || "C"}
       </span>
       <span className="min-w-0">

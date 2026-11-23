@@ -2,20 +2,31 @@
 
 import { forwardRef } from "react";
 
-export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  elevated?: boolean;
+}
 
 const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, elevated = false, ...props }, ref) => {
     return (
       <div
         ref={ref}
-        className={`bg-surface border border-border rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-md ${className || ""}`}
+        className={[
+          elevated
+            ? "bg-surface-elevated border border-border-strong shadow-elevated"
+            : "bg-surface border border-border",
+          "rounded-[8px] transition-colors duration-120",
+          !elevated && "hover:border-border-strong",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         {...props}
       >
         {children}
       </div>
     );
-  }
+  },
 );
 
 Card.displayName = "Card";
@@ -25,13 +36,13 @@ const CardHeader = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     return (
       <div
         ref={ref}
-        className={`px-6 py-4 border-b border-border ${className || ""}`}
+        className={`px-5 py-4 border-b border-border ${className || ""}`}
         {...props}
       >
         {children}
       </div>
     );
-  }
+  },
 );
 CardHeader.displayName = "CardHeader";
 
@@ -46,7 +57,7 @@ const CardTitle = forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadin
         {children}
       </h3>
     );
-  }
+  },
 );
 CardTitle.displayName = "CardTitle";
 
@@ -61,7 +72,7 @@ const CardDescription = forwardRef<HTMLParagraphElement, React.HTMLAttributes<HT
         {children}
       </p>
     );
-  }
+  },
 );
 CardDescription.displayName = "CardDescription";
 
@@ -70,13 +81,13 @@ const CardContent = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEleme
     return (
       <div
         ref={ref}
-        className={`p-6 ${className || ""}`}
+        className={`p-5 ${className || ""}`}
         {...props}
       >
         {children}
       </div>
     );
-  }
+  },
 );
 CardContent.displayName = "CardContent";
 
@@ -85,13 +96,13 @@ const CardFooter = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     return (
       <div
         ref={ref}
-        className={`px-6 py-4 border-t border-border bg-surface/50 flex items-center gap-2 ${className || ""}`}
+        className={`px-5 py-4 border-t border-border bg-background/50 flex items-center gap-2 ${className || ""}`}
         {...props}
       >
         {children}
       </div>
     );
-  }
+  },
 );
 CardFooter.displayName = "CardFooter";
 

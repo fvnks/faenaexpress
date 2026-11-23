@@ -33,7 +33,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-foreground"
+            className="input-label"
           >
             {label}
             {required && <span className="text-danger ml-1" aria-hidden="true">*</span>}
@@ -47,35 +47,36 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           disabled={disabled}
           required={required}
           className={[
-            "w-full px-4 py-2.5 text-sm bg-surface border border-border rounded-md text-foreground placeholder:text-muted-foreground",
-            "transition-all duration-200",
-            "focus-ring",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
-            "placeholder:text-muted-foreground",
-            error && "border-danger focus:ring-danger/20",
-            !error && "border-border hover:border-primary/50 focus:border-primary",
+            "w-full px-3 py-2.5 text-sm bg-surface border border-border rounded-[4px] text-foreground placeholder:text-foreground-subtle",
+            "transition-all duration-120 ease-[cubic-bezier(0.2,0,0,1)]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-background",
+            "font-variant-numeric: tabular-nums",
+            error && "border-danger focus-visible:ring-danger",
+            !error && "hover:border-primary/50",
+            className,
           ]
             .filter(Boolean)
-            .join(" ")
-        }
-        aria-invalid={error ? "true" : "false"}
-        aria-describedby={error ? errorId : hint ? hintId : undefined}
-        aria-disabled={disabled}
-        {...props}
-      />
-      {hint && !error && (
-        <p id={hintId} className="text-sm text-muted-foreground">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={errorId} className="text-sm text-danger" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-});
+            .join(" ")}
+          aria-invalid={error ? "true" : "false"}
+          aria-describedby={error ? errorId : hint ? hintId : undefined}
+          aria-disabled={disabled}
+          {...props}
+        />
+        {hint && !error && (
+          <p id={hintId} className="input-hint">
+            {hint}
+          </p>
+        )}
+        {error && (
+          <p id={errorId} className="input-error-text" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  },
+);
 
 Input.displayName = "Input";
 

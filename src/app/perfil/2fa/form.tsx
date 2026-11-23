@@ -11,11 +11,9 @@ import {
   verifyTwoFactorCode,
   type TwoFactorState,
 } from "@/app/actions/profile";
-import { SubmitButton } from "@/components/submit-button";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatSecret } from "@/lib/totp";
-
-const inputClass =
-  "h-11 w-full rounded-[10px] border border-border bg-background px-3.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground/60 hover:border-muted-foreground/40 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25";
 
 /**
  * Pantalla del segundo factor. Tiene dos estados:
@@ -29,16 +27,20 @@ export function TwoFactorForm({
   yaActivo: boolean;
   /** La sesión está a medio camino: hay que confirmar el 2FA para entrar. */
   pendiente: boolean;
-}) {  const [verificar, verificarAction] = useActionState<TwoFactorState, FormData>(
+}) {
+  const [verificar, verificarAction, verificarPending] = useActionState<TwoFactorState, FormData>(
     verifyTwoFactorCode,
     undefined,
   );
-  const [alta, altaAction] = useActionState<TwoFactorState, FormData>(startTwoFactor, undefined);
-  const [confirmar, confirmarAction] = useActionState<TwoFactorState, FormData>(
+  const [alta, altaAction, altaPending] = useActionState<TwoFactorState, FormData>(
+    startTwoFactor,
+    undefined,
+  );
+  const [confirmar, confirmarAction, confirmarPending] = useActionState<TwoFactorState, FormData>(
     confirmTwoFactor,
     undefined,
   );
-  const [recuperacion, recuperacionAction] = useActionState<TwoFactorState, FormData>(
+  const [recuperacion, recuperacionAction, recuperacionPending] = useActionState<TwoFactorState, FormData>(
     regenerateRecoveryCodes,
     undefined,
   );
@@ -58,11 +60,11 @@ export function TwoFactorForm({
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="code-2fa"
-            className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            className="input-label"
           >
             Código de verificación
           </label>
-          <input
+          <Input
             id="code-2fa"
             name="code"
             type="text"
@@ -70,21 +72,20 @@ export function TwoFactorForm({
             autoComplete="one-time-code"
             required
             placeholder="000000"
-            className={inputClass + " tabular tracking-[0.3em]"}
+            className="tabular tracking-[0.3em]"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="input-hint">
             El código de tu app de autenticación, o uno de tus códigos de recuperación.
           </p>
         </div>
         {verificar?.error ? (
-          <p className="text-sm text-danger">{verificar.error}</p>
+          <p className="rounded-[4px] border border-danger/50 bg-danger-soft px-3 py-2 text-sm text-danger">
+            {verificar.error}
+          </p>
         ) : null}
-        <SubmitButton
-          className="rounded-[10px] border border-primary bg-transparent px-6 py-3 text-sm font-semibold text-primary"
-          pendingLabel="Verificando…"
-        >
-          Verificar
-        </SubmitButton>
+        <Button type="submit" disabled={verificarPending} className="w-full">
+          {verificarPending ? "Verificando…" : "Verificar"}
+        </Button>
       </form>
     );
   }
@@ -104,21 +105,18 @@ export function TwoFactorForm({
                 ? "Conectá tu app de autenticación (Google Authenticator, 1Password, Authy…) para confirmar tu cuenta y entrar."
                 : "Podés activar un segundo factor para proteger tu cuenta: te pedirán un código además de la contraseña."}
             </p>
-            <SubmitButton
-              className="mt-4 rounded-[10px] border border-primary bg-transparent px-6 py-3 text-sm font-semibold text-primary"
-              pendingLabel="Generando…"
-            >
-              Generar mi código
-            </SubmitButton>
+            <Button type="submit" className="mt-4 w-full" disabled={altaPending}>
+              {altaPending ? "Generando…" : "Generar mi código"}
+            </Button>
           </form>
         ) : (
           <>
-            <div className="rounded-[10px] border border-border bg-background p-4">
+            <div className="rounded-[8px] border border-border bg-background p-4">
               <p className="text-sm font-medium">1. Agregá esta clave en tu app</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Copiá la clave y agrégala como una cuenta nueva de tipo «TOTP».
               </p>
-              <code className="tabular mt-3 block break-all rounded-[10px] border border-border bg-surface px-3 py-2 text-sm">
+              <code className="tabular mt-3 block break-all rounded-[4px] border border-border bg-surface px-3 py-2 text-sm">
                 {formatSecret(secret)}
               </code>
               <button
@@ -140,11 +138,11 @@ export function TwoFactorForm({
               <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="code-setup"
-                  className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                  className="input-label"
                 >
                   Código de verificación
                 </label>
-                <input
+                <Input
                   id="code-setup"
                   name="code"
                   type="text"
@@ -152,18 +150,17 @@ export function TwoFactorForm({
                   autoComplete="one-time-code"
                   required
                   placeholder="000000"
-                  className={inputClass + " tabular tracking-[0.3em]"}
+                  className="tabular tracking-[0.3em]"
                 />
               </div>
               {confirmar?.error ? (
-                <p className="text-sm text-danger">{confirmar.error}</p>
+                <p className="rounded-[4px] border border-danger/50 bg-danger-soft px-3 py-2 text-sm text-danger">
+                  {confirmar.error}
+                </p>
               ) : null}
-              <SubmitButton
-                className="rounded-[10px] border border-primary bg-transparent px-6 py-3 text-sm font-semibold text-primary"
-                pendingLabel="Activando…"
-              >
-                Activar segundo factor
-              </SubmitButton>
+              <Button type="submit" className="w-full" disabled={confirmarPending}>
+                {confirmarPending ? "Activando…" : "Activar segundo factor"}
+              </Button>
             </form>
           </>
         )}
@@ -175,7 +172,7 @@ export function TwoFactorForm({
   return (
     <div className="mt-8 flex flex-col gap-6">
       {recuperacion?.recoveryCodes ? (
-        <div className="rounded-[10px] border border-accent/40 bg-accent-soft p-4">
+        <div className="rounded-[8px] border border-accent/40 bg-accent-soft p-4">
           <p className="text-sm font-medium">Guárdalos ahora</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Cada uno sirve una sola vez, para entrar si perdés el teléfono. No los vas a volver a
@@ -190,7 +187,7 @@ export function TwoFactorForm({
       ) : null}
 
       {confirmar?.recoveryCodes ? (
-        <div className="rounded-[10px] border border-accent/40 bg-accent-soft p-4">
+        <div className="rounded-[8px] border border-accent/40 bg-accent-soft p-4">
           <p className="text-sm font-medium">Guárdalos ahora</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Cada uno sirve una sola vez, para entrar si perdés el teléfono. No los vas a volver a
@@ -203,14 +200,14 @@ export function TwoFactorForm({
           </ul>
           <Link
             href="/facturas"
-            className="mt-4 inline-block rounded-[10px] border border-primary bg-transparent px-5 py-2 text-sm font-semibold text-primary"
+            className="mt-4 inline-block rounded-[4px] border border-primary bg-transparent px-5 py-2 text-sm font-semibold text-primary"
           >
             Continuar
           </Link>
         </div>
       ) : null}
 
-      <div className="rounded-[10px] border border-border bg-background p-4">
+      <div className="rounded-[8px] border border-border bg-background p-4">
         <p className="text-sm font-medium">Tu segundo factor está activo</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Te pedirán el código de la app cada vez que entres.
@@ -219,12 +216,9 @@ export function TwoFactorForm({
 
       <form action={recuperacionAction}>
         <input type="hidden" name="accion" value="recuperacion" />
-        <SubmitButton
-          className="rounded-[10px] border border-border bg-transparent px-4 py-2 text-sm text-foreground"
-          pendingLabel="Generando…"
-        >
-          Generar códigos de recuperación nuevos
-        </SubmitButton>
+        <Button type="submit" variant="secondary" disabled={recuperacionPending}>
+          {recuperacionPending ? "Generando…" : "Generar códigos de recuperación nuevos"}
+        </Button>
       </form>
     </div>
   );
