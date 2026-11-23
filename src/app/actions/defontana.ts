@@ -916,6 +916,16 @@ export async function bulkCheckSaleStatusAction(
   const desconocidos = results.filter((r) => r.estado === "DESCONOCIDO").length;
   const errores = results.filter((r) => r.estado === "ERROR").length;
 
+  // Guardar el estado SII por venta para que se muestre en la tabla.
+  await db.$transaction(
+    results.map((r) =>
+      db.sale.update({
+        where: { id: r.id, companyId: ctx.company.id },
+        data: { siiStatus: r.estado },
+      }),
+    ),
+  );
+
   const message = `Consultados ${results.length}: ${aceptados} aceptados, ${rechazados} rechazados, ${previews} preview, ${desconocidos} no encontrados, ${errores} errores.`;
 
   if (aceptados + rechazados > 0) {

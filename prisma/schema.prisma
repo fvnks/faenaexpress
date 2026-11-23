@@ -1787,6 +1787,7 @@ model Sale {
   tipoDocRefOriginal   String? // tipo de documento original (33/34)
   fechaRecepcion       DateTime? // fecha de recepción del SII
   estadoReceptor       String? // estado del receptor en el SII (A/R)
+  siiStatus            String? // estado del documento en el SII (ACEPTADO / RECHAZADO / etc.)
   status               SaleStatus     @default(PENDING)
   paymentDate          DateTime?
   confirmingAt         DateTime?

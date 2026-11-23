@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
-import { useFormStatus } from "react-dom";
 
 import { bulkSalesAction, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
 import { fetchSaleXmlAction, type FetchSaleXmlState } from "@/app/actions/defontana";
@@ -38,6 +37,8 @@ type SaleItem = {
   cancellationReason: string | null;
   cancellationComment: string | null;
   refacturadaNumber: string | null;
+  /** Estado del documento en el SII: ACEPTADO / RECHAZADO / PREVIEW / DESCONOCIDO / null. */
+  siiStatus?: string | null;
   companyId: string;
   /** Las notas (crédito/débito) que ajustan a esta factura: el árbol desplegable. */
   relatedNotes: Array<{
@@ -89,14 +90,14 @@ function parseShortDate(input: string | null): string | null {
   return date.toISOString().slice(0, 10) === wire ? wire : null;
 }
 
-function BulkSubmitButton({ name, value, dataBulk, children, className }: { name: string; value: string; dataBulk?: string; children: React.ReactNode; className?: string }) {
-  const { pending } = useFormStatus();
+function BulkSubmitButton({ name, value, dataBulk, children, className, pending, onClick }: { name: string; value: string; dataBulk?: string; children: React.ReactNode; className?: string; pending?: boolean; onClick?: () => void }) {
   return (
     <button
       type="submit"
       name={name}
       value={value}
       data-bulk={dataBulk}
+      onClick={onClick}
       disabled={pending}
       className={`${className ?? ""} transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60`}
     >
@@ -113,6 +114,8 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
   const [actionSalespersonId, setActionSalespersonId] = useState<string>("");
   const [bulkVendedorId, setBulkVendedorId] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
+  /** Qué acción masiva se está enviando (solo ese botón muestra "Procesando…"). */
+  const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   /** Qué facturas tienen el árbol de notas desplegado (por id). */
   const [notasAbiertas, setNotasAbiertas] = useState(() => new Set<string>());
   const [, startTransition] = useTransition();
@@ -221,13 +224,31 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <BulkSelectAll formId="ventas-bulk" total={items.length} />
             <div className="flex flex-wrap items-center gap-2">
-              <BulkSubmitButton name="status" value="PAID" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
+              <BulkSubmitButton
+                name="status"
+                value="PAID"
+                pending={submittingAction === "status_PAID"}
+                onClick={() => setSubmittingAction("status_PAID")}
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Marcar cobradas
               </BulkSubmitButton>
-              <BulkSubmitButton name="status" value="PENDING" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
+              <BulkSubmitButton
+                name="status"
+                value="PENDING"
+                pending={submittingAction === "status_PENDING"}
+                onClick={() => setSubmittingAction("status_PENDING")}
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Marcar por cobrar
               </BulkSubmitButton>
-              <BulkSubmitButton name="status" value="OVERDUE" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
+              <BulkSubmitButton
+                name="status"
+                value="OVERDUE"
+                pending={submittingAction === "status_OVERDUE"}
+                onClick={() => setSubmittingAction("status_OVERDUE")}
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Marcar vencidas
               </BulkSubmitButton>
               <button
@@ -243,10 +264,22 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
               >
                 Marcar anuladas
               </button>
-              <BulkSubmitButton name="bulkAction" value="fetch_xml" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
+              <BulkSubmitButton
+                name="bulkAction"
+                value="fetch_xml"
+                pending={submittingAction === "fetch_xml"}
+                onClick={() => setSubmittingAction("fetch_xml")}
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Traer XML de Defontana
               </BulkSubmitButton>
-              <BulkSubmitButton name="bulkAction" value="check_status" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
+              <BulkSubmitButton
+                name="bulkAction"
+                value="check_status"
+                pending={submittingAction === "check_status"}
+                onClick={() => setSubmittingAction("check_status")}
+                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Consultar estado SII
               </BulkSubmitButton>
             </div>
@@ -279,7 +312,13 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                     marcadas (`ids`), el vendedor elegido y `returnTo`. Antes se
                     armaba el FormData a mano leyendo el DOM y, si algo no
                     calzaba, el botón no hacía nada ni avisaba. */}
-                <BulkSubmitButton name="bulkAction" value="assign_salesperson" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
+                <BulkSubmitButton
+                  name="bulkAction"
+                  value="assign_salesperson"
+                  pending={submittingAction === "assign_salesperson"}
+                  onClick={() => setSubmittingAction("assign_salesperson")}
+                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                >
                   Asignar vendedor
                 </BulkSubmitButton>
               </>
@@ -298,6 +337,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                 <SortableHeader label="Fecha" href={fechaSort.href} active={fechaSort.active} dir={fechaSort.dir} />
                 <SortableHeader label="OC" href={ocSort.href} active={ocSort.active} dir={ocSort.dir} />
                 <SortableHeader label="HES" href={hesSort.href} active={hesSort.active} dir={hesSort.dir} />
+                {writable ? <th className="px-3 py-2 text-left text-xs text-muted-foreground">Estado SII</th> : null}
                 <SortableHeader label="Estado" href={estadoSort.href} active={estadoSort.active} dir={estadoSort.dir} />
                 <SortableHeader label="Total" href={totalSort.href} active={totalSort.active} dir={totalSort.dir} align="right" />
                 {writable ? <th className="w-12 px-2 py-2" /> : null}
@@ -352,6 +392,32 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                   <td className="tabular whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
                     {sale.hesNumber ?? "—"}
                   </td>
+                  {writable ? (
+                    <td className="px-3 py-2 align-top">
+                      {sale.siiStatus === "ACEPTADO" ? (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-green-soft px-2 py-1 text-xs font-medium text-green">
+                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-green" />
+                          Aceptado SII
+                        </span>
+                      ) : sale.siiStatus === "RECHAZADO" ? (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-red-soft px-2 py-1 text-xs font-medium text-red">
+                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red" />
+                          Rechazado SII
+                        </span>
+                      ) : sale.siiStatus === "PREVIEW" ? (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-yellow-soft px-2 py-1 text-xs font-medium text-yellow">
+                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-yellow" />
+                          Preview SII
+                        </span>
+                      ) : sale.siiStatus ? (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                          {sale.siiStatus}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  ) : null}
                   <td className="px-3 py-2 align-top">
                     {sale.confirmingAt ? (
                       <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-primary">
