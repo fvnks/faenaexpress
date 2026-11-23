@@ -24,7 +24,7 @@ function getServerSnapshot(): Theme {
   return 'light';
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const icons = {
@@ -71,6 +71,7 @@ export function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
+      className={className}
       onClick={toggle}
       aria-label={labels[theme]}
       title={labels[theme]}
