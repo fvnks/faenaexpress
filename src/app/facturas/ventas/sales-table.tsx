@@ -90,18 +90,16 @@ function parseShortDate(input: string | null): string | null {
   return date.toISOString().slice(0, 10) === wire ? wire : null;
 }
 
-function BulkSubmitButton({ name, value, dataBulk, children, className, pending, onClick }: { name: string; value: string; dataBulk?: string; children: React.ReactNode; className?: string; pending?: boolean; onClick?: () => void }) {
+function BulkSubmitButton({ name, value, dataBulk, children, className }: { name: string; value: string; dataBulk?: string; children: React.ReactNode; className?: string }) {
   return (
     <button
       type="submit"
       name={name}
       value={value}
       data-bulk={dataBulk}
-      onClick={onClick}
-      disabled={pending}
       className={`${className ?? ""} transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60`}
     >
-      {pending ? "Procesando…" : children}
+      {children}
     </button>
   );
 }
@@ -114,8 +112,6 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
   const [actionSalespersonId, setActionSalespersonId] = useState<string>("");
   const [bulkVendedorId, setBulkVendedorId] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
-  /** Qué acción masiva se está enviando (solo ese botón muestra "Procesando…"). */
-  const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   /** Qué facturas tienen el árbol de notas desplegado (por id). */
   const [notasAbiertas, setNotasAbiertas] = useState(() => new Set<string>());
   const [, startTransition] = useTransition();
@@ -227,8 +223,6 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
               <BulkSubmitButton
                 name="status"
                 value="PAID"
-                pending={submittingAction === "status_PAID"}
-                onClick={() => setSubmittingAction("status_PAID")}
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Marcar cobradas
@@ -236,8 +230,6 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
               <BulkSubmitButton
                 name="status"
                 value="PENDING"
-                pending={submittingAction === "status_PENDING"}
-                onClick={() => setSubmittingAction("status_PENDING")}
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Marcar por cobrar
@@ -245,8 +237,6 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
               <BulkSubmitButton
                 name="status"
                 value="OVERDUE"
-                pending={submittingAction === "status_OVERDUE"}
-                onClick={() => setSubmittingAction("status_OVERDUE")}
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Marcar vencidas
@@ -267,8 +257,6 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
               <BulkSubmitButton
                 name="bulkAction"
                 value="fetch_xml"
-                pending={submittingAction === "fetch_xml"}
-                onClick={() => setSubmittingAction("fetch_xml")}
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Traer XML de Defontana
@@ -276,8 +264,6 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
               <BulkSubmitButton
                 name="bulkAction"
                 value="check_status"
-                pending={submittingAction === "check_status"}
-                onClick={() => setSubmittingAction("check_status")}
                 className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Consultar estado SII
@@ -315,8 +301,6 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                 <BulkSubmitButton
                   name="bulkAction"
                   value="assign_salesperson"
-                  pending={submittingAction === "assign_salesperson"}
-                  onClick={() => setSubmittingAction("assign_salesperson")}
                   className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Asignar vendedor
