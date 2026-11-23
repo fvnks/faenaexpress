@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import { useFormStatus } from "react-dom";
 
 import { bulkSalesAction, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
 import { fetchSaleXmlAction, type FetchSaleXmlState } from "@/app/actions/defontana";
@@ -86,6 +87,22 @@ function parseShortDate(input: string | null): string | null {
   if (Number.isNaN(date.getTime())) return null;
   // 31-02 se "rebalsa" a marzo: si la fecha no vuelve igual, no existía.
   return date.toISOString().slice(0, 10) === wire ? wire : null;
+}
+
+function BulkSubmitButton({ name, value, dataBulk, children, className }: { name: string; value: string; dataBulk?: string; children: React.ReactNode; className?: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      name={name}
+      value={value}
+      data-bulk={dataBulk}
+      disabled={pending}
+      className={`${className ?? ""} transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60`}
+    >
+      {pending ? "Procesando…" : children}
+    </button>
+  );
 }
 
 export function SalesTable({ items, writable, salespeople, canManageSalespeople, params, sortKey, sortDir, hasDefontanaCredentials, notasDeAnulaciones }: Props) {
@@ -204,39 +221,15 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <BulkSelectAll formId="ventas-bulk" total={items.length} />
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="submit"
-                data-bulk
-                disabled
-                form="ventas-bulk"
-                name="status"
-                value="PAID"
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              >
+              <BulkSubmitButton name="status" value="PAID" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
                 Marcar cobradas
-              </button>
-              <button
-                type="submit"
-                data-bulk
-                disabled
-                form="ventas-bulk"
-                name="status"
-                value="PENDING"
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              >
+              </BulkSubmitButton>
+              <BulkSubmitButton name="status" value="PENDING" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
                 Marcar por cobrar
-              </button>
-              <button
-                type="submit"
-                data-bulk
-                disabled
-                form="ventas-bulk"
-                name="status"
-                value="OVERDUE"
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              >
+              </BulkSubmitButton>
+              <BulkSubmitButton name="status" value="OVERDUE" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
                 Marcar vencidas
-              </button>
+              </BulkSubmitButton>
               <button
                 type="button"
                 data-bulk="single"
@@ -250,28 +243,12 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
               >
                 Marcar anuladas
               </button>
-              <button
-                type="submit"
-                name="bulkAction"
-                value="fetch_xml"
-                form="ventas-bulk"
-                data-bulk
-                disabled
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              >
+              <BulkSubmitButton name="bulkAction" value="fetch_xml" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
                 Traer XML de Defontana
-              </button>
-              <button
-                type="submit"
-                name="bulkAction"
-                value="check_status"
-                form="ventas-bulk"
-                data-bulk
-                disabled
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              >
+              </BulkSubmitButton>
+              <BulkSubmitButton name="bulkAction" value="check_status" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
                 Consultar estado SII
-              </button>
+              </BulkSubmitButton>
             </div>
           </div>
         ) : null}
@@ -302,17 +279,9 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                     marcadas (`ids`), el vendedor elegido y `returnTo`. Antes se
                     armaba el FormData a mano leyendo el DOM y, si algo no
                     calzaba, el botón no hacía nada ni avisaba. */}
-                <button
-                  type="submit"
-                  name="bulkAction"
-                  value="assign_salesperson"
-                  form="ventas-bulk"
-                  data-bulk
-                  disabled
-                  className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                >
+                <BulkSubmitButton name="bulkAction" value="assign_salesperson" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60">
                   Asignar vendedor
-                </button>
+                </BulkSubmitButton>
               </>
             ) : (
               <NoSalespeopleHint canManage={canManageSalespeople} />
