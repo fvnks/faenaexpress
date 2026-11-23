@@ -707,13 +707,23 @@ export async function bulkSalesAction(formData: FormData): Promise<void> {
     }
 
     case "fetch_xml": {
-      await bulkFetchSaleXmlAction(formData);
-      break;
+      const result = await bulkFetchSaleXmlAction(formData);
+      if (result?.ok) {
+        await setFlash("success", result.message ?? "XML procesados.");
+      } else if (result?.error) {
+        await setFlash("error", result.error);
+      }
+      redirect(result?.redirectTo ?? returnTo);
     }
 
     case "check_status": {
-      await bulkCheckSaleStatusAction(formData);
-      break;
+      const result = await bulkCheckSaleStatusAction(formData);
+      if (result?.ok) {
+        await setFlash("success", result.message ?? "Estados del SII consultados.");
+      } else if (result?.error) {
+        await setFlash("error", result.error);
+      }
+      redirect(result?.redirectTo ?? returnTo);
     }
 
     case "assign_salesperson": {
