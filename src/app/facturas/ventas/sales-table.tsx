@@ -13,6 +13,8 @@ import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SortableHeader } from "@/components/sortable-header";
 import { XmlBadge } from "@/components/xml-badge";
 import { notaArbol, NotesToggle, NotesTreeRow, type NotaArbol } from "@/components/notes-tree";
+import { ListPreferencesMenu, rowPadding, useListPreferences } from "@/components/list-preferences";
+import { useListShortcuts } from "@/components/use-list-shortcuts";
 import { formatCLP, formatDate } from "@/lib/money";
 import { sortHref, type SortDir } from "@/lib/sort";
 import { cardClass, controlClass } from "@/lib/ui";
@@ -116,6 +118,19 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
   const [notasAbiertas, setNotasAbiertas] = useState(() => new Set<string>());
   const [, startTransition] = useTransition();
   const dateInputRef = useRef<HTMLInputElement>(null);
+
+  // Preferencias de la lista (columnas y densidad) + atajos de teclado.
+  const columns = [
+    { key: "folio", label: "Folio" },
+    { key: "fecha", label: "Fecha" },
+    { key: "oc", label: "OC" },
+    { key: "hes", label: "HES" },
+    { key: "estadoSii", label: "Estado SII" },
+    { key: "estado", label: "Estado" },
+    { key: "total", label: "Total" },
+  ];
+  const prefs = useListPreferences("ventas", columns.map((c) => c.key));
+  useListShortcuts({ searchId: "q" });
   const cancelSaleItem = cancelModalSaleId ? items.find((s) => s.id === cancelModalSaleId) : null;
   const assignSaleItem = assignModalSaleId ? items.find((s) => s.id === assignModalSaleId) : null;
   const actionModalSale = actionModal ? items.find((s) => s.id === actionModal.saleId) : null;
@@ -220,6 +235,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <BulkSelectAll formId="ventas-bulk" total={items.length} />
             <div className="flex flex-wrap items-center gap-2">
+              <ListPreferencesMenu section="ventas" columns={columns} prefs={prefs} />
               <BulkSubmitButton
                 name="status"
                 value="PAID"
@@ -312,9 +328,9 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                 <SortableHeader label="Cliente" href={clienteSort.href} active={clienteSort.active} dir={clienteSort.dir} />
                 <SortableHeader label="Folio" href={folioSort.href} active={folioSort.active} dir={folioSort.dir} />
                 <SortableHeader label="Fecha" href={fechaSort.href} active={fechaSort.active} dir={fechaSort.dir} />
-                <SortableHeader label="OC" href={ocSort.href} active={ocSort.active} dir={ocSort.dir} />
-                <SortableHeader label="HES" href={hesSort.href} active={hesSort.active} dir={hesSort.dir} />
-                {writable ? <th className="px-3 py-2 text-left text-xs text-muted-foreground">Estado SII</th> : null}
+                {prefs.isVisible("oc") ? <SortableHeader label="OC" href={ocSort.href} active={ocSort.active} dir={ocSort.dir} /> : null}
+                {prefs.isVisible("hes") ? <SortableHeader label="HES" href={hesSort.href} active={hesSort.active} dir={hesSort.dir} /> : null}
+                {writable && prefs.isVisible("estadoSii") ? <th className="px-3 py-2 text-left text-xs text-muted-foreground">Estado SII</th> : null}
                 <SortableHeader label="Estado" href={estadoSort.href} active={estadoSort.active} dir={estadoSort.dir} />
                 <SortableHeader label="Total" href={totalSort.href} active={totalSort.active} dir={totalSort.dir} align="right" />
                 {writable ? <th className="w-12 px-2 py-2" /> : null}
@@ -326,7 +342,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                 const notasAbierto = notasAbiertas.has(sale.id);
                 return (
                   <Fragment key={sale.id}>
-                    <tr className="border-b border-border last:border-0 hover:bg-primary-soft/30 transition-colors">
+                    <tr tabIndex={-1} className={"border-b border-border last:border-0 hover:bg-primary-soft/30 transition-colors focus:outline-none focus:bg-primary-soft/50 " + rowPadding(prefs.density)}>
                       {writable ? (
                         <td className="px-2 py-2 align-top">
                           <input
@@ -363,13 +379,17 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                     ) : null}
                   </td>
                   <td className="tabular whitespace-nowrap px-3 py-2 align-top">{formatDate(sale.date)}</td>
-                  <td className="tabular whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
-                    {sale.purchaseOrder ?? "—"}
-                  </td>
-                  <td className="tabular whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
-                    {sale.hesNumber ?? "—"}
-                  </td>
-                  {writable ? (
+                  {prefs.isVisible("oc") ? (
+                    <td className="tabular whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+                      {sale.purchaseOrder ?? "—"}
+                    </td>
+                  ) : null}
+                  {prefs.isVisible("hes") ? (
+                    <td className="tabular whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+                      {sale.hesNumber ?? "—"}
+                    </td>
+                  ) : null}
+                  {writable && prefs.isVisible("estadoSii") ? (
                     <td className="px-3 py-2 align-top">
                       {sale.siiStatus === "ACEPTADO" ? (
                         <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-success-soft px-2 py-1 text-xs font-medium text-success">

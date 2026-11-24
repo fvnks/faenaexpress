@@ -10,7 +10,13 @@ export type ExpenseFilters = {
   reimbursed: "ALL" | "yes" | "no";
   from?: Date;
   to?: Date;
+  sort?: string;
+  dir?: "asc" | "desc";
+  page?: number;
 };
+
+export const EXPENSE_SORT_KEYS = ["fecha", "descripcion", "pagador", "reembolso", "total"] as const;
+const PAGE_SIZE = 50;
 
 export function parseExpenseFilters(searchParams: {
   q?: string;
@@ -20,6 +26,9 @@ export function parseExpenseFilters(searchParams: {
   reembolso?: string;
   desde?: string;
   hasta?: string;
+  orden?: string;
+  dir?: string;
+  pagina?: string;
 }): ExpenseFilters {
   const reimbursed: ExpenseFilters["reimbursed"] =
     searchParams.reembolso === "si" ? "yes" : searchParams.reembolso === "no" ? "no" : "ALL";
@@ -32,6 +41,9 @@ export function parseExpenseFilters(searchParams: {
     reimbursed,
     from: searchParams.desde ? new Date(`${searchParams.desde}T00:00:00.000Z`) : undefined,
     to: searchParams.hasta ? new Date(`${searchParams.hasta}T23:59:59.999Z`) : undefined,
+    sort: searchParams.orden,
+    dir: searchParams.dir === "asc" ? "asc" : "desc",
+    page: Math.max(1, Number(searchParams.pagina) || 1),
   };
 }
 
@@ -63,11 +75,25 @@ function buildWhere(companyId: string, filters: ExpenseFilters): Prisma.ExpenseW
 export async function listExpenses(companyId: string, filters: ExpenseFilters) {
   const where = buildWhere(companyId, filters);
 
-  const [items, grouped] = await Promise.all([
+  const orderBy = (() => {
+    const dir = filters.dir ?? "desc";
+    switch (filters.sort) {
+      case "descripcion": return { description: dir } as const;
+      case "pagador": return { paidBy: { name: dir } } as const;
+      case "reembolso": return { reimbursed: dir } as const;
+      case "total": return { totalAmount: dir } as const;
+      default: return { date: dir } as const;
+    }
+  })();
+  const page = filters.page ?? 1;
+
+  const [items, grouped, totalCount] = await Promise.all([
     db.expense.findMany({
       where,
       include: { category: true, area: true, paidBy: true, worker: true },
-      orderBy: { date: "desc" },
+      orderBy,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
     }),
     db.expense.groupBy({
       by: ["reimbursed"],
@@ -75,6 +101,7 @@ export async function listExpenses(companyId: string, filters: ExpenseFilters) {
       _sum: { totalAmount: true },
       _count: { _all: true },
     }),
+    db.expense.count({ where }),
   ]);
 
   const reimbursed = grouped.find((group) => group.reimbursed)?._sum.totalAmount ?? 0;
@@ -82,13 +109,25 @@ export async function listExpenses(companyId: string, filters: ExpenseFilters) {
 
   return {
     items,
+    page,
+    pageCount: Math.max(1, Math.ceil(totalCount / PAGE_SIZE)),
     totals: {
-      count: items.length,
+      count: totalCount,
       total: Number(reimbursed) + Number(pending),
       reimbursed: Number(reimbursed),
       pending: Number(pending),
     },
   };
+}
+
+/** Sin paginar: el CSV exporta toda la lista filtrada. */
+export async function listAllExpenses(companyId: string, filters: ExpenseFilters) {
+  const where = buildWhere(companyId, filters);
+  return db.expense.findMany({
+    where,
+    include: { category: true, area: true, paidBy: true, worker: true },
+    orderBy: filters.sort === "total" ? { totalAmount: filters.dir ?? "desc" } : { date: "desc" },
+  });
 }
 
 export async function getExpense(companyId: string, id: string) {

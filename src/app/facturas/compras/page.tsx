@@ -1,10 +1,12 @@
 import Link from "next/link";
 
 import { bulkSetPurchaseStatus } from "@/app/actions/purchases";
+import { listSavedViews } from "@/app/actions/saved-views";
 import { hasStoredDefontanaCredentials } from "@/lib/defontana/credentials";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { FilterBar, type FilterField } from "@/components/filter-bar";
 import { Pagination } from "@/components/pagination";
+import { SavedViewsMenu } from "@/components/saved-views-menu";
 import { PurchaseRowGroup } from "@/app/facturas/compras/purchase-row-group";
 import { SortableHeader } from "@/components/sortable-header";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
@@ -45,9 +47,10 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
   const fechaSort = sortHref("/facturas/compras", searchParams, "fecha", sortKey, sortDir);
   const estadoSort = sortHref("/facturas/compras", searchParams, "estado", sortKey, sortDir);
   const totalSort = sortHref("/facturas/compras", searchParams, "total", sortKey, sortDir);
-  const [suppliers, categories] = await Promise.all([
+  const [suppliers, categories, savedViews] = await Promise.all([
     listSuppliers(ctx.company.id),
     listCategories(ctx.company.id),
+    listSavedViews("compras"),
   ]);
   const { items, totals, page, pageCount } = await listPurchases(ctx.company.id, filters);
   // Las notas que ajustan cada compra de ESTA página: se cruzan por folio
@@ -150,7 +153,10 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
         </div>
       </div>
 
-      <FilterBar fields={filterFields} />
+      <FilterBar
+        fields={filterFields}
+        leading={<SavedViewsMenu section="compras" views={savedViews} canSave={writable} />}
+      />
 
       <div className={cardClass + " grid grid-cols-2 divide-border sm:grid-cols-3 sm:divide-x"}>
         <div className="p-4">

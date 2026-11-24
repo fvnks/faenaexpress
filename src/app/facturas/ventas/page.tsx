@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { listSavedViews } from "@/app/actions/saved-views";
 import { FilterBar, type FilterField } from "@/components/filter-bar";
 import { Pagination } from "@/components/pagination";
+import { SavedViewsMenu } from "@/components/saved-views-menu";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listCategories, listSalespeople } from "@/lib/catalogs";
@@ -40,10 +42,11 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
   const sortKey = raw.orden ?? "fecha";
   // Sin parámetro, la lista abre por fecha descendente: lo más reciente arriba.
   const sortDir = parseSortDir(raw.dir ?? "desc");
-  const [customers, categories, salespeople] = await Promise.all([
+  const [customers, categories, salespeople, savedViews] = await Promise.all([
     listCustomers(ctx.company.id),
     listCategories(ctx.company.id),
     listSalespeople(ctx.company.id),
+    listSavedViews("ventas"),
   ]);
   const { items, totals, page, pageCount, notasDeAnulaciones } = await listSales(ctx.company.id, filters);
   const hasFilters = Boolean(
@@ -151,7 +154,10 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
         </div>
       </div>
 
-      <FilterBar fields={filterFields} />
+      <FilterBar
+        fields={filterFields}
+        leading={<SavedViewsMenu section="ventas" views={savedViews} canSave={writable} />}
+      />
 
       <div className={cardClass + " grid grid-cols-2 divide-border sm:grid-cols-3 sm:divide-x"}>
         <div className="p-4">

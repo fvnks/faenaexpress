@@ -1109,6 +1109,7 @@ model Company {
   expenses               Expense[]
   notifications          Notification[]
   auditLogs              AuditLog[]
+  savedViews             SavedView[]
   paymentMethodCatalogs  PaymentMethodCatalog[]
   units                  Unit[]
   productCategories      ProductCategory[]
@@ -2130,6 +2131,25 @@ model AuditLog {
 
   @@index([companyId, createdAt])
   @@index([companyId, entityType, entityId])
+}
+
+// Vistas guardadas de las listas de movimientos (compras, ventas, gastos).
+// Los filtros se guardan como el querystring de la URL, así una vista es
+// exactamente el estado que el usuario estaba viendo.
+model SavedView {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  section   String // "compras" | "ventas" | "gastos"
+  name      String
+  query     String // querystring sin "?" (ej: "estado=PENDIENTE&cliente=a,b")
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId, section, name])
+  @@index([companyId, userId, section])
 }
 // Periodo de nomina (liquidacion mensual).
 enum PayrollStatus {
