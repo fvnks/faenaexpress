@@ -514,6 +514,8 @@ model Obra {
   partidas     Partida[]
   costos       CostoObra[]
   estadosPago  EstadoPago[]
+  subcontratos Subcontrato[]
+  bodega       BodegaObra[]
 
   @@index([organizationId])
 }
@@ -561,6 +563,8 @@ model Partida {
   cubicaciones Cubicacion[]
   costos     CostoObra[]
   estadosPagoDetalle EstadoPagoPartida[]
+  subcontratosPartida SubcontratoPartida[]
+  consumosBodega MovimientoBodegaObra[]
 
   @@unique([obraId, codigo])
   @@index([obraId, parentId])
@@ -673,6 +677,81 @@ model EstadoPagoPartida {
   partida    Partida    @relation(fields: [partidaId], references: [id], onDelete: Cascade)
 
   @@index([estadoPagoId])
+}
+
+// Subcontrato: un tercero ejecuta un conjunto de partidas de la obra.
+// El anticipo y la retención se descuentan de los estados de pago del subcontrato.
+model Subcontrato {
+  id           String   @id @default(cuid())
+  obraId       String
+  partnerId    String
+  numero       Int // correlativo por obra (SC-0001)
+  descripcion  String?
+  total        Float // suma de las partidas asignadas
+  anticipo     Float    @default(0)
+  retencionPct Float    @default(0) // 0-100
+  estado       String   @default("VIGENTE") // VIGENTE | TERMINADO | ANULADO
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  obra     Obra                @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  partner  Partner             @relation(fields: [partnerId], references: [id])
+  partidas SubcontratoPartida[]
+
+  @@unique([obraId, numero])
+  @@index([obraId, partnerId])
+}
+
+model SubcontratoPartida {
+  id             String @id @default(cuid())
+  subcontratoId  String
+  partidaId      String
+  cantidad       Float
+  precioUnitario Float
+  total          Float
+
+  subcontrato Subcontrato @relation(fields: [subcontratoId], references: [id], onDelete: Cascade)
+  partida     Partida     @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+
+  @@index([subcontratoId])
+}
+
+// Bodega de obra: Stock por producto en una obra (separado de la bodega central).
+model BodegaObra {
+  id        String   @id @default(cuid())
+  obraId    String
+  productId String
+  cantidad  Float    @default(0)
+  updatedAt DateTime @updatedAt
+
+  obra       Obra                     @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  product    Product                  @relation(fields: [productId], references: [id])
+  movimientos MovimientoBodegaObra[]
+
+  @@unique([obraId, productId])
+  @@index([obraId])
+}
+
+// Cada entrada/salida de la bodega de obra. `referencia` hace idempotente el
+// traspaso desde la bodega central ( igual que en `registerMovement`).
+model MovimientoBodegaObra {
+  id          String   @id @default(cuid())
+  bodegaObraId String
+  tipo        String // IN | OUT
+  cantidad    Float
+  unitCost    Float    @default(0)
+  referencia  String?  @unique
+  partidaId   String? // si se consumió en una partida
+  fecha       DateTime @default(now())
+  createdById String
+  createdAt   DateTime @default(now())
+
+  bodegaObra BodegaObra @relation(fields: [bodegaObraId], references: [id], onDelete: Cascade)
+  partida    Partida?   @relation(fields: [partidaId], references: [id], onDelete: SetNull)
+  createdBy  User       @relation(fields: [createdById], references: [id])
+
+  @@index([bodegaObraId, fecha])
 }
 
 // Curso: "3°Básico A", año escolar 2026.
@@ -1155,6 +1234,7 @@ model User {
   obraMemberships             ObraMembership[]
   cubicacionesRegistradas     Cubicacion[] @relation("CubicacionRegistrada")
   cubicacionesAprobadas       Cubicacion[] @relation("CubicacionAprobada")
+  movimientosBodegaObra       MovimientoBodegaObra[]
   // Ficha de docente de la persona (si es docente de un colegio).
   teacherProfile               Teacher?
   // Personal de plataforma (Yellow ERP). Un usuario normal no lo es.
@@ -1391,6 +1471,7 @@ model Partner {
   dispatchGuides DispatchGuide[]
   products  Product[]  @relation("ProductSupplier")
   posSales  PosSale[]
+  subcontratos Subcontrato[]
 
   @@unique([companyId, rut])
   @@index([companyId, name])
@@ -1763,6 +1844,7 @@ model Product {
   posSaleItems PosSaleItem[]
   ecommerceOrderItems EcommerceOrderItem[]
   posKdsOrderItems PosKdsOrderItem[]
+  bodegaObra BodegaObra[]
 
   @@unique([companyId, sku])
   @@index([companyId, name])
