@@ -511,6 +511,8 @@ model Obra {
 
   organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   memberships  ObraMembership[]
+  partidas     Partida[]
+  costos       CostoObra[]
 
   @@index([organizationId])
 }
@@ -530,6 +532,96 @@ model ObraMembership {
 
   @@unique([userId, obraId])
   @@index([obraId])
+}
+
+// Itemizado de la obra: partidas jerárquicas (capítulos → partidas) con su
+// precio unitario. Es la estructura con la que se cotiza, mide avance, valoriza
+// estados de pago y controla costos. El total de la obra = suma de partidas.
+model Partida {
+  id             String    @id @default(cuid())
+  obraId         String
+  parentId       String? // capítulo (otra partida) o null si es raíz
+  codigo         String // "1.1", "2.3.4" — el código del itemizado
+  descripcion    String
+  unidad         String    @default("UN") // UN, M2, M3, KG, HORA...
+  cantidad       Float
+  precioUnitario Float
+  total          Float // cantidad * precioUnitario (se recalcula al guardar)
+  orden          Int       @default(0)
+  estado         String    @default("VIGENTE") // VIGENTE | ANULADA
+  motivoAnulacion String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  obra       Obra       @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  parent     Partida?   @relation("PartidaJerarquia", fields: [parentId], references: [id], onDelete: SetNull)
+  hijos      Partida[]  @relation("PartidaJerarquia")
+  apu        Apu[]
+  cubicaciones Cubicacion[]
+  costos     CostoObra[]
+
+  @@unique([obraId, codigo])
+  @@index([obraId, parentId])
+}
+
+// Análisis de precios unitarios de una partida: de dónde sale el precio.
+enum ApuTipo {
+  MATERIAL
+  MANO_OBRA
+  MAQUINARIA
+  GGASTOS // gastos generales
+}
+
+model Apu {
+  id          String  @id @default(cuid())
+  partidaId   String
+  tipo        ApuTipo
+  descripcion String
+  cantidad    Float
+  precioUnitario Float
+  total       Float
+  createdAt   DateTime @default(now())
+
+  partida Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+
+  @@index([partidaId])
+}
+
+// Costo real derivado de documentos de Facturas: nunca se escribe a mano.
+// UNIQUE por (sourceType, sourceId) evita contar dos veces el mismo documento.
+model CostoObra {
+  id          String   @id @default(cuid())
+  obraId      String
+  partidaId   String? // se puede imputar a una partida o dejar sin imputar
+  sourceType  String // PURCHASE | EXPENSE | PAYMENT | PAYROLL
+  sourceId    String
+  descripcion String
+  monto       Float
+  fecha       DateTime
+  createdAt   DateTime @default(now())
+
+  obra    Obra     @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  partida Partida? @relation(fields: [partidaId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceType, sourceId])
+  @@index([obraId, fecha])
+  @@index([partidaId])
+}
+
+// Medición física ejecutada de una partida. El avance es cubicado / presupuestado.
+model Cubicacion {
+  id            String   @id @default(cuid())
+  partidaId     String
+  fecha         DateTime @default(now())
+  cantidad      Float
+  registradoById String
+  aprobada      Boolean  @default(false)
+  aprobadaById  String?
+  createdAt     DateTime @default(now())
+
+  partida Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+
+  @@index([partidaId, fecha])
 }
 
 // Curso: "3°Básico A", año escolar 2026.

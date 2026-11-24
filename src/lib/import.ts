@@ -112,7 +112,7 @@ export async function readTabularFile(file: File): Promise<CellValue[][]> {
 
 // --- Helpers de celdas -------------------------------------------------------
 
-function normalizeKey(text: string): string {
+export function normalizeKey(text: string): string {
   return text
     .toString()
     .trim()
