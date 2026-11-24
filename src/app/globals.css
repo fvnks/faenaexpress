@@ -711,16 +711,25 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Hero: entrada de cada vista del carrusel de producto (landing SaaS) */
+/* Hero: carrusel de producto — fundido + barra de progreso continua */
 .hero-swap {
-  animation: hero-swap-in 280ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation: hero-swap-in 520ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 @keyframes hero-swap-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.hero-progress {
+  animation: hero-progress-fill 3600ms linear both;
+}
+
+@keyframes hero-progress-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-swap { animation: none; }
+  .hero-swap, .hero-progress { animation: none; }
 }

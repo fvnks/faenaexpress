@@ -196,7 +196,6 @@ const VIEWS: Record<SlideId, () => React.JSX.Element> = {
 export function HeroPanelCarousel() {
   const [active, setActive] = useState(0);
   const [pausedByUser, setPausedByUser] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const tablistRef = useRef<HTMLDivElement>(null);
 
@@ -208,7 +207,7 @@ export function HeroPanelCarousel() {
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  const paused = pausedByUser || hovered || reducedMotion;
+  const paused = pausedByUser || reducedMotion;
 
   useEffect(() => {
     if (paused) return;
@@ -233,7 +232,8 @@ export function HeroPanelCarousel() {
   return (
     <div className="relative w-full max-w-[520px] mx-auto lg:ml-auto">
       {/* Auto-cycling tabs, like the reference hero's product carousel */}
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4">
+        <div className="flex items-center justify-between gap-3">
         <div
           ref={tablistRef}
           role="tablist"
@@ -283,19 +283,18 @@ export function HeroPanelCarousel() {
             </svg>
           )}
         </button>
+        </div>
+        {/* Progreso visible del ciclo: se llena durante los 3,6 s de cada vista */}
+        <div className="mt-3 h-0.5 w-full overflow-hidden rounded-full bg-border" aria-hidden="true">
+          <div
+            key={active}
+            className="h-full w-full origin-left rounded-full bg-primary hero-progress"
+            style={{ animationPlayState: paused ? "paused" : "running" }}
+          />
+        </div>
       </div>
 
-      <div
-        role="tabpanel"
-        id="hero-panel"
-        aria-labelledby={`hero-tab-${slide.id}`}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onFocusCapture={() => setHovered(true)}
-        onBlurCapture={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node)) setHovered(false);
-        }}
-      >
+      <div role="tabpanel" id="hero-panel" aria-labelledby={`hero-tab-${slide.id}`}>
         <div key={slide.id} className="card hero-swap overflow-hidden">
           {/* Chrome de la app: constante en todas las vistas */}
           <div className="flex items-center justify-between border-b border-border bg-background/50 px-5 py-4">
