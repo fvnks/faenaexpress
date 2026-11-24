@@ -517,8 +517,55 @@ model Obra {
   subcontratos Subcontrato[]
   bodega       BodegaObra[]
   maquinarias  Maquinaria[]
+  documentos   DocumentoObra[]
 
   @@index([organizationId])
+}
+
+/**
+ * Control documental de la obra: contratos, permisos, planos, certificados,
+ * seguros... El archivo es opcional porque muchos documentos se gestionan
+ * antes de tener el papel en la mano. El estado vigente se refleja en `estado`
+ * y cada cambio queda en `SeguimientoDocumento` (trazabilidad, no solo estado).
+ */
+model DocumentoObra {
+  id               String    @id @default(cuid())
+  obraId           String
+  tipo             String
+  titulo           String
+  descripcion      String?
+  responsableId    String?
+  fechaVencimiento DateTime?
+  estado           String    @default("PENDIENTE")
+  fileName         String?
+  mimeType         String?
+  sizeBytes        Int?
+  fileData         Bytes?
+  createdById      String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  obra         Obra                   @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  responsable  User?                  @relation("DocumentoObraResponsable", fields: [responsableId], references: [id], onDelete: SetNull)
+  createdBy    User                   @relation("DocumentoObraCreadoPor", fields: [createdById], references: [id])
+  seguimientos SeguimientoDocumento[]
+
+  @@index([obraId, estado])
+  @@index([obraId, fechaVencimiento])
+}
+
+model SeguimientoDocumento {
+  id          String   @id @default(cuid())
+  documentoId String
+  estado      String
+  nota        String?
+  fecha       DateTime @default(now())
+  createdById String
+
+  documento DocumentoObra @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  createdBy User          @relation(fields: [createdById], references: [id])
+
+  @@index([documentoId, fecha])
 }
 
 // Acceso de una persona a una obra, con su rol ahí (paralelo a SchoolMembership).
@@ -1286,6 +1333,9 @@ model User {
   cubicacionesRegistradas     Cubicacion[] @relation("CubicacionRegistrada")
   cubicacionesAprobadas       Cubicacion[] @relation("CubicacionAprobada")
   movimientosBodegaObra       MovimientoBodegaObra[]
+  documentosObraResponsable   DocumentoObra[]       @relation("DocumentoObraResponsable")
+  documentosObraCreados       DocumentoObra[]       @relation("DocumentoObraCreadoPor")
+  seguimientosDocumento       SeguimientoDocumento[]
   // Ficha de docente de la persona (si es docente de un colegio).
   teacherProfile               Teacher?
   // Personal de plataforma (Yellow ERP). Un usuario normal no lo es.

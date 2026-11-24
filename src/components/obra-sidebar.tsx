@@ -77,7 +77,7 @@ const GROUPS: NavGroup[] = [
   {
     label: "Administración",
     items: [
-      { href: "/obras/documentos", label: "Documentos", section: "documentos" },
+      { href: "/obras/documentos", label: "Control documental", section: "documentos" },
       { href: "/obras/equipo", label: "Equipo", section: "equipo" },
       { href: "/obras/administracion", label: "Configuración", section: "administracion" },
     ],
