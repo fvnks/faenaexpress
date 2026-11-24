@@ -45,6 +45,11 @@
 
   /* Sombras (solo overlays) */
   --shadow-elevated: 0 8px 32px -8px rgb(0 0 0 / 0.08);
+
+  /* Detalles del catálogo (numeración gigante y textura de grid).
+     En claro: trazo oscuro sobre blanco; en oscuro: trazo claro sobre negro. */
+  --catalog-ghost: rgb(26 26 26 / 0.055);
+  --catalog-grid-line: rgb(26 26 26 / 0.04);
 }
 
 /* === MODO ALTO CONTRASTE (High Contrast) - antes "light" === */
@@ -88,6 +93,9 @@
 
   /* Sombras */
   --shadow-elevated: 0 8px 32px -8px rgb(0 0 0 / 0.1);
+
+  --catalog-ghost: rgb(232 232 232 / 0.045);
+  --catalog-grid-line: rgb(255 255 255 / 0.04);
 }
 
 /* === MODO OSCURO (Dark) - aún más oscuro === */
@@ -131,6 +139,9 @@
 
   /* Sombras */
   --shadow-elevated: 0 8px 32px -8px rgb(0 0 0 / 0.4);
+
+  --catalog-ghost: rgb(240 240 240 / 0.055);
+  --catalog-grid-line: rgb(255 255 255 / 0.045);
 }
 
 @theme inline {
@@ -764,9 +775,14 @@
 /* Selector de módulos — índice de catálogo industrial */
 .catalog-grid {
   background-image:
-    linear-gradient(to right, rgb(255 255 255 / 0.022) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.022) 1px, transparent 1px);
+    linear-gradient(to right, var(--catalog-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--catalog-grid-line) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+
+/* Numeración gigante de fondo: adaptada a claro / alto contraste / oscuro. */
+.catalog-ghost {
+  color: var(--catalog-ghost);
 }
 
 .catalog-enter {

@@ -44,10 +44,10 @@ function meta(code: string, index: number) {
 function CatalogNumber({ index, total }: { index: number; total: number }) {
   return (
     <span aria-hidden="true" className="pointer-events-none absolute -right-2 top-24 hidden select-none text-right lg:block">
-      <span key={index} className="catalog-digit block text-[12rem] font-bold leading-none tracking-tighter text-foreground/[0.025]">
+      <span key={index} className="catalog-digit catalog-ghost block text-[12rem] font-bold leading-none tracking-tighter">
         {String(index + 1).padStart(2, "0")}
       </span>
-      <span className="block pr-3 font-mono text-xs uppercase tracking-[0.18em] text-foreground/[0.05]">
+      <span className="catalog-ghost block pr-3 font-mono text-xs uppercase tracking-[0.18em]">
         de {String(total).padStart(2, "0")}
       </span>
     </span>

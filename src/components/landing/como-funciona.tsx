@@ -46,7 +46,7 @@ export function LandingComoFunciona() {
         <div className="grid gap-6 lg:grid-cols-3">
           {pasos.map((paso) => (
             <article key={paso.numero} className="group card-accent relative overflow-hidden rounded-card border border-border bg-surface p-6 transition-colors duration-150 hover:border-primary/60 hover:bg-surface-elevated">
-              <span className="pointer-events-none absolute -right-1 -top-4 font-mono text-7xl font-bold text-foreground/[0.04]">
+              <span className="catalog-ghost pointer-events-none absolute -right-1 -top-4 font-mono text-7xl font-bold">
                 {paso.numero}
               </span>
               <div className="relative flex items-start gap-4 mb-6">

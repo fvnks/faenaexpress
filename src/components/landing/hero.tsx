@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 export function LandingHero() {
   return (
     <section className="catalog-grid relative overflow-hidden border-b border-border bg-surface/50 section">
-      <span aria-hidden="true" className="pointer-events-none absolute -left-2 top-20 hidden select-none text-[16rem] font-bold leading-none tracking-tighter text-foreground/[0.02] lg:block">
+      <span aria-hidden="true" className="catalog-ghost pointer-events-none absolute -left-2 top-20 hidden select-none text-[16rem] font-bold leading-none tracking-tighter lg:block">
         01
       </span>
       <div className="relative mx-auto max-w-7xl px-6 py-20 lg:py-32">
