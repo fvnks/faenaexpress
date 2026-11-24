@@ -61,7 +61,7 @@ export function calcularTotalesObra(
 
   const presupuestado = vigentes.reduce((sum, p) => sum + p.cantidad, 0);
   const cubicadoAprobado = cubicaciones
-    .filter((c) => c.aprobada)
+    .filter((c) => c.aprobada !== false)
     .reduce((sum, c) => sum + c.cantidad, 0);
   const avanceFisico = presupuestado > 0 ? cubicadoAprobado / presupuestado : 0;
 
