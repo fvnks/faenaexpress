@@ -820,20 +820,21 @@ export async function bulkCheckSaleStatusAction(
 
     const { documentos } = await dteEmitidos(runtime, {
       empresa: rutEmpresa,
+      tipoDte: 33, // Factura electrónica
       ...filtro,
     });
 
-    // Crear mapa de folios a documentos del SII
+    // Crear mapa de folios a documentos del SII (folio normalizado sin ceros a la izquierda)
     const siiByFolio = new Map<string, (typeof documentos)[0]>();
     for (const doc of documentos) {
       if (doc.folio) {
-        siiByFolio.set(String(doc.folio), doc);
+        siiByFolio.set(sinCeros(String(doc.folio)), doc);
       }
     }
 
     // Mapear resultados para cada venta seleccionada
     for (const sale of sales) {
-      const folio = sale.documentNumber ? String(sale.documentNumber) : null;
+      const folio = sale.documentNumber ? sinCeros(String(sale.documentNumber)) : null;
       
       if (!folio) {
         results.push({
