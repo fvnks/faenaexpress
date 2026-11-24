@@ -29,6 +29,8 @@ import { syncPurchaseItemsToInventory, syncSaleItemsToInventory } from "@/lib/in
 import { formatRut, normalizeRut } from "@/lib/rut";
 import { secretsKeyConfigured } from "@/lib/secrets";
 import { createAppRuntime } from "@/lib/sii/runtime";
+import { hasStoredSiiCredentials } from "@/lib/sii-credentials";
+import { authStatus } from "@albertomarturelo/sii-core";
 import { dteEmitidos, type DteEmitidosFiltro } from "@albertomarturelo/sii-core";
 
 // ── Credenciales por empresa ────────────────────────────────────────────────
@@ -793,6 +795,25 @@ export async function bulkCheckSaleStatusAction(
 
   // Normalizar RUT de la empresa para el filtro
   const rutEmpresa = ctx.company.rut ? normalizeRut(ctx.company.rut) : "";
+
+  // Verificar que la empresa tenga credenciales SII configuradas
+  const tieneCredencialesSii = await hasStoredSiiCredentials(ctx.company.id);
+  if (!tieneCredencialesSii) {
+    return {
+      error: "Esta empresa no tiene credenciales del SII configuradas. Guárdalas en Configuración → Credenciales del SII.",
+      redirectTo: returnTo,
+    };
+  }
+
+  // Verificar que exista una sesión activa del SII (login previo desde Importar)
+  const estadoSii = await authStatus(runtime);
+  if (!estadoSii.authenticated) {
+    return {
+      error:
+        "No hay sesión del SII activa. Inicie sesión en Importar (RUT + Clave Tributaria) antes de consultar estados.",
+      redirectTo: returnTo,
+    };
+  }
 
   const results: SaleStatusResult[] = [];
 
