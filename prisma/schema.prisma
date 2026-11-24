@@ -513,6 +513,7 @@ model Obra {
   memberships  ObraMembership[]
   partidas     Partida[]
   costos       CostoObra[]
+  estadosPago  EstadoPago[]
 
   @@index([organizationId])
 }
@@ -559,6 +560,7 @@ model Partida {
   apu        Apu[]
   cubicaciones Cubicacion[]
   costos     CostoObra[]
+  estadosPagoDetalle EstadoPagoPartida[]
 
   @@unique([obraId, codigo])
   @@index([obraId, parentId])
@@ -619,9 +621,58 @@ model Cubicacion {
   aprobadaById  String?
   createdAt     DateTime @default(now())
 
-  partida Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+  partida     Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+  registradoBy User   @relation("CubicacionRegistrada", fields: [registradoById], references: [id])
+  aprobadaBy  User?   @relation("CubicacionAprobada", fields: [aprobadaById], references: [id])
 
   @@index([partidaId, fecha])
+}
+
+enum EstadoPagoStatus {
+  BORRADOR
+  APROBADO
+  FACTURADO
+  PAGADO
+}
+
+/**
+ * Estado de pago: documento con el que se cobra la obra ejecutada por períodos.
+ * Se arma desde partidas cubicadas y aprobadas. `saleId` es el vínculo a la
+ * venta de Facturas cuando se factura: UNIQUE evita facturar dos veces el EP.
+ */
+model EstadoPago {
+  id          String          @id @default(cuid())
+  obraId      String
+  numero      Int // correlativo por obra (EP-0001)
+  periodo     String          // YYYY-MM
+  estado      EstadoPagoStatus @default(BORRADOR)
+  total       Float
+  saleId      String?         @unique // la venta de Facturas que lo facturó
+  facturadoAt DateTime?
+  aprobadoById String?
+  createdById String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  obra    Obra                @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  detalle EstadoPagoPartida[]
+
+  @@unique([obraId, numero])
+  @@index([obraId, periodo])
+}
+
+model EstadoPagoPartida {
+  id            String  @id @default(cuid())
+  estadoPagoId  String
+  partidaId     String
+  cantidad      Float
+  precioUnitario Float
+  total         Float
+
+  estadoPago EstadoPago @relation(fields: [estadoPagoId], references: [id], onDelete: Cascade)
+  partida    Partida    @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+
+  @@index([estadoPagoId])
 }
 
 // Curso: "3°Básico A", año escolar 2026.
@@ -1102,6 +1153,8 @@ model User {
   invitations                  Invitation[]
   schoolMemberships            SchoolMembership[]
   obraMemberships             ObraMembership[]
+  cubicacionesRegistradas     Cubicacion[] @relation("CubicacionRegistrada")
+  cubicacionesAprobadas       Cubicacion[] @relation("CubicacionAprobada")
   // Ficha de docente de la persona (si es docente de un colegio).
   teacherProfile               Teacher?
   // Personal de plataforma (Yellow ERP). Un usuario normal no lo es.

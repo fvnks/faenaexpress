@@ -76,3 +76,5 @@ ALTER TABLE "Apu" ADD CONSTRAINT "Apu_partidaId_fkey" FOREIGN KEY ("partidaId") 
 ALTER TABLE "CostoObra" ADD CONSTRAINT "CostoObra_obraId_fkey" FOREIGN KEY ("obraId") REFERENCES "Obra"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "CostoObra" ADD CONSTRAINT "CostoObra_partidaId_fkey" FOREIGN KEY ("partidaId") REFERENCES "Partida"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "Cubicacion" ADD CONSTRAINT "Cubicacion_partidaId_fkey" FOREIGN KEY ("partidaId") REFERENCES "Partida"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Cubicacion" ADD CONSTRAINT "Cubicacion_registradoById_fkey" FOREIGN KEY ("registradoById") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Cubicacion" ADD CONSTRAINT "Cubicacion_aprobadaById_fkey" FOREIGN KEY ("aprobadaById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
