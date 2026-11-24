@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionHeader } from "@/components/landing/section-header";
 import { Card } from "@/components/ui/card";
 
 /**
@@ -79,28 +80,23 @@ export function LandingProblema() {
   return (
     <section
       id="problema"
-      className="border-t border-border bg-surface/50 section"
+      className="catalog-grid border-t border-border bg-surface/50 section"
       aria-labelledby="problema-heading"
     >
       <div className="mx-auto max-w-7xl px-6 py-24 lg:py-32 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-20 lg:mb-28">
-          <h2
-            id="problema-heading"
-            className="text-3xl lg:text-4xl font-bold text-foreground mb-6 tracking-tight text-wrap-balance"
-          >
-            Fin de mes sin sorpresas
-          </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">
-            Yellow ERP nació para resolver problemas que las empresas reales
-            enfrentan cada mes.
-          </p>
-        </div>
+        <SectionHeader
+          index="05"
+          label="El problema"
+          title="Fin de mes sin sorpresas"
+          description="Yellow ERP nació para resolver problemas que las empresas reales enfrentan cada mes."
+        />
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          {problemas.map((p) => (
+        <div className="grid gap-6 lg:grid-cols-3">
+          {problemas.map((p, index) => (
             <article key={p.id} className="group">
-              <Card className="p-6 hover:border-border-strong transition-colors">
-                <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-primary/10 text-primary mb-6 shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <Card accent className="p-6 hover:border-primary/60 transition-colors">
+                <span className="catalog-code">{String(index + 1).padStart(2, "0")}</span>
+                <div className="flex h-12 w-12 items-center justify-center rounded-control border border-primary/30 bg-primary-soft text-primary mb-6 shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                   {p.icon}
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-3">

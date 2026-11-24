@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SectionHeader } from "@/components/landing/section-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,26 +16,21 @@ export function LandingServicios() {
   return (
     <section
       id="servicios"
-      className="border-t border-border bg-surface/50 section"
+      className="catalog-grid border-t border-border bg-surface/50 section"
       aria-labelledby="servicios-heading"
     >
       <div className="mx-auto max-w-6xl px-6 py-24 lg:py-32 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-20 lg:mb-28">
-          <h2
-            id="servicios-heading"
-            className="text-3xl lg:text-4xl font-bold text-foreground mb-6 tracking-tight"
-          >
-            Dos servicios, una seriedad
-          </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">
-            Construimos el ERP que llevan las empresas chilenas y diseñamos sitios
-            corporativos que no se confunden con plantillas.
-          </p>
-        </div>
+        <SectionHeader
+          index="02"
+          label="Servicios"
+          title="Dos servicios, una seriedad"
+          description="Construimos el ERP que llevan las empresas chilenas y diseñamos sitios corporativos que no se confunden con plantillas."
+        />
 
         <div className="grid gap-8 lg:grid-cols-2">
           {/* ERP: servicio principal, más ancho */}
-          <Card className="lg:p-10">
+          <Card accent className="lg:p-10">
+            <span className="catalog-code">01 / ERP</span>
             <div className="p-0">
               <article>
                 <div className="flex items-start gap-4 mb-8">
@@ -97,7 +93,8 @@ export function LandingServicios() {
           </Card>
 
           {/* Diseño web: servicio complementario */}
-          <Card className="border border-border bg-surface">
+          <Card accent className="border border-border bg-surface">
+            <span className="catalog-code">02 / WEB</span>
             <div className="p-8 lg:p-10">
               <article>
                 <div className="flex items-start gap-4 mb-8">

@@ -6,11 +6,17 @@ import { Button } from "@/components/ui/button";
 
 export function LandingHero() {
   return (
-    <section className="border-b border-border bg-surface/50 section">
-      <div className="mx-auto max-w-7xl px-6 py-20 lg:py-32">
+    <section className="catalog-grid relative overflow-hidden border-b border-border bg-surface/50 section">
+      <span aria-hidden="true" className="pointer-events-none absolute -left-2 top-20 hidden select-none text-[16rem] font-bold leading-none tracking-tighter text-foreground/[0.02] lg:block">
+        01
+      </span>
+      <div className="relative mx-auto max-w-7xl px-6 py-20 lg:py-32">
         <div className="lg:grid lg:grid-cols-2 lg:gap-16 items-start">
           {/* Content */}
           <div className="lg:col-span-1">
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.18em] text-primary">
+              Índice / 01 — Inicio
+            </p>
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border bg-surface text-muted-foreground text-xs font-medium uppercase tracking-wider mb-6 inline-block lg:mb-10">
               <svg className="h-3 w-3 text-primary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />

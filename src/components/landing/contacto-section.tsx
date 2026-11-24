@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionHeader } from "@/components/landing/section-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,23 +14,18 @@ export function ContactoSection() {
   return (
     <section
       id="contacto"
-      className="border-t border-border bg-surface/50 section"
+      className="catalog-grid border-t border-border bg-surface/50 section"
       aria-labelledby="contacto-heading"
     >
       <div className="mx-auto max-w-3xl px-6 py-24 lg:py-32 lg:px-8">
-        <div className="text-center max-w-xl mx-auto mb-12 lg:mb-16">
-          <h2
-            id="contacto-heading"
-            className="text-3xl lg:text-4xl font-bold text-foreground mb-4 tracking-tight"
-          >
-            ¿Hablamos?
-          </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">
-            Cuéntanos qué necesitas y te respondemos en menos de 24 horas.
-          </p>
-        </div>
+        <SectionHeader
+          index="06"
+          label="Contacto"
+          title="¿Hablamos?"
+          description="Cuéntanos qué necesitas y te respondemos en menos de 24 horas."
+        />
 
-        <form className="mx-auto max-w-lg space-y-6" action="/api/contacto" method="POST">
+        <form className="card-accent relative mx-auto max-w-lg space-y-6 overflow-hidden rounded-card border border-border bg-surface p-6" action="/api/contacto" method="POST">
           <Input
             label="Nombre"
             id="nombre"

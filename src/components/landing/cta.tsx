@@ -14,6 +14,9 @@ export function LandingCTA() {
     <section className="bg-primary border-t border-primary/20 section">
       <div className="mx-auto max-w-4xl px-6 py-24 lg:py-32">
         <div className="text-center">
+          <p className="mb-5 font-mono text-xs uppercase tracking-[0.18em] text-primary-foreground/70">
+            Índice / 07 — Comenzar
+          </p>
           <h2 className="text-3xl lg:text-4xl font-bold text-primary-foreground mb-6 lg:mb-10 tracking-tight">
             ¿Listo para ordenar tus cuentas?
           </h2>

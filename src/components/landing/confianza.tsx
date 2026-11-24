@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SectionHeader } from "@/components/landing/section-header";
 
 /**
  * Sección de confianza: lo que realmente somos y cómo trabajamos.
@@ -29,25 +30,23 @@ export function LandingConfianza() {
   return (
     <section
       id="confianza"
-      className="border-t border-border bg-surface/50 section"
+      className="catalog-grid border-t border-border bg-surface/50 section"
       aria-labelledby="confianza-heading"
     >
       <div className="mx-auto max-w-5xl px-6 py-24 lg:py-32 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-20 lg:mb-28">
-          <h2
-            id="confianza-heading"
-            className="text-3xl lg:text-4xl font-bold text-foreground mb-6 tracking-tight"
-          >
-            Empresa chilena, reglas claras
-          </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">
-            Sin sorpresas, sin letras pequeñas, sin datos escondidos.
-          </p>
-        </div>
+        <SectionHeader
+          index="04"
+          label="Confianza"
+          title="Empresa chilena, reglas claras"
+          description="Sin sorpresas, sin letras pequeñas, sin datos escondidos."
+        />
 
-        <div className="grid gap-12 lg:grid-cols-3">
-          {puntos.map((p) => (
-            <article key={p.titulo}>
+        <div className="grid gap-6 lg:grid-cols-3">
+          {puntos.map((p, index) => (
+            <article key={p.titulo} className="card-accent relative overflow-hidden rounded-card border border-border bg-surface p-6 transition-colors duration-150 hover:border-primary/60 hover:bg-surface-elevated">
+              <span className="absolute right-4 top-3 font-mono text-xs text-subtle">
+                {String(index + 1).padStart(2, "0")}
+              </span>
               <div className="flex flex-col gap-4">
                 <h3 className="text-lg font-bold text-foreground">{p.titulo}</h3>
                 <p className="text-base leading-relaxed text-muted-foreground">

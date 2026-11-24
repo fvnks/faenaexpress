@@ -1,5 +1,7 @@
 "use client";
 
+import { SectionHeader } from "@/components/landing/section-header";
+
 /**
  * Cómo funciona: flujo real del producto, paso a paso.
  * Sin el template genérico de "1, 2, 3" con iconos redondos idénticos.
@@ -30,27 +32,25 @@ export function LandingComoFunciona() {
   return (
     <section
       id="como-funciona"
-      className="border-t border-border bg-surface/50 section"
+      className="catalog-grid border-t border-border bg-surface/50 section"
       aria-labelledby="como-funciona-heading"
     >
       <div className="mx-auto max-w-5xl px-6 py-24 lg:py-32 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-20 lg:mb-28">
-          <h2
-            id="como-funciona-heading"
-            className="text-3xl lg:text-4xl font-bold text-foreground mb-6 tracking-tight"
-          >
-            Cómo funciona
-          </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">
-            Tres pasos para tener los libros al día sin sorpresas de fin de mes.
-          </p>
-        </div>
+        <SectionHeader
+          index="03"
+          label="Proceso"
+          title="Cómo funciona"
+          description="Tres pasos para tener los libros al día sin sorpresas de fin de mes."
+        />
 
-        <div className="grid gap-12 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-3">
           {pasos.map((paso) => (
-            <article key={paso.numero} className="group">
-              <div className="flex items-start gap-4 mb-6">
-                <div className="flex shrink-0 items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+            <article key={paso.numero} className="group card-accent relative overflow-hidden rounded-card border border-border bg-surface p-6 transition-colors duration-150 hover:border-primary/60 hover:bg-surface-elevated">
+              <span className="pointer-events-none absolute -right-1 -top-4 font-mono text-7xl font-bold text-foreground/[0.04]">
+                {paso.numero}
+              </span>
+              <div className="relative flex items-start gap-4 mb-6">
+                <div className="flex shrink-0 items-center justify-center w-10 h-10 rounded-control border border-primary/30 bg-primary-soft font-mono text-sm font-bold text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                   {paso.numero}
                 </div>
                 <div>
@@ -59,7 +59,7 @@ export function LandingComoFunciona() {
                   </h3>
                 </div>
               </div>
-              <p className="text-base leading-relaxed text-muted-foreground">
+              <p className="relative text-base leading-relaxed text-muted-foreground">
                 {paso.descripcion}
               </p>
             </article>
