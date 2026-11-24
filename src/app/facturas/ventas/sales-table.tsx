@@ -261,13 +261,6 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
               >
                 Traer XML de Defontana
               </BulkSubmitButton>
-              <BulkSubmitButton
-                name="bulkAction"
-                value="check_status"
-                className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-3 py-1.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Consultar estado SII
-              </BulkSubmitButton>
             </div>
           </div>
         ) : null}
