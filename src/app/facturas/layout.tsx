@@ -120,7 +120,7 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
         {/* Barra superior: período + empresa + tema + campana, en el flujo del layout */}
         <div className="flex items-center justify-end gap-2 px-4 pt-4 lg:px-8 lg:pt-6 print:hidden">
           <PeriodNav className="hidden md:flex" />
-          <ModuleSwitcher modules={modules.map((m) => ({ code: m.code, name: m.name }))} activeCode="facturas" />
+          <ModuleSwitcher modules={modules.map((m) => ({ code: m.code, name: m.name, href: m.href }))} activeCode="facturas" />
           <CompanySwitcher companies={companies} activeId={active?.company.id ?? null} orgName={orgName} canManageOrganization={isOrgManager(user)} />
           <ThemeToggle />
           <Link

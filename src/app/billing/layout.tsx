@@ -35,7 +35,7 @@ export default async function BillingLayout({ children }: LayoutProps<"/billing"
               {user.name} · {user.email}
             </span>
             <ModuleSwitcher
-              modules={modules.map((module) => ({ code: module.code, name: module.name }))}
+              modules={modules.map((module) => ({ code: module.code, name: module.name, href: module.href }))}
               activeCode="billing"
             />
             <Link

@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-
-import { switchModule } from "@/app/actions/modules";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { toast } from "sonner";
 
 /**
  * Dropdown de módulos para la barra superior, con el mismo patrón del selector
@@ -16,11 +15,43 @@ export function ModuleSwitcher({
   modules,
   activeCode,
 }: {
-  modules: { code: string; name: string }[];
+  modules: { code: string; name: string; href: string }[];
   activeCode: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // El cambio de módulo es una navegación completa a propósito: antes se hacía
+  // con una Server Action que redirigía, y esa transición RSC podía terminar en
+  // "This page couldn't load". Guardamos la cookie y dejamos que el navegador
+  // cargue la ruta (con <a> de fallback si el JS no corre).
+  const cambiar = async (
+    event: MouseEvent<HTMLAnchorElement>,
+    modulo: { code: string; href: string },
+  ) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault();
+    if (pending) return;
+    setPending(modulo.code);
+    try {
+      const respuesta = await fetch("/api/modulos/activar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: modulo.code }),
+      });
+      const data = (await respuesta.json().catch(() => ({}))) as { href?: string; error?: string };
+      if (!respuesta.ok) {
+        toast.error(data.error ?? "No se pudo cambiar de módulo.");
+        return;
+      }
+      window.location.assign(data.href ?? modulo.href);
+    } catch {
+      window.location.assign(modulo.href);
+    } finally {
+      setPending(null);
+    }
+  };
 
   const active = modules.find((m) => m.code === activeCode) ?? modules[0];
   const otros = modules.filter((m) => m.code !== activeCode);
@@ -66,17 +97,19 @@ export function ModuleSwitcher({
           <ul className="flex flex-col">
             {otros.map((module) => (
               <li key={module.code}>
-                <form action={switchModule}>
-                  <input type="hidden" name="code" value={module.code} />
-                  <button
-                    type="submit"
-                    className="flex w-full items-center rounded-control px-2 py-1.5 text-left text-sm transition-colors hover:bg-background"
-                  >
-                    <span className="flex-1 truncate font-medium text-foreground">
-                      {module.name}
-                    </span>
-                  </button>
-                </form>
+                <a
+                  href={module.href}
+                  aria-disabled={pending === module.code}
+                  onClick={(event) => cambiar(event, module)}
+                  className="flex w-full items-center rounded-control px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-background aria-disabled:opacity-60"
+                >
+                  <span className="flex-1 truncate font-medium">
+                    {module.name}
+                  </span>
+                  {pending === module.code ? (
+                    <span className="text-xs text-muted-foreground">…</span>
+                  ) : null}
+                </a>
               </li>
             ))}
           </ul>

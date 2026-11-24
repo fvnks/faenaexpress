@@ -59,7 +59,7 @@ export default async function ObrasLayout({ children }: { children: React.ReactN
               {obraStatusLabel(ctx.obra.status)}
             </span>
             <ModuleSwitcher
-              modules={modules.map((module) => ({ code: module.code, name: module.name }))}
+              modules={modules.map((module) => ({ code: module.code, name: module.name, href: module.href }))}
               activeCode="obras"
             />
             <ObraSwitcher

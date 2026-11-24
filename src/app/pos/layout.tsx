@@ -44,7 +44,7 @@ export default async function PosLayout({ children }: LayoutProps<"/pos">) {
               {active.company.name}
             </span>
             <ModuleSwitcher
-              modules={modules.map((module) => ({ code: module.code, name: module.name }))}
+              modules={modules.map((module) => ({ code: module.code, name: module.name, href: module.href }))}
               activeCode="pos"
             />
             <ThemeToggle />

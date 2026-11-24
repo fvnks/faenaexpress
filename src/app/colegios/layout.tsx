@@ -85,7 +85,7 @@ export default async function ColegiosLayout({ children }: { children: React.Rea
               {user.name} · {schoolRoleLabel(ctx.role)}
             </span>
             <ModuleSwitcher
-              modules={modules.map((module) => ({ code: module.code, name: module.name }))}
+              modules={modules.map((module) => ({ code: module.code, name: module.name, href: module.href }))}
               activeCode="colegios"
             />
             <Link
