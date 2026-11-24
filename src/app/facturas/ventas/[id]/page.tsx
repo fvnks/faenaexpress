@@ -11,10 +11,12 @@ import { DteXmlPanel } from "@/components/dte-xml-panel";
 import { FetchSaleXmlButton } from "@/components/fetch-sale-xml-button";
 import { PdfFacturaButton } from "@/components/pdf-factura-button";
 import { PaymentsPanel } from "@/components/payments-panel";
+import { RepartoCentrosPanel } from "@/components/reparto-centros-panel";
 import { SaleStatusBadge } from "@/components/sale-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import DocumentHistoryTree from "@/components/document-history-tree";
 import { canWrite, requireContext } from "@/lib/auth";
+import { listCentrosCosto, listReparto, totalAsignable } from "@/lib/centros-costo";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
 import { listPayments, saleSettleTotal, sumPayments } from "@/lib/payments";
@@ -51,6 +53,11 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
   const retention = Number(sale.retentionAmount.toString());
   const toCollect = Math.max(total - retention, 0);
   const payments = await listPayments(ctx.company.id, "sale", sale.id);
+  const [centros, repartos, totalReparto] = await Promise.all([
+    listCentrosCosto(ctx.company.id),
+    listReparto(ctx.company.id, "sale", sale.id),
+    totalAsignable(ctx.company.id, "sale", sale.id),
+  ]);
   // Saldo: los abonos mandan cuando existen; si no hay, manda el estado (una
   // venta cobrada a la antigua no tiene abonos pero está saldada).
   const saldo =
@@ -386,6 +393,17 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
         
             formasDePago={formasDePago}
           />
+      ) : null}
+
+      {totalReparto !== null && sale.status !== "CANCELLED" ? (
+        <RepartoCentrosPanel
+          kind="sale"
+          documentId={sale.id}
+          total={totalReparto}
+          centros={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, active: c.active }))}
+          repartos={repartos.map((r) => ({ centroCostoId: r.centroCostoId, monto: r.monto }))}
+          writable={writable}
+        />
       ) : null}
 
       {sale.items.length === 0 && sale.xmlContent ? (

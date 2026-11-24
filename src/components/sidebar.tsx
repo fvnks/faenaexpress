@@ -290,6 +290,7 @@ const groups: SidebarGroup[] = [
           { href: "/facturas/reportes/pagos", label: "Pagos y deudas" },
           { href: "/facturas/reportes/gastos", label: "Gastos por área" },
           { href: "/facturas/reportes/ventas-por-area", label: "Ventas por área" },
+          { href: "/facturas/reportes/centros-costo", label: "Centros de costo" },
         ],
       },
       { href: "/facturas/auditoria", label: "Auditoría", section: "auditoria", icon: "auditoria" },
@@ -299,6 +300,7 @@ const groups: SidebarGroup[] = [
     label: "Administración",
     items: [
       { href: "/facturas/catalogos", label: "Catálogos", section: "catalogos", icon: "catalogos" },
+      { href: "/facturas/centros-costo", label: "Centros de costo", section: "catalogos", icon: "catalogos" },
       { href: "/facturas/importar", label: "Importar", section: "importar", icon: "importar" },
       { href: "/facturas/plantillas", label: "Plantillas", section: "plantillas", icon: "plantillas" },
       { href: "/facturas/organizacion", label: "Organización", section: "organizacion", icon: "organizacion" },

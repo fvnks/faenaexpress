@@ -10,9 +10,11 @@ import { DteXmlPanel } from "@/components/dte-xml-panel";
 import { FetchPurchaseXmlButton } from "@/components/fetch-purchase-xml-button";
 import { PdfFacturaButton } from "@/components/pdf-factura-button";
 import { PaymentsPanel } from "@/components/payments-panel";
+import { RepartoCentrosPanel } from "@/components/reparto-centros-panel";
 import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
+import { listCentrosCosto, listReparto, totalAsignable } from "@/lib/centros-costo";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate } from "@/lib/money";
 import { listPayments, sumPayments } from "@/lib/payments";
@@ -47,6 +49,11 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
   const canSeeSuppliers = canAccess(ctx.role, "proveedores");
   const bankLink = purchase.bankReconciliations[0] ?? null;
   const payments = await listPayments(ctx.company.id, "purchase", purchase.id);
+  const [centros, repartos, totalReparto] = await Promise.all([
+    listCentrosCosto(ctx.company.id),
+    listReparto(ctx.company.id, "purchase", purchase.id),
+    totalAsignable(ctx.company.id, "purchase", purchase.id),
+  ]);
   // Saldo: los abonos mandan cuando existen; si no hay, manda el estado (una
   // compra marcada pagada a la antigua no tiene abonos pero está saldada).
   const saldo =
@@ -290,6 +297,17 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
         
             formasDePago={formasDePago}
           />
+      ) : null}
+
+      {totalReparto !== null ? (
+        <RepartoCentrosPanel
+          kind="purchase"
+          documentId={purchase.id}
+          total={totalReparto}
+          centros={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, active: c.active }))}
+          repartos={repartos.map((r) => ({ centroCostoId: r.centroCostoId, monto: r.monto }))}
+          writable={writable}
+        />
       ) : null}
 
       <DocItemsTable items={purchase.items} netAmount={purchase.netAmount} />

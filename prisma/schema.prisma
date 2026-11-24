@@ -1485,6 +1485,8 @@ model Company {
   categories             Category[]
   areas                  Area[]
   salespeople            Salesperson[]
+  centrosCosto           CentroCosto[]
+  repartosCentroCosto    RepartoCentroCosto[]
   payers                 Payer[]
   workers                Worker[]
   remunerations          Remuneration[]
@@ -1623,6 +1625,47 @@ model Area {
 
   @@unique([companyId, name])
   @@index([companyId])
+}
+
+// Centro de costo: catálogo propio de la empresa para distribuir compras y
+// ventas. No se mezcla con `Area` (que es el área del gasto en otros reportes).
+model CentroCosto {
+  id          String   @id @default(cuid())
+  companyId   String
+  codigo      String
+  nombre      String
+  descripcion String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company  Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  repartos RepartoCentroCosto[]
+
+  @@unique([companyId, codigo])
+  @@index([companyId, active])
+}
+
+// Reparto de una factura (compra o venta) entre centros de costo. `monto` va
+// en CLP ya con el signo del documento (una nota de crédito resta). La suma de
+// los repartos de un documento debe ser exactamente su total asignable.
+model RepartoCentroCosto {
+  id            String   @id @default(cuid())
+  companyId     String
+  centroCostoId String
+  purchaseId    String?
+  saleId        String?
+  monto         Int
+  createdAt     DateTime @default(now())
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  centroCosto CentroCosto  @relation(fields: [centroCostoId], references: [id], onDelete: Cascade)
+  purchase    Purchase?    @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  sale        Sale?        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, purchaseId])
+  @@index([companyId, saleId])
+  @@index([centroCostoId])
 }
 
 // Vendedor que realizó la venta (catálogo administrable).
@@ -2130,6 +2173,7 @@ model Purchase {
   bankReconciliations Reconciliation[]
   payments            Payment[]
   posDtes             PosDte[]
+  repartosCentroCosto RepartoCentroCosto[]
 
   @@index([companyId, date])
   @@index([companyId, partnerId])
@@ -2207,6 +2251,7 @@ model Sale {
 
   bankReconciliations  Reconciliation[]
   payments             Payment[]
+  repartosCentroCosto  RepartoCentroCosto[]
 
   // Un documento tiene a lo sumo una asignación de comisión (único por documento).
   commissionAssignment CommissionAssignment?
