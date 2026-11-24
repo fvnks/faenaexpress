@@ -1,9 +1,11 @@
 import Link from "next/link";
 
-import { bulkSetPurchaseStatus } from "@/app/actions/purchases";
+import { bulkPurchaseAction, bulkSetPurchaseStatus } from "@/app/actions/purchases";
 import { listSavedViews } from "@/app/actions/saved-views";
 import { hasStoredDefontanaCredentials } from "@/lib/defontana/credentials";
 import { BulkSelectAll } from "@/components/bulk-select";
+import { BulkEditMenu } from "@/components/bulk-edit-menu";
+import { ListRefresh } from "@/components/list-refresh";
 import { FilterBar, type FilterField } from "@/components/filter-bar";
 import { Pagination } from "@/components/pagination";
 import { SavedViewsMenu } from "@/components/saved-views-menu";
@@ -225,12 +227,13 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
           ) : null}
         </div>
       ) : (
-        <form id="compras-bulk" action={bulkSetPurchaseStatus} className={cardClass}>
+        <form id="compras-bulk" action={bulkPurchaseAction} className={cardClass}>
           <input type="hidden" name="returnTo" value={returnTo} />
           {writable ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
               <BulkSelectAll formId="compras-bulk" total={items.length} />
               <div className="flex flex-wrap items-center gap-2">
+                <ListRefresh />
                 <button
                   type="submit"
                   data-bulk
@@ -251,12 +254,18 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
                 >
                   Marcar pendientes
                 </button>
+                <BulkEditMenu
+                  formId="compras-bulk"
+                  categories={categories.map((c) => ({ value: c.id, label: c.name }))}
+                  areas={[]}
+                  canDelete
+                />
               </div>
             </div>
           ) : null}
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
-              <thead>
+              <thead className="sticky-table-head">
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   {writable ? <th className="w-8 px-2 py-2" /> : null}
                   <SortableHeader label="Proveedor" href={proveedorSort.href} active={proveedorSort.active} dir={proveedorSort.dir} />

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { diffChanges, recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
+import { applyBulkEdit, parseBulkChange, type BulkField } from "@/lib/bulk-edit";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { safeReturnTo } from "@/lib/return-to";
@@ -315,6 +316,76 @@ export async function bulkSetPurchaseStatus(formData: FormData): Promise<void> {
       status === "PAID" ? "Marcadas como pagadas." : "Marcadas como pendientes.",
     );
   }
+  revalidatePath("/facturas/compras");
+  redirect(returnTo);
+}
+
+/** Acción masiva unificada de compras: estado, edición en bloque y borrado. */
+export async function bulkPurchaseAction(formData: FormData): Promise<void> {
+  const ctx = await requireContext();
+  const returnTo = safeReturnTo(formData.get("returnTo"), "/facturas/compras");
+  if (!canWrite(ctx, "compras")) redirect(returnTo);
+
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length === 0) {
+    await setFlash("error", "No hay compras seleccionadas.");
+    redirect(returnTo);
+  }
+
+  const bulkAction = String(formData.get("bulkAction") ?? "");
+
+  if (bulkAction === "bulk_edit") {
+    const change = parseBulkChange(formData.get("bulkField"), formData.get("bulkValue"));
+    if (!change) {
+      await setFlash("error", "No se reconoció el campo o el valor a cambiar.");
+    } else {
+      const count = await applyBulkEdit("purchase", ctx.company.id, ids, change);
+      if (count > 0) {
+        const labels: Record<BulkField, string> = { categoria: "categoría", area: "área", metodoPago: "medio de pago" };
+        await recordAudit(ctx, {
+          action: "UPDATE",
+          entityType: "Purchase",
+          entityId: "bulk",
+          summary: `Cambió la ${labels[change.field]} de ${count} ${count === 1 ? "compra" : "compras"}.`,
+        });
+        await setFlash("success", `${count} ${count === 1 ? "compra actualizada" : "compras actualizadas"}.`);
+      } else {
+        await setFlash("error", "Ninguna compra fue actualizada.", "Revisa el valor elegido.");
+      }
+    }
+  } else if (bulkAction === "bulk_delete") {
+    const result = await db.purchase.deleteMany({
+      where: { id: { in: ids }, companyId: ctx.company.id, payments: { none: {} } },
+    });
+    if (result.count > 0) {
+      await recordAudit(ctx, {
+        action: "DELETE",
+        entityType: "Purchase",
+        entityId: "bulk",
+        summary: `Eliminó ${result.count} ${result.count === 1 ? "compra" : "compras"}.`,
+      });
+      await setFlash("success", `${result.count} ${result.count === 1 ? "compra eliminada" : "compras eliminadas"}.`);
+    } else {
+      await setFlash("error", "Ninguna compra fue eliminada.", "Las compras con abonos no se pueden borrar.");
+    }
+  } else {
+    // Compatibilidad: el formulario de estado antiguo no manda bulkAction.
+    const status = formData.get("status") === "PAID" ? "PAID" : "PENDING";
+    const result = await db.purchase.updateMany({
+      where: { id: { in: ids }, companyId: ctx.company.id, payments: { none: {} } },
+      data: { status, paymentDate: status === "PAID" ? todayDate() : null },
+    });
+    if (result.count > 0) {
+      await recordAudit(ctx, {
+        action: "UPDATE",
+        entityType: "Purchase",
+        entityId: "bulk",
+        summary: `Marcó ${result.count} ${result.count === 1 ? "compra" : "compras"} como ${status === "PAID" ? "pagadas" : "pendientes"}.`,
+      });
+      await setFlash("success", `${result.count} ${result.count === 1 ? "compra actualizada" : "compras actualizadas"}.`);
+    }
+  }
+
   revalidatePath("/facturas/compras");
   redirect(returnTo);
 }

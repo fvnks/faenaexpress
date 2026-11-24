@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { EntityHistoryButton } from "@/components/entity-history";
 import { dangerButtonClass } from "@/lib/ui";
 
 const iconCls = "h-4 w-4 shrink-0";
@@ -104,6 +105,7 @@ export function ActionsDropdown({
   onCancel,
   fetchDefontana,
   hasDefontanaCredentials,
+  entityType,
 }: {
   editHref: string;
   pdfHref?: string;
@@ -127,6 +129,8 @@ export function ActionsDropdown({
     label?: string;
   };
   hasDefontanaCredentials?: boolean;
+  /** Si se indica, se añade la acción "Historial" con el cajón de auditoría. */
+  entityType?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -341,6 +345,11 @@ export function ActionsDropdown({
                     {fetchDefontana.label ?? "Traer XML de Defontana"}
                   </button>
                 )}
+              </li>
+            ) : null}
+            {entityType ? (
+              <li>
+                <EntityHistoryButton entityType={entityType} entityId={deleteId} />
               </li>
             ) : null}
           </ul>

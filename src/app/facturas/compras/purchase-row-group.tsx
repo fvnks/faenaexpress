@@ -131,6 +131,7 @@ export function PurchaseRowGroup({ purchase, notas, writable, hasDefontanaCreden
                   : "Traer XML de Defontana",
               }}
               hasDefontanaCredentials={hasDefontanaCredentials}
+              entityType="Purchase"
             />
           </td>
         ) : null}

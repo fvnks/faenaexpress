@@ -14,6 +14,10 @@ import { SortableHeader } from "@/components/sortable-header";
 import { XmlBadge } from "@/components/xml-badge";
 import { notaArbol, NotesToggle, NotesTreeRow, type NotaArbol } from "@/components/notes-tree";
 import { ListPreferencesMenu, rowPadding, useListPreferences } from "@/components/list-preferences";
+import { BulkEditMenu } from "@/components/bulk-edit-menu";
+import { DuplicateBadge } from "@/components/duplicate-badge";
+import { ListRefresh } from "@/components/list-refresh";
+import { docKey, duplicateCounts } from "@/lib/duplicates";
 import { useListShortcuts } from "@/components/use-list-shortcuts";
 import { formatCLP, formatDate } from "@/lib/money";
 import { sortHref, type SortDir } from "@/lib/sort";
@@ -62,6 +66,8 @@ type Props = {
   sortKey: string;
   sortDir: SortDir;
   fetchSaleXmlAction: (prev: FetchSaleXmlState, formData: FormData) => Promise<FetchSaleXmlState>;
+  categories?: { id: string; name: string }[];
+  areas?: { id: string; name: string }[];
   hasDefontanaCredentials?: boolean;
   /** Las notas que anulan cada factura anulada (por folio), de `listSales`. */
   notasDeAnulaciones?: Record<string, NotaArbol[]>;
@@ -106,7 +112,7 @@ function BulkSubmitButton({ name, value, dataBulk, children, className }: { name
   );
 }
 
-export function SalesTable({ items, writable, salespeople, canManageSalespeople, params, sortKey, sortDir, hasDefontanaCredentials, notasDeAnulaciones }: Props) {
+export function SalesTable({ items, writable, salespeople, canManageSalespeople, params, sortKey, sortDir, hasDefontanaCredentials, notasDeAnulaciones, categories = [], areas = [] }: Props) {
   const [cancelModalSaleId, setCancelModalSaleId] = useState<string | null>(null);
   const [assignModalSaleId, setAssignModalSaleId] = useState<string | null>(null);
   const [assignSalespersonId, setAssignSalespersonId] = useState<string>("");
@@ -131,6 +137,12 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
   ];
   const prefs = useListPreferences("ventas", columns.map((c) => c.key));
   useListShortcuts({ searchId: "q" });
+  const duplicados = duplicateCounts(
+    items.map((sale) => ({
+      id: sale.id,
+      key: docKey(sale.partner.rut, sale.documentNumber, sale.totalAmount),
+    })),
+  );
   const cancelSaleItem = cancelModalSaleId ? items.find((s) => s.id === cancelModalSaleId) : null;
   const assignSaleItem = assignModalSaleId ? items.find((s) => s.id === assignModalSaleId) : null;
   const actionModalSale = actionModal ? items.find((s) => s.id === actionModal.saleId) : null;
@@ -235,7 +247,24 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <BulkSelectAll formId="ventas-bulk" total={items.length} />
             <div className="flex flex-wrap items-center gap-2">
+              <ListRefresh />
               <ListPreferencesMenu section="ventas" columns={columns} prefs={prefs} />
+              {writable ? (
+                <BulkEditMenu
+                  formId="ventas-bulk"
+                  categories={categories.map((c) => ({ value: c.id, label: c.name }))}
+                  areas={areas.map((a) => ({ value: a.id, label: a.name }))}
+                  paymentMethods={[
+                    { value: "Efectivo", label: "Efectivo" },
+                    { value: "Transferencia", label: "Transferencia" },
+                    { value: "Tarjeta de crédito", label: "Tarjeta de crédito" },
+                    { value: "Tarjeta de débito", label: "Tarjeta de débito" },
+                    { value: "Cheque", label: "Cheque" },
+                    { value: "Otro", label: "Otro" },
+                  ]}
+                  canDelete
+                />
+              ) : null}
               <BulkSubmitButton
                 name="status"
                 value="PAID"
@@ -322,18 +351,18 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
         ) : null}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
-            <thead>
+            <thead className="sticky-table-head">
               <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                {writable ? <th className="w-8 px-2 py-2" /> : null}
+                {writable ? <th scope="col" className="w-8 px-2 py-2"><span className="sr-only">Selección</span></th> : null}
                 <SortableHeader label="Cliente" href={clienteSort.href} active={clienteSort.active} dir={clienteSort.dir} />
                 <SortableHeader label="Folio" href={folioSort.href} active={folioSort.active} dir={folioSort.dir} />
                 <SortableHeader label="Fecha" href={fechaSort.href} active={fechaSort.active} dir={fechaSort.dir} />
                 {prefs.isVisible("oc") ? <SortableHeader label="OC" href={ocSort.href} active={ocSort.active} dir={ocSort.dir} /> : null}
                 {prefs.isVisible("hes") ? <SortableHeader label="HES" href={hesSort.href} active={hesSort.active} dir={hesSort.dir} /> : null}
-                {writable && prefs.isVisible("estadoSii") ? <th className="px-3 py-2 text-left text-xs text-muted-foreground">Estado SII</th> : null}
+                {writable && prefs.isVisible("estadoSii") ? <th scope="col" className="px-3 py-2 text-left text-xs text-muted-foreground">Estado SII</th> : null}
                 <SortableHeader label="Estado" href={estadoSort.href} active={estadoSort.active} dir={estadoSort.dir} />
                 <SortableHeader label="Total" href={totalSort.href} active={totalSort.active} dir={totalSort.dir} align="right" />
-                {writable ? <th className="w-12 px-2 py-2" /> : null}
+                {writable ? <th scope="col" className="w-12 px-2 py-2"><span className="sr-only">Acciones</span></th> : null}
               </tr>
             </thead>
             <tbody>
@@ -369,6 +398,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                   </td>
                   <td className="tabular whitespace-nowrap px-3 py-2 align-top">
                     <span className="block">{sale.documentNumber ?? "—"}</span>
+                    <DuplicateBadge count={duplicados.get(sale.id) ?? 0} />
                     <XmlBadge tieneXml={Boolean(sale.xmlContent)} />
                     {notas.length > 0 ? (
                       <NotesToggle
@@ -456,6 +486,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                             : "Traer XML de Defontana",
                         }}
                         hasDefontanaCredentials={hasDefontanaCredentials}
+                        entityType="Sale"
                         onMarkPaid={() => {
                           setActionError(null);
                           setActionModal({ saleId: sale.id, kind: "PAID", date: "" });

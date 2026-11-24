@@ -785,6 +785,22 @@
   color: var(--catalog-ghost);
 }
 
+/* Cabecera fija en listas largas: se pega bajo el topbar al scrollear. */
+.sticky-table-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--surface);
+}
+
+.sticky-table-total {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background-color: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
 .catalog-enter {
   animation: catalog-enter 420ms cubic-bezier(0.2, 0, 0, 1) both;
 }

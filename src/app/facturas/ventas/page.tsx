@@ -6,11 +6,12 @@ import { Pagination } from "@/components/pagination";
 import { SavedViewsMenu } from "@/components/saved-views-menu";
 import { SyncSiiMenu } from "@/components/sync-sii-menu";
 import { canWrite, requireContext } from "@/lib/auth";
-import { listCategories, listSalespeople } from "@/lib/catalogs";
+import { listAreas, listCategories, listSalespeople } from "@/lib/catalogs";
 import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
 import { listCustomers } from "@/lib/partners";
 import { hasStoredDefontanaCredentials } from "@/lib/defontana/credentials";
+import { paymentMethodOptions } from "@/lib/payment-methods";
 import { canAccess } from "@/lib/permissions";
 import { listSales, parseSaleFilters } from "@/lib/sales";
 import { parseSortDir } from "@/lib/sort";
@@ -34,6 +35,10 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
     tipo: one(searchParams.tipo),
     desde: one(searchParams.desde),
     hasta: one(searchParams.hasta),
+    minTotal: one(searchParams.minTotal),
+    maxTotal: one(searchParams.maxTotal),
+    metodoPago: one(searchParams.metodoPago),
+    area: one(searchParams.area),
     orden: one(searchParams.orden),
     dir: one(searchParams.dir),
     pagina: one(searchParams.pagina),
@@ -42,11 +47,13 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
   const sortKey = raw.orden ?? "fecha";
   // Sin parámetro, la lista abre por fecha descendente: lo más reciente arriba.
   const sortDir = parseSortDir(raw.dir ?? "desc");
-  const [customers, categories, salespeople, savedViews] = await Promise.all([
+  const [customers, categories, areas, salespeople, savedViews, paymentMethods] = await Promise.all([
     listCustomers(ctx.company.id),
     listCategories(ctx.company.id),
+    listAreas(ctx.company.id),
     listSalespeople(ctx.company.id),
     listSavedViews("ventas"),
+    paymentMethodOptions(ctx.company.id),
   ]);
   const { items, totals, page, pageCount, notasDeAnulaciones } = await listSales(ctx.company.id, filters);
   const hasFilters = Boolean(
@@ -71,6 +78,24 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
 
   const filterFields: FilterField[] = [
     { kind: "text", name: "q", label: "Buscar", placeholder: "Cliente, RUT, N° factura, OC, guía…", grow: true },
+    { kind: "amount", name: "minTotal", label: "Monto desde", placeholder: "100000", width: "w-full sm:w-32" },
+    { kind: "amount", name: "maxTotal", label: "Monto hasta", placeholder: "1000000", width: "w-full sm:w-32" },
+    {
+      kind: "select",
+      name: "area",
+      label: "Área",
+      emptyLabel: "Todas",
+      width: "w-full sm:w-40",
+      options: areas.map((area) => ({ value: area.id, label: area.name })),
+    },
+    {
+      kind: "select",
+      name: "metodoPago",
+      label: "Medio de pago",
+      emptyLabel: "Todos",
+      width: "w-full sm:w-44",
+      options: paymentMethods.map((method) => ({ value: method, label: method })),
+    },
     {
       kind: "multi",
       name: "cliente",
@@ -239,6 +264,8 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
           sortKey={sortKey}
           sortDir={sortDir}
           fetchSaleXmlAction={fetchSaleXmlAction}
+          categories={categories}
+          areas={areas}
           hasDefontanaCredentials={hasDefontanaCredentials}
           notasDeAnulaciones={notasDeAnulaciones}
         />

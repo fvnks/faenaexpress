@@ -4,6 +4,7 @@ import { listSavedViews } from "@/app/actions/saved-views";
 import { deleteExpense } from "@/app/actions/expenses";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { FilterBar, type FilterField } from "@/components/filter-bar";
+import { ListRefresh } from "@/components/list-refresh";
 import { Pagination } from "@/components/pagination";
 import { ReimbursementBadge } from "@/components/reimbursement-badge";
 import { SavedViewsMenu } from "@/components/saved-views-menu";
@@ -115,7 +116,8 @@ export default async function ExpensesPage(props: PageProps<"/facturas/gastos">)
             Gastos de la empresa, con quién pagó cada uno y su reembolso.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ListRefresh />
           {totals.count > 0 ? (
             <Link href={exportHref} className={secondaryButtonClass}>Exportar CSV</Link>
           ) : null}
@@ -187,7 +189,7 @@ export default async function ExpensesPage(props: PageProps<"/facturas/gastos">)
         <>
           <div className={cardClass + " overflow-x-auto"}>
             <table className="w-full border-collapse text-sm">
-              <thead>
+              <thead className="sticky-table-head">
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <SortableHeader label="Fecha" href={fechaSort.href} active={fechaSort.active} dir={fechaSort.dir} />
                   <SortableHeader label="Descripción" href={descSort.href} active={descSort.active} dir={descSort.dir} />
@@ -239,6 +241,7 @@ export default async function ExpensesPage(props: PageProps<"/facturas/gastos">)
                     {writable ? (
                       <td className="px-2 py-2 align-top text-right">
                         <ActionsDropdown
+                          entityType="Expense"
                           editHref={`/facturas/gastos/${expense.id}/editar`}
                           deleteAction={deleteExpense}
                           deleteId={expense.id}

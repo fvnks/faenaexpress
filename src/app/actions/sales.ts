@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { diffChanges, recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
+import { applyBulkEdit, parseBulkChange, type BulkField } from "@/lib/bulk-edit";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { computeTotal, formatCLP, todayDate } from "@/lib/money";
@@ -760,6 +761,56 @@ export async function bulkSalesAction(formData: FormData): Promise<void> {
         );
       } else {
         await setFlash("error", "Ninguna venta fue actualizada.", "Las ventas ya tenían ese vendedor o no existen.");
+      }
+      break;
+    }
+
+    case "bulk_edit": {
+      const change = parseBulkChange(formData.get("bulkField"), formData.get("bulkValue"));
+      if (!change) {
+        await setFlash("error", "No se reconoció el campo o el valor a cambiar.");
+        break;
+      }
+      const count = await applyBulkEdit("sale", ctx.company.id, ids, change);
+      if (count > 0) {
+        const labels: Record<BulkField, string> = {
+          categoria: "categoría",
+          area: "área",
+          metodoPago: "medio de pago",
+        };
+        await recordAudit(ctx, {
+          action: "UPDATE",
+          entityType: "Sale",
+          entityId: "bulk",
+          summary: `Cambió la ${labels[change.field]} de ${count} ${count === 1 ? "venta" : "ventas"}.`,
+        });
+        await setFlash("success", `${count} ${count === 1 ? "venta actualizada" : "ventas actualizadas"}.`);
+      } else {
+        await setFlash("error", "Ninguna venta fue actualizada.", "Revisa el valor elegido.");
+      }
+      break;
+    }
+
+    case "bulk_delete": {
+      if (!canWrite(ctx, "ventas")) {
+        await setFlash("error", "No tienes permiso para eliminar ventas.");
+        break;
+      }
+      // Solo se pueden borrar documentos sin abonos: borrar una venta con
+      // pagos dejaría el dinero sin rastro.
+      const result = await db.sale.deleteMany({
+        where: { id: { in: ids }, companyId: ctx.company.id, payments: { none: {} } },
+      });
+      if (result.count > 0) {
+        await recordAudit(ctx, {
+          action: "DELETE",
+          entityType: "Sale",
+          entityId: "bulk",
+          summary: `Eliminó ${result.count} ${result.count === 1 ? "venta" : "ventas"}.`,
+        });
+        await setFlash("success", `${result.count} ${result.count === 1 ? "venta eliminada" : "ventas eliminadas"}.`);
+      } else {
+        await setFlash("error", "Ninguna venta fue eliminada.", "Las ventas con abonos no se pueden borrar.");
       }
       break;
     }

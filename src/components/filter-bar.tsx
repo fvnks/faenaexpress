@@ -11,6 +11,7 @@ import { listaFiltros } from "@/lib/validation";
 
 export type FilterField =
   | { kind: "text"; name: string; label: string; placeholder?: string; grow?: boolean; width?: string }
+  | { kind: "amount"; name: string; label: string; placeholder?: string; width?: string }
   | {
       kind: "select";
       name: string;
@@ -122,6 +123,18 @@ export function FilterBar({
               initial={searchParams.get(field.name) ?? ""}
               placeholder={field.placeholder}
               onCommit={(value) => apply(field.name, value, "replace")}
+            />
+          </div>
+        ) : field.kind === "amount" ? (
+          <div key={field.name} className={"flex flex-col gap-1 " + (field.width ?? "w-full sm:w-36")}>
+            <label htmlFor={field.name} className={labelClass}>
+              {field.label}
+            </label>
+            <TextFilter
+              id={field.name}
+              initial={searchParams.get(field.name) ?? ""}
+              placeholder={field.placeholder ?? "Ej: 100000"}
+              onCommit={(value) => apply(field.name, value.replace(/[^\d.-]/g, ""), "replace")}
             />
           </div>
         ) : field.kind === "multi" ? (

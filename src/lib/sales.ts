@@ -21,6 +21,12 @@ export type SaleFilters = {
   vendedor: string[];
   /** Varias tipo de documento a la vez (factura + boleta, por ejemplo). */
   tipo: DocumentType[];
+  /** Rango de monto total (CLP entero). */
+  minTotal?: number;
+  maxTotal?: number;
+  /** Medio de pago y área del documento. */
+  metodoPago?: string;
+  area?: string;
   from?: Date;
   to?: Date;
   sort?: string;
@@ -73,6 +79,10 @@ export function parseSaleFilters(searchParams: {
   tipo?: string;
   desde?: string;
   hasta?: string;
+  minTotal?: string;
+  maxTotal?: string;
+  metodoPago?: string;
+  area?: string;
   orden?: string;
   dir?: string;
   pagina?: string;
@@ -92,6 +102,10 @@ export function parseSaleFilters(searchParams: {
     tipo: listaFiltros(searchParams.tipo).filter(
       (v): v is DocumentType => (documentTypeValues as readonly string[]).includes(v),
     ),
+    minTotal: searchParams.minTotal ? Number(searchParams.minTotal) : undefined,
+    maxTotal: searchParams.maxTotal ? Number(searchParams.maxTotal) : undefined,
+    metodoPago: searchParams.metodoPago || undefined,
+    area: searchParams.area || undefined,
     from: searchParams.desde ? new Date(`${searchParams.desde}T00:00:00.000Z`) : undefined,
     to: searchParams.hasta ? new Date(`${searchParams.hasta}T23:59:59.999Z`) : undefined,
     sort: searchParams.orden || undefined,
@@ -127,6 +141,16 @@ function buildWhere(companyId: string, filters: SaleFilters): Prisma.SaleWhereIn
   if (filters.tipo.length > 0) {
     where.documentType = { in: filters.tipo };
   }
+
+  if (filters.minTotal != null || filters.maxTotal != null) {
+    where.totalAmount = {
+      ...(filters.minTotal != null && Number.isFinite(filters.minTotal) ? { gte: filters.minTotal } : {}),
+      ...(filters.maxTotal != null && Number.isFinite(filters.maxTotal) ? { lte: filters.maxTotal } : {}),
+    };
+  }
+
+  if (filters.metodoPago) where.paymentMethod = filters.metodoPago;
+  if (filters.area) where.areaId = filters.area;
 
   if (filters.q) {
     // El RUT se guarda con puntos, así que un RUT escrito sin ellos necesita

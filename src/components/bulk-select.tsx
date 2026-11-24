@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { formatCLP } from "@/lib/money";
 
@@ -16,6 +16,7 @@ import { formatCLP } from "@/lib/money";
 export function BulkSelectAll({ formId, total }: { formId: string; total: number }) {
   const [selected, setSelected] = useState(0);
   const [amount, setAmount] = useState(0);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const form = document.getElementById(formId);
@@ -26,6 +27,10 @@ export function BulkSelectAll({ formId, total }: { formId: string; total: number
       setSelected(state.count);
       setAmount(state.amount);
       setActionsEnabled(form, state.count);
+      if (selectAllRef.current) {
+        selectAllRef.current.indeterminate = state.count > 0 && state.count < total;
+        selectAllRef.current.checked = state.count === total && total > 0;
+      }
     };
 
     sync();
@@ -44,11 +49,15 @@ export function BulkSelectAll({ formId, total }: { formId: string; total: number
     setSelected(state.count);
     setAmount(state.amount);
     setActionsEnabled(form, state.count);
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = state.count > 0 && state.count < total;
+    }
   };
 
   return (
     <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
       <input
+        ref={selectAllRef}
         type="checkbox"
         onChange={(event) => toggleAll(event.target.checked)}
         aria-label="Seleccionar todas las filas"
