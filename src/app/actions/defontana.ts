@@ -796,28 +796,28 @@ export async function bulkCheckSaleStatusAction(
   // Normalizar RUT de la empresa para el filtro
   const rutEmpresa = ctx.company.rut ? normalizeRut(ctx.company.rut) : "";
 
-  // Verificar que la empresa tenga credenciales SII configuradas
-  const tieneCredencialesSii = await hasStoredSiiCredentials(ctx.company.id);
-  if (!tieneCredencialesSii) {
-    return {
-      error: "Esta empresa no tiene credenciales del SII configuradas. Guárdalas en Configuración → Credenciales del SII.",
-      redirectTo: returnTo,
-    };
-  }
-
-  // Verificar que exista una sesión activa del SII (login previo desde Importar)
-  const estadoSii = await authStatus(runtime);
-  if (!estadoSii.authenticated) {
-    return {
-      error:
-        "No hay sesión del SII activa. Inicie sesión en Importar (RUT + Clave Tributaria) antes de consultar estados.",
-      redirectTo: returnTo,
-    };
-  }
-
-  const results: SaleStatusResult[] = [];
-
   try {
+    // Verificar que la empresa tenga credenciales SII configuradas
+    const tieneCredencialesSii = await hasStoredSiiCredentials(ctx.company.id);
+    if (!tieneCredencialesSii) {
+      return {
+        error: "Esta empresa no tiene credenciales del SII configuradas. Guárdalas en Configuración → Credenciales del SII.",
+        redirectTo: returnTo,
+      };
+    }
+
+    // Verificar que exista una sesión activa del SII (login previo desde Importar)
+    const estadoSii = await authStatus(runtime);
+    if (!estadoSii.authenticated) {
+      return {
+        error:
+          "No hay sesión del SII activa. Inicie sesión en Importar (RUT + Clave Tributaria) antes de consultar estados.",
+        redirectTo: returnTo,
+      };
+    }
+
+    const results: SaleStatusResult[] = [];
+
     // Consultar dteEmitidos con filtros por folio y rango de fechas
     // Como dteEmitidos no filtra por múltiples folios a la vez, haremos una
     // consulta por período amplio y filtraremos localmente
@@ -836,17 +836,28 @@ export async function bulkCheckSaleStatusAction(
     const filtro: DteEmitidosFiltro = {
       desde: desde.toISOString().slice(0, 10),
       hasta: hasta.toISOString().slice(0, 10),
-      // tipoDte: 33, // Factura electrónica (opcional)
+      tipoDoc: 33, // Factura electrónica
     };
 
-    const { documentos } = await dteEmitidos(runtime, {
-      empresa: rutEmpresa,
-      tipoDte: 33, // Factura electrónica
-      ...filtro,
-    });
+    let documentos: Array<{ codigo: string; folio: number | null; estado: string | null; receptorRut: string | null; receptorNombre: string | null; fecha: string | null; monto: number | null }> = [];
+    try {
+      const resultado = await dteEmitidos(runtime, {
+        empresa: rutEmpresa,
+        tipoDte: 33,
+        ...filtro,
+      });
+      documentos = resultado.documentos;
+    } catch (dteError) {
+      const mensaje = dteError instanceof Error ? dteError.message : String(dteError);
+      console.error("[sii] dteEmitidos falló:", mensaje);
+      return {
+        error: `Error consultando documentos emitidos del SII: ${mensaje}`,
+        redirectTo: returnTo,
+      };
+    }
 
     // Crear mapa de folios a documentos del SII (folio normalizado sin ceros a la izquierda)
-    const siiByFolio = new Map<string, (typeof documentos)[0]>();
+    const siiByFolio = new Map<string, (typeof documentos)[number]>();
     for (const doc of documentos) {
       if (doc.folio) {
         siiByFolio.set(sinCeros(String(doc.folio)), doc);
@@ -856,7 +867,7 @@ export async function bulkCheckSaleStatusAction(
     // Mapear resultados para cada venta seleccionada
     for (const sale of sales) {
       const folio = sale.documentNumber ? sinCeros(String(sale.documentNumber)) : null;
-      
+
       if (!folio) {
         results.push({
           id: sale.id,
@@ -873,7 +884,7 @@ export async function bulkCheckSaleStatusAction(
       }
 
       const siiDoc = siiByFolio.get(folio);
-      
+
       if (!siiDoc) {
         results.push({
           id: sale.id,
@@ -892,7 +903,7 @@ export async function bulkCheckSaleStatusAction(
       // Mapear estado del SII
       let estado: SaleStatusResult["estado"] = "DESCONOCIDO";
       const estadoRaw = siiDoc.estado ?? null;
-      
+
       switch (estadoRaw) {
         case "EMI":
           estado = "ACEPTADO";
@@ -921,38 +932,41 @@ export async function bulkCheckSaleStatusAction(
       });
     }
 
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    let flashMessage = message;
-    if (message.includes("NotAuthenticatedError") || message.includes("expiró")) {
-      flashMessage = "La sesión del SII expiró. Vuelve a iniciarla en Importar.";
+    const aceptados = results.filter((r) => r.estado === "ACEPTADO").length;
+    const rechazados = results.filter((r) => r.estado === "RECHAZADO").length;
+    const previews = results.filter((r) => r.estado === "PREVIEW").length;
+    const desconocidos = results.filter((r) => r.estado === "DESCONOCIDO").length;
+    const errores = results.filter((r) => r.estado === "ERROR").length;
+
+    // Guardar el estado SII por venta para que se muestre en la tabla.
+    await db.$transaction(
+      results.map((r) =>
+        db.sale.update({
+          where: { id: r.id, companyId: ctx.company.id },
+          data: { siiStatus: r.estado },
+        }),
+      ),
+    );
+
+    const message = `Consultados ${results.length}: ${aceptados} aceptados, ${rechazados} rechazados, ${previews} preview, ${desconocidos} no encontrados, ${errores} errores.`;
+
+    if (aceptados + rechazados > 0) {
+      return { ok: true, message, results, redirectTo: returnTo };
     } else {
-      flashMessage = `Error consultando SII: ${message}`;
+      return { error: message, redirectTo: returnTo };
     }
-    return { error: flashMessage, redirectTo: returnTo };
-  }
-
-  const aceptados = results.filter((r) => r.estado === "ACEPTADO").length;
-  const rechazados = results.filter((r) => r.estado === "RECHAZADO").length;
-  const previews = results.filter((r) => r.estado === "PREVIEW").length;
-  const desconocidos = results.filter((r) => r.estado === "DESCONOCIDO").length;
-  const errores = results.filter((r) => r.estado === "ERROR").length;
-
-  // Guardar el estado SII por venta para que se muestre en la tabla.
-  await db.$transaction(
-    results.map((r) =>
-      db.sale.update({
-        where: { id: r.id, companyId: ctx.company.id },
-        data: { siiStatus: r.estado },
-      }),
-    ),
-  );
-
-  const message = `Consultados ${results.length}: ${aceptados} aceptados, ${rechazados} rechazados, ${previews} preview, ${desconocidos} no encontrados, ${errores} errores.`;
-
-  if (aceptados + rechazados > 0) {
-    return { ok: true, message, results, redirectTo: returnTo };
-  } else {
-    return { error: message, redirectTo: returnTo };
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : String(error);
+    console.error("[sii] bulkCheckSaleStatusAction falló:", mensaje);
+    if (mensaje.includes("NotAuthenticatedError") || mensaje.includes("expiró")) {
+      return {
+        error: "La sesión del SII expiró. Vuelve a iniciarla en Importar.",
+        redirectTo: returnTo,
+      };
+    }
+    return {
+      error: `Error inesperado consultando estados SII: ${mensaje}`,
+      redirectTo: returnTo,
+    };
   }
 }
