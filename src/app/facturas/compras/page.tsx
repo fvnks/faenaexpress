@@ -120,7 +120,7 @@ export default async function PurchasesPage(props: PageProps<"/facturas/compras"
       options: [
         { value: "pendientes", label: "Pendientes de pago" },
         { value: "parciales", label: "Pago parcial" },
-        { value: "vencidas", label: "Vencidas" },
+        { value: "vencidas", label: "Vencidas (por fecha)" },
         { value: "pagadas", label: "Pagadas" },
       ],
     },

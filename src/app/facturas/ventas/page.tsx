@@ -18,7 +18,6 @@ import { parseSortDir } from "@/lib/sort";
 import { cardClass, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
 import { SalesTable } from "./sales-table";
-import { fetchSaleXmlAction } from "@/app/actions/defontana";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
@@ -139,7 +138,7 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
         { value: "confirming", label: "En confirming" },
         { value: "cobradas", label: "Cobradas" },
         { value: "parciales", label: "Parciales" },
-        { value: "vencidas", label: "Vencidas" },
+        { value: "vencidas", label: "Vencidas (estado)" },
         { value: "anuladas", label: "Anuladas" },
       ],
     },
@@ -263,7 +262,6 @@ export default async function SalesPage(props: PageProps<"/facturas/ventas">) {
           params={searchParams}
           sortKey={sortKey}
           sortDir={sortDir}
-          fetchSaleXmlAction={fetchSaleXmlAction}
           categories={categories}
           areas={areas}
           hasDefontanaCredentials={hasDefontanaCredentials}

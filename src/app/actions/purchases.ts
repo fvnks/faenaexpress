@@ -371,18 +371,27 @@ export async function bulkPurchaseAction(formData: FormData): Promise<void> {
   } else {
     // Compatibilidad: el formulario de estado antiguo no manda bulkAction.
     const status = formData.get("status") === "PAID" ? "PAID" : "PENDING";
+    const conAbonos = await db.purchase.count({
+      where: { id: { in: ids }, companyId: ctx.company.id, payments: { some: {} } },
+    });
     const result = await db.purchase.updateMany({
       where: { id: { in: ids }, companyId: ctx.company.id, payments: { none: {} } },
       data: { status, paymentDate: status === "PAID" ? todayDate() : null },
     });
-    if (result.count > 0) {
+    if (result.count > 0 || conAbonos > 0) {
       await recordAudit(ctx, {
         action: "UPDATE",
         entityType: "Purchase",
         entityId: "bulk",
-        summary: `Marcó ${result.count} ${result.count === 1 ? "compra" : "compras"} como ${status === "PAID" ? "pagadas" : "pendientes"}.`,
+        summary: `Marcó ${result.count} ${result.count === 1 ? "compra" : "compras"} como ${status === "PAID" ? "pagadas" : "pendientes"}.${conAbonos > 0 ? ` ${conAbonos} con abonos se omitieron.` : ""}`,
       });
-      await setFlash("success", `${result.count} ${result.count === 1 ? "compra actualizada" : "compras actualizadas"}.`);
+      await setFlash(
+        conAbonos > 0 ? "error" : "success",
+        `${result.count} ${result.count === 1 ? "compra actualizada" : "compras actualizadas"}.`,
+        conAbonos > 0
+          ? `${conAbonos} ${conAbonos === 1 ? "compra tiene abonos" : "compras tienen abonos"} y su estado es derivado: no se ${conAbonos === 1 ? "cambió" : "cambiaron"}.`
+          : undefined,
+      );
     }
   }
 

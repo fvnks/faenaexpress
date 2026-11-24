@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 
 import { bulkSalesAction, bulkSetSaleStatus, deleteSale, markSalePaid, markSaleConfirming, clearSaleConfirming, assignSaleSalesperson } from "@/app/actions/sales";
-import { fetchSaleXmlAction, type FetchSaleXmlState } from "@/app/actions/defontana";
+import { fetchSaleXmlAction } from "@/app/actions/defontana";
 import { ActionsDropdown } from "@/components/actions-dropdown";
 import { BulkSelectAll } from "@/components/bulk-select";
 import { CancelSaleModal } from "@/components/cancel-sale-modal";
@@ -19,6 +19,7 @@ import { DuplicateBadge } from "@/components/duplicate-badge";
 import { ListRefresh } from "@/components/list-refresh";
 import { docKey, duplicateCounts } from "@/lib/duplicates";
 import { useListShortcuts } from "@/components/use-list-shortcuts";
+import { useFocusTrap } from "@/components/use-focus-trap";
 import { formatCLP, formatDate } from "@/lib/money";
 import { sortHref, type SortDir } from "@/lib/sort";
 import { cardClass, controlClass } from "@/lib/ui";
@@ -65,7 +66,6 @@ type Props = {
   params: Record<string, string | string[] | undefined>;
   sortKey: string;
   sortDir: SortDir;
-  fetchSaleXmlAction: (prev: FetchSaleXmlState, formData: FormData) => Promise<FetchSaleXmlState>;
   categories?: { id: string; name: string }[];
   areas?: { id: string; name: string }[];
   hasDefontanaCredentials?: boolean;
@@ -120,6 +120,8 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
   const [actionSalespersonId, setActionSalespersonId] = useState<string>("");
   const [bulkVendedorId, setBulkVendedorId] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const assignModalRef = useFocusTrap<HTMLDivElement>(Boolean(assignModalSaleId));
+  const actionModalRef = useFocusTrap<HTMLDivElement>(Boolean(actionModal));
   /** Qué facturas tienen el árbol de notas desplegado (por id). */
   const [notasAbiertas, setNotasAbiertas] = useState(() => new Set<string>());
   const [, startTransition] = useTransition();
@@ -542,6 +544,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
       {assignSaleItem ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 p-4">
           <div
+            ref={assignModalRef}
             role="dialog"
             aria-modal="true"
             aria-label="Asignar vendedor"
@@ -600,6 +603,7 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
       {actionModal && actionModalSale ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 p-4">
           <div
+            ref={actionModalRef}
             role="dialog"
             aria-modal="true"
             aria-label={actionModal.kind === "PAID" ? "Cobrar factura" : "Marcar Confirming"}

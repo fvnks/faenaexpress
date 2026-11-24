@@ -122,39 +122,42 @@ export function DateRangeFilter({ from, to }: { from?: string; to?: string }) {
     <div ref={rootRef} className="flex flex-col gap-1">
       <label className="text-sm font-medium">Fechas</label>
       <div className="relative">
-        <button
-          type="button"
-          onClick={toggleOpen}
-          aria-expanded={open}
-          aria-haspopup="true"
+        <div
           className={
-            "flex w-full items-center gap-2 rounded-control border px-3 py-2 text-sm transition-colors " +
+            "flex w-full items-center rounded-control border text-sm transition-colors " +
             (hasValue
               ? "border-primary bg-primary-soft/50 text-primary"
               : "border-border bg-surface text-muted-foreground hover:bg-background")
           }
         >
-          <CalendarIcon />
-          <span className="flex-1 text-left">{label}</span>
+          <button
+            type="button"
+            onClick={toggleOpen}
+            aria-expanded={open}
+            aria-haspopup="true"
+            className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left"
+          >
+            <CalendarIcon />
+            <span className="flex-1 truncate">{label}</span>
+          </button>
           {(urlFrom || urlTo) ? (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); clear(); }}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); clear(); } }}
+            <button
+              type="button"
+              onClick={clear}
               aria-label="Limpiar fechas"
-              className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+              title="Limpiar fechas"
+              className="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
-            </span>
+            </button>
           ) : (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true">
               <path d="M7 15l5 5 5-5" /><path d="M7 9l5-5 5 5" />
             </svg>
           )}
-        </button>
+        </div>
 
         {open ? (
           <div className="absolute right-0 top-full z-40 mt-1 min-w-[340px] rounded-card border border-border bg-surface p-4 shadow-lg">

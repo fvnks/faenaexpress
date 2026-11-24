@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -140,30 +140,44 @@ export function ActionsDropdown({
   const rootRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const MENU_HEIGHT = 220;
+  // El menú mide distinto según las acciones disponibles (editar, PDF, cobrar,
+  // anular, Defontana, historial…). Medirlo del DOM evita el 220 fijo que
+  // desbordaba la pantalla en Ventas, que tiene siete acciones.
+  const menuRef = useRef<HTMLDivElement>(null);
+  const MENU_HEIGHT = 220; // solo para decidir la primera apertura
+
+  const place = () => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = 224; // w-56
+    const height = menuRef.current?.offsetHeight || MENU_HEIGHT;
+    const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < height + 16 && rect.top > height + 16;
+
+    setPos({
+      top: openUpward ? Math.max(8, rect.top - height - 8) : Math.min(rect.bottom + 8, window.innerHeight - height - 8),
+      left,
+    });
+  };
 
   const openMenu = () => {
     if (open) {
       setOpen(false);
       return;
     }
-    const rect = rootRef.current?.getBoundingClientRect();
-    const width = 224; // w-56
-    const left = rect
-      ? Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
-      : 0;
-
-    const spaceBelow = window.innerHeight - (rect?.bottom ?? 0);
-    const openUpward = spaceBelow < MENU_HEIGHT + 16 && (rect?.top ?? 0) > MENU_HEIGHT + 16;
-
-    setPos({
-      top: openUpward
-        ? Math.max(8, (rect?.top ?? 0) - MENU_HEIGHT - 8)
-        : (rect?.bottom ?? 0) + 8,
-      left,
-    });
+    place();
     setOpen(true);
   };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
+    // Foco en el primer item para que las flechas funcionen desde el inicio.
+    menuRef.current
+      ?.querySelector<HTMLElement>('a[href], button:not([disabled])')
+      ?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -171,7 +185,25 @@ export function ActionsDropdown({
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        rootRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+        return;
+      }
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      event.preventDefault();
+      const items = Array.from(
+        menuRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [role="menuitem"]:not([disabled])',
+        ) ?? [],
+      );
+      if (items.length === 0) return;
+      const current = items.indexOf(document.activeElement as HTMLElement);
+      const next =
+        event.key === "ArrowDown"
+          ? (current + 1) % items.length
+          : (current - 1 + items.length) % items.length;
+      items[next]?.focus();
     };
     const close = () => setOpen(false);
     document.addEventListener("pointerdown", onPointerDown);
@@ -201,6 +233,9 @@ export function ActionsDropdown({
 
       {open && pos ? (
         <div
+          ref={menuRef}
+          role="menu"
+          aria-label="Acciones del documento"
           className="fixed z-50 w-56 rounded-card border border-border bg-surface p-1 shadow-lg"
           style={{ top: pos.top, left: pos.left }}
         >

@@ -638,7 +638,8 @@ export async function assignSaleSalesperson(formData: FormData): Promise<void> {
  * Recibe un campo `bulkAction` que indica qué operación realizar:
  * - "set_status": cambiar estado (PAID, PENDING, PARTIAL, OVERDUE, CANCELLED)
  * - "fetch_xml": traer XML de Defontana
- * - "check_status": consultar estado SII
+ * - "check_status": consultar estado SII (sin botón en la UI: se dejó la acción
+ *   preparada para reactivarla cuando el scraper MIPYME vuelva a estar disponible)
  * - "assign_salesperson": asignar vendedor
  * 
  * Para compatibilidad con botones de estado antiguos, también acepta el campo `status`
@@ -675,6 +676,9 @@ export async function bulkSalesAction(formData: FormData): Promise<void> {
       const validStatuses = ["PENDING", "PAID", "PARTIAL", "OVERDUE", "CANCELLED"] as const;
       const status = validStatuses.find((s) => s === rawStatus) ?? "PENDING";
 
+      const conAbonos = await db.sale.count({
+        where: { id: { in: ids }, companyId: ctx.company.id, payments: { some: {} } },
+      });
       const result = await db.sale.updateMany({
         where: { id: { in: ids }, companyId: ctx.company.id, payments: { none: {} } },
         data: {
@@ -684,7 +688,7 @@ export async function bulkSalesAction(formData: FormData): Promise<void> {
         },
       });
 
-      if (result.count > 0) {
+      if (result.count > 0 || conAbonos > 0) {
         const statusLabels: Record<string, string> = {
           PENDING: "por cobrar",
           PAID: "cobradas",
@@ -696,12 +700,14 @@ export async function bulkSalesAction(formData: FormData): Promise<void> {
           action: "UPDATE",
           entityType: "Sale",
           entityId: "bulk",
-          summary: `Marcó ${result.count} ${result.count === 1 ? "venta" : "ventas"} como ${statusLabels[status]}.`,
+          summary: `Marcó ${result.count} ${result.count === 1 ? "venta" : "ventas"} como ${statusLabels[status]}.${conAbonos > 0 ? ` ${conAbonos} con abonos se omitieron.` : ""}`,
         });
         await setFlash(
-          "success",
+          conAbonos > 0 ? "error" : "success",
           `${result.count} ${result.count === 1 ? "venta actualizada" : "ventas actualizadas"}`,
-          `Marcadas como ${statusLabels[status]}.`,
+          conAbonos > 0
+            ? `${conAbonos} ${conAbonos === 1 ? "venta tiene abonos" : "ventas tienen abonos"} y su estado es derivado: no se ${conAbonos === 1 ? "cambió" : "cambiaron"}.`
+            : `Marcadas como ${statusLabels[status]}.`,
         );
       }
       break;
