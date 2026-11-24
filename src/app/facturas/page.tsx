@@ -224,11 +224,22 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
       </div>
 
       <section className="mt-6" aria-labelledby="kpis-title">
-        <h2 id="kpis-title" className="text-sm font-semibold text-muted-foreground">
-          Indicadores de {mes}
-        </h2>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="mb-1 font-mono text-xs uppercase tracking-[0.18em] text-primary">
+              Índice / 01 — Indicadores
+            </p>
+            <h2 id="kpis-title" className="text-sm font-semibold text-muted-foreground">
+              Indicadores de {mes}
+            </h2>
+          </div>
+          <p className="hidden font-mono text-xs uppercase tracking-wider text-subtle sm:block">
+            {ctx.company.name} · {period}
+          </p>
+        </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Kpi01
+            code="01 / VENTAS"
             title="Ventas (neto)"
             value={iva.sales.net}
             icon={<TrendingUp aria-hidden="true" className="size-4" />}
@@ -236,6 +247,7 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
             footer={footerVentas}
           />
           <Kpi01
+            code="02 / COMPRAS"
             title="Compras (neto)"
             value={iva.purchases.net}
             icon={<ShoppingBag aria-hidden="true" className="size-4" />}
@@ -243,6 +255,7 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
             footer={footerCompras}
           />
           <Kpi01
+            code="03 / GASTOS"
             title="Gastos"
             value={iva.expenses.total}
             icon={<Receipt aria-hidden="true" className="size-4" />}
@@ -250,6 +263,7 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
             footer="Incluye IVA"
           />
           <Kpi01
+            code="04 / IVA"
             title={iva.ivaResultado >= 0 ? "IVA a pagar" : "Remanente de IVA"}
             value={Math.abs(iva.ivaResultado)}
             icon={<Percent aria-hidden="true" className="size-4" />}
@@ -261,11 +275,13 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
             }
           />
           <Kpi04
+            code="05 / POR COBRAR"
             title="Por cobrar"
             value={pending.porCobrar}
             footer="Ventas pendientes de cobro"
           />
           <Kpi04
+            code="06 / POR PAGAR"
             title="Por pagar"
             value={pending.porPagar}
             footer="Compras pendientes de pago"
@@ -354,21 +370,40 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
         )}
       </section>
 
-      <h2 className="mt-8 text-sm font-semibold text-muted-foreground">Módulos</h2>
+      <div className="mt-8 flex items-end justify-between gap-3">
+        <div>
+          <p className="mb-1 font-mono text-xs uppercase tracking-[0.18em] text-primary">
+            Índice / 02 — Secciones
+          </p>
+          <h2 className="text-sm font-semibold text-muted-foreground">Módulos</h2>
+        </div>
+        <p className="font-mono text-xs uppercase tracking-wider text-subtle">
+          {String(visible.length).padStart(2, "0")} DISPONIBLES
+        </p>
+      </div>
       <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {visible.map((module) => (
+        {visible.map((module, index) => (
           <li key={module.name}>
             <Link
               href={module.href}
-              className="group flex h-full flex-col rounded-card border border-border bg-surface p-5 transition-all hover:border-primary hover:shadow-md"
+              className="card-accent group relative flex h-full flex-col overflow-hidden rounded-card border border-border bg-surface p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/60 hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-control bg-primary-soft">
+              <span className="absolute right-4 top-4 font-mono text-[10px] uppercase tracking-widest text-subtle">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-control border border-primary/30 bg-primary-soft text-primary">
                 <ModuleIcon name={module.icon} />
               </div>
-              <h3 className="mt-3 font-semibold">{module.name}</h3>
+              <h3 className="mt-3 font-semibold text-foreground">{module.name}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{module.description}</p>
-              <span className="mt-auto pt-3 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                Ir al módulo
+              <span className="mt-auto flex items-center justify-between pt-4">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors group-hover:text-foreground">
+                  Entrar
+                </span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-muted-foreground transition-[transform,color] duration-150 group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true">
+                  <path d="M5 12h14" />
+                  <path d="m13 6 6 6-6 6" />
+                </svg>
               </span>
             </Link>
           </li>

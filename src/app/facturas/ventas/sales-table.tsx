@@ -372,18 +372,18 @@ export function SalesTable({ items, writable, salespeople, canManageSalespeople,
                   {writable ? (
                     <td className="px-3 py-2 align-top">
                       {sale.siiStatus === "ACEPTADO" ? (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-green-soft px-2 py-1 text-xs font-medium text-green">
-                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-green" />
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-success-soft px-2 py-1 text-xs font-medium text-success">
+                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success" />
                           Aceptado SII
                         </span>
                       ) : sale.siiStatus === "RECHAZADO" ? (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-red-soft px-2 py-1 text-xs font-medium text-red">
-                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red" />
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-danger-soft px-2 py-1 text-xs font-medium text-danger">
+                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-danger" />
                           Rechazado SII
                         </span>
                       ) : sale.siiStatus === "PREVIEW" ? (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-yellow-soft px-2 py-1 text-xs font-medium text-yellow">
-                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-yellow" />
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-accent-soft px-2 py-1 text-xs font-medium text-accent">
+                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
                           Preview SII
                         </span>
                       ) : sale.siiStatus ? (

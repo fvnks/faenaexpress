@@ -4,10 +4,12 @@ import { forwardRef } from "react";
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   elevated?: boolean;
+  /** Franja superior de cobre y código de catálogo: el sello visual del ERP. */
+  accent?: boolean;
 }
 
 const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ className, children, elevated = false, ...props }, ref) => {
+  ({ className, children, elevated = false, accent = false, ...props }, ref) => {
     return (
       <div
         ref={ref}
@@ -15,8 +17,9 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
           elevated
             ? "bg-surface-elevated border border-border-strong shadow-elevated"
             : "bg-surface border border-border",
-          "rounded-[8px] transition-colors duration-120",
-          !elevated && "hover:border-border-strong",
+          "rounded-card relative overflow-hidden transition-colors duration-150",
+          !elevated && "hover:border-primary/60",
+          accent && "card-accent",
           className,
         ]
           .filter(Boolean)

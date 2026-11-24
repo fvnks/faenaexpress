@@ -161,7 +161,9 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
             ) : null}
           </Link>
         </div>
-        <main className="min-w-0 flex-1 px-4 py-4 lg:px-10 lg:py-6 print:p-0">{children}</main>
+        <main className="catalog-grid min-w-0 flex-1 px-4 py-4 lg:px-10 lg:py-6 print:p-0 print:bg-none">
+          {children}
+        </main>
       </div>
       </div>
       <LiveSearchInputs />

@@ -83,7 +83,7 @@ export default function FacturaPlantillasPage() {
   if (cargando) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         <p className="mt-4 text-sm text-muted-foreground">
           Cargando plantillas...
         </p>
@@ -93,7 +93,7 @@ export default function FacturaPlantillasPage() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-red-500">
+      <div className="flex flex-col items-center justify-center h-64 text-danger">
         <p>{error}</p>
         <button
           onClick={() => {

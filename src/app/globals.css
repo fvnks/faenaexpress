@@ -225,6 +225,15 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Utilidades usadas por los componentes pero que no existían como tal:
+     se mapean a los tokens industriales para que no haya colores huérfanos. */
+  .rounded-card { border-radius: var(--radius-md); }
+  .rounded-control { border-radius: var(--radius-sm); }
+  .text-muted-foreground { color: var(--foreground-muted); }
+  .text-subtle { color: var(--foreground-subtle); }
+  .bg-muted { background-color: var(--surface-elevated); }
+  .font-heading { font-family: var(--font-sans); }
+
   ::selection {
     background-color: var(--primary);
     color: var(--primary-foreground);
@@ -590,6 +599,28 @@
 
 .card:hover {
   border-color: var(--border-strong);
+}
+
+/* Sello industrial: franja de cobre arriba y código de catálogo.
+   Se aplica a través de <Card accent> y a los KPI del dashboard. */
+.card-accent::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background-color: var(--primary);
+}
+
+.catalog-code {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--foreground-subtle);
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 .card-hover {
