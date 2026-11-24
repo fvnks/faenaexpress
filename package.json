@@ -41,7 +41,7 @@
     "jsbarcode": "^3.12.3",
     "jszip": "^3.10.2",
     "lucide-react": "^1.61.0",
-    "next": "16.4.2",
+    "next": "16.4.6",
     "open-banking-chile": "^2.1.2",
     "pdf417-generator": "^1.1.1",
     "playwright": "^1.64.0",
