@@ -212,8 +212,45 @@ const pos: AppModule = {
  
 // Cookie con el último módulo usado (se marca como sugerencia en /modulos).
 export const MODULE_COOKIE = "facturas_module";
+
+const obras: AppModule = {
+  code: "obras",
+  name: "Obras",
+  description: "Presupuesto por partidas, avance, estados de pago y control de costos.",
+  href: "/obras",
+  // Como Colegios: no basta con que la organización lo haya contratado, la
+  // persona debe pertenecer a alguna obra (personal de plataforma incluido).
+  hasAccess: async (userId) => {
+    const user = await getCurrentUser();
+    if (!user || user.id !== userId) return false;
+    const { hasPlatformLevel } = await import("@/lib/platform");
+    if (await hasPlatformLevel(userId, "SUPPORT")) return true;
+    const { visibleObras } = await import("@/lib/obra-auth");
+    return (await visibleObras(user)).length > 0;
+  },
+  pendings: async (userId) => {
+    const user = await getCurrentUser();
+    if (!user || user.id !== userId) return [];
+    const { visibleObras } = await import("@/lib/obra-auth");
+    const obrasVisibles = await visibleObras(user);
+    if (obrasVisibles.length === 0) return [];
+    const { db } = await import("@/lib/db");
+    const [enCurso, planificadas] = await Promise.all([
+      db.obra.count({
+        where: { id: { in: obrasVisibles.map((o) => o.id) }, status: "EN_CURSO" },
+      }),
+      db.obra.count({
+        where: { id: { in: obrasVisibles.map((o) => o.id) }, status: "PLANIFICADA" },
+      }),
+    ]);
+    return [
+      { label: "Obras en curso", value: `${enCurso}` },
+      { label: "Por iniciar", value: `${planificadas}` },
+    ];
+  },
+};
  
-const ALL_MODULES: AppModule[] = [facturas, colegios, billing, pos];
+const ALL_MODULES: AppModule[] = [facturas, colegios, billing, pos, obras];
 
 /**
  * Módulos a los que el usuario puede entrar: los del registry a los que tiene
@@ -289,6 +326,7 @@ const TAGLINES: Record<string, string> = {
   colegios: "Libro de clases, asistencia, notas y convivencia.",
   billing: "Facturas de la plataforma, planes y métodos de pago.",
   pos: "Ventas rápidas, control de caja e impresión de tickets.",
+  obras: "Presupuesto por partidas, avance y control de costos de obra.",
 };
 
 export const PRODUCTOS_PUBLICOS: ProductoPublico[] = ALL_MODULES.map((m) => ({

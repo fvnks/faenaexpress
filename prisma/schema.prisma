@@ -42,6 +42,7 @@ model Organization {
   usage                UsageRecord[]
   accessLogs           AccessLog[]
   schools              School[]
+  obras                Obra[]
   platformInvoices     PlatformInvoice[]
   platformPaymentMethods PlatformPaymentMethod[]
 }
@@ -471,6 +472,64 @@ model SchoolMembership {
 
   @@unique([userId, schoolId])
   @@index([schoolId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Módulo Obras (producto aparte, paralelo a Colegios y POS).
+// El aislamiento es por OBRA, no por empresa: un usuario ve solo las obras a
+// las que pertenece. La cookie de obra es aparte de la de empresa/colegio.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ObraRole {
+  ADMIN_OBRA // ve y decide todo en la obra
+  CAPATAZ // registra avance, cubicaciones y consumos
+  CONTADOR // costos, estados de pago y documentos
+  VISUALIZADOR // solo lectura
+}
+
+enum ObraStatus {
+  PLANIFICADA
+  EN_CURSO
+  SUSPENDIDA
+  TERMINADA
+}
+
+model Obra {
+  id             String     @id @default(cuid())
+  organizationId String? // la organización que la contrató; null si es suelta
+  name           String
+  code           String? // código interno de la obra (ej. "OB-2026-01")
+  mandante       String?
+  rutMandante    String?
+  direccion      String?
+  comuna         String?
+  fechaInicio    DateTime?
+  fechaTermino   DateTime?
+  status         ObraStatus @default(PLANIFICADA)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  memberships  ObraMembership[]
+
+  @@index([organizationId])
+}
+
+// Acceso de una persona a una obra, con su rol ahí (paralelo a SchoolMembership).
+model ObraMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  obraId    String
+  role      ObraRole @default(VISUALIZADOR)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  obra Obra @relation(fields: [obraId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, obraId])
+  @@index([obraId])
 }
 
 // Curso: "3°Básico A", año escolar 2026.
@@ -950,6 +1009,7 @@ model User {
   orgMembers                   OrgMember[]
   invitations                  Invitation[]
   schoolMemberships            SchoolMembership[]
+  obraMemberships             ObraMembership[]
   // Ficha de docente de la persona (si es docente de un colegio).
   teacherProfile               Teacher?
   // Personal de plataforma (Yellow ERP). Un usuario normal no lo es.

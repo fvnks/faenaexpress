@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 
 import {
+  createObraFromAdmin,
   createSchoolFromAdmin,
   createUserFromAdmin,
   type PlatformActionState,
@@ -129,6 +130,90 @@ export function CreateUserForm({
  * deja al operador dentro como DIRECTOR: sin un colegio, el módulo no aparecía
  * en el selector por más que estuviera habilitado.
  */
+export function CreateObraForm({
+  organizations,
+}: {
+  organizations: { id: string; name: string }[];
+}) {
+  const [state, action, pending] = useActionState<PlatformActionState, FormData>(
+    createObraFromAdmin,
+    undefined,
+  );
+
+  useEffect(() => {
+    if (state?.ok) toast.success("Obra creada");
+  }, [state]);
+
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label htmlFor="new-obra-name" className={labelClass}>
+            Nombre de la obra
+          </label>
+          <input
+            id="new-obra-name"
+            name="name"
+            type="text"
+            required
+            maxLength={120}
+            placeholder="Edificio Plaza Norte - Etapa 1"
+            className={controlClass}
+          />
+        </div>
+        <div>
+          <label htmlFor="new-obra-org" className={labelClass}>
+            Organización
+          </label>
+          <select
+            id="new-obra-org"
+            name="organizationId"
+            defaultValue=""
+            className={controlClass}
+          >
+            <option value="">Sin organización</option>
+            {organizations.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="new-obra-code" className={labelClass}>
+            Código
+          </label>
+          <input
+            id="new-obra-code"
+            name="code"
+            type="text"
+            maxLength={30}
+            placeholder="OB-2026-01"
+            className={controlClass}
+          />
+        </div>
+        <div>
+          <label htmlFor="new-obra-mandante" className={labelClass}>
+            Mandante
+          </label>
+          <input
+            id="new-obra-mandante"
+            name="mandante"
+            type="text"
+            maxLength={120}
+            placeholder="Constructora o empresa dueña"
+            className={controlClass}
+          />
+        </div>
+      </div>
+      {state?.error ? <p className="text-sm text-danger">{state.error}</p> : null}
+      <div>
+        <SubmitButton disabled={pending} pendingLabel="Creando…">Crear obra</SubmitButton>
+      </div>
+    </form>
+  );
+}
+
 export function CreateSchoolForm({
   organizations,
 }: {

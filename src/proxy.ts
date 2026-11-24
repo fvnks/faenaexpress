@@ -20,6 +20,7 @@ const SESSION_COOKIE = "facturas_session";
 const PROTEGIDAS = [
   "/facturas",
   "/pos",
+  "/obras",
   "/admin",
   "/perfil",
   "/modulos",

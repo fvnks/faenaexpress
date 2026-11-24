@@ -88,6 +88,15 @@ export const ORG_MODULES: OrgModule[] = [
     sections: [],
     core: false,
   },
+  {
+    code: "obras",
+    name: "Obras",
+    description: "Presupuesto por partidas, avance, estados de pago y control de costos.",
+    // Obras es otro producto aparte: rutas y permisos propios (`ObraSection`).
+    // Acá solo se declara para que se pueda vender y habilitar por organización.
+    sections: [],
+    core: false,
+  },
 ];
 
 /** Módulos del núcleo: siempre están, no se tocan. */

@@ -1204,3 +1204,63 @@ export async function createSchoolFromAdmin(
   revalidatePath("/modulos");
   return { ok: true, organizationId: organizationId ?? undefined };
 }
+
+/** Crea una obra desde la consola y habilita el módulo Obras para su organización. */
+export async function createObraFromAdmin(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const name = String(formData.get("name") ?? "").trim();
+  const organizationId = String(formData.get("organizationId") ?? "").trim() || null;
+  const code = String(formData.get("code") ?? "").trim() || null;
+  const mandante = String(formData.get("mandante") ?? "").trim() || null;
+  const rutMandante = String(formData.get("rutMandante") ?? "").trim() || null;
+  const comuna = String(formData.get("comuna") ?? "").trim() || null;
+
+  if (name.length < 2 || name.length > 120) {
+    return { error: "El nombre de la obra debe tener entre 2 y 120 caracteres." };
+  }
+
+  if (organizationId) {
+    const org = await db.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    });
+    if (!org) return { error: "Esa organización no existe." };
+  }
+
+  const obra = await db.obra.create({
+    data: {
+      name,
+      code,
+      organizationId,
+      mandante,
+      rutMandante,
+      comuna,
+      // El operador queda como administrador para poder configurarla.
+      memberships: {
+        create: { userId: ctx.user.id, role: "ADMIN_OBRA" },
+      },
+    },
+    select: { id: true, name: true },
+  });
+
+  if (organizationId) {
+    await setOrganizationModule(organizationId, "obras", true, "manual");
+  }
+
+  await recordPlatformAudit(ctx, {
+    action: "CREATE",
+    entityType: "Obra",
+    entityId: obra.id,
+    organizationId,
+    summary: `Creó la obra «${obra.name}»${organizationId ? " y habilitó el módulo Obras para la organización" : ""}.`,
+  });
+
+  revalidatePath("/admin/obras");
+  revalidatePath("/admin/organizaciones");
+  revalidatePath("/modulos");
+  return { ok: true, organizationId: organizationId ?? undefined };
+}
