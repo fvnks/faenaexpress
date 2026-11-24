@@ -2,26 +2,72 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { logout } from "@/app/actions/auth";
+import { CompanySwitcher } from "@/components/company-switcher";
 import { ModuleSelector, type ModuleCard } from "@/components/modulos/module-selector";
 import { PlatformMark } from "@/components/platform-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { requireUser } from "@/lib/auth";
+import { UserMenu } from "@/components/user-menu";
+import { getActiveMembership, isOrgManager, requireUser, visibleCompanies } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { roleLabel } from "@/lib/labels";
 import { enabledModules, MODULE_COOKIE } from "@/lib/modules";
+import { isAnyStaff } from "@/lib/platform";
+import { hashToken } from "@/lib/session";
+import { hasTwoFactor, recomiendaTwoFactor } from "@/lib/two-factor";
 
 export const metadata: Metadata = {
   title: "Tus módulos — Yellow ERP",
   description: "Elige el módulo en el que quieres trabajar.",
 };
 
-/** Cabecera compartida de las variantes del selector. */
-function SelectorHeader({ userName }: { userName: string }) {
+type HeaderData = {
+  userName: string;
+  userEmail: string;
+  roleLabelValue: string;
+  orgName: string | null;
+  companies: Array<{ id: string; name: string }>;
+  activeCompanyId: string | null;
+  isOrgManagerValue: boolean;
+  isPlatformStaffValue: boolean;
+  mustChangePassword: boolean;
+  twoFactorActive: boolean;
+  twoFactorRecommended: boolean;
+  otherSessions: number;
+  lastModule: { name: string; href: string } | null;
+};
+
+/** Cabecera del selector: marca + switcher de empresa + tema + menú de cuenta. */
+function SelectorHeader({ data }: { data: HeaderData }) {
+  const showSwitcher = data.companies.length > 1;
   return (
     <header className="border-b border-border">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-6 py-4">
         <PlatformMark />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {showSwitcher ? (
+            <CompanySwitcher
+              companies={data.companies}
+              activeId={data.activeCompanyId}
+              orgName={data.orgName}
+              canManageOrganization={data.isOrgManagerValue}
+            />
+          ) : null}
           <ThemeToggle />
-          <span className="hidden text-sm text-muted-foreground sm:inline">{userName}</span>
+          <UserMenu
+            variant="header"
+            userName={data.userName}
+            userEmail={data.userEmail}
+            roleLabel={data.roleLabelValue}
+            isPlatformStaff={data.isPlatformStaffValue}
+            isOrgManager={data.isOrgManagerValue}
+            mustChangePassword={data.mustChangePassword}
+            twoFactorActive={data.twoFactorActive}
+            twoFactorRecommended={data.twoFactorRecommended}
+            otherSessions={data.otherSessions}
+            lastModule={data.lastModule}
+            logout={logout}
+          />
         </div>
       </div>
     </header>
@@ -31,6 +77,38 @@ function SelectorHeader({ userName }: { userName: string }) {
 export default async function ModulosPage() {
   const user = await requireUser();
   const modules = await enabledModules(user.id);
+  const cookieStore = await cookies();
+  const sugerido = cookieStore.get(MODULE_COOKIE)?.value;
+
+  // Datos del header: se consultan una sola vez y se comparten con ambas ramas.
+  const [active, companies, isStaff, twoFactor, dosFactorRecomendado, sessions] = await Promise.all([
+    getActiveMembership(),
+    visibleCompanies(user),
+    isAnyStaff(),
+    hasTwoFactor(user.id),
+    recomiendaTwoFactor(user.id),
+    db.session.findMany({ where: { userId: user.id }, select: { tokenHash: true } }),
+  ]);
+  const sessionToken = cookieStore.get("facturas_session")?.value;
+  const currentHash = sessionToken ? hashToken(sessionToken) : null;
+  const otherSessions = sessions.filter((s) => s.tokenHash !== currentHash).length;
+
+  const sugeridoModule = modules.find((m) => m.code === sugerido) ?? null;
+  const headerData: HeaderData = {
+    userName: user.name,
+    userEmail: user.email,
+    roleLabelValue: active ? roleLabel(active.role) : "Sin empresa",
+    orgName: user.orgMembership?.organization.name ?? null,
+    companies: companies.map((c) => ({ id: c.id, name: c.name })),
+    activeCompanyId: active?.company.id ?? null,
+    isOrgManagerValue: isOrgManager(user),
+    isPlatformStaffValue: isStaff,
+    mustChangePassword: user.mustChangePassword,
+    twoFactorActive: twoFactor,
+    twoFactorRecommended: dosFactorRecomendado,
+    otherSessions,
+    lastModule: sugeridoModule ? { name: sugeridoModule.name, href: sugeridoModule.href } : null,
+  };
 
   // Con un solo módulo no hay nada que elegir: directo (igual que el login).
   if (modules.length === 1) {
@@ -41,7 +119,7 @@ export default async function ModulosPage() {
   if (modules.length === 0) {
     return (
       <div className="min-h-dvh bg-background">
-        <SelectorHeader userName={user.name} />
+        <SelectorHeader data={headerData} />
         <main className="mx-auto max-w-5xl px-6 py-14">
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Todavía no tienes acceso
@@ -63,18 +141,14 @@ export default async function ModulosPage() {
       description: module.description,
       href: module.href,
       pendings: await module.pendings(user.id),
-      suggested: false,
+      suggested: module.code === sugerido,
     })),
   );
-
-  // El último módulo usado queda marcado como sugerencia (cookie del login/switcher).
-  const sugerido = (await cookies()).get(MODULE_COOKIE)?.value;
-  for (const card of cards) card.suggested = card.code === sugerido;
   if (!cards.some((card) => card.suggested) && cards.length > 0) cards[0].suggested = true;
 
   return (
     <div className="min-h-dvh bg-background">
-      <SelectorHeader userName={user.name} />
+      <SelectorHeader data={headerData} />
       <ModuleSelector cards={cards} />
     </div>
   );

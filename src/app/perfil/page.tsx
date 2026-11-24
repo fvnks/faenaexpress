@@ -58,18 +58,20 @@ export default async function PerfilPage() {
             </p>
           ) : null}
 
-          {bloqueoPassword ? (
-            <p
-              role="alert"
-              className="mt-6 rounded-[8px] border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-foreground"
-            >
-              {bloqueoPassword}
-            </p>
-          ) : (
-            <ChangePasswordForm obligatorio={user.mustChangePassword} />
-          )}
+          <div id="password" className="scroll-mt-20">
+            {bloqueoPassword ? (
+              <p
+                role="alert"
+                className="mt-6 rounded-[8px] border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-foreground"
+              >
+                {bloqueoPassword}
+              </p>
+            ) : (
+              <ChangePasswordForm obligatorio={user.mustChangePassword} />
+            )}
+          </div>
 
-          <section className="mt-8 border-t border-border pt-6">
+          <section id="2fa" className="mt-8 scroll-mt-20 border-t border-border pt-6">
             <h2 className="text-sm font-semibold">Segundo factor</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Un código de tu teléfono, además de la contraseña. Es opcional.
@@ -84,7 +86,7 @@ export default async function PerfilPage() {
             ) : null}
           </section>
 
-          <section className="mt-8 border-t border-border pt-6">
+          <section id="sesiones" className="mt-8 scroll-mt-20 border-t border-border pt-6">
             <h2 className="text-sm font-semibold">Sesiones</h2>
             <div className="mt-3">
               <CloseSessionsButton otras={otrasSesiones} />

@@ -13,35 +13,45 @@ export type ModuleCard = {
   suggested: boolean;
 };
 
-const META: Record<string, { code: string; category: string; icon: string }> = {
+/** Categoría e icono por módulo. El número NO vive acá: es la posición del
+ *  módulo en la lista visible, así cualquier módulo nuevo se numera solo. */
+const META: Record<string, { category: string; icon: string }> = {
   facturas: {
-    code: "MÓD·01",
     category: "FINANZAS",
     icon: "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2ZM4 19.5A2.5 2.5 0 0 1 6.5 17H20M9 7h7M9 11h7M9 15h4",
   },
   colegios: {
-    code: "MÓD·02",
     category: "EDUCACIÓN",
     icon: "M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5",
   },
   billing: {
-    code: "MÓD·03",
     category: "PLATAFORMA",
     icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8",
   },
   pos: {
-    code: "MÓD·04",
     category: "VENTAS",
     icon: "M4 2h16v20H4zM8 6h8v4H8zM8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01",
   },
 };
 
+/** Módulo con número de dos dígitos según su orden en la lista visible. */
 function meta(code: string, index: number) {
-  return META[code] ?? {
-    code: `MÓD·0${index + 1}`,
-    category: "MÓDULO",
-    icon: "M4 4h16v16H4zM8 8h8v8H8z",
-  };
+  const base = META[code] ?? { category: "MÓDULO", icon: "M4 4h16v16H4zM8 8h8v8H8z" };
+  return { ...base, code: `MÓD·${String(index + 1).padStart(2, "0")}` };
+}
+
+/** Número grande del índice (01, 02, 03…): sigue al módulo activo y se anima. */
+function CatalogNumber({ index, total }: { index: number; total: number }) {
+  return (
+    <span aria-hidden="true" className="pointer-events-none absolute -right-2 top-24 hidden select-none text-right lg:block">
+      <span key={index} className="catalog-digit block text-[12rem] font-bold leading-none tracking-tighter text-foreground/[0.025]">
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      <span className="block pr-3 font-mono text-xs uppercase tracking-[0.18em] text-foreground/[0.05]">
+        de {String(total).padStart(2, "0")}
+      </span>
+    </span>
+  );
 }
 
 function ModuleIcon({ path, className }: { path: string; className?: string }) {
@@ -154,14 +164,14 @@ export function ModuleSelector({ cards }: { cards: ModuleCard[] }) {
   return (
     <div className="relative min-h-dvh overflow-hidden bg-background catalog-grid">
       <RegistrationMarks />
-      <span aria-hidden="true" className="pointer-events-none absolute -right-2 top-24 hidden select-none text-[12rem] font-bold leading-none tracking-tighter text-foreground/[0.025] lg:block">
-        01
-      </span>
+      <CatalogNumber index={active} total={cards.length} />
 
       <div className="relative mx-auto max-w-6xl px-6 py-14">
         <div className="flex items-end justify-between gap-6">
           <div>
-            <p className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-primary">Índice / 01 — Selector</p>
+            <p className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-primary">
+              Índice / {String(active + 1).padStart(2, "0")} de {String(cards.length).padStart(2, "0")} — Selector
+            </p>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground text-balance">¿A dónde vamos?</h1>
             <p className="mt-2 max-w-2xl text-base text-muted-foreground text-pretty">
               Elige el módulo en el que quieres trabajar. Cada ficha muestra el estado real de esa área en tu cuenta.
