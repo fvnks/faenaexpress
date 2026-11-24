@@ -5,6 +5,7 @@ import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import { puedeAprobarAvance } from "@/lib/obra-permissions";
 import { cardClass, secondaryButtonClass } from "@/lib/ui";
 import { NuevaCubicacion } from "./nueva-cubicacion";
+import { FotoCubicacion } from "./foto-cubicacion";
 
 export default async function ObraAvancePage() {
   const ctx = await requireObraContext("avance");
@@ -24,6 +25,7 @@ export default async function ObraAvancePage() {
         id: true, partidaId: true, cantidad: true, fecha: true, aprobada: true,
         partida: { select: { codigo: true, descripcion: true, unidad: true } },
         registradoBy: { select: { name: true } },
+        fotos: { select: { id: true, fileName: true } },
       },
     }),
   ]);
@@ -85,6 +87,7 @@ export default async function ObraAvancePage() {
                 <th className="px-3 py-2 text-right">Cantidad</th>
                 <th className="px-3 py-2 text-left">Fecha</th>
                 <th className="px-3 py-2 text-left">Registró</th>
+                <th className="px-3 py-2 text-left">Evidencia</th>
                 <th className="px-3 py-2 text-right">Acciones</th>
               </tr>
             </thead>
@@ -95,6 +98,7 @@ export default async function ObraAvancePage() {
                   <td className="px-3 py-2 text-right tabular">{c.cantidad} {c.partida.unidad}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(c.fecha).toLocaleDateString("es-CL")}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{c.registradoBy.name}</td>
+                  <td className="px-3 py-2"><FotoCubicacion cubicacionId={c.id} fotos={c.fotos} /></td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-2">
                       {puedeAprobar ? (
@@ -132,6 +136,7 @@ export default async function ObraAvancePage() {
                 <th className="px-3 py-2 text-left">Partida</th>
                 <th className="px-3 py-2 text-right">Cantidad</th>
                 <th className="px-3 py-2 text-left">Fecha</th>
+                <th className="px-3 py-2 text-left">Evidencia</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -140,6 +145,7 @@ export default async function ObraAvancePage() {
                   <td className="px-3 py-2">{c.partida.codigo} · {c.partida.descripcion}</td>
                   <td className="px-3 py-2 text-right tabular">{c.cantidad} {c.partida.unidad}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(c.fecha).toLocaleDateString("es-CL")}</td>
+                  <td className="px-3 py-2"><FotoCubicacion cubicacionId={c.id} fotos={c.fotos} /></td>
                 </tr>
               ))}
             </tbody>

@@ -516,6 +516,7 @@ model Obra {
   estadosPago  EstadoPago[]
   subcontratos Subcontrato[]
   bodega       BodegaObra[]
+  maquinarias  Maquinaria[]
 
   @@index([organizationId])
 }
@@ -628,8 +629,58 @@ model Cubicacion {
   partida     Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
   registradoBy User   @relation("CubicacionRegistrada", fields: [registradoById], references: [id])
   aprobadaBy  User?   @relation("CubicacionAprobada", fields: [aprobadaById], references: [id])
+  fotos       FotoCubicacion[]
 
   @@index([partidaId, fecha])
+}
+
+/** Foto de una cubicación (evidencia de terreno). Igual que los documentos de
+ *  colegios/RRHH: el archivo se guarda en la BD como Bytes, no en disco. */
+model FotoCubicacion {
+  id           String   @id @default(cuid())
+  cubicacionId String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  fileData     Bytes
+  createdAt    DateTime @default(now())
+
+  cubicacion Cubicacion @relation(fields: [cubicacionId], references: [id], onDelete: Cascade)
+
+  @@index([cubicacionId])
+}
+
+// Maquinaria de la obra con horómetro y mantenciones programadas.
+model Maquinaria {
+  id          String   @id @default(cuid())
+  obraId      String
+  nombre      String
+  patente     String?
+  horometro   Float    @default(0)
+  proximaMantencion Float? // en horas de horómetro
+  activa      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  obra       Obra        @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  horometros Horometro[]
+
+  @@index([obraId])
+}
+
+model Horometro {
+  id          String   @id @default(cuid())
+  maquinariaId String
+  horas       Float // lectura acumulada
+  tipo        String // HOROMETRO | MANTENCION
+  descripcion String?
+  fecha       DateTime @default(now())
+  createdById String
+  createdAt   DateTime @default(now())
+
+  maquinaria Maquinaria @relation(fields: [maquinariaId], references: [id], onDelete: Cascade)
+
+  @@index([maquinariaId, fecha])
 }
 
 enum EstadoPagoStatus {
