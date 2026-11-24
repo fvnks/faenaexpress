@@ -32,6 +32,8 @@ node scripts/prisma-run.mjs migrate resolve --applied "20261026290000_school_sig
 # Módulo POS: migraciones SII
 node scripts/prisma-run.mjs migrate resolve --applied "20261102000000_pos_sii_config" 2>/dev/null || true
 node scripts/prisma-run.mjs migrate resolve --applied "20261103000000_pos_sii_indexes" 2>/dev/null || true
+# Movimientos: vistas guardadas (falló en producción el 24-11-2026; el schema ya existe).
+node scripts/prisma-run.mjs migrate resolve --applied "20261124000000_saved_views" 2>/dev/null || true
 
 node scripts/prisma-run.mjs migrate deploy
 
