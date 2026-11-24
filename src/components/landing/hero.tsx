@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { HeroPanelCarousel } from "@/components/landing/hero-panel-carousel";
 import { Button } from "@/components/ui/button";
 
 export function LandingHero() {
@@ -67,90 +67,9 @@ export function LandingHero() {
             </div>
           </div>
 
-          {/* Dashboard preview - aligned to the app's card system */}
+          {/* Dashboard preview — carrusel de vistas reales del ERP */}
           <div className="lg:col-span-1">
-            <div className="relative w-full max-w-[520px] mx-auto lg:ml-auto">
-              <div className="card overflow-hidden">
-                {/* Header bar */}
-                <div className="flex items-center justify-between border-b border-border bg-background/50 px-5 py-4">
-                  <span className="text-xs font-semibold text-foreground">Facturas ERP</span>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>CHILE</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-hidden="true" />
-                    <span>ACTIVO</span>
-                  </div>
-                </div>
-
-                {/* Table */}
-                <div className="p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Libro de ventas</h3>
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">2026-11</span>
-                  </div>
-                  <div className="overflow-hidden rounded-[8px] border border-border bg-background/50">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border text-left text-xs font-semibold text-muted-foreground uppercase">
-                          <th className="px-4 py-3">Folio</th>
-                          <th className="px-4 py-3">Cliente</th>
-                          <th className="px-4 py-3 text-right">Monto</th>
-                          <th className="px-4 py-3 text-right">Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        <tr className="hover:bg-primary/5 transition-colors">
-                          <td className="px-4 py-3 font-mono tabular text-xs text-foreground">F-00872</td>
-                          <td className="px-4 py-3 text-foreground">Constructora del Sur</td>
-                          <td className="px-4 py-3 text-right text-foreground">$1.250.000</td>
-                          <td className="px-4 py-3">
-                            <Badge variant="success" size="sm">
-                              Pagada
-                            </Badge>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="px-4 py-3 font-mono tabular text-xs text-foreground">F-00873</td>
-                          <td className="px-4 py-3 text-foreground">Retail Mayorista S.A.</td>
-                          <td className="px-4 py-3 text-right text-foreground">$2.100.000</td>
-                          <td className="px-4 py-3">
-                            <Badge variant="warning" size="sm">
-                              Pendiente
-                            </Badge>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="px-4 py-3 font-mono tabular text-xs text-foreground">F-00874</td>
-                          <td className="px-4 py-3 text-foreground">Distribuciones ABC</td>
-                          <td className="px-4 py-3 text-right text-foreground">$680.000</td>
-                          <td className="px-4 py-3">
-                            <Badge variant="warning" size="sm">
-                              Parcial
-                            </Badge>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="px-4 py-3 font-mono tabular text-xs text-foreground">F-00875</td>
-                          <td className="px-4 py-3 text-foreground">Servicios Integrales</td>
-                          <td className="px-4 py-3 text-right text-foreground">$890.000</td>
-                          <td className="px-4 py-3">
-                            <Badge variant="success" size="sm">
-                              Pagada
-                            </Badge>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div className="border-t border-border bg-background/50 px-5 py-4 flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total del período</span>
-                  <div className="text-right">
-                    <span className="text-xl font-bold tabular text-foreground">$4.920.000</span>
-                    <span className="text-xs text-muted-foreground"> IVA incluido</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <HeroPanelCarousel />
           </div>
         </div>
       </div>
