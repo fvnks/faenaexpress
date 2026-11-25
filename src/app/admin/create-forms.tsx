@@ -29,6 +29,7 @@ export function CreateUserForm({
   const [organizationId, setOrganizationId] = useState("");
   const [orgRole, setOrgRole] = useState("OWNER");
   const empresasDeLaOrg = companies.filter((c) => c.organizationId === organizationId);
+  const sinEmpresas = Boolean(organizationId) && empresasDeLaOrg.length === 0;
 
   useEffect(() => {
     if (state?.ok) toast.success("Usuario creado");
@@ -88,17 +89,21 @@ export function CreateUserForm({
           <select
             id="new-user-org"
             name="organizationId"
+            required
             value={organizationId}
             onChange={(e) => setOrganizationId(e.target.value)}
             className={controlClass}
           >
-            <option value="">Sin organización</option>
+            <option value="">Selecciona la cuenta…</option>
             {organizations.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>
             ))}
           </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Sin cuenta y empresa el usuario no podría entrar.
+          </p>
         </div>
         <div>
           <label htmlFor="new-user-org-role" className={labelClass}>
@@ -154,9 +159,14 @@ export function CreateUserForm({
       </div>
 
       <div className="flex items-center gap-3">
-        <SubmitButton className={secondaryButtonClass} pendingLabel="Creando...">
+        <SubmitButton className={secondaryButtonClass} pendingLabel="Creando..." disabled={!organizationId || sinEmpresas}>
           Crear usuario
         </SubmitButton>
+        {sinEmpresas ? (
+          <p className="text-xs text-danger">
+            Esta cuenta no tiene empresas: créala desde la ficha de la organización antes de asignar usuarios.
+          </p>
+        ) : null}
         {state?.error ? <p className="text-sm text-danger">{state.error}</p> : null}
       </div>
       <span className="sr-only" aria-live="polite">

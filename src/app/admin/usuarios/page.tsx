@@ -19,10 +19,12 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
   const query = typeof params.q === "string" ? params.q : "";
   const organizationId = typeof params.organizacion === "string" ? params.organizacion : "";
   const estado = typeof params.estado === "string" ? params.estado : "todos";
+  const sinEmpresa = params.sinEmpresa === "1";
 
-  const [users, orgs] = await Promise.all([
-    searchUsers({ query, organizationId, estado }),
+  const [users, orgs, sinEmpresaCount] = await Promise.all([
+    searchUsers({ query, organizationId, estado, sinEmpresa }),
     listOrganizations(),
+    searchUsers({ sinEmpresa: true }),
   ]);
   const companies = await db.company.findMany({
     where: { organizationId: { in: orgs.map((o) => o.id) } },
@@ -41,6 +43,16 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
           detalle y administrarla.
         </p>
       </div>
+
+      {sinEmpresaCount.length > 0 ? (
+        <Link
+          href={sinEmpresa ? "/admin/usuarios" : "/admin/usuarios?sinEmpresa=1"}
+          className="block rounded-card border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger"
+        >
+          {sinEmpresaCount.length} usuario(s) no pertenecen a ninguna empresa y no pueden entrar.
+          {sinEmpresa ? " Ver todos." : " Ver lista."}
+        </Link>
+      ) : null}
 
       {puedeCrear ? (
         <section className={cardClass + " p-5"}>

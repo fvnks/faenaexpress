@@ -126,6 +126,8 @@ export async function searchUsers(filters: {
   organizationId?: string;
   /** "activo" | "inactivo" | "todos" */
   estado?: string;
+  /** Solo usuarios sin ninguna pertenencia a empresa (no pueden entrar a Facturas). */
+  sinEmpresa?: boolean;
   limit?: number;
 } = {}) {
   const q = filters.query?.trim();
@@ -149,6 +151,9 @@ export async function searchUsers(filters: {
               some: { organizationId: filters.organizationId, active: true },
             },
           }
+        : {}),
+      ...(filters.sinEmpresa
+        ? { memberships: { none: { active: true } } }
         : {}),
     },
     orderBy: [{ active: "desc" }, { createdAt: "desc" }],

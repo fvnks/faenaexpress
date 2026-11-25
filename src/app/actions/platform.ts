@@ -1106,12 +1106,21 @@ export async function createUserFromAdmin(
     return { error: "Ya existe una cuenta con ese correo. Invítala a la organización en vez de crearla." };
   }
 
-  if (organizationId) {
-    const org = await db.organization.findUnique({
-      where: { id: organizationId },
-      select: { id: true, name: true },
-    });
-    if (!org) return { error: "Esa organización no existe." };
+  const organizacion = organizationId
+    ? await db.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true },
+      })
+    : null;
+  if (organizationId && !organizacion) return { error: "Esa organización no existe." };
+  // Sin pertenencia a una empresa la persona loguea pero no puede entrar a
+  // ningún módulo: mejor rechazar el alta que crear una cuenta inútil.
+  if (!organizacion) {
+    return { error: "Elige la cuenta y la empresa a la que pertenece el usuario." };
+  }
+  const cantidadEmpresas = await db.company.count({ where: { organizationId } });
+  if (cantidadEmpresas === 0) {
+    return { error: `«${organizacion.name}» no tiene empresas. Crea una antes de dar acceso a usuarios.` };
   }
 
   const orgRoles = ["OWNER", "ADMIN", "MEMBER", "BILLING"] as const;
