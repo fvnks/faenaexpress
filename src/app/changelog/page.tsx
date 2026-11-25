@@ -5,7 +5,7 @@ import { LegalPage, LegalSection } from "@/components/landing/legal-page";
 export const metadata: Metadata = {
   title: "Changelog — Yellow ERP",
   description:
-    "Cambios recientes de Yellow ERP: centros de costo, búsqueda en desplegables, roles y consola de administración.",
+    "Cambios recientes de Yellow ERP: centros de costo, búsqueda en desplegables y mejoras visibles de la interfaz.",
 };
 
 const cambios = [
@@ -21,16 +21,6 @@ const cambios = [
   },
   {
     fecha: "25-11-2026",
-    titulo: "Rol SUPER_ADMIN",
-    texto: "Un nuevo rol de organización ve todos los módulos y ámbitos sin convertirse en dueño de la cuenta.",
-  },
-  {
-    fecha: "25-11-2026",
-    titulo: "Alcance desde la ficha de usuario",
-    texto: "La consola permite asignar colegio, obra y rol por empresa, además del plan y los módulos de cada cuenta.",
-  },
-  {
-    fecha: "25-11-2026",
     titulo: "Menú móvil de la landing",
     texto: "El menú del sitio vuelve a desplegarse en pantallas pequeñas y el favicon dejó de dar 404.",
   },
@@ -42,7 +32,7 @@ export default function ChangelogPage() {
       index="Recursos"
       label="Changelog"
       title="Changelog"
-      description="Registro de los cambios que afectan a quienes usan el servicio todos los días. Las correcciones internas no aparecen aquí."
+      description="Registro de los cambios que afectan a quienes usan el servicio todos los días. Publicamos solo mejoras visibles: no incluimos detalles de cuentas, permisos ni información de clientes."
     >
       <LegalSection title="Noviembre 2026">
         <ul className="space-y-4">
