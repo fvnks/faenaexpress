@@ -117,6 +117,7 @@ export function CreateUserForm({
             className={controlClass}
           >
             <option value="OWNER">Dueño</option>
+            <option value="SUPER_ADMIN">Super administrador (acceso total)</option>
             <option value="ADMIN">Administrador</option>
             <option value="MEMBER">Miembro</option>
             <option value="BILLING">Facturación</option>

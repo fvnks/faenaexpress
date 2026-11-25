@@ -22,6 +22,7 @@ datasource db {
 
 enum OrgRole {
   OWNER // dueño de la organización: otorga permisos y crea empresas
+  SUPER_ADMIN // acceso total a modulos y ambitos, sin ser dueno de la cuenta
   ADMIN // administra la organización y sus miembros
   BILLING // solo facturación (reservado para los planes)
   MEMBER // miembro sin gestión

@@ -10,7 +10,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import type { Obra, ObraRole } from "@/generated/prisma/client";
-import { getCurrentUser, type SessionUser } from "@/lib/auth";
+import { getCurrentUser, isSuperAdmin, type SessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canAccessObra, canWriteObra, type ObraSection } from "@/lib/obra-permissions";
 
@@ -24,6 +24,12 @@ export type ObraContext = {
 
 /** Obras a las que el usuario tiene acceso activo. */
 export async function visibleObras(user: SessionUser): Promise<Obra[]> {
+  if (isSuperAdmin(user) && user.orgMembership) {
+    return db.obra.findMany({
+      where: { organizationId: user.orgMembership.organizationId },
+      orderBy: { name: "asc" },
+    });
+  }
   const memberships = await db.obraMembership.findMany({
     where: { userId: user.id, active: true },
     include: { obra: true },
@@ -45,9 +51,12 @@ export async function resolveActiveObra(user: SessionUser): Promise<ObraContext 
     where: { userId: user.id, obraId: obra.id, active: true },
     select: { role: true },
   });
-  if (!membership) return null;
+  if (!membership) {
+    if (isSuperAdmin(user)) return { user, obra, role: "ADMIN_OBRA" };
+    return null;
+  }
 
-  return { user, obra, role: membership.role };
+  return { user, obra, role: isSuperAdmin(user) ? "ADMIN_OBRA" : membership.role };
 }
 
 export const getActiveObra = cache(async () => {

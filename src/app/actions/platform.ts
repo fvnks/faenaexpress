@@ -1123,7 +1123,7 @@ export async function createUserFromAdmin(
     return { error: `«${organizacion.name}» no tiene empresas. Crea una antes de dar acceso a usuarios.` };
   }
 
-  const orgRoles = ["OWNER", "ADMIN", "MEMBER", "BILLING"] as const;
+  const orgRoles = ["OWNER", "SUPER_ADMIN", "ADMIN", "MEMBER", "BILLING"] as const;
   const orgRole = (orgRoles as readonly string[]).includes(orgRoleRaw)
     ? (orgRoleRaw as (typeof orgRoles)[number])
     : "MEMBER";

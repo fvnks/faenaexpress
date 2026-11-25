@@ -17,9 +17,9 @@ import { db } from "@/lib/db";
 import type { AuthContext, SessionUser } from "@/lib/types";
 export type { AuthContext, SessionUser };
 
-// Rol de organización: OWNER y ADMIN administran la cuenta; BILLING y MEMBER no.
-// Es independiente del rol por empresa (Membership).
-const ORG_MANAGERS: readonly OrgRole[] = ["OWNER", "ADMIN"];
+// Rol de organización: OWNER, SUPER_ADMIN y ADMIN administran la cuenta;
+// BILLING y MEMBER no. Es independiente del rol por empresa (Membership).
+const ORG_MANAGERS: readonly OrgRole[] = ["OWNER", "SUPER_ADMIN", "ADMIN"];
 
 /** El usuario administra su organización (crea empresas, invita, asigna roles). */
 export function isOrgManager(user: SessionUser): boolean {
@@ -30,6 +30,14 @@ export function isOrgManager(user: SessionUser): boolean {
 /** El usuario es dueño de su organización: el único que otorga permisos de organización. */
 export function isOrgOwner(user: SessionUser): boolean {
   return user.orgMembership?.orgRole === "OWNER";
+}
+
+/**
+ * SUPER_ADMIN ve todo (empresas, colegios, obras y módulos) sin ser dueño:
+ * el dueño sigue siendo quien otorga permisos de organización.
+ */
+export function isSuperAdmin(user: SessionUser): boolean {
+  return user.orgMembership?.orgRole === "SUPER_ADMIN";
 }
 
 /**
@@ -83,11 +91,11 @@ export async function requireUser(): Promise<SessionUser> {
 //     su organización.
 //   - Si no: solo las memberships activas (el comportamiento actual).
 export async function visibleCompanies(user: SessionUser): Promise<Company[]> {
-  if (user.orgMembership?.canSwitchCompanies) {
+  if (isSuperAdmin(user) || user.orgMembership?.canSwitchCompanies) {
     // Muestra TODAS las empresas de la organización, no solo las en las que hay
     // membership. El permiso de organización es lo que habilita el switch.
     const companies = await db.company.findMany({
-      where: { organizationId: user.orgMembership.organizationId },
+      where: { organizationId: user.orgMembership?.organizationId ?? "" },
       orderBy: { createdAt: "asc" },
     });
     return companies;
@@ -118,11 +126,30 @@ export async function resolveActiveMembership(
     (m) => m.companyId === (match ?? companies[0]).id,
   );
   if (!membership) {
+    // El SUPER_ADMIN entra a cualquier empresa con rol efectivo ADMIN, aunque
+    // no tenga Membership: su rol de organización ya le da el acceso total.
+    if (isSuperAdmin(user)) {
+      return {
+        company: match ?? companies[0],
+        role: "ADMIN",
+        inventoryAccess: "EDIT",
+        sectionAccess: null,
+      };
+    }
     // La cookie apunta a una empresa que ya no es visible; resetear a la primera.
     return {
       company: companies[0],
       role: "VIEWER",
       inventoryAccess: "NONE",
+      sectionAccess: null,
+    };
+  }
+  // Un SUPER_ADMIN con membership(viewer) también obra como ADMIN.
+  if (isSuperAdmin(user)) {
+    return {
+      company: (match ?? companies[0]),
+      role: "ADMIN",
+      inventoryAccess: "EDIT",
       sectionAccess: null,
     };
   }

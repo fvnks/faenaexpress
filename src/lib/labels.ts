@@ -32,6 +32,7 @@ const roleLabels: Record<Role, string> = {
 // Rol dentro de la organización (Nivel 1), independiente del rol por empresa.
 const orgRoleLabels: Record<string, string> = {
   OWNER: "Dueño",
+  SUPER_ADMIN: "Super administrador",
   ADMIN: "Administrador",
   MEMBER: "Miembro",
   BILLING: "Facturación",

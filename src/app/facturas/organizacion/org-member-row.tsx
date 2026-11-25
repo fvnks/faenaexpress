@@ -21,7 +21,7 @@ export type OrgMemberForRow = {
 
 // Roles de organización asignables desde la UI. BILLING existe en el schema pero
 // se reserva para los planes: no se ofrece todavía.
-const ASSIGNABLE_ORG_ROLES = ["OWNER", "ADMIN", "MEMBER"] as const;
+const ASSIGNABLE_ORG_ROLES = ["OWNER", "SUPER_ADMIN", "ADMIN", "MEMBER"] as const;
 
 export function OrgMemberRow({
   canManage,

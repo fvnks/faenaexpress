@@ -16,7 +16,7 @@
 // «Colegios» en la consola no servía para nada: el operador no tenía forma de
 // entrar a verlo.
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isSuperAdmin } from "@/lib/auth";
 import { countPendingMovements } from "@/lib/banco";
 import { db } from "@/lib/db";
 import { dayStartUtc, formatCLP, todayISO } from "@/lib/money";
@@ -270,12 +270,14 @@ export async function enabledModules(userId: string): Promise<AppModule[]> {
   const organizationId = await activeOrganizationId(user);
   const habilitados = new Set(await enabledModuleCodes(organizationId));
 
+  const superAdmin = isSuperAdmin(user);
   const resultados = await Promise.all(
     ALL_MODULES.map(async (module) => ({
       module,
       // El núcleo (Facturas) no se vende aparte: siempre está.
       habilitado: module.core === true || habilitados.has(module.code),
-      acceso: await module.hasAccess(userId),
+      // SUPER_ADMIN no necesita membership en colegio/obra ni rol de empresa.
+      acceso: superAdmin ? true : await module.hasAccess(userId),
     })),
   );
   return resultados.filter((r) => r.habilitado && r.acceso).map((r) => r.module);

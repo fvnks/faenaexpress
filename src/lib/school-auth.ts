@@ -15,7 +15,7 @@ import { redirect } from "next/navigation";
 import type { School, SchoolRole } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { canAccessSchool, canWriteSchool, type SchoolSection } from "@/lib/school-permissions";
-import { getCurrentUser, type SessionUser } from "@/lib/auth";
+import { getCurrentUser, isSuperAdmin, type SessionUser } from "@/lib/auth";
 
 export const SCHOOL_COOKIE = "colegios_school";
 
@@ -27,6 +27,12 @@ export type SchoolContext = {
 
 /** Colegios a los que el usuario tiene acceso activo. */
 export async function visibleSchools(user: SessionUser): Promise<School[]> {
+  if (isSuperAdmin(user) && user.orgMembership) {
+    return db.school.findMany({
+      where: { organizationId: user.orgMembership.organizationId },
+      orderBy: { name: "asc" },
+    });
+  }
   const memberships = await db.schoolMembership.findMany({
     where: { userId: user.id, active: true },
     include: { school: true },
@@ -48,9 +54,13 @@ export async function resolveActiveSchool(user: SessionUser): Promise<SchoolCont
     where: { userId: user.id, schoolId: school.id, active: true },
     select: { role: true },
   });
-  if (!membership) return null;
+  if (!membership) {
+    // SUPER_ADMIN entra a cualquier colegio de la cuenta con rol de dirección.
+    if (isSuperAdmin(user)) return { user, school, role: "DIRECTOR" };
+    return null;
+  }
 
-  return { user, school, role: membership.role };
+  return { user, school, role: isSuperAdmin(user) ? "DIRECTOR" : membership.role };
 }
 
 export const getActiveSchool = cache(async () => {
