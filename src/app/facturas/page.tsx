@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Percent, Receipt, ShoppingBag, TrendingUp } from "lucide-react";
+import { Banknote, Percent, Receipt, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
 
 import { Alert, type AlertVariant } from "@/components/alert";
 import { MonthlyBarsChart, RankBars } from "@/components/charts";
@@ -278,12 +278,14 @@ export default async function DashboardPage(props: PageProps<"/facturas">) {
             code="05 / POR COBRAR"
             title="Por cobrar"
             value={pending.porCobrar}
+            icon={<Wallet aria-hidden="true" className="size-4" />}
             footer="Ventas pendientes de cobro"
           />
           <Kpi04
             code="06 / POR PAGAR"
             title="Por pagar"
             value={pending.porPagar}
+            icon={<Banknote aria-hidden="true" className="size-4" />}
             footer="Compras pendientes de pago"
           />
         </div>

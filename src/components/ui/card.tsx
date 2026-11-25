@@ -17,7 +17,10 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
           elevated
             ? "bg-surface-elevated border border-border-strong shadow-elevated"
             : "bg-surface border border-border",
-          "rounded-card relative overflow-hidden transition-colors duration-150",
+          // Sin overflow-hidden: los desplegables dentro de una Card (filtros,
+          // formularios) deben poder salir del borde. La franja ::before ya
+          // hereda el radio superior en globals.css.
+          "rounded-card relative transition-colors duration-150",
           !elevated && "hover:border-primary/60",
           accent && "card-accent",
           className,

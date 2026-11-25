@@ -853,13 +853,22 @@
   border-color: var(--border-strong);
 }
 
+/* El tamaño del número depende del ancho de su tarjeta, no del viewport:
+   en 2 columnas de móvil o 3 de escritorio cabe el monto completo. */
+.kpi-value-wrap {
+  container-type: inline-size;
+  min-width: 0;
+}
 .kpi-value {
+  display: inline-block;
+  max-width: 100%;
   font-family: var(--font-sans);
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: clamp(1.5rem, 11cqi, 2.5rem);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--foreground);
-  line-height: 1.0;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
 }
 
 .kpi-label {

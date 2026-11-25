@@ -11,6 +11,8 @@ export type Kpi04Props = {
   title?: string;
   value: number;
   currency?: string;
+  /** Icono delante del título (mismo bloque que Kpi01). */
+  icon?: React.ReactNode;
   /** "currency" formatea como dinero; "number" como entero con separador de miles. */
   format?: "currency" | "number";
   /** Código de catálogo (ej. "05 / POR COBRAR"). Opcional para no romper otros callers. */
@@ -28,6 +30,7 @@ export function Kpi04({
   title,
   value,
   currency = "CLP",
+  icon,
   format = "currency",
   code,
   trend,
@@ -47,9 +50,16 @@ export function Kpi04({
     <Card accent>
       {code ? <span className="catalog-code">{code}</span> : null}
       <CardHeader>
+        {icon ? (
+          <div className="mb-2 flex size-7 items-center justify-center rounded-control border border-primary/30 bg-primary-soft text-primary">
+            {icon}
+          </div>
+        ) : null}
         <CardTitle className="kpi-label">{title}</CardTitle>
-        <CardDescription className="kpi-value">
-          <AnimatedValue value={value} formatted={formatted} />
+        <CardDescription className="kpi-value-wrap">
+          <span className="kpi-value">
+            <AnimatedValue value={value} formatted={formatted} />
+          </span>
         </CardDescription>
       </CardHeader>
       <CardContent>

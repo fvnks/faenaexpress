@@ -47,8 +47,10 @@ export function Kpi01({
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="kpi-value">
-            <AnimatedValue value={value} formatted={formatted} />
+          <div className="kpi-value-wrap w-full">
+            <span className="kpi-value">
+              <AnimatedValue value={value} formatted={formatted} />
+            </span>
           </div>
           {trend ? (
             <Badge variant={trend.positive ? "success" : "danger"} size="sm">
