@@ -15,8 +15,10 @@ export const dangerButtonClass =
   "btn-liquid btn-liquid-danger rounded-control border border-danger bg-transparent px-3 py-2 text-sm font-medium text-danger disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Cards del ERP: franja de cobre superior (sello industrial) + borde que
- *  pasa a cobre al hover. La posición relative la needed el ::before. */
+ *  pasa a cobre al hover. La posición relative la necesita el ::before.
+ *  SIN overflow-hidden: los desplegables de filtros y formularios viven dentro
+ *  de estas tarjetas y un overflow los recortaría. La franja se redondea en CSS. */
 export const cardClass =
-  "card-accent relative overflow-hidden rounded-card border border-border bg-surface transition-colors duration-150 hover:border-primary/60";
+  "card-accent relative rounded-card border border-border bg-surface transition-colors duration-150 hover:border-primary/60";
 
 export const fieldClass = "flex flex-col gap-1.5";
