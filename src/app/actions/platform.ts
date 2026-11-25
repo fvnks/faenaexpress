@@ -1265,6 +1265,111 @@ export async function assignPlatformUserToCompany(
   return { ok: true };
 }
 
+/** Cambia el rol de la persona en una empresa desde la consola. */
+export async function setPlatformMemberRole(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+  const userId = String(formData.get("userId") ?? "").trim();
+  const membershipId = String(formData.get("membershipId") ?? "").trim();
+  const roleRaw = String(formData.get("role") ?? "");
+  const roles = ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"] as const;
+  const role = (roles as readonly string[]).includes(roleRaw)
+    ? (roleRaw as (typeof roles)[number])
+    : "VIEWER";
+
+  const membership = await db.membership.findFirst({
+    where: { id: membershipId, userId },
+    select: { id: true, role: true, company: { select: { name: true } } },
+  });
+  if (!membership) return { error: "Esa pertenencia no existe para este usuario." };
+  if (membership.role === role) return { ok: true };
+
+  await db.membership.update({ where: { id: membershipId }, data: { role } });
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Membership",
+    entityId: membershipId,
+    summary: `Cambió el rol de ${membership.company.name} a ${role}.`,
+    changes: { role: { before: membership.role, after: role } },
+  });
+  revalidatePath(`/admin/usuarios/${userId}`);
+  return { ok: true };
+}
+
+/** Da acceso de colegio a un usuario: sin esto el módulo Colegios no aparece. */
+export async function assignPlatformUserToSchool(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+  const userId = String(formData.get("userId") ?? "").trim();
+  const schoolId = String(formData.get("schoolId") ?? "").trim();
+  const roleRaw = String(formData.get("schoolRole") ?? "VIEWER");
+  const roles = ["DIRECTOR", "UTP", "ADMIN", "TEACHER", "STAFF", "VIEWER"] as const;
+  const role = (roles as readonly string[]).includes(roleRaw)
+    ? (roleRaw as (typeof roles)[number])
+    : "VIEWER";
+  if (!userId || !schoolId) return { error: "Faltan el usuario o el colegio." };
+
+  const [user, school] = await Promise.all([
+    db.user.findUnique({ where: { id: userId }, select: { name: true } }),
+    db.school.findUnique({ where: { id: schoolId }, select: { name: true } }),
+  ]);
+  if (!user || !school) return { error: "Ese usuario o colegio no existe." };
+
+  await db.schoolMembership.upsert({
+    where: { userId_schoolId: { userId, schoolId } },
+    create: { userId, schoolId, role, active: true },
+    update: { role, active: true },
+  });
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "User",
+    entityId: userId,
+    summary: `Asignó a ${user.name} al colegio ${school.name} como ${role}.`,
+  });
+  revalidatePath(`/admin/usuarios/${userId}`);
+  return { ok: true };
+}
+
+/** Da acceso a obra a un usuario: sin esto el módulo Obras no aparece. */
+export async function assignPlatformUserToObra(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+  const userId = String(formData.get("userId") ?? "").trim();
+  const obraId = String(formData.get("obraId") ?? "").trim();
+  const roleRaw = String(formData.get("obraRole") ?? "VISUALIZADOR");
+  const roles = ["ADMIN_OBRA", "CAPATAZ", "CONTADOR", "VISUALIZADOR"] as const;
+  const role = (roles as readonly string[]).includes(roleRaw)
+    ? (roleRaw as (typeof roles)[number])
+    : "VISUALIZADOR";
+  if (!userId || !obraId) return { error: "Faltan el usuario o la obra." };
+
+  const [user, obra] = await Promise.all([
+    db.user.findUnique({ where: { id: userId }, select: { name: true } }),
+    db.obra.findUnique({ where: { id: obraId }, select: { name: true } }),
+  ]);
+  if (!user || !obra) return { error: "Ese usuario u obra no existe." };
+
+  await db.obraMembership.upsert({
+    where: { userId_obraId: { userId, obraId } },
+    create: { userId, obraId, role, active: true },
+    update: { role, active: true },
+  });
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "User",
+    entityId: userId,
+    summary: `Asignó a ${user.name} a la obra ${obra.name} como ${role}.`,
+  });
+  revalidatePath(`/admin/usuarios/${userId}`);
+  return { ok: true };
+}
+
 /**
  * Crea un colegio desde la consola y deja al operador como DIRECTOR.
  *

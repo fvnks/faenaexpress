@@ -5,9 +5,12 @@ import { toast } from "sonner";
 
 import {
   assignPlatformUserToCompany,
+  assignPlatformUserToObra,
+  assignPlatformUserToSchool,
   changeOrganizationPlan,
   inviteExistingUser,
   resetUserTwoFactor,
+  setPlatformMemberRole,
   setPlatformUserActive,
   type PlatformActionState,
 } from "@/app/actions/platform";
@@ -298,6 +301,108 @@ export function PlanDeCuentaForm({
       <SubmitButton className={secondaryButtonClass} pendingLabel="Aplicando...">Aplicar plan</SubmitButton>
       {state?.error ? <p className="w-full text-xs text-danger">{state.error}</p> : null}
       <span className="sr-only" aria-live="polite">{pending ? "Aplicando" : ""}</span>
+    </form>
+  );
+}
+
+/** Cambia el rol de la persona en una empresa (billing exige ADMIN/OWNER). */
+export function CambiarRolEmpresaForm({
+  userId,
+  membershipId,
+  role,
+}: {
+  userId: string;
+  membershipId: string;
+  role: string;
+}) {
+  const [state, action] = useActionState<PlatformActionState, FormData>(setPlatformMemberRole, undefined);
+  useEffect(() => {
+    if (state?.ok) toast.success("Rol actualizado.");
+    if (state?.error) toast.error(state.error);
+  }, [state]);
+
+  return (
+    <form action={action} className="mt-2 flex flex-wrap items-center gap-2">
+      <input type="hidden" name="userId" value={userId} />
+      <input type="hidden" name="membershipId" value={membershipId} />
+      <select name="role" defaultValue={role} className={controlClass + " w-40"}>
+        <option value="ADMIN">Administrador</option>
+        <option value="ACCOUNTANT">Contador</option>
+        <option value="SALES">Vendedor</option>
+        <option value="VIEWER">Solo lectura</option>
+      </select>
+      <SubmitButton pendingLabel="Guardando…" className={secondaryButtonClass + " py-1 text-xs"}>Cambiar rol</SubmitButton>
+      {state?.error ? <span className="text-xs text-danger">{state.error}</span> : null}
+    </form>
+  );
+}
+
+/** Scope de colegio: sin él el módulo Colegios no aparece en el selector. */
+export function AsignarColegioForm({
+  userId,
+  colegios,
+}: {
+  userId: string;
+  colegios: { id: string; name: string }[];
+}) {
+  const [state, action] = useActionState<PlatformActionState, FormData>(assignPlatformUserToSchool, undefined);
+  useEffect(() => {
+    if (state?.ok) toast.success("Colegio asignado.");
+    if (state?.error) toast.error(state.error);
+  }, [state]);
+  if (colegios.length === 0) return <p className="text-sm text-muted-foreground">No hay colegios creados.</p>;
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="userId" value={userId} />
+      <select name="schoolId" className={controlClass + " w-48"} defaultValue="">
+        <option value="">Colegio…</option>
+        {colegios.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+      <select name="schoolRole" defaultValue="VIEWER" className={controlClass + " w-36"}>
+        <option value="DIRECTOR">Director</option>
+        <option value="UTP">UTP</option>
+        <option value="ADMIN">Administración</option>
+        <option value="TEACHER">Docente</option>
+        <option value="STAFF">Funcionario</option>
+        <option value="VIEWER">Solo lectura</option>
+      </select>
+      <SubmitButton pendingLabel="Asignando…" className={secondaryButtonClass}>Asignar colegio</SubmitButton>
+      {state?.error ? <span className="w-full text-xs text-danger">{state.error}</span> : null}
+    </form>
+  );
+}
+
+/** Scope de obra: sin él el módulo Obras no aparece en el selector. */
+export function AsignarObraForm({
+  userId,
+  obras,
+}: {
+  userId: string;
+  obras: { id: string; name: string }[];
+}) {
+  const [state, action] = useActionState<PlatformActionState, FormData>(assignPlatformUserToObra, undefined);
+  useEffect(() => {
+    if (state?.ok) toast.success("Obra asignada.");
+    if (state?.error) toast.error(state.error);
+  }, [state]);
+  if (obras.length === 0) return <p className="text-sm text-muted-foreground">No hay obras creadas.</p>;
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="userId" value={userId} />
+      <select name="obraId" className={controlClass + " w-48"} defaultValue="">
+        <option value="">Obra…</option>
+        {obras.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+      </select>
+      <select name="obraRole" defaultValue="VISUALIZADOR" className={controlClass + " w-40"}>
+        <option value="ADMIN_OBRA">Administrador de obra</option>
+        <option value="CAPATAZ">Capataz</option>
+        <option value="CONTADOR">Contador</option>
+        <option value="VISUALIZADOR">Solo lectura</option>
+      </select>
+      <SubmitButton pendingLabel="Asignando…" className={secondaryButtonClass}>Asignar obra</SubmitButton>
+      {state?.error ? <span className="w-full text-xs text-danger">{state.error}</span> : null}
     </form>
   );
 }

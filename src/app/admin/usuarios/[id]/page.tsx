@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 
 import { ModuleToggle } from "@/app/admin/module-toggle";
 import {
+  AsignarColegioForm,
   AsignarEmpresaForm,
+  AsignarObraForm,
+  CambiarRolEmpresaForm,
   InviteExistingUserForm,
   PlanDeCuentaForm,
   ResetTwoFactorForm,
@@ -32,7 +35,7 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
   const { user, audit } = detail;
 
   const organizacionesDelUsuario = user.orgMembers.filter((m) => m.active);
-  const [orgs, companies, planes, subscriptions, modulosPorCuenta] = await Promise.all([
+  const [orgs, companies, planes, subscriptions, modulosPorCuenta, colegios, obras, scopeColegios, scopeObras] = await Promise.all([
     listOrganizations(),
     db.company.findMany({
       orderBy: { name: "asc" },
@@ -44,6 +47,16 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
       select: { organizationId: true, planId: true, status: true },
     }),
     Promise.all(organizacionesDelUsuario.map((m) => organizationModuleStates(m.organizationId))),
+    db.school.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.obra.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.schoolMembership.findMany({
+      where: { userId: id },
+      include: { school: { select: { name: true } } },
+    }),
+    db.obraMembership.findMany({
+      where: { userId: id },
+      include: { obra: { select: { name: true } } },
+    }),
   ]);
   const modulosPorOrg = new Map(
     organizacionesDelUsuario.map((m, i) => [m.organizationId, modulosPorCuenta[i]]),
@@ -162,6 +175,13 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
                       />
                     </details>
                   ) : null}
+                  {puedeEditar ? (
+                    <CambiarRolEmpresaForm
+                      userId={user.id}
+                      membershipId={membership.id}
+                      role={membership.role}
+                    />
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -185,6 +205,38 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
             />
           </div>
         ) : null}
+      </section>
+
+      <section className={cardClass + " p-5"}>
+        <h2 className="font-semibold">Alcance de módulos</h2>
+        <p className="mb-3 mt-0.5 text-sm text-muted-foreground">
+          Tener el módulo habilitado en la cuenta no basta: Colegios y Obras exigen que la persona
+          pertenezca a un colegio o a una obra. Facturación SaaS exige rol Administrador en la empresa activa.
+        </p>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div>
+            <h3 className="text-sm font-semibold">Colegios</h3>
+            {scopeColegios.length > 0 ? (
+              <ul className="mb-2 mt-1 text-xs text-muted-foreground">
+                {scopeColegios.map((m) => <li key={m.id}>{m.school.name} · {m.role}{m.active ? "" : " (inactivo)"}</li>)}
+              </ul>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">Sin colegio asignado.</p>
+            )}
+            {puedeEditar ? <AsignarColegioForm userId={user.id} colegios={colegios} /> : null}
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold">Obras</h3>
+            {scopeObras.length > 0 ? (
+              <ul className="mb-2 mt-1 text-xs text-muted-foreground">
+                {scopeObras.map((m) => <li key={m.id}>{m.obra.name} · {m.role}{m.active ? "" : " (inactivo)"}</li>)}
+              </ul>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">Sin obra asignada.</p>
+            )}
+            {puedeEditar ? <AsignarObraForm userId={user.id} obras={obras} /> : null}
+          </div>
+        </div>
       </section>
 
       <section className={cardClass + " p-5"}>
