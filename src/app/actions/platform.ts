@@ -1181,6 +1181,82 @@ export async function createUserFromAdmin(
 }
 
 /**
+ * Asigna un usuario existente a otra empresa desde la consola. La empresa es
+ * la unidad real de acceso (Membership): sin ella la persona no puede entrar.
+ */
+export async function assignPlatformUserToCompany(
+  _prev: PlatformActionState,
+  formData: FormData,
+): Promise<PlatformActionState> {
+  const ctx = await requirePlatformStaff("OPERATOR");
+
+  const userId = String(formData.get("userId") ?? "").trim();
+  const companyId = String(formData.get("companyId") ?? "").trim();
+  const roleRaw = String(formData.get("role") ?? "VIEWER");
+  if (!userId || !companyId) return { error: "Faltan el usuario o la empresa." };
+
+  const roles = ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"] as const;
+  const role = (roles as readonly string[]).includes(roleRaw)
+    ? (roleRaw as (typeof roles)[number])
+    : "VIEWER";
+
+  const [user, company] = await Promise.all([
+    db.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true } }),
+    db.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, name: true, organizationId: true },
+    }),
+  ]);
+  if (!user) return { error: "Ese usuario no existe." };
+  if (!company) return { error: "Esa empresa no existe." };
+
+  const anterior = await db.membership.findUnique({
+    where: { userId_companyId: { userId, companyId } },
+    select: { active: true, role: true },
+  });
+  if (anterior?.active) return { error: `${user.name} ya pertenece a ${company.name}.` };
+
+  await db.$transaction(async (tx) => {
+    if (anterior) {
+      await tx.membership.update({
+        where: { userId_companyId: { userId, companyId } },
+        data: { active: true, role },
+      });
+    } else {
+      await tx.membership.create({ data: { userId, companyId, role } });
+    }
+    // La pertenencia a la organización también hace falta para el selector de módulos.
+    if (company.organizationId) {
+      await tx.orgMember.upsert({
+        where: {
+          userId_organizationId: { userId, organizationId: company.organizationId },
+        },
+        create: {
+          userId,
+          organizationId: company.organizationId,
+          orgRole: "MEMBER",
+          active: true,
+        },
+        update: { active: true },
+      });
+    }
+  });
+
+  await recordPlatformAudit(ctx, {
+    action: "UPDATE",
+    entityType: "User",
+    entityId: userId,
+    organizationId: company.organizationId,
+    summary: `Asignó a ${user.name} a la empresa ${company.name} como ${role}.`,
+    changes: { company: { before: null, after: company.name }, role: { before: null, after: role } },
+  });
+
+  revalidatePath(`/admin/usuarios/${userId}`);
+  revalidatePath(`/admin/organizaciones/${company.organizationId ?? ""}`);
+  return { ok: true };
+}
+
+/**
  * Crea un colegio desde la consola y deja al operador como DIRECTOR.
  *
  * Sin esto, habilitar el módulo Colegios no servía de nada: no había forma de

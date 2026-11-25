@@ -1,12 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { InviteExistingUserForm, ResetTwoFactorForm, ToggleUserActiveForm } from "@/app/admin/usuarios/user-forms";
+import {
+  AsignarEmpresaForm,
+  InviteExistingUserForm,
+  PlanDeCuentaForm,
+  ResetTwoFactorForm,
+  ToggleUserActiveForm,
+} from "@/app/admin/usuarios/user-forms";
 import { SectionAccessForm } from "@/components/section-access-form";
 import { setPlatformMemberSectionAccess } from "@/app/actions/platform";
 import { orgRoleLabel, roleLabel } from "@/lib/labels";
+import { db } from "@/lib/db";
 import { formatDate } from "@/lib/money";
 import { requirePlatformStaff } from "@/lib/platform";
+import { listPlans } from "@/lib/plans";
 import { listOrganizations, userDetail } from "@/lib/platform-queries";
 import { cardClass } from "@/lib/ui";
 
@@ -21,7 +29,20 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
   if (!detail) notFound();
   const { user, audit } = detail;
 
-  const orgs = await listOrganizations();
+  const [orgs, companies, planes, subscriptions] = await Promise.all([
+    listOrganizations(),
+    db.company.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, organizationId: true, organization: { select: { name: true } } },
+    }),
+    listPlans(),
+    db.subscription.findMany({
+      where: { organizationId: { in: user.orgMembers.map((m) => m.organizationId) } },
+      select: { organizationId: true, planId: true, status: true },
+    }),
+  ]);
+  const nombreOrg = new Map(orgs.map((o) => [o.id, o.name]));
+  const asignadas = new Set(user.memberships.filter((m) => m.active).map((m) => m.companyId));
   const suyas = new Set(user.orgMembers.map((m) => m.organizationId));
   const otrasCuentas = orgs
     .filter((o) => !suyas.has(o.id))
@@ -69,6 +90,23 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
                   {orgRoleLabel(member.orgRole)}
                   {member.canSwitchCompanies ? " · revisa todas las empresas" : ""}
                 </p>
+                {puedeEditar ? (
+                  <div className="mt-2 rounded-control border border-border bg-background/40 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Plan de la cuenta (se comparte con todas sus empresas):
+                      {" "}
+                      {planes.find((p) => p.id === subscriptions.find((s) => s.organizationId === member.organizationId)?.planId)?.name ?? "sin plan"}
+                    </p>
+                    <div className="mt-2">
+                      <PlanDeCuentaForm
+                        organizationId={member.organizationId}
+                        organizationName={member.organization.name}
+                        planes={planes.map((p) => ({ id: p.id, name: p.name }))}
+                        planActual={subscriptions.find((s) => s.organizationId === member.organizationId)?.planId ?? planes[0]?.id ?? ""}
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -106,6 +144,24 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
               ))}
             </ul>
           </>
+        ) : null}
+
+        {puedeEditar ? (
+          <div className="mt-4 border-t border-border pt-4">
+            <h3 className="text-sm font-semibold">Asignar a una empresa</h3>
+            <p className="mb-2 mt-0.5 text-xs text-muted-foreground">
+              Da acceso directo a otra empresa; también lo suma a su organización como miembro.
+            </p>
+            <AsignarEmpresaForm
+              userId={user.id}
+              empresas={companies.map((c) => ({
+                id: c.id,
+                name: c.name,
+                organizationName: nombreOrg.get(c.organizationId ?? "") ?? c.organization?.name ?? "Sin organización",
+                yaAsignada: asignadas.has(c.id),
+              }))}
+            />
+          </div>
         ) : null}
       </section>
 

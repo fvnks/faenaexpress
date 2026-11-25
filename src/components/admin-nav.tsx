@@ -46,6 +46,7 @@ const GROUPS: NavGroup[] = [
     label: "Gobernanza",
     items: [
       { href: "/admin/auditoria", label: "Auditoría", icon: "audit", min: "SUPPORT" },
+      { href: "/admin/impersonaciones", label: "Accesos de soporte", icon: "impersonate", min: "SUPPORT" },
       { href: "/admin/equipo", label: "Equipo", icon: "shield", min: "OWNER" },
     ],
   },
@@ -63,6 +64,7 @@ const ICONS: Record<string, string> = {
   shield: "M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5zM9 12l2 2 4-4",
   audit: "M4 3h16v18H4zM8 8h8M8 12h8M8 16h5",
   billing: "M6 2h9l5 5v15H6zM15 2v5h5M9 13h7M9 17h5",
+  impersonate: "M15 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM3 20a7 7 0 0 1 14 0M19 15v6M16 18h6",
 };
 
 const RANK: Record<PlatformLevel, number> = { SUPPORT: 1, OPERATOR: 2, OWNER: 3 };

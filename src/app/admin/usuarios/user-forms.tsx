@@ -4,6 +4,8 @@ import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
+  assignPlatformUserToCompany,
+  changeOrganizationPlan,
   inviteExistingUser,
   resetUserTwoFactor,
   setPlatformUserActive,
@@ -199,6 +201,103 @@ export function InviteExistingUserForm({
       <span className="sr-only" aria-live="polite">
         {pending ? "Generando" : ""}
       </span>
+    </form>
+  );
+}
+
+/** Asigna directamente el usuario a una empresa (Membership), sin invitación. */
+export function AsignarEmpresaForm({
+  userId,
+  empresas,
+}: {
+  userId: string;
+  empresas: { id: string; name: string; organizationName: string; yaAsignada: boolean }[];
+}) {
+  const [state, action, pending] = useActionState<PlatformActionState, FormData>(
+    assignPlatformUserToCompany,
+    undefined,
+  );
+  const libres = empresas.filter((e) => !e.yaAsignada);
+
+  useEffect(() => {
+    if (state?.ok) toast.success("Usuario asignado a la empresa.");
+    if (state?.error) toast.error(state.error);
+  }, [state]);
+
+  if (libres.length === 0) {
+    return <p className="text-sm text-muted-foreground">Ya pertenece a todas las empresas disponibles.</p>;
+  }
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="userId" value={userId} />
+      <label className="min-w-52 flex-1">
+        <span className={labelClass}>Empresa</span>
+        <select name="companyId" className={controlClass} defaultValue="">
+          <option value="">Selecciona una empresa…</option>
+          {libres.map((c) => (
+            <option key={c.id} value={c.id}>{c.organizationName} · {c.name}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span className={labelClass}>Rol en la empresa</span>
+        <select name="role" defaultValue="VIEWER" className={controlClass}>
+          <option value="ADMIN">Administrador</option>
+          <option value="ACCOUNTANT">Contador</option>
+          <option value="SALES">Vendedor</option>
+          <option value="VIEWER">Solo lectura</option>
+        </select>
+      </label>
+      <SubmitButton className={secondaryButtonClass} pendingLabel="Asignando...">Asignar</SubmitButton>
+      {state?.error ? <p className="w-full text-xs text-danger">{state.error}</p> : null}
+      <span className="sr-only" aria-live="polite">{pending ? "Asignando" : ""}</span>
+    </form>
+  );
+}
+
+/** Cambia el plan de una de las organizaciones del usuario desde su ficha. */
+export function PlanDeCuentaForm({
+  organizationId,
+  organizationName,
+  planes,
+  planActual,
+}: {
+  organizationId: string;
+  organizationName: string;
+  planes: { id: string; name: string }[];
+  planActual: string;
+}) {
+  const [state, action, pending] = useActionState<PlatformActionState, FormData>(
+    changeOrganizationPlan,
+    undefined,
+  );
+  useEffect(() => {
+    if (state?.ok) toast.success(`Plan de ${organizationName} actualizado.`);
+    if (state?.error) toast.error(state.error);
+  }, [state, organizationName]);
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="organizationId" value={organizationId} />
+      <label>
+        <span className={labelClass}>Plan</span>
+        <select name="planId" defaultValue={planActual} className={controlClass}>
+          {planes.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </label>
+      <label>
+        <span className={labelClass}>Estado</span>
+        <select name="status" defaultValue="ACTIVE" className={controlClass}>
+          <option value="ACTIVE">Al día</option>
+          <option value="TRIAL">Prueba</option>
+          <option value="PAST_DUE">Pago pendiente</option>
+          <option value="CANCELED">Cancelado</option>
+        </select>
+      </label>
+      <SubmitButton className={secondaryButtonClass} pendingLabel="Aplicando...">Aplicar plan</SubmitButton>
+      {state?.error ? <p className="w-full text-xs text-danger">{state.error}</p> : null}
+      <span className="sr-only" aria-live="polite">{pending ? "Aplicando" : ""}</span>
     </form>
   );
 }
