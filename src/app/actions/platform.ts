@@ -817,6 +817,21 @@ export async function createOrganizationFromAdmin(
     select: { id: true, name: true },
   });
 
+  // Una cuenta recién creada desde la consola necesita plan desde el primer
+  // momento: el seed solo corre en el deploy, así que sin esto la organización
+  // nueva no tenía suscripción y el corte de límites no sabía qué aplicar.
+  const planBase =
+    (await db.plan.findFirst({ where: { code: "free", active: true } })) ??
+    (await db.plan.findFirst({ where: { active: true }, orderBy: { priceCLP: "asc" } }));
+  if (planBase) {
+    await db.subscription.upsert({
+      where: { organizationId: organization.id },
+      create: { organizationId: organization.id, planId: planBase.id, status: "ACTIVE" },
+      update: {},
+    });
+    await syncPlanModules(organization.id, planBase.modules);
+  }
+
   await recordPlatformAudit(ctx, {
     action: "CREATE",
     entityType: "Organization",

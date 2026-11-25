@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { ORG_MODULES } from "../src/lib/org-modules";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL ?? "",
@@ -94,7 +95,8 @@ async function main() {
         // Facturas se contrata (ya no es núcleo): el plan Free la incluye para
         // que las cuentas nuevas no se queden sin el ERP. Sin fila u origen
         // «defecto», lo habilitado por defecto cubre igualmente.
-        modules: ["facturas", "rrhh", "inventario", "comisiones", "banco"],
+        // El catálogo crece; el plan Free parte con todos los módulos vigentes.
+        modules: ORG_MODULES.map((m) => m.code),
         active: true,
       },
     }));

@@ -146,10 +146,16 @@ export default async function AdminOrganizationDetailPage({
           <InviteLinkPanel url={showInvite.url} email={showInvite.email} />
         ) : null}
         <div className="mt-4">
-          <InviteFromAdminForm
-            organizationId={organization.id}
-            companies={organization.companies.map((c) => ({ id: c.id, name: c.name }))}
-          />
+          {puedeEditar ? (
+            <InviteFromAdminForm
+              organizationId={organization.id}
+              companies={organization.companies.map((c) => ({ id: c.id, name: c.name }))}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Solo lectura: generar invitaciones es una acción de operador.
+            </p>
+          )}
         </div>
       </section>
 

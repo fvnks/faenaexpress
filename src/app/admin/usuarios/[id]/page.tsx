@@ -14,6 +14,7 @@ import { cardClass } from "@/lib/ui";
 // empresa, y qué se puede hacer con él.
 export default async function AdminUserDetailPage({ params }: PageProps<"/admin/usuarios/[id]">) {
   const ctx = await requirePlatformStaff("SUPPORT");
+  const puedeEditar = ctx.staff.level !== "SUPPORT";
   const { id } = await params;
 
   const detail = await userDetail(id);
@@ -115,7 +116,13 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
           historial y los documentos que creó se quedan.
         </p>
         <div className="mt-3">
-          <ToggleUserActiveForm userId={user.id} userName={user.name} active={user.active} />
+          {puedeEditar ? (
+            <ToggleUserActiveForm userId={user.id} userName={user.name} active={user.active} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Solo lectura: cambiar el estado es una acción de operador.
+            </p>
+          )}
         </div>
       </section>
 
@@ -125,11 +132,17 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
           Genera un enlace de invitación. La persona lo abre y entra: nadie se auto-asigna un rol.
         </p>
         <div className="mt-4">
-          <InviteExistingUserForm
-            userId={user.id}
-            userEmail={user.email}
-            organizations={otrasCuentas}
-          />
+          {puedeEditar ? (
+            <InviteExistingUserForm
+              userId={user.id}
+              userEmail={user.email}
+              organizations={otrasCuentas}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Solo lectura: generar invitaciones es una acción de operador.
+            </p>
+          )}
         </div>
       </section>
 
