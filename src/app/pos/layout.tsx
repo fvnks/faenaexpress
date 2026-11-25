@@ -1,14 +1,44 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { ModuleSwitcher } from "@/components/module-switcher";
+import { logout } from "@/app/actions/auth";
 import { ServiceWorkerRegistration } from "@/components/sw-registration";
+import { ModuleSidebar, type ModuleNavGroup } from "@/components/module-sidebar";
+import { ModuleSwitcher } from "@/components/module-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ToasterFlash } from "@/components/toaster-flash";
 import { getActiveMembership, requireUser } from "@/lib/auth";
 import { getFlash } from "@/lib/flash";
+import { roleLabel } from "@/lib/labels";
 import { enabledModules } from "@/lib/modules";
-import { PosNav } from "@/app/pos/pos-nav";
+
+const GRUPOS: ModuleNavGroup[] = [
+  {
+    label: "Operación",
+    items: [
+      { href: "/pos/venta", label: "Vender", icon: "venta" },
+      { href: "/pos/ventas", label: "Ventas", icon: "ventas" },
+      { href: "/pos/credito", label: "Cuenta corriente", icon: "cuenta" },
+      { href: "/pos/caja", label: "Caja", icon: "caja" },
+    ],
+  },
+  {
+    label: "Catálogo",
+    items: [
+      { href: "/pos/productos", label: "Productos", icon: "productos" },
+      { href: "/pos/etiquetas", label: "Etiquetas", icon: "etiquetas" },
+    ],
+  },
+  {
+    label: "Sistema",
+    items: [
+      { href: "/pos/terminales", label: "Terminales", icon: "terminales" },
+      { href: "/pos/tpv/config", label: "TPV", icon: "TPV" },
+      { href: "/pos/kds", label: "Cocina (KDS)", icon: "cocina" },
+      { href: "/pos/reportes", label: "Reportes", icon: "reportes" },
+      { href: "/pos/sincronizar", label: "Sincronizar", icon: "sincronizar" },
+    ],
+  },
+];
 
 export default async function PosLayout({ children }: LayoutProps<"/pos">) {
   const user = await requireUser();
@@ -25,41 +55,36 @@ export default async function PosLayout({ children }: LayoutProps<"/pos">) {
 
   return (
     <div className="min-h-dvh bg-background">
-      <header className="border-b border-border bg-surface print:hidden">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-3 lg:px-8">
-          <Link href="/pos" className="flex items-center gap-2 font-semibold tracking-tight">
-            <span
-              aria-hidden="true"
-              className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-[13px] font-bold text-primary-foreground"
-            >
-              P
-            </span>
-            <span className="hidden sm:inline">Punto de Venta</span>
-          </Link>
-
-          <PosNav />
-
-          <div className="ml-auto flex items-center gap-2">
-            <span className="hidden max-w-[14rem] truncate text-xs text-muted-foreground md:inline">
-              {active.company.name}
-            </span>
+      <div className="lg:flex">
+        <ModuleSidebar
+          brand="Punto de Venta"
+          brandIcon="pos"
+          scopeName={active.company.name}
+          groups={GRUPOS}
+          homeHref="/pos"
+          homeLabel="Resumen"
+          userName={user.name}
+          userEmail={user.email}
+          roleLabel={roleLabel(active.role)}
+          logout={logout}
+          showConnection
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex flex-wrap items-center justify-end gap-2 px-4 pt-4 lg:px-8 lg:pt-6 print:hidden">
             <ModuleSwitcher
               modules={modules.map((module) => ({ code: module.code, name: module.name, href: module.href }))}
               activeCode="pos"
             />
+            <span className="hidden max-w-[14rem] truncate text-xs text-muted-foreground md:inline-block" title={active.company.name}>
+              {active.company.name}
+            </span>
             <ThemeToggle />
           </div>
+          <main className="catalog-grid min-w-0 flex-1 px-4 py-4 lg:px-8 lg:py-6 print:max-w-none print:p-0 print:bg-none">
+            {children}
+          </main>
         </div>
-        <div className="mx-auto max-w-[1400px] px-4 pb-2 lg:px-8">
-          <p className="truncate text-xs text-muted-foreground">
-            {user.name} · {active.company.name}
-          </p>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-[1400px] px-4 py-5 lg:px-8 print:max-w-none print:p-0">
-        {children}
-      </main>
+      </div>
       <ToasterFlash flash={flash} />
       <ServiceWorkerRegistration />
     </div>
