@@ -25,9 +25,7 @@ function HeatmapCell({
   maximo: number;
 }) {
   if (isEmpty || value === 0) {
-    return (
-      <td className="px-2 py-1.5 text-right tabular text-xs text-muted-foreground">—</td>
-    );
+    return <span className="text-muted-foreground">—</span>;
   }
 
   const intensity = maximo > 0 ? Math.min(value / maximo, 1) : 0;
@@ -35,16 +33,18 @@ function HeatmapCell({
   // en oscuro: el color acompaña al dato, no lo reemplaza.
   const mezcla = Math.round(8 + intensity * 30);
 
+  // La celda <td> la pone quien llama: devolver otro <td> aquí anidaba celdas
+  // y rompía la hidratación en todos los reportes que usan el heatmap.
   return (
-    <td
-      className="px-2 py-1.5 text-right tabular text-xs"
+    <span
+      className="inline-block w-full rounded-sm px-1 py-0.5 text-right text-xs tabular"
       style={{
         backgroundColor: `color-mix(in oklab, var(--color-primary) ${mezcla}%, transparent)`,
       }}
       title={formatCLP(value)}
     >
       {formatCLP(value)}
-    </td>
+    </span>
   );
 }
 

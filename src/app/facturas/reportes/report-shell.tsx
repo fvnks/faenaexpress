@@ -14,6 +14,7 @@ const reports = [
   { href: "/facturas/reportes/ventas-por-vendedor", label: "Ventas por vendedor" },
   { href: "/facturas/reportes/ventas-por-cliente", label: "Ventas por cliente" },
   { href: "/facturas/reportes/centros-costo", label: "Centros de costo" },
+  { href: "/facturas/reportes/centros-costo/analisis", label: "Análisis de centros" },
 ];
 
 export function ReportNav({ active }: { active: string }) {
