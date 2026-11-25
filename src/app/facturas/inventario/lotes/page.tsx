@@ -48,7 +48,7 @@ export default async function ProductLotsPage(props: PageProps<"/facturas/invent
           </Link>
           <h1 className="mt-2 text-2xl font-bold tracking-tight">Lotes y vencimiento</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Control manual de lotes y fechas de caducidad. Los lotes se gestionan sin alterar automáticamente el stock actual.
+            Control de lotes y caducidad. En productos con «Gestionar por lotes» las salidas consumen FEFO y el alta de un lote registra stock; en el resto los lotes son informativos.
           </p>
           {error ? <div className="mt-2 rounded-control border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div> : null}
         </div>

@@ -17,6 +17,10 @@ export type ProductDefaults = {
   costNet?: number;
   priceNet?: number | string;
   minStock?: string;
+  reorderPoint?: string;
+  reorderQty?: string;
+  leadTimeDays?: number;
+  trackLots?: boolean;
   tracksStock?: boolean;
   ivaAffected?: boolean;
 };
@@ -88,6 +92,22 @@ export function ProductForm({ action, units, categories, suppliers, defaults, su
         <div className={fieldClass}>
           <label htmlFor="p-min" className={labelClass}>Stock mínimo</label>
           <input id="p-min" name="minStock" type="number" step="0.001" min="0" defaultValue={defaults?.minStock ?? ""} className={controlClass + " tabular"} />
+        </div>
+        <div className={fieldClass}>
+          <label htmlFor="p-reorder" className={labelClass}>Punto de reorden</label>
+          <input id="p-reorder" name="reorderPoint" type="number" step="0.001" min="0" defaultValue={defaults?.reorderPoint ?? ""} placeholder="Ej. 10" className={controlClass + " tabular"} />
+        </div>
+        <div className={fieldClass}>
+          <label htmlFor="p-reorder-qty" className={labelClass}>Cantidad a reponer</label>
+          <input id="p-reorder-qty" name="reorderQty" type="number" step="0.001" min="0" defaultValue={defaults?.reorderQty ?? ""} placeholder="Ej. 50" className={controlClass + " tabular"} />
+        </div>
+        <div className={fieldClass}>
+          <label htmlFor="p-lead" className={labelClass}>Plazo del proveedor (días)</label>
+          <input id="p-lead" name="leadTimeDays" type="number" step="1" min="0" defaultValue={defaults?.leadTimeDays ?? ""} className={controlClass + " tabular"} />
+        </div>
+        <div className={fieldClass}>
+          <label htmlFor="p-lots" className={labelClass}>Gestionar por lotes</label>
+          <SelectDropdown id="p-lots" name="trackLots" value={defaults?.trackLots ? "true" : "false"} allowEmpty={false} options={[{ value: "true", label: "Sí (FEFO)" }, { value: "false", label: "No" }]} />
         </div>
         <div className={fieldClass}>
           <label htmlFor="p-track" className={labelClass}>Seguimiento de stock</label>

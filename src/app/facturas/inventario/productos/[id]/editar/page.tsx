@@ -35,6 +35,10 @@ export default async function EditarProductoPage(
     costNet: product.costNet,
     priceNet: product.priceNet ?? "",
     minStock: product.minStock === null ? "" : Number(product.minStock).toFixed(3),
+    reorderPoint: product.reorderPoint === null ? "" : Number(product.reorderPoint).toFixed(3),
+    reorderQty: product.reorderQty === null ? "" : Number(product.reorderQty).toFixed(3),
+    leadTimeDays: product.leadTimeDays ?? undefined,
+    trackLots: product.trackLots,
     tracksStock: product.tracksStock,
     ivaAffected: product.ivaAffected,
   };

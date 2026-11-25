@@ -12,6 +12,13 @@ import { stockMovementTypeLabel } from "@/lib/labels";
 
 export type ProductFormState = { error?: string; ok?: boolean } | undefined;
 
+function decimalField(formData: FormData, campo: string): number | null {
+  const crudo = String(formData.get(campo) ?? "").replace(",", ".").trim();
+  if (crudo === "") return null;
+  const valor = Number(crudo);
+  return Number.isFinite(valor) && valor >= 0 ? valor : null;
+}
+
 export async function createProduct(
   _prev: ProductFormState,
   formData: FormData,
@@ -26,8 +33,10 @@ export async function createProduct(
   const costNet = moneyToInt(String(formData.get("costNet") ?? ""));
   const priceNetRaw = String(formData.get("priceNet") ?? "");
   const priceNet = priceNetRaw === "" ? null : moneyToInt(priceNetRaw);
-  const minStockRaw = formData.get("minStock");
-  const minStock = minStockRaw === null || minStockRaw === "" ? null : Number(String(minStockRaw).replace(",", "."));
+  const minStock = decimalField(formData, "minStock");
+  const reorderPoint = decimalField(formData, "reorderPoint");
+  const reorderQty = decimalField(formData, "reorderQty");
+  const leadTimeDays = decimalField(formData, "leadTimeDays");
   const unitId = String(formData.get("unitId") ?? "") || null;
   const categoryId = String(formData.get("categoryId") ?? "") || null;
   const supplierId = String(formData.get("supplierId") ?? "") || null;
@@ -46,6 +55,10 @@ export async function createProduct(
       costNet,
       priceNet,
       minStock: minStock === null ? null : new Prisma.Decimal(minStock.toFixed(3)),
+      reorderPoint: reorderPoint === null ? null : new Prisma.Decimal(reorderPoint.toFixed(3)),
+      reorderQty: reorderQty === null ? null : new Prisma.Decimal(reorderQty.toFixed(3)),
+      leadTimeDays: leadTimeDays === null ? null : Math.round(leadTimeDays),
+      trackLots: String(formData.get("trackLots") ?? "false") === "true",
       tracksStock,
       ivaAffected,
     },
@@ -70,6 +83,9 @@ function readProductFields(formData: FormData) {
   const costNet = moneyToInt(String(formData.get("costNet") ?? ""));
   const priceNetRaw = String(formData.get("priceNet") ?? "");
   const minStockRaw = String(formData.get("minStock") ?? "").replace(",", ".");
+  const reorderPoint = decimalField(formData, "reorderPoint");
+  const reorderQty = decimalField(formData, "reorderQty");
+  const leadTimeDays = decimalField(formData, "leadTimeDays");
   return {
     sku: String(formData.get("sku") ?? "").trim(),
     name: String(formData.get("name") ?? "").trim(),
@@ -80,6 +96,10 @@ function readProductFields(formData: FormData) {
     costNet,
     priceNet: priceNetRaw === "" ? null : moneyToInt(priceNetRaw),
     minStock: minStockRaw === "" ? null : Number(minStockRaw),
+    reorderPoint,
+    reorderQty,
+    leadTimeDays: leadTimeDays === null ? null : Math.round(leadTimeDays),
+    trackLots: String(formData.get("trackLots") ?? "false") === "true",
     tracksStock: String(formData.get("tracksStock") ?? "true") === "true",
     ivaAffected: String(formData.get("ivaAffected") ?? "true") === "true",
   };
@@ -112,6 +132,10 @@ export async function updateProduct(
       ...fields,
       minStock:
         fields.minStock === null ? null : new Prisma.Decimal(fields.minStock.toFixed(3)),
+      reorderPoint:
+        fields.reorderPoint === null ? null : new Prisma.Decimal(fields.reorderPoint.toFixed(3)),
+      reorderQty:
+        fields.reorderQty === null ? null : new Prisma.Decimal(fields.reorderQty.toFixed(3)),
       // Sin stock, el costo editable es el del formulario; con stock manda el PPP.
       costNet: total.quantity.gt(0) ? Math.round(total.avgCost.toNumber()) : fields.costNet,
     },
@@ -151,6 +175,7 @@ export async function createStockMovement(
 
   const warehouseId = String(formData.get("warehouseId") ?? "") || null;
   const toWarehouseId = String(formData.get("toWarehouseId") ?? "") || null;
+  const lotId = String(formData.get("lotId") ?? "") || null;
   if (type === "TRANSFER") {
     if (!toWarehouseId) return { error: "Selecciona la bodega de destino." };
     if (toWarehouseId === warehouseId) {
@@ -171,6 +196,7 @@ export async function createStockMovement(
     unitCost,
     warehouseId,
     toWarehouseId,
+    lotId,
     reason: String(formData.get("reason") ?? "").trim() || null,
     reference: String(formData.get("reference") ?? "").trim() || null,
     notes: String(formData.get("notes") ?? "").trim() || null,

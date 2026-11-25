@@ -1968,10 +1968,18 @@ model Product {
   ivaAffected Boolean  @default(true)
   costNet     Int      @default(0) // costo neto unitario vigente (PPP)
   priceNet    Int? // precio de venta neto
-  minStock    Decimal? @db.Decimal(14, 3)
-  location    String?
-  tracksStock Boolean  @default(true)
-  active      Boolean  @default(true)
+  minStock      Decimal? @db.Decimal(14, 3)
+  /** Punto de reorden: disparador de alerta y sugerencia de reposición. */
+  reorderPoint  Decimal? @db.Decimal(14, 3)
+  /** Cantidad fija a reponer; si falta se calcula al doble del punto de reorden. */
+  reorderQty    Decimal? @db.Decimal(14, 3)
+  /** Días de entrega del proveedor, para estimar la fecha de reposición. */
+  leadTimeDays  Int?
+  location      String?
+  tracksStock   Boolean  @default(true)
+  /** true = las salidas consumen lotes FEFO y los movimientos exigen trazabilidad. */
+  trackLots     Boolean  @default(false)
+  active        Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -2031,11 +2039,14 @@ model StockMovement {
   reason        String?
   reference     String? // folio o documento de respaldo
   notes         String?
+  /** Lote consumido o ingresado; en salidas FEFO se registra el primero usado. */
+  lotId         String?
   createdById   String
   createdAt     DateTime          @default(now())
 
   company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lot         ProductLot? @relation(fields: [lotId], references: [id], onDelete: SetNull)
   warehouse   Warehouse? @relation("MovementOrigin", fields: [warehouseId], references: [id], onDelete: SetNull)
   toWarehouse Warehouse? @relation("MovementDestination", fields: [toWarehouseId], references: [id], onDelete: SetNull)
   createdBy   User       @relation("StockMovementCreatedBy", fields: [createdById], references: [id])
@@ -2043,6 +2054,7 @@ model StockMovement {
   @@index([companyId, productId, date])
   @@index([companyId, date])
   @@index([companyId, warehouseId])
+  @@index([lotId])
 }
 
 // ---------------------------------------------------------------------------
@@ -2516,6 +2528,8 @@ enum NotificationType {
   SALE_DUE_SOON
   SALE_OVERDUE
   LIMIT_EXCEEDED
+  LOW_STOCK
+  LOT_EXPIRING
 }
 
 model Notification {
@@ -2662,6 +2676,7 @@ model ProductLot {
   product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   createdBy User       @relation("ProductLotCreatedBy", fields: [createdById], references: [id])
+  movements StockMovement[]
 
   @@index([companyId, productId])
   @@index([expirationDate])

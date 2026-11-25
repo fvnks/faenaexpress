@@ -25,11 +25,13 @@ const COST_TYPES = new Set(["IN", "INITIAL", "ADJUST_IN"]);
 export function MovementForm({
   products,
   warehouses,
+  lots,
   defaultProductId,
   today,
 }: {
   products: { id: string; name: string; sku: string; quantity: string }[];
   warehouses: { id: string; name: string; isDefault: boolean }[];
+  lots: Array<{ id: string; code: string; productName: string; quantity: string }>;
   defaultProductId?: string;
   today: string;
 }) {
@@ -117,6 +119,19 @@ export function MovementForm({
             />
           </div>
         ) : null}
+        <div className={fieldClass}>
+          <label htmlFor="mv-lot" className={labelClass}>Lote (opcional)</label>
+          <SelectDropdown
+            id="mv-lot"
+            name="lotId"
+            value=""
+            emptyLabel="Automático / sin lote"
+            options={lots.map((l) => ({
+              value: l.id,
+              label: `${l.code} · ${l.productName} (${l.quantity})`,
+            }))}
+          />
+        </div>
         <div className={fieldClass}>
           <label htmlFor="mv-quantity" className={labelClass}>
             Cantidad

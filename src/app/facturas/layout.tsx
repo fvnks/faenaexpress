@@ -19,6 +19,7 @@ import { disabledModuleCodes } from "@/lib/org-module-state";
 import { findOrgModule } from "@/lib/org-modules";
 import { subscriptionState } from "@/lib/plans";
 import { enabledModules } from "@/lib/modules";
+import { syncInventoryNotifications } from "@/lib/inventory-alerts";
 import { countUnreadNotifications, syncDueNotifications } from "@/lib/notifications";
 import { canAccess } from "@/lib/permissions";
 import { isAnyStaff } from "@/lib/platform";
@@ -52,7 +53,10 @@ export default async function FacturasLayout({ children }: LayoutProps<"/factura
 
   // Las alertas de vencimiento se recalculan en cada entrada al panel.
   if (active) {
-    await syncDueNotifications(active.company.id);
+    await Promise.all([
+      syncDueNotifications(active.company.id),
+      syncInventoryNotifications(active.company.id),
+    ]);
   }
 
   const [unread, pending, pendingBank, flash] = await Promise.all([

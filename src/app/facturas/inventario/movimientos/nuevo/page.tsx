@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireContext, canInventoryEdit } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { listProducts, listWarehouses, getOrCreateDefaultWarehouse } from "@/lib/inventory";
 import { cardClass, secondaryButtonClass } from "@/lib/ui";
 import { MovementForm } from "@/app/facturas/inventario/movimientos/movement-form";
@@ -17,12 +18,17 @@ export default async function NuevoMovimientoPage(
   const defaultProductId =
     typeof searchParams?.producto === "string" ? searchParams.producto : undefined;
 
-  const [products, warehouses] = await Promise.all([
+  const [products, warehouses, lots] = await Promise.all([
     listProducts(ctx.company.id),
     // Garantiza que exista la bodega por defecto antes de ofrecerla en el form.
     listWarehouses(ctx.company.id).then(async (w) =>
       w.length > 0 ? w : [await getOrCreateDefaultWarehouse(ctx.company.id)],
     ),
+    db.productLot.findMany({
+      where: { companyId: ctx.company.id, quantity: { gt: 0 } },
+      orderBy: [{ expirationDate: "asc" }, { code: "asc" }],
+      select: { id: true, code: true, quantity: true, product: { select: { name: true } } },
+    }),
   ]);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -51,6 +57,12 @@ export default async function NuevoMovimientoPage(
             id: w.id,
             name: w.name,
             isDefault: w.isDefault ?? false,
+          }))}
+          lots={lots.map((l) => ({
+            id: l.id,
+            code: l.code,
+            productName: l.product.name,
+            quantity: Number(l.quantity).toFixed(3),
           }))}
           defaultProductId={defaultProductId}
           today={today}

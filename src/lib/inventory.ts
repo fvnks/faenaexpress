@@ -341,6 +341,8 @@ export type MovementInput = {
   reason?: string | null;
   reference?: string | null;
   notes?: string | null;
+  /** Lote ingresado o consumido (opcional; FEFO lo elige en salidas). */
+  lotId?: string | null;
   createdById: string;
   /** Bodega de origen. Si falta, la por defecto de la empresa. */
   warehouseId?: string | null;
@@ -366,7 +368,7 @@ export async function registerMovement(
   const run = async (tx: Prisma.TransactionClient): Promise<MovementResult> => {
     const product = await tx.product.findFirst({
       where: { id: productId, companyId },
-      select: { id: true, tracksStock: true },
+      select: { id: true, tracksStock: true, trackLots: true },
     });
     if (!product) return { ok: false, error: "Producto no encontrado." };
 
@@ -391,6 +393,106 @@ export async function registerMovement(
     let nextToQty: Prisma.Decimal | null = null;
     let nextToAvg: Prisma.Decimal | null = null;
     let unitCost: number | null = null;
+
+    // Lotes: en productos trazables las entradas se imputan a un lote y las
+    // salidas consumen FEFO (vencimiento más próximo primero). Si el producto
+    // no gestiona lotes, el comportamiento es el de siempre.
+    let loteMovimiento: string | null = input.lotId ?? null;
+    if (product.trackLots || input.lotId) {
+      const consume = type === "TRANSFER" || DECREASE_TYPES.has(type);
+      if (consume) {
+        const lotes = await tx.productLot.findMany({
+          where: {
+            companyId,
+            productId,
+            warehouseId: origin.id,
+            quantity: { gt: 0 },
+            ...(input.lotId ? { id: input.lotId } : {}),
+          },
+          orderBy: [{ expirationDate: "asc" }, { createdAt: "asc" }],
+        });
+        let restante = quantity;
+        for (const lote of lotes) {
+          if (restante.lte(0)) break;
+          const toma = lote.quantity.lt(restante) ? lote.quantity : restante;
+          await tx.productLot.update({
+            where: { id: lote.id },
+            data: { quantity: { decrement: toma } },
+          });
+          if (type === "TRANSFER" && destination) {
+            const destino = await tx.productLot.findFirst({
+              where: { companyId, productId, code: lote.code, warehouseId: destination.id },
+              select: { id: true },
+            });
+            if (destino) {
+              await tx.productLot.update({
+                where: { id: destino.id },
+                data: { quantity: { increment: toma } },
+              });
+            } else {
+              await tx.productLot.create({
+                data: {
+                  companyId,
+                  productId,
+                  warehouseId: destination.id,
+                  code: lote.code,
+                  expirationDate: lote.expirationDate,
+                  quantity: toma,
+                  notes: lote.notes,
+                  createdById: input.createdById,
+                },
+              });
+            }
+          }
+          if (loteMovimiento === null) loteMovimiento = lote.id;
+          restante = restante.minus(toma);
+        }
+        if (restante.gt(0)) {
+          return {
+            ok: false,
+            error: "Stock de lote insuficiente: revisa los lotes o ajusta el inventario antes de continuar.",
+          };
+        }
+        if (input.lotId) loteMovimiento = input.lotId;
+      } else {
+        let lotId = input.lotId ?? null;
+        if (!lotId && product.trackLots) {
+          // Entradas sin lote explícito (compras importadas, POS) se imputan a
+          // un lote genérico para que la trazabilidad FEFO siga siendo válida.
+          const generico = await tx.productLot.findFirst({
+            where: { companyId, productId, warehouseId: origin.id, code: "SIN-LOTE" },
+            select: { id: true },
+          });
+          if (generico) {
+            lotId = generico.id;
+          } else {
+            const creado = await tx.productLot.create({
+              data: {
+                companyId,
+                productId,
+                warehouseId: origin.id,
+                code: "SIN-LOTE",
+                quantity: 0,
+                createdById: input.createdById,
+              },
+            });
+            lotId = creado.id;
+          }
+        }
+        if (lotId) {
+          const lote = await tx.productLot.findFirst({
+            where: { id: lotId, companyId, productId },
+            select: { id: true },
+          });
+          if (!lote) return { ok: false, error: "El lote no existe para este producto." };
+          await tx.productLot.update({
+            where: { id: lotId },
+            data: { quantity: { increment: quantity } },
+          });
+          loteMovimiento = lotId;
+        }
+      }
+    }
 
     if (type === "TRANSFER") {
       // La transferencia no altera el total de la empresa: baja en la origen al
@@ -453,6 +555,7 @@ export async function registerMovement(
         reason: input.reason ?? null,
         reference: input.reference ?? null,
         notes: input.notes ?? null,
+        lotId: loteMovimiento,
         createdById: input.createdById,
       },
     });

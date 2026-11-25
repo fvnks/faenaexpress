@@ -255,6 +255,8 @@ const groups: SidebarGroup[] = [
       { href: "/facturas/inventario", label: "Productos", section: "inventario", icon: "productos" },
       { href: "/facturas/inventario/movimientos", label: "Movimientos", section: "inventario", icon: "movimientos" },
       { href: "/facturas/inventario/conteos", label: "Conteos", section: "inventario", icon: "conteos" },
+      { href: "/facturas/inventario/reorden", label: "Reposición", section: "inventario", icon: "reportes" },
+      { href: "/facturas/inventario/lotes", label: "Lotes", section: "inventario", icon: "conteos" },
     ],
   },
   {
