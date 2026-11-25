@@ -879,6 +879,12 @@
   letter-spacing: 0.05em;
 }
 
+.kpi-footer {
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: var(--foreground-muted);
+}
+
 .kpi-trend {
   font-size: 0.75rem;
   font-weight: 500;
