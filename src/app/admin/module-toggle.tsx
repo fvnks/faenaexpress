@@ -41,7 +41,7 @@ export function ModuleToggle({
       <li className="flex flex-wrap items-center justify-between gap-2 py-2.5">
         <div>
           <p className="text-sm font-medium">{moduleName}</p>
-          <p className="text-xs text-muted-foreground">Núcleo del producto: siempre incluido.</p>
+          <p className="text-xs text-muted-foreground">Incluido por defecto en las cuentas nuevas.</p>
         </div>
         <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
           incluido

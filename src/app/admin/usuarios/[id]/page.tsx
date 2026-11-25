@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ModuleToggle } from "@/app/admin/module-toggle";
 import {
   AsignarEmpresaForm,
   InviteExistingUserForm,
@@ -13,6 +14,7 @@ import { setPlatformMemberSectionAccess } from "@/app/actions/platform";
 import { orgRoleLabel, roleLabel } from "@/lib/labels";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/money";
+import { organizationModuleStates } from "@/lib/org-module-state";
 import { requirePlatformStaff } from "@/lib/platform";
 import { listPlans } from "@/lib/plans";
 import { listOrganizations, userDetail } from "@/lib/platform-queries";
@@ -29,7 +31,8 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
   if (!detail) notFound();
   const { user, audit } = detail;
 
-  const [orgs, companies, planes, subscriptions] = await Promise.all([
+  const organizacionesDelUsuario = user.orgMembers.filter((m) => m.active);
+  const [orgs, companies, planes, subscriptions, modulosPorCuenta] = await Promise.all([
     listOrganizations(),
     db.company.findMany({
       orderBy: { name: "asc" },
@@ -40,7 +43,11 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
       where: { organizationId: { in: user.orgMembers.map((m) => m.organizationId) } },
       select: { organizationId: true, planId: true, status: true },
     }),
+    Promise.all(organizacionesDelUsuario.map((m) => organizationModuleStates(m.organizationId))),
   ]);
+  const modulosPorOrg = new Map(
+    organizacionesDelUsuario.map((m, i) => [m.organizationId, modulosPorCuenta[i]]),
+  );
   const nombreOrg = new Map(orgs.map((o) => [o.id, o.name]));
   const asignadas = new Set(user.memberships.filter((m) => m.active).map((m) => m.companyId));
   const suyas = new Set(user.orgMembers.map((m) => m.organizationId));
@@ -105,6 +112,21 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
                         planActual={subscriptions.find((s) => s.organizationId === member.organizationId)?.planId ?? planes[0]?.id ?? ""}
                       />
                     </div>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Módulos de la cuenta (se aplican a todos sus usuarios; este usuario además necesita permiso por su rol):
+                    </p>
+                    <ul className="mt-1 divide-y divide-border">
+                      {(modulosPorOrg.get(member.organizationId) ?? []).map((s) => (
+                        <ModuleToggle
+                          key={s.module.code}
+                          organizationId={member.organizationId}
+                          moduleCode={s.module.code}
+                          moduleName={s.module.name}
+                          enabled={s.enabled}
+                          core={s.module.core}
+                        />
+                      ))}
+                    </ul>
                   </div>
                 ) : null}
               </li>
