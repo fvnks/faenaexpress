@@ -5,6 +5,7 @@ import { updatePurchase } from "@/app/actions/purchases";
 import { PurchaseForm } from "@/app/facturas/compras/purchase-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories } from "@/lib/catalogs";
+import { listCentrosCosto, listReparto } from "@/lib/centros-costo";
 import { todayISO } from "@/lib/money";
 import { paymentMethodOptions } from "@/lib/payment-methods";
 import { listSuppliers } from "@/lib/partners";
@@ -18,11 +19,13 @@ export default async function EditPurchasePage(props: PageProps<"/facturas/compr
 
   const { id } = await props.params;
 
-  const [purchase, suppliers, categories, areas] = await Promise.all([
+  const [purchase, suppliers, categories, areas, centros, repartos] = await Promise.all([
     getPurchase(ctx.company.id, id),
     listSuppliers(ctx.company.id),
     listCategories(ctx.company.id),
     listAreas(ctx.company.id),
+    listCentrosCosto(ctx.company.id),
+    listReparto(ctx.company.id, "purchase", id),
   ]);
 
   // Las formas de pago que ofrece la empresa: su catálogo más las base.
@@ -59,6 +62,11 @@ export default async function EditPurchasePage(props: PageProps<"/facturas/compr
         ivaRate={ctx.company.ivaRate}
         today={todayISO()}
         defaults={serializePurchase(purchase)}
+        centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre }))}
+        repartosIniciales={repartos.map((r) => ({
+          centroCostoId: r.centroCostoId,
+          monto: Math.abs(r.monto),
+        }))}
       />
     </div>
   );

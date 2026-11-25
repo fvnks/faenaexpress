@@ -7,6 +7,7 @@ import { AutocompletePartner } from "@/components/autocomplete-partner";
 import { SelectDropdown } from "@/components/select-dropdown";
 import { InlineCreateSelect } from "@/components/inline-create-select";
 import { SubmitButton } from "@/components/submit-button";
+import { RepartoForm } from "@/components/reparto-form";
 import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
 import type { PurchaseForForm } from "@/lib/purchases";
@@ -25,6 +26,8 @@ export function PurchaseForm({
   today,
   defaults,
   formasDePago,
+  centrosCosto,
+  repartosIniciales,
 }: {
   action: (prev: PurchaseFormState, formData: FormData) => Promise<PurchaseFormState>;
   suppliers: SupplierOption[];
@@ -35,6 +38,8 @@ export function PurchaseForm({
   formasDePago: string[];
   today: string;
   defaults?: PurchaseForForm;
+  centrosCosto: Array<{ id: string; codigo: string; nombre: string }>;
+  repartosIniciales?: Array<{ centroCostoId: string; monto: number }>;
 }) {
   const [state, formAction] = useActionState<PurchaseFormState, FormData>(action, undefined);
 
@@ -43,6 +48,8 @@ export function PurchaseForm({
   const [net, setNet] = useState(defaults ? String(defaults.netAmount) : "");
   const [iva, setIva] = useState(defaults ? String(defaults.ivaAmount) : "");
   const [status, setStatus] = useState(defaults?.status ?? "PENDING");
+  const [repartoValido, setRepartoValido] = useState(true);
+  const signoCC = documentType === "CREDIT_NOTE" ? -1 : 1;
 
   const isAdjustment = documentType === "CREDIT_NOTE" || documentType === "DEBIT_NOTE";
 
@@ -207,6 +214,14 @@ export function PurchaseForm({
         </p>
       </section>
 
+      <RepartoForm
+        centros={centrosCosto}
+        iniciales={repartosIniciales ?? []}
+        objetivo={total}
+        signo={signoCC}
+        onValidez={setRepartoValido}
+      />
+
       <section className={cardClass + " flex flex-col gap-4 p-4"}>
         <h2 className="font-semibold">Pago</h2>
 
@@ -292,9 +307,12 @@ export function PurchaseForm({
       ) : null}
 
       <div className="flex items-center gap-3">
-        <SubmitButton pendingLabel="Guardando..." className={primaryButtonClass}>
+        <SubmitButton pendingLabel="Guardando..." className={primaryButtonClass} disabled={!repartoValido}>
           {defaults ? "Guardar cambios" : "Registrar compra"}
         </SubmitButton>
+        {!repartoValido ? (
+          <p className="text-xs text-danger">Ajusta el reparto de centros de costo antes de guardar.</p>
+        ) : null}
       </div>
     </form>
   );

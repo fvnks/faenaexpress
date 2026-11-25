@@ -5,6 +5,7 @@ import { createPurchase } from "@/app/actions/purchases";
 import { PurchaseForm } from "@/app/facturas/compras/purchase-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories } from "@/lib/catalogs";
+import { listCentrosCosto } from "@/lib/centros-costo";
 import { todayISO } from "@/lib/money";
 import { paymentMethodOptions } from "@/lib/payment-methods";
 import { listSuppliers } from "@/lib/partners";
@@ -16,10 +17,11 @@ export default async function NewPurchasePage() {
     redirect("/facturas/compras");
   }
 
-  const [suppliers, categories, areas] = await Promise.all([
+  const [suppliers, categories, areas, centros] = await Promise.all([
     listSuppliers(ctx.company.id),
     listCategories(ctx.company.id),
     listAreas(ctx.company.id),
+    listCentrosCosto(ctx.company.id),
   ]);
 
   // Las formas de pago que ofrece la empresa: su catálogo más las base.
@@ -62,6 +64,7 @@ export default async function NewPurchasePage() {
           areas={areas}
           ivaRate={ctx.company.ivaRate}
           today={todayISO()}
+          centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre }))}
         />
       )}
     </div>

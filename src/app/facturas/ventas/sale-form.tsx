@@ -12,6 +12,7 @@ import { formatCLP } from "@/lib/money";
 import type { SaleForForm } from "@/lib/sales";
 import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
+import { RepartoForm } from "@/components/reparto-form";
 
 type CustomerOption = { id: string; name: string; rut: string | null };
 type Option = { id: string; name: string };
@@ -27,6 +28,8 @@ export function SaleForm({
   defaults,
   defaultDocumentType,
   formasDePago,
+  centrosCosto,
+  repartosIniciales,
 }: {
   action: (prev: SaleFormState, formData: FormData) => Promise<SaleFormState>;
   customers: CustomerOption[];
@@ -40,6 +43,10 @@ export function SaleForm({
   today: string;
   defaults?: SaleForForm;
   defaultDocumentType?: string;
+  /** Catálogo activo de centros de costo de la empresa. */
+  centrosCosto: Array<{ id: string; codigo: string; nombre: string }>;
+  /** Reparto ya guardado cuando se edita la venta. */
+  repartosIniciales?: Array<{ centroCostoId: string; monto: number }>;
 }) {
   const [state, formAction] = useActionState<SaleFormState, FormData>(action, undefined);
 
@@ -51,6 +58,8 @@ export function SaleForm({
   const [iva, setIva] = useState(defaults ? String(defaults.ivaAmount) : "");
   const [retention, setRetention] = useState(defaults ? String(defaults.retentionAmount) : "");
   const [status, setStatus] = useState(defaults?.status ?? "PENDING");
+  const [repartoValido, setRepartoValido] = useState(true);
+  const signoCC = documentType === "CREDIT_NOTE" ? -1 : 1;
 
   const isAdjustment = documentType === "CREDIT_NOTE" || documentType === "DEBIT_NOTE";
 
@@ -307,6 +316,14 @@ export function SaleForm({
         </p>
       </section>
 
+      <RepartoForm
+        centros={centrosCosto}
+        iniciales={repartosIniciales ?? []}
+        objetivo={toCollect}
+        signo={signoCC}
+        onValidez={setRepartoValido}
+      />
+
       <section className={cardClass + " flex flex-col gap-4 p-4"}>
         <h2 className="font-semibold">Cobro</h2>
 
@@ -417,9 +434,12 @@ export function SaleForm({
       ) : null}
 
       <div className="flex items-center gap-3">
-        <SubmitButton pendingLabel="Guardando..." className={primaryButtonClass}>
+        <SubmitButton pendingLabel="Guardando..." className={primaryButtonClass} disabled={!repartoValido}>
           {defaults ? "Guardar cambios" : "Registrar venta"}
         </SubmitButton>
+        {!repartoValido ? (
+          <p className="text-xs text-danger">Ajusta el reparto de centros de costo antes de guardar.</p>
+        ) : null}
       </div>
     </form>
   );

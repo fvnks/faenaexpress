@@ -5,6 +5,7 @@ import { updateSale } from "@/app/actions/sales";
 import { SaleForm } from "@/app/facturas/ventas/sale-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories, listSalespeople } from "@/lib/catalogs";
+import { listCentrosCosto, listReparto } from "@/lib/centros-costo";
 import { todayISO } from "@/lib/money";
 import { paymentMethodOptions } from "@/lib/payment-methods";
 import { listCustomers } from "@/lib/partners";
@@ -18,12 +19,14 @@ export default async function EditSalePage(props: PageProps<"/facturas/ventas/[i
 
   const { id } = await props.params;
 
-  const [sale, customers, salespeople, categories, areas] = await Promise.all([
+  const [sale, customers, salespeople, categories, areas, centros, repartos] = await Promise.all([
     getSale(ctx.company.id, id),
     listCustomers(ctx.company.id),
     listSalespeople(ctx.company.id),
     listCategories(ctx.company.id),
     listAreas(ctx.company.id),
+    listCentrosCosto(ctx.company.id),
+    listReparto(ctx.company.id, "sale", id),
   ]);
 
   // Las formas de pago que ofrece la empresa: su catálogo más las base.
@@ -62,7 +65,12 @@ export default async function EditSalePage(props: PageProps<"/facturas/ventas/[i
         retentionRate={ctx.company.retentionRate}
         today={todayISO()}
         defaults={serializeSale(sale)}
-/>
+        centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre }))}
+        repartosIniciales={repartos.map((r) => ({
+          centroCostoId: r.centroCostoId,
+          monto: Math.abs(r.monto),
+        }))}
+      />
     </div>
   );
 }

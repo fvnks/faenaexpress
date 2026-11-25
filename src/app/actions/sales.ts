@@ -8,10 +8,10 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { applyBulkEdit, parseBulkChange, type BulkField } from "@/lib/bulk-edit";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
-import { computeTotal, formatCLP, todayDate } from "@/lib/money";
+import { computeTotal, documentSign, formatCLP, todayDate } from "@/lib/money";
 import { checkPlanLimit, incrementUsage } from "@/lib/plans";
 import { reverseStockForDocument } from "@/lib/inventory-sync";
-import { recomputeStatus } from "@/lib/payments";
+import { recomputeStatus, saleSettleTotal } from "@/lib/payments";
 import { safeReturnTo } from "@/lib/return-to";
 import { saleSchema, type SaleInput } from "@/lib/validation";
 import {
@@ -79,6 +79,73 @@ function describe(input: { documentNumber?: string | null; netAmount: number; iv
   return `venta ${folio}por ${formatCLP(computeTotal(input.netAmount, input.ivaAmount))}`;
 }
 
+type RepartoFila = { centroCostoId: string; monto: number };
+
+/** Parsea y valida el reparto que llega del formulario. Vacío = sin centro. */
+async function validarReparto(
+  formData: FormData,
+  companyId: string,
+  esperado: number,
+  anteriores: string[] = [],
+): Promise<{ filas: RepartoFila[]; error?: string }> {
+  let filas: RepartoFila[] = [];
+  try {
+    const crudo = JSON.parse(String(formData.get("repartos") ?? "[]"));
+    if (!Array.isArray(crudo)) throw new Error();
+    filas = crudo.map((f) => ({
+      centroCostoId: String(f?.centroCostoId ?? ""),
+      monto: Math.round(Number(f?.monto)),
+    }));
+  } catch {
+    return { filas: [], error: "El reparto de centros de costo no es válido." };
+  }
+  if (filas.some((f) => !f.centroCostoId || !Number.isFinite(f.monto) || f.monto === 0)) {
+    return { filas: [], error: "Cada centro debe tener un monto distinto de cero." };
+  }
+  const ids = [...new Set(filas.map((f) => f.centroCostoId))];
+  if (ids.length !== filas.length) return { filas: [], error: "No repitas un centro de costo." };
+
+  if (filas.length > 0) {
+    const existentes = await db.centroCosto.count({ where: { id: { in: ids }, companyId } });
+    if (existentes !== ids.length) return { filas: [], error: "Algún centro de costo no existe." };
+    const yaAsignados = new Set(anteriores);
+    const inactivos = await db.centroCosto.findMany({
+      where: { id: { in: ids }, companyId, active: false },
+      select: { id: true },
+    });
+    if (inactivos.some((c) => !yaAsignados.has(c.id))) {
+      return { filas: [], error: "No puedes asignar un centro de costo inactivo." };
+    }
+    const suma = filas.reduce((acc, f) => acc + f.monto, 0);
+    if (suma !== esperado) {
+      return {
+        filas: [],
+        error: `El reparto suma $${suma.toLocaleString("es-CL")} pero la venta es $${esperado.toLocaleString("es-CL")}. Ajusta los montos.`,
+      };
+    }
+  }
+  return { filas };
+}
+
+async function escribirReparto(
+  tx: Parameters<Parameters<typeof db.$transaction>[0]>[0],
+  companyId: string,
+  saleId: string,
+  filas: RepartoFila[],
+) {
+  await tx.repartoCentroCosto.deleteMany({ where: { companyId, saleId } });
+  if (filas.length > 0) {
+    await tx.repartoCentroCosto.createMany({
+      data: filas.map((f) => ({ companyId, saleId, centroCostoId: f.centroCostoId, monto: f.monto })),
+    });
+  }
+}
+
+/** Total asignable de una venta, con signo de nota de crédito y sin retención. */
+function totalCentros(data: { documentType: string; totalAmount: number; retentionAmount: number }) {
+  return documentSign(data.documentType) * saleSettleTotal(data.totalAmount, data.retentionAmount);
+}
+
 export async function createSale(_prev: SaleFormState, formData: FormData): Promise<SaleFormState> {
   const ctx = await requireContext();
   if (!canWrite(ctx, "ventas")) return { error: "No tienes permiso para registrar ventas." };
@@ -107,9 +174,13 @@ export async function createSale(_prev: SaleFormState, formData: FormData): Prom
     });
     if (partner?.salespersonId) data.salespersonId = partner.salespersonId;
   }
+  const reparto = await validarReparto(formData, ctx.company.id, totalCentros(data));
+  if (reparto.error) return { error: reparto.error };
+
   const sale = await db.sale.create({
     data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
   });
+  await escribirReparto(db, ctx.company.id, sale.id, reparto.filas);
 
   // El contador de documentos del mes.
   if (organizationId) {
@@ -126,6 +197,7 @@ export async function createSale(_prev: SaleFormState, formData: FormData): Prom
   await setFlash("success", "Venta guardada", describe(data));
   revalidatePath("/facturas/ventas");
   revalidatePath("/facturas");
+  revalidatePath("/facturas/reportes/centros-costo");
   redirect("/facturas/ventas");
 }
 
@@ -152,7 +224,20 @@ export async function updateSale(
   if (!before) return { error: "La venta no existe." };
 
   const data = toData(parsed.data);
+  const anteriores = await db.repartoCentroCosto.findMany({
+    where: { companyId: ctx.company.id, saleId: id },
+    select: { centroCostoId: true },
+  });
+  const reparto = await validarReparto(
+    formData,
+    ctx.company.id,
+    totalCentros(data),
+    anteriores.map((r) => r.centroCostoId),
+  );
+  if (reparto.error) return { error: reparto.error };
+
   await db.sale.update({ where: { id, companyId: ctx.company.id }, data });
+  await escribirReparto(db, ctx.company.id, id, reparto.filas);
 
   // Si la venta tiene abonos, el estado se deriva de ellos: el formulario no
   // puede pisarlo (el selector solo ofrece por cobrar/cobrada).
@@ -170,6 +255,7 @@ export async function updateSale(
   await setFlash("success", "Venta actualizada", describe(data));
   revalidatePath("/facturas/ventas", "page");
   revalidatePath(`/facturas/ventas/${id}`);
+  revalidatePath("/facturas/reportes/centros-costo");
   redirect(`/facturas/ventas/${id}`);
 }
 
