@@ -15,20 +15,20 @@ export function LandingFooter() {
 
   const empresaLinks = [
     { href: "/contacto", label: "Contacto" },
-    { href: "/privacidad", label: "Privacidad" },
-    { href: "/terminos", label: "Términos" },
+    { href: "/blog", label: "Blog" },
+    { href: "/documentacion", label: "Documentación" },
   ];
 
   const recursosLinks = [
-    { href: "/blog", label: "Blog" },
-    { href: "/documentacion", label: "Documentación" },
     { href: "/changelog", label: "Changelog" },
+    { href: "/#servicios", label: "Servicios" },
+    { href: "/#como-funciona", label: "Cómo funciona" },
   ];
 
   const legalLinks = [
     { href: "/privacidad", label: "Privacidad" },
     { href: "/terminos", label: "Términos" },
-    { href: "/cookies", label: "Cookies" },
+    { href: "/privacidad#cookies", label: "Cookies" },
   ];
 
   return (
