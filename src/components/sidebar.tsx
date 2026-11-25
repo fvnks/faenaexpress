@@ -880,9 +880,6 @@ export function Sidebar(props: SidebarProps) {
             </svg>
           </span>
           <span className="truncate text-sm font-semibold tracking-tight">Facturas</span>
-          <span className="ml-auto shrink-0 truncate text-xs text-muted-foreground" title={props.companyName}>
-            {props.companyName}
-          </span>
           <button
             type="button"
             onClick={toggleCollapsed}
@@ -906,6 +903,9 @@ export function Sidebar(props: SidebarProps) {
             </svg>
           </button>
         </div>
+        <p className="mt-2 truncate text-xs text-muted-foreground" title={props.companyName}>
+          {props.companyName}
+        </p>
         <label htmlFor="sidebar-search" className="sr-only">
           Buscar secciones
         </label>

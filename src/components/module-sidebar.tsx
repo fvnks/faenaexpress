@@ -172,10 +172,10 @@ export function ModuleSidebar({
             </svg>
           </span>
           <span className="truncate text-sm font-semibold tracking-tight">{brand}</span>
-          <span className="ml-auto min-w-0 truncate text-right text-xs text-muted-foreground" title={scopeName}>
-            {scopeName}
-          </span>
         </div>
+        <p className="mt-2 truncate text-xs text-muted-foreground" title={scopeName}>
+          {scopeName}
+        </p>
         <div className="relative mt-3">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true">
             <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35" />
