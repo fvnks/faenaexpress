@@ -11,6 +11,7 @@ import { setFlash } from "@/lib/flash";
 import { safeReturnTo } from "@/lib/return-to";
 import { computeTotal, documentSign, formatCLP, todayDate } from "@/lib/money";
 import { checkPlanLimit, incrementUsage } from "@/lib/plans";
+import { esPagoConTarjeta } from "@/lib/payment-card";
 import { recomputeStatus } from "@/lib/payments";
 import { purchaseSchema, type PurchaseInput } from "@/lib/validation";
 
@@ -38,6 +39,7 @@ function readForm(formData: FormData) {
 
 function toData(input: PurchaseInput) {
   const paid = input.status === "PAID";
+  const metodo = paid ? String(input.paymentMethod ?? "").trim() || "Otro" : null;
   return {
     partnerId: input.partnerId,
     categoryId: input.categoryId ?? null,
@@ -53,10 +55,15 @@ function toData(input: PurchaseInput) {
     // El total siempre se recalcula: nunca se confía en lo que llega del cliente.
     totalAmount: computeTotal(input.netAmount, input.ivaAmount),
     status: input.status,
-    paymentMethod: paid ? (String(input.paymentMethod ?? "").trim() || "Otro") : null,
-    // Si se marca pagada sin fecha, se usa el día de Chile (medianoche UTC),
-    // no la hora exacta: el dominio guarda días de calendario.
-    paymentDate: paid ? (input.paymentDate ?? todayDate()) : null,
+    paymentMethod: metodo,
+    // Tarjeta de crédito/débito: la fecha de pago es la de emisión de la
+    // factura, aunque el formulario haya mandado otra (POST directo incluido).
+    // Los demás medios conservan la fecha elegida o el día de Chile por defecto.
+    paymentDate: paid
+      ? esPagoConTarjeta(metodo)
+        ? input.date
+        : input.paymentDate ?? todayDate()
+      : null,
     notes: input.notes ?? null,
   };
 }
@@ -269,16 +276,21 @@ export async function markPurchasePaid(formData: FormData): Promise<void> {
   // deja como "Otro" (que es lo que siempre estuvo).
   const paymentMethod = rawMethod || "Otro";
 
-  const rawDate = formData.get("paymentDate");
-  const wired = normalizePaymentDate(rawDate);
-  if (!wired) {
-    await setFlash("error", "Ingresa la fecha de pago en formato DD-MM o DD-MM-AAAA.");
-    redirect(`/facturas/compras/${id}`);
-  }
-  const paymentDate = new Date(`${wired}T00:00:00.000Z`);
-
   const purchase = await db.purchase.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!purchase) redirect("/facturas/compras");
+
+  // Con tarjeta se usa la fecha de emisión; no se exige fecha de pago.
+  let paymentDate: Date;
+  if (esPagoConTarjeta(paymentMethod)) {
+    paymentDate = purchase.date;
+  } else {
+    const wired = normalizePaymentDate(formData.get("paymentDate"));
+    if (!wired) {
+      await setFlash("error", "Ingresa la fecha de pago en formato DD-MM o DD-MM-AAAA.");
+      redirect(`/facturas/compras/${id}`);
+    }
+    paymentDate = new Date(`${wired}T00:00:00.000Z`);
+  }
 
   // Un documento con abonos se salda desde su panel: aquí el estado se pisaría.
   if ((await db.payment.count({ where: { companyId: ctx.company.id, purchaseId: id } })) > 0) {

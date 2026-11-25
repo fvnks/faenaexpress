@@ -22,6 +22,8 @@ export const FORMAS_DE_PAGO_BASE = [
   "Otro",
 ] as const;
 
+export { esPagoConTarjeta } from "@/lib/payment-card";
+
 /**
  * Las formas de pago que ya usa la empresa en sus documentos.
  *

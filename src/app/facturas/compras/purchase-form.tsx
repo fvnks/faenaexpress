@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import type { PurchaseFormState } from "@/app/actions/purchases";
 import { AutocompletePartner } from "@/components/autocomplete-partner";
@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { RepartoForm } from "@/components/reparto-form";
 import { documentTypeLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
+import { esPagoConTarjeta } from "@/lib/payment-card";
 import type { PurchaseForForm } from "@/lib/purchases";
 import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
 import { documentTypeValues } from "@/lib/validation";
@@ -48,7 +49,26 @@ export function PurchaseForm({
   const [net, setNet] = useState(defaults ? String(defaults.netAmount) : "");
   const [iva, setIva] = useState(defaults ? String(defaults.ivaAmount) : "");
   const [status, setStatus] = useState(defaults?.status ?? "PENDING");
+  const [paymentMethod, setPaymentMethod] = useState(defaults?.paymentMethod ?? "");
   const [repartoValido, setRepartoValido] = useState(true);
+  const paymentDateRef = useRef<HTMLInputElement>(null);
+  const conTarjeta = esPagoConTarjeta(paymentMethod);
+
+  // La tarjeta se carga el día de emisión: refleja esa fecha en el campo y la
+  // deja solo lectura. El servidor vuelve a imponer la regla al guardar.
+  useEffect(() => {
+    if (status !== "PAID" || !conTarjeta) return;
+    const emision = document.getElementById("date") as HTMLInputElement | null;
+    if (emision && paymentDateRef.current) paymentDateRef.current.value = emision.value;
+  }, [status, conTarjeta]);
+
+  function cambiarMetodo(metodo: string) {
+    setPaymentMethod(metodo);
+    if (status === "PAID" && esPagoConTarjeta(metodo)) {
+      const emision = document.getElementById("date") as HTMLInputElement | null;
+      if (emision && paymentDateRef.current) paymentDateRef.current.value = emision.value;
+    }
+  }
   const signoCC = documentType === "CREDIT_NOTE" ? -1 : 1;
 
   const isAdjustment = documentType === "CREDIT_NOTE" || documentType === "DEBIT_NOTE";
@@ -255,7 +275,8 @@ export function PurchaseForm({
               <select
                 id="paymentMethod"
                 name="paymentMethod"
-                defaultValue={defaults?.paymentMethod ?? ""}
+                value={paymentMethod}
+                onChange={(event) => cambiarMetodo(event.target.value)}
                 className={controlClass}
               >
                 <option value="">Selecciona un medio de pago</option>
@@ -275,8 +296,15 @@ export function PurchaseForm({
                 name="paymentDate"
                 type="text" data-date="1" pattern="^\d{2}-\d{2}(-\d{4})?$" placeholder="DD-MM o DD-MM-AAAA"
                 defaultValue={defaults?.paymentDate ?? ""}
-                className={controlClass}
+                ref={paymentDateRef}
+                readOnly={conTarjeta}
+                className={controlClass + (conTarjeta ? " opacity-70" : "")}
               />
+              {conTarjeta ? (
+                <p className="text-xs text-muted-foreground">
+                  Con tarjeta de crédito o débito se usa la fecha de emisión de la factura.
+                </p>
+              ) : null}
             </div>
           </>
         ) : null}
