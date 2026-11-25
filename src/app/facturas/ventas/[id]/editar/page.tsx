@@ -65,7 +65,7 @@ export default async function EditSalePage(props: PageProps<"/facturas/ventas/[i
         retentionRate={ctx.company.retentionRate}
         today={todayISO()}
         defaults={serializeSale(sale)}
-        centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre }))}
+        centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, esSinAsignar: c.esSinAsignar }))}
         repartosIniciales={repartos.map((r) => ({
           centroCostoId: r.centroCostoId,
           monto: Math.abs(r.monto),

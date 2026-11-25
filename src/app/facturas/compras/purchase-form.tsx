@@ -38,7 +38,7 @@ export function PurchaseForm({
   formasDePago: string[];
   today: string;
   defaults?: PurchaseForForm;
-  centrosCosto: Array<{ id: string; codigo: string; nombre: string }>;
+  centrosCosto: Array<{ id: string; codigo: string; nombre: string; esSinAsignar?: boolean }>;
   repartosIniciales?: Array<{ centroCostoId: string; monto: number }>;
 }) {
   const [state, formAction] = useActionState<PurchaseFormState, FormData>(action, undefined);

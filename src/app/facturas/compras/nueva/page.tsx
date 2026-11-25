@@ -64,7 +64,7 @@ export default async function NewPurchasePage() {
           areas={areas}
           ivaRate={ctx.company.ivaRate}
           today={todayISO()}
-          centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre }))}
+          centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, esSinAsignar: c.esSinAsignar }))}
         />
       )}
     </div>

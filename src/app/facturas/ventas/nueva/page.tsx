@@ -80,7 +80,7 @@ export default async function NewSalePage(props: PageProps<"/facturas/ventas/nue
           retentionRate={ctx.company.retentionRate}
           today={todayISO()}
           defaultDocumentType={defaultDocumentType}
-          centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre }))}
+          centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, esSinAsignar: c.esSinAsignar }))}
         />
       )}
     </div>

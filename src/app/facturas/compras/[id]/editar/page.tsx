@@ -62,7 +62,7 @@ export default async function EditPurchasePage(props: PageProps<"/facturas/compr
         ivaRate={ctx.company.ivaRate}
         today={todayISO()}
         defaults={serializePurchase(purchase)}
-        centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre }))}
+        centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, esSinAsignar: c.esSinAsignar }))}
         repartosIniciales={repartos.map((r) => ({
           centroCostoId: r.centroCostoId,
           monto: Math.abs(r.monto),

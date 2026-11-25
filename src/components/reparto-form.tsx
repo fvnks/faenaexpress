@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { controlClass, secondaryButtonClass } from "@/lib/ui";
 
-type Centro = { id: string; codigo: string; nombre: string };
+type Centro = { id: string; codigo: string; nombre: string; esSinAsignar?: boolean };
 type Fila = { centroCostoId: string; monto: string };
 
 const fmt = (v: number) => `$${v.toLocaleString("es-CL")}`;
@@ -33,7 +33,9 @@ export function RepartoForm({
   );
 
   const suma = filas.reduce((acc, f) => acc + (Number(f.monto.replace(",", ".")) || 0), 0);
-  const cuadra = filas.length === 0 || suma === objetivo;
+  const resto = objetivo - suma;
+  const cuadra = filas.length === 0 || resto === 0;
+  const sinAsignar = centros.find((centro) => centro.esSinAsignar);
   useEffect(() => {
     onValidez(cuadra);
   }, [cuadra, onValidez]);
@@ -45,8 +47,24 @@ export function RepartoForm({
     const usados = new Set(filas.map((f) => f.centroCostoId));
     const libre = centros.find((c) => !usados.has(c.id));
     if (!libre) return;
-    const resto = objetivo - suma;
     setFilas((prev) => [...prev, { centroCostoId: libre.id, monto: String(resto > 0 ? resto : 0) }]);
+  };
+
+  /** Estaciona el saldo en el centro «Sin asignar» para cuadrar el documento. */
+  const dejarResto = () => {
+    if (!sinAsignar || resto <= 0) return;
+    const monto = Math.round(resto);
+    setFilas((prev) => {
+      const existente = prev.find((f) => f.centroCostoId === sinAsignar.id);
+      if (existente) {
+        return prev.map((f) =>
+          f.centroCostoId === sinAsignar.id
+            ? { ...f, monto: String(Math.round((Number(f.monto.replace(",", ".")) || 0) + monto)) }
+            : f,
+        );
+      }
+      return [...prev, { centroCostoId: sinAsignar.id, monto: String(monto) }];
+    });
   };
 
   return (
@@ -55,7 +73,7 @@ export function RepartoForm({
         <div>
           <h2 className="font-semibold">Centros de costo</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Distribuye el total de esta factura entre uno o más centros. Puedes dejarlo sin asignar.
+            Distribuye el total de esta factura entre uno o más centros. El saldo que aún no quieras imputar puedes dejarlo en el centro «Sin asignar».
           </p>
         </div>
         <div className="text-right">
@@ -114,15 +132,27 @@ export function RepartoForm({
         <p className="mt-3 text-sm text-muted-foreground">Sin centros asignados.</p>
       )}
 
-      {centros.length > filas.length ? (
-        <button type="button" onClick={agregar} className={secondaryButtonClass + " mt-3"}>
-          + Agregar centro
-        </button>
-      ) : null}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {centros.length > filas.length ? (
+          <button type="button" onClick={agregar} className={secondaryButtonClass}>
+            + Agregar centro
+          </button>
+        ) : null}
+        {sinAsignar && resto > 0 ? (
+          <button type="button" onClick={dejarResto} className={secondaryButtonClass}>
+            Dejar {fmt(resto)} en «{sinAsignar.nombre}»
+          </button>
+        ) : null}
+      </div>
 
       {filas.length > 0 ? (
         <p className={`mt-2 text-xs tabular ${cuadra ? "text-success" : "text-danger"}`}>
-          Repartido {fmt(suma)} · {cuadra ? "cuadra" : `falta ${fmt(objetivo - suma)}`}
+          Repartido {fmt(suma)} · {cuadra ? "cuadra" : `falta ${fmt(resto)}`}
+        </p>
+      ) : null}
+      {!sinAsignar ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Para estacionar un saldo sin decidir su centro, marca uno como «Sin asignar» en Catálogos → Centros de costo.
         </p>
       ) : null}
 

@@ -44,7 +44,7 @@ export function SaleForm({
   defaults?: SaleForForm;
   defaultDocumentType?: string;
   /** Catálogo activo de centros de costo de la empresa. */
-  centrosCosto: Array<{ id: string; codigo: string; nombre: string }>;
+  centrosCosto: Array<{ id: string; codigo: string; nombre: string; esSinAsignar?: boolean }>;
   /** Reparto ya guardado cuando se edita la venta. */
   repartosIniciales?: Array<{ centroCostoId: string; monto: number }>;
 }) {
