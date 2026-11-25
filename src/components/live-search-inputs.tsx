@@ -2,14 +2,19 @@
 
 import { useEffect } from "react";
 
-const SELECTOR =
-  'input:not([data-date])[type="search"],' +
-  'input:not([data-date])[name^="q"],' +
-  'input:not([data-date])[name*="cliente"],' +
-  'input:not([data-date])[name*="proveedor"],' +
-  'input:not([data-date])[name*="numero"],' +
-  'input:not([data-date])[name*="factura"],' +
-  'input:not([data-date])[name*="folio"]';
+// `data-live="off"` lo usan los buscadores internos (p. ej. el de SelectDropdown):
+// son inputs de texto para filtrar opciones, no búsquedas de lista que deban
+// recargar la página, y auto-enviar el formulario al escribir sería destructivo.
+const BASE = 'input:not([data-date]):not([data-live="off"])';
+const SELECTOR = [
+  `${BASE}[type="search"]`,
+  `${BASE}[name^="q"]`,
+  `${BASE}[name*="cliente"]`,
+  `${BASE}[name*="proveedor"]`,
+  `${BASE}[name*="numero"]`,
+  `${BASE}[name*="factura"]`,
+  `${BASE}[name*="folio"]`,
+].join(",");
 
 export function LiveSearchInputs() {
   useEffect(() => {
