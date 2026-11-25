@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { CreateUserForm } from "@/app/admin/create-forms";
 import { formatDate } from "@/lib/money";
+import { db } from "@/lib/db";
 import { requirePlatformStaff } from "@/lib/platform";
 import { listOrganizations, searchUsers } from "@/lib/platform-queries";
 import { cardClass, controlClass } from "@/lib/ui";
@@ -23,6 +24,11 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
     searchUsers({ query, organizationId, estado }),
     listOrganizations(),
   ]);
+  const companies = await db.company.findMany({
+    where: { organizationId: { in: orgs.map((o) => o.id) } },
+    select: { id: true, name: true, organizationId: true },
+    orderBy: { name: "asc" },
+  });
 
   const puedeCrear = ctx.staff.level === "OPERATOR" || ctx.staff.level === "OWNER";
 
@@ -43,7 +49,14 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
             La cuenta existe al instante con la contraseña provisional que le pases. La persona
             tendrá que cambiarla al entrar.
           </p>
-          <CreateUserForm organizations={orgs.map((o) => ({ id: o.id, name: o.name }))} />
+          <CreateUserForm
+            organizations={orgs.map((o) => ({ id: o.id, name: o.name }))}
+            companies={companies.map((c) => ({
+              id: c.id,
+              name: c.name,
+              organizationId: c.organizationId,
+            }))}
+          />
         </section>
       ) : null}
 

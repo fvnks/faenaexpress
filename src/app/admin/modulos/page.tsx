@@ -11,7 +11,8 @@ import { cardClass } from "@/lib/ui";
 // módulos": de un vistazo se ve qué organización tiene qué, y se cambia desde
 // aquí mismo.
 export default async function AdminModulesPage() {
-  await requirePlatformStaff("SUPPORT");
+  const ctx = await requirePlatformStaff("SUPPORT");
+  const puedeEditar = ctx.staff.level !== "SUPPORT";
 
   const orgs = await listOrganizations();
   const estados = await Promise.all(
@@ -23,8 +24,8 @@ export default async function AdminModulesPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Módulos</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Las partes del producto que se pueden vender por separado. Cada cuenta los tiene
-          activados o no; el núcleo siempre está.
+          Las partes del producto que se pueden contratar por separado, Facturas incluido.
+          Cada cuenta tiene su propia combinación según el plan y lo habilitado a mano.
         </p>
       </div>
 
@@ -70,16 +71,25 @@ export default async function AdminModulesPage() {
                 </p>
               </div>
               <ul className="mt-2 divide-y divide-border">
-                {state.map((s) => (
-                  <ModuleToggle
-                    key={s.module.code}
-                    organizationId={org.id}
-                    moduleCode={s.module.code}
-                    moduleName={s.module.name}
-                    enabled={s.enabled}
-                    core={s.module.core}
-                  />
-                ))}
+                {state.map((s) =>
+                  puedeEditar ? (
+                    <ModuleToggle
+                      key={s.module.code}
+                      organizationId={org.id}
+                      moduleCode={s.module.code}
+                      moduleName={s.module.name}
+                      enabled={s.enabled}
+                      core={s.module.core}
+                    />
+                  ) : (
+                    <li key={s.module.code} className="flex items-center justify-between py-2 text-sm">
+                      <span>{s.module.name}</span>
+                      <span className={`text-xs ${s.enabled ? "text-success" : "text-muted-foreground"}`}>
+                        {s.enabled ? "Activo" : "Inactivo"}
+                      </span>
+                    </li>
+                  ),
+                )}
               </ul>
             </section>
           );

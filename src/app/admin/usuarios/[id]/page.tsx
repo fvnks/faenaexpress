@@ -151,11 +151,17 @@ export default async function AdminUserDetailPage({ params }: PageProps<"/admin/
               : "No activo. Si es dueño de una organización o del equipo, tendría que activarlo."}
           </p>
           <div className="mt-2">
-            <ResetTwoFactorForm
-              userId={user.id}
-              userName={user.name}
-              enabled={user.totpEnabled}
-            />
+            {ctx.staff.level === "OWNER" ? (
+              <ResetTwoFactorForm
+                userId={user.id}
+                userName={user.name}
+                enabled={user.totpEnabled}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Solo el dueño de plataforma puede restablecer el segundo factor.
+              </p>
+            )}
           </div>
         </section>
       ) : null}

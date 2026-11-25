@@ -38,8 +38,8 @@ export default async function AdminIncidentsPage() {
         <section className={cardClass + " p-5"}>
           <h2 className="font-semibold">Organizaciones sin dueño</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Nadie puede otorgar permisos ni crear empresas. Se repara al abrir Organización, o
-            desde aquí cambiando el rol de un miembro.
+            Nadie puede otorgar permisos ni crear empresas. Ábrela en Organizaciones y asigna el
+            rol de dueño a un miembro activo.
           </p>
           <ul className="mt-3 divide-y divide-border">
             {incidents.orgsWithoutOwner.map((org) => (

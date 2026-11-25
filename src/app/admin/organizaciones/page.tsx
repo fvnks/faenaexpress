@@ -44,8 +44,8 @@ export default async function AdminOrganizationsPage({ searchParams }: PageProps
         <section className={cardClass + " p-5"}>
           <h2 className="font-semibold">Nueva organización</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Crea la cuenta y luego invita al contacto con el enlace de la ficha. Las empresas las
-            crea el cliente al entrar, con sus datos fiscales.
+            Crea la cuenta y luego invita al contacto con el enlace de la ficha. Las empresas se
+            crean desde la propia ficha de la organización o desde /facturas/configuracion.
           </p>
           <div className="mt-4">
             <CreateOrganizationForm />

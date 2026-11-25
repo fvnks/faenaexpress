@@ -24,6 +24,7 @@ export default async function AdminOrganizationDetailPage({
   params,
 }: PageProps<"/admin/organizaciones/[id]">) {
   const ctx = await requirePlatformStaff("SUPPORT");
+  const puedeEditar = ctx.staff.level !== "SUPPORT";
   const { id } = await params;
 
   const detail = await organizationDetail(id);
@@ -211,20 +212,29 @@ export default async function AdminOrganizationDetailPage({
       <section className={cardClass + " p-5"}>
         <h2 className="font-semibold">Módulos de la cuenta</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Las partes del producto que esta cuenta tiene contratadas. El núcleo siempre está
-          incluido.
+          Partes del producto contratadas por esta cuenta. Facturas también se vende por separado:
+          el plan marca la base y lo habilitado a mano puede añadir módulos sueltos.
         </p>
         <ul className="mt-3 divide-y divide-border">
-          {moduleStates.map((s) => (
-            <ModuleToggle
-              key={s.module.code}
-              organizationId={organization.id}
-              moduleCode={s.module.code}
-              moduleName={s.module.name}
-              enabled={s.enabled}
-              core={s.module.core}
-            />
-          ))}
+          {moduleStates.map((s) =>
+            puedeEditar ? (
+              <ModuleToggle
+                key={s.module.code}
+                organizationId={organization.id}
+                moduleCode={s.module.code}
+                moduleName={s.module.name}
+                enabled={s.enabled}
+                core={s.module.core}
+              />
+            ) : (
+              <li key={s.module.code} className="flex items-center justify-between py-2 text-sm">
+                <span>{s.module.name}</span>
+                <span className={`text-xs ${s.enabled ? "text-success" : "text-muted-foreground"}`}>
+                  {s.enabled ? "Activo" : "Inactivo"}
+                </span>
+              </li>
+            ),
+          )}
         </ul>
       </section>
 

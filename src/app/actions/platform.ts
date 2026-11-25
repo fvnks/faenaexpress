@@ -1072,7 +1072,9 @@ export async function createUserFromAdmin(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const organizationId = String(formData.get("organizationId") ?? "").trim() || null;
+  const companyId = String(formData.get("companyId") ?? "").trim() || null;
   const orgRoleRaw = String(formData.get("orgRole") ?? "OWNER");
+  const companyRoleRaw = String(formData.get("companyRole") ?? "");
 
   if (name.length < 2 || name.length > 120) {
     return { error: "El nombre debe tener entre 2 y 120 caracteres." };
@@ -1102,6 +1104,30 @@ export async function createUserFromAdmin(
     ? (orgRoleRaw as (typeof orgRoles)[number])
     : "MEMBER";
 
+  // La pertenencia a la organización NO basta para entrar: `getActiveMembership`
+  // necesita un Membership en una empresa. Sin esto la persona logueaba y veía
+  // "no tienes empresa asignada" aunque su OrgMember existiera.
+  const companyRoles = ["ADMIN", "ACCOUNTANT", "SALES", "VIEWER"] as const;
+  const companyRole = (companyRoles as readonly string[]).includes(companyRoleRaw)
+    ? (companyRoleRaw as (typeof companyRoles)[number])
+    : orgRole === "OWNER" || orgRole === "ADMIN"
+      ? "ADMIN"
+      : "VIEWER";
+
+  let empresas: Array<{ id: string }> = [];
+  if (organizationId) {
+    empresas = await db.company.findMany({
+      where: { organizationId },
+      select: { id: true },
+    });
+    if (companyId && !empresas.some((c) => c.id === companyId)) {
+      return { error: "La empresa elegida no pertenece a esa organización." };
+    }
+  }
+  const empresasDestino = companyId
+    ? empresas.filter((c) => c.id === companyId)
+    : empresas;
+
   const { hashPassword } = await import("@/lib/password");
 
   const user = await db.user.create({
@@ -1114,6 +1140,15 @@ export async function createUserFromAdmin(
       ...(organizationId
         ? { orgMembers: { create: { organizationId, orgRole } } }
         : {}),
+      ...(empresasDestino.length > 0
+        ? {
+            memberships: {
+              createMany: {
+                data: empresasDestino.map((c) => ({ companyId: c.id, role: companyRole })),
+              },
+            },
+          }
+        : {}),
     },
     select: { id: true, name: true, email: true },
   });
@@ -1123,7 +1158,7 @@ export async function createUserFromAdmin(
     entityType: "User",
     entityId: user.id,
     organizationId,
-    summary: `Creó la cuenta de ${user.name} (${user.email})${organizationId ? ` y la sumó a la organización con rol ${orgRole}` : ""}.`,
+    summary: `Creó la cuenta de ${user.name} (${user.email})${organizationId ? ` y la sumó a la organización con rol ${orgRole}` : ""}${empresasDestino.length > 0 ? `, con acceso a ${empresasDestino.length} empresa(s) como ${companyRole}` : ""}.`,
   });
 
   revalidatePath("/admin/usuarios");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -17,13 +17,18 @@ import { controlClass, labelClass, secondaryButtonClass } from "@/lib/ui";
 // propio equipo; esto, para el alta guiada y las cuentas de prueba.
 export function CreateUserForm({
   organizations,
+  companies,
 }: {
   organizations: { id: string; name: string }[];
+  companies: { id: string; name: string; organizationId: string | null }[];
 }) {
   const [state, action, pending] = useActionState<PlatformActionState, FormData>(
     createUserFromAdmin,
     undefined,
   );
+  const [organizationId, setOrganizationId] = useState("");
+  const [orgRole, setOrgRole] = useState("OWNER");
+  const empresasDeLaOrg = companies.filter((c) => c.organizationId === organizationId);
 
   useEffect(() => {
     if (state?.ok) toast.success("Usuario creado");
@@ -83,7 +88,8 @@ export function CreateUserForm({
           <select
             id="new-user-org"
             name="organizationId"
-            defaultValue=""
+            value={organizationId}
+            onChange={(e) => setOrganizationId(e.target.value)}
             className={controlClass}
           >
             <option value="">Sin organización</option>
@@ -101,7 +107,8 @@ export function CreateUserForm({
           <select
             id="new-user-org-role"
             name="orgRole"
-            defaultValue="OWNER"
+            value={orgRole}
+            onChange={(e) => setOrgRole(e.target.value)}
             className={controlClass}
           >
             <option value="OWNER">Dueño</option>
@@ -110,6 +117,40 @@ export function CreateUserForm({
             <option value="BILLING">Facturación</option>
           </select>
         </div>
+        {organizationId ? (
+          <>
+            <div>
+              <label htmlFor="new-user-company" className={labelClass}>
+                Empresa a la que pertenece
+              </label>
+              <select id="new-user-company" name="companyId" className={controlClass}>
+                <option value="">Todas las empresas de la organización</option>
+                {empresasDeLaOrg.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Sin esta pertenencia la persona no puede entrar a Facturas, aunque esté en la organización.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="new-user-company-role" className={labelClass}>
+                Rol en la empresa
+              </label>
+              <select
+                id="new-user-company-role"
+                name="companyRole"
+                defaultValue={orgRole === "OWNER" || orgRole === "ADMIN" ? "ADMIN" : "VIEWER"}
+                className={controlClass}
+              >
+                <option value="ADMIN">Administrador</option>
+                <option value="ACCOUNTANT">Contador</option>
+                <option value="SALES">Vendedor</option>
+                <option value="VIEWER">Solo lectura</option>
+              </select>
+            </div>
+          </>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-3">

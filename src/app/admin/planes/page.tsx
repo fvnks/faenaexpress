@@ -64,7 +64,7 @@ export default async function AdminPlansPage() {
                   {formatCLP(plan.priceCLP)} / {plan.period === "YEARLY" ? "año" : "mes"}
                 </p>
               </div>
-              <PlanForm plan={plan} />
+              {puedeCrear ? <PlanForm plan={plan} /> : null}
             </div>
 
             <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-4">
@@ -92,7 +92,7 @@ export default async function AdminPlansPage() {
               </p>
             ) : (
               <p className="mt-3 text-xs text-muted-foreground">
-                Sin módulos extra: solo el núcleo del producto.
+                Sin módulos adicionales incluidos en este plan.
               </p>
             )}
           </section>
