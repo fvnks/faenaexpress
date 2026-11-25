@@ -35,6 +35,12 @@ node scripts/prisma-run.mjs migrate resolve --applied "20261103000000_pos_sii_in
 # Nota: `20261124000000_saved_views` falló el 24-11-2026 pero ya quedó resuelta
 # en la BD de producción (tabla creada + migrate resolve). No se fuerza aquí:
 # en una base nueva `migrate deploy` la aplica normalmente.
+#
+# Centros de costo en gastos: `20261125090000_gastos_centro_costo` quedó fallida
+# en producción (P3009) y bloquea el deploy. Se marca aplicada para destrabar;
+# el DDL real lo garantiza `20261125100000_gastos_centro_costo_repair`, que es
+# idempotente, así que en una BD nueva también queda correcto.
+node scripts/prisma-run.mjs migrate resolve --applied "20261125090000_gastos_centro_costo" 2>/dev/null || true
 
 node scripts/prisma-run.mjs migrate deploy
 
