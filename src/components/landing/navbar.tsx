@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -16,6 +16,15 @@ export function LandingNavbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
+
   const navLinks = [
     { href: "#servicios", label: "Servicios" },
     { href: "#como-funciona", label: "Cómo funciona" },
@@ -24,6 +33,7 @@ export function LandingNavbar() {
   ];
 
   return (
+    <>
     <nav className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm" role="navigation" aria-label="Navegación principal">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
@@ -104,7 +114,10 @@ export function LandingNavbar() {
         </div>
       </div>
 
-      {/* Menú móvil desplegable */}
+    </nav>
+
+      {/* Menú móvil: hermano del nav, no hijo. Si estuviera dentro, el <nav>
+          fixed sería su bloque contenedor y el panel mediría solo 64 px. */}
       {mobileOpen ? (
         <div className="lg:hidden fixed inset-0 z-50" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menú de navegación">
           <div
@@ -112,7 +125,7 @@ export function LandingNavbar() {
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
-          <div className="absolute left-0 top-16 right-0 bottom-0 p-6 overflow-y-auto bg-surface border-l border-border lg:fixed lg:top-0 lg:bottom-0 lg:w-80">
+          <div className="absolute left-0 top-16 right-0 bottom-0 p-6 overflow-y-auto bg-surface border-r border-border">
             <div className="flex flex-col gap-1 border-b border-border pb-6">
               {navLinks.map((link) => (
                 <Link
@@ -147,6 +160,6 @@ export function LandingNavbar() {
           </div>
         </div>
       ) : null}
-    </nav>
+    </>
   );
 }
