@@ -144,6 +144,178 @@
   --catalog-grid-line: rgb(255 255 255 / 0.045);
 }
 
+/* === PALETAS DE COLOR ===
+   `data-palette` vive en <html>. La paleta solo cambia colores: el modo
+   (claro / alto contraste / oscuro) sigue decidido por las clases de arriba.
+   La paleta «cobre» es la default y no necesita reglas: usa los tokens base. */
+:root:not(.dark):not(.high-contrast)[data-palette="arena"] {
+  --background: #FBF7F1;
+  --surface: #FFFDF9;
+  --surface-elevated: #F4ECE2;
+  --foreground: #2B231D;
+  --foreground-muted: #725F52;
+  --foreground-subtle: #A08D7E;
+  --border: #E6D9CB;
+  --border-strong: #D4C2B2;
+  --primary: #B4552F;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #F7E7DE;
+  --primary-ring: #B4552F;
+  --accent: #A07122;
+  --accent-soft: #FAF0DD;
+  --success: #2F7446;
+  --success-soft: #EAF3EC;
+  --danger: #A33B2E;
+  --danger-soft: #F9EBE8;
+  --catalog-ghost: rgb(43 35 29 / 0.05);
+  --catalog-grid-line: rgb(43 35 29 / 0.04);
+}
+:root.dark[data-palette="arena"],
+:root.high-contrast[data-palette="arena"] {
+  --background: #100C0A;
+  --surface: #17110E;
+  --surface-elevated: #1E1714;
+  --foreground: #F5EBE2;
+  --foreground-muted: #AA9587;
+  --foreground-subtle: #7B675B;
+  --border: #2C211C;
+  --border-strong: #3A2C25;
+  --primary: #D98A5E;
+  --primary-foreground: #17110E;
+  --primary-soft: #2A1B14;
+  --primary-ring: #D98A5E;
+  --accent: #E8B45C;
+  --accent-soft: #2A2110;
+  --catalog-ghost: rgb(245 235 226 / 0.05);
+  --catalog-grid-line: rgb(245 235 226 / 0.04);
+}
+
+:root:not(.dark):not(.high-contrast)[data-palette="bosque"] {
+  --background: #F6F8F5;
+  --surface: #FFFFFF;
+  --surface-elevated: #ECF1EC;
+  --foreground: #18241D;
+  --foreground-muted: #5E7065;
+  --foreground-subtle: #8C9E92;
+  --border: #DCE5DD;
+  --border-strong: #C6D3C8;
+  --primary: #2E6B4F;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #E6F1EA;
+  --primary-ring: #2E6B4F;
+  --accent: #6E7D2E;
+  --accent-soft: #F0F3E0;
+  --success: #2E7D4A;
+  --success-soft: #EAF5EE;
+  --danger: #A83C2E;
+  --danger-soft: #FDF0EF;
+  --catalog-ghost: rgb(24 36 29 / 0.05);
+  --catalog-grid-line: rgb(24 36 29 / 0.04);
+}
+:root.dark[data-palette="bosque"],
+:root.high-contrast[data-palette="bosque"] {
+  --background: #0A100C;
+  --surface: #101913;
+  --surface-elevated: #16231B;
+  --foreground: #E6F0E9;
+  --foreground-muted: #8FA797;
+  --foreground-subtle: #647D6C;
+  --border: #1E3025;
+  --border-strong: #2B4233;
+  --primary: #63B789;
+  --primary-foreground: #0A100C;
+  --primary-soft: #14261B;
+  --primary-ring: #63B789;
+  --accent: #B2C46A;
+  --accent-soft: #222813;
+  --catalog-ghost: rgb(230 240 233 / 0.05);
+  --catalog-grid-line: rgb(230 240 233 / 0.04);
+}
+
+:root:not(.dark):not(.high-contrast)[data-palette="acero"] {
+  --background: #F7F9FC;
+  --surface: #FFFFFF;
+  --surface-elevated: #ECF1F7;
+  --foreground: #17212E;
+  --foreground-muted: #5D6C7E;
+  --foreground-subtle: #8B99AA;
+  --border: #DCE3EC;
+  --border-strong: #C5D0DD;
+  --primary: #2E5E8C;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #E8F0F8;
+  --primary-ring: #2E5E8C;
+  --accent: #8A6A2F;
+  --accent-soft: #F8F1E2;
+  --success: #2E7D4A;
+  --success-soft: #EAF5EE;
+  --danger: #A83C2E;
+  --danger-soft: #FDF0EF;
+  --catalog-ghost: rgb(23 33 46 / 0.05);
+  --catalog-grid-line: rgb(23 33 46 / 0.04);
+}
+:root.dark[data-palette="acero"],
+:root.high-contrast[data-palette="acero"] {
+  --background: #0A0E14;
+  --surface: #101721;
+  --surface-elevated: #16202D;
+  --foreground: #E6EDF5;
+  --foreground-muted: #8D9CAD;
+  --foreground-subtle: #627184;
+  --border: #1E2A38;
+  --border-strong: #2B3B4D;
+  --primary: #7FAFD8;
+  --primary-foreground: #0A0E14;
+  --primary-soft: #14212E;
+  --primary-ring: #7FAFD8;
+  --accent: #E0BC72;
+  --accent-soft: #29230F;
+  --catalog-ghost: rgb(230 237 245 / 0.05);
+  --catalog-grid-line: rgb(230 237 245 / 0.04);
+}
+
+:root:not(.dark):not(.high-contrast)[data-palette="vino"] {
+  --background: #FBF7F8;
+  --surface: #FFFDFD;
+  --surface-elevated: #F4EAED;
+  --foreground: #291B21;
+  --foreground-muted: #745C66;
+  --foreground-subtle: #A48D96;
+  --border: #E7D9DE;
+  --border-strong: #D6C0C8;
+  --primary: #8C3A52;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #F6E7EC;
+  --primary-ring: #8C3A52;
+  --accent: #B07A2A;
+  --accent-soft: #FAF1E0;
+  --success: #2E7D4A;
+  --success-soft: #EAF5EE;
+  --danger: #A83C2E;
+  --danger-soft: #FDF0EF;
+  --catalog-ghost: rgb(41 27 33 / 0.05);
+  --catalog-grid-line: rgb(41 27 33 / 0.04);
+}
+:root.dark[data-palette="vino"],
+:root.high-contrast[data-palette="vino"] {
+  --background: #120A0E;
+  --surface: #1A1015;
+  --surface-elevated: #23161D;
+  --foreground: #F6E9EE;
+  --foreground-muted: #AE93A0;
+  --foreground-subtle: #7B626E;
+  --border: #32212A;
+  --border-strong: #432C38;
+  --primary: #D98BA3;
+  --primary-foreground: #120A0E;
+  --primary-soft: #2B1820;
+  --primary-ring: #D98BA3;
+  --accent: #E8BC74;
+  --accent-soft: #2A210F;
+  --catalog-ghost: rgb(246 233 238 / 0.05);
+  --catalog-grid-line: rgb(246 233 238 / 0.04);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
