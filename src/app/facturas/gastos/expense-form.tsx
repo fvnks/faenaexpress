@@ -10,11 +10,12 @@ import { formatCLP } from "@/lib/money";
 import type { ExpenseForForm } from "@/lib/expenses";
 import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
 
-type Option = { id: string; name: string };
+type Option = { id: string; name: string; centroCostoId?: string | null };
 
 export function ExpenseForm({
   action,
   categories,
+  centrosCosto,
   areas,
   payers,
   workers,
@@ -27,6 +28,8 @@ export function ExpenseForm({
 }: {
   action: (prev: ExpenseFormState, formData: FormData) => Promise<ExpenseFormState>;
   categories: Option[];
+  /** Centros activos de la empresa; el de la categoría se elige solo. */
+  centrosCosto: { id: string; name: string }[];
   areas: Option[];
   payers: Option[];
   workers: Option[];
@@ -50,6 +53,10 @@ export function ExpenseForm({
   const [net, setNet] = useState(initial.netAmount !== undefined ? String(initial.netAmount) : "");
   const [iva, setIva] = useState(initial.ivaAmount !== undefined ? String(initial.ivaAmount) : "");
   const [reimbursed, setReimbursed] = useState(initial.reimbursed ?? false);
+  const [categoria, setCategoria] = useState(initial.categoryId ?? "");
+  const [centroCosto, setCentroCosto] = useState(
+    initial.centroCostoId ?? categories.find((c) => c.id === initial.categoryId)?.centroCostoId ?? "",
+  );
 
   const netNumber = Number(net) || 0;
   const ivaNumber = Number(iva) || 0;
@@ -111,10 +118,31 @@ export function ExpenseForm({
             <SelectDropdown
               id="categoryId"
               name="categoryId"
-              value={initial.categoryId ?? ""}
+              value={categoria}
               emptyLabel="Sin categoría"
+              onValueChange={(value) => {
+                setCategoria(value);
+                setCentroCosto(categories.find((category) => category.id === value)?.centroCostoId ?? "");
+              }}
               options={categories.map((category) => ({ value: category.id, label: category.name }))}
             />
+          </div>
+
+          <div className={fieldClass}>
+            <label htmlFor="centroCostoId" className={labelClass}>
+              Centro de costo
+            </label>
+            <SelectDropdown
+              id="centroCostoId"
+              name="centroCostoId"
+              value={centroCosto}
+              emptyLabel="Automático (según categoría)"
+              onValueChange={setCentroCosto}
+              options={centrosCosto.map((centro) => ({ value: centro.id, label: centro.name }))}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Los gastos indirectos (gasolina, luz, arriendo) se imputan solos al centro de su categoría.
+            </p>
           </div>
 
           <div className={fieldClass}>

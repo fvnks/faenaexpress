@@ -12,7 +12,8 @@ type Fila = {
   nombre: string;
   compras: number;
   ventas: number;
-  documentos: Array<{ id: string; tipo: "compra" | "venta"; folio: string; tercero: string; fecha: Date; monto: number }>;
+  gastos: number;
+  documentos: Array<{ id: string; tipo: "compra" | "venta" | "gasto"; folio: string; tercero: string; fecha: Date; monto: number }>;
 };
 
 export default async function ReporteCentrosCostoPage(props: PageProps<"/facturas/reportes/centros-costo">) {
@@ -22,7 +23,7 @@ export default async function ReporteCentrosCostoPage(props: PageProps<"/factura
   const period = raw && monthRange(raw) ? raw : currentPeriod();
   const range = monthRange(period) ?? { from: new Date(), to: new Date() };
 
-  const [repartos, sinCompra, sinVenta] = await Promise.all([
+  const [repartos, sinCompra, sinVenta, gastos, sinGasto] = await Promise.all([
     db.repartoCentroCosto.findMany({
       where: {
         companyId: ctx.company.id,
@@ -45,6 +46,22 @@ export default async function ReporteCentrosCostoPage(props: PageProps<"/factura
     db.sale.count({
       where: { companyId: ctx.company.id, date: { gte: range.from, lte: range.to }, repartosCentroCosto: { none: {} } },
     }),
+    db.expense.findMany({
+      where: {
+        companyId: ctx.company.id,
+        date: { gte: range.from, lte: range.to },
+        centroCostoId: { not: null },
+      },
+      orderBy: { centroCosto: { codigo: "asc" } },
+      select: {
+        id: true, date: true, documentNumber: true, totalAmount: true,
+        centroCosto: { select: { id: true, codigo: true, nombre: true } },
+        paidBy: { select: { name: true } },
+      },
+    }),
+    db.expense.count({
+      where: { companyId: ctx.company.id, date: { gte: range.from, lte: range.to }, centroCostoId: null },
+    }),
   ]);
 
   const porCentro = new Map<string, Fila>();
@@ -52,7 +69,7 @@ export default async function ReporteCentrosCostoPage(props: PageProps<"/factura
     const centro = r.centroCosto;
     let fila = porCentro.get(centro.id);
     if (!fila) {
-      fila = { id: centro.id, codigo: centro.codigo, nombre: centro.nombre, compras: 0, ventas: 0, documentos: [] };
+      fila = { id: centro.id, codigo: centro.codigo, nombre: centro.nombre, compras: 0, ventas: 0, gastos: 0, documentos: [] };
       porCentro.set(centro.id, fila);
     }
     if (r.purchase) {
@@ -69,10 +86,28 @@ export default async function ReporteCentrosCostoPage(props: PageProps<"/factura
       });
     }
   }
-  const filas = [...porCentro.values()].sort((a, b) => Math.abs(b.compras + b.ventas) - Math.abs(a.compras + a.ventas));
-  const max = Math.max(1, ...filas.map((f) => Math.abs(f.compras) + Math.abs(f.ventas)));
+  for (const gasto of gastos) {
+    const centro = gasto.centroCosto;
+    if (!centro) continue;
+    let fila = porCentro.get(centro.id);
+    if (!fila) {
+      fila = { id: centro.id, codigo: centro.codigo, nombre: centro.nombre, compras: 0, ventas: 0, gastos: 0, documentos: [] };
+      porCentro.set(centro.id, fila);
+    }
+    fila.gastos += gasto.totalAmount;
+    fila.documentos.push({
+      id: gasto.id, tipo: "gasto", folio: gasto.documentNumber ?? "Sin documento",
+      tercero: gasto.paidBy.name, fecha: gasto.date, monto: gasto.totalAmount,
+    });
+  }
+
+  const filas = [...porCentro.values()].sort((a, b) =>
+    Math.abs(b.compras + b.ventas + b.gastos) - Math.abs(a.compras + a.ventas + a.gastos),
+  );
+  const max = Math.max(1, ...filas.map((f) => Math.abs(f.compras) + Math.abs(f.ventas) + Math.abs(f.gastos)));
   const totalCompras = filas.reduce((s, f) => s + f.compras, 0);
   const totalVentas = filas.reduce((s, f) => s + f.ventas, 0);
+  const totalGastos = filas.reduce((s, f) => s + f.gastos, 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,19 +115,21 @@ export default async function ReporteCentrosCostoPage(props: PageProps<"/factura
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Índice / Análisis</p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">Centros de costo</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Desglose de compras y ventas por centro en {formatPeriod(period)}. Las notas de crédito restan.
+          Desglose de compras, ventas y gastos por centro en {formatPeriod(period)}. Las notas de crédito restan; los gastos indirectos (gasolina, luz, arriendo) se imputan desde su categoría.
         </p>
       </div>
 
       <ReportNav active="/facturas/reportes/centros-costo" />
       <PeriodFilter period={period} />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
           { label: "Compras asignadas", value: formatCLP(totalCompras) },
           { label: "Ventas asignadas", value: formatCLP(totalVentas) },
+          { label: "Gastos asignados", value: formatCLP(totalGastos) },
           { label: "Compras sin centro", value: String(sinCompra) },
           { label: "Ventas sin centro", value: String(sinVenta) },
+          { label: "Gastos sin centro", value: String(sinGasto) },
         ].map((kpi) => (
           <div key={kpi.label} className={`${cardClass} p-4`}>
             <p className="text-xs text-muted-foreground">{kpi.label}</p>
@@ -108,18 +145,18 @@ export default async function ReporteCentrosCostoPage(props: PageProps<"/factura
         </div>
         {filas.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No hay facturas asignadas en este período. Asígnalas desde el detalle de cada compra o venta.
+            No hay movimientos asignados en este período. Asigna las facturas desde su detalle y configura el centro por defecto de cada categoría de gasto en Catálogos.
           </p>
         ) : (
           <ul className="divide-y divide-border">
             {filas.map((f) => {
-              const ancho = Math.round((Math.abs(f.compras) + Math.abs(f.ventas)) / max * 100);
+              const ancho = Math.round((Math.abs(f.compras) + Math.abs(f.ventas) + Math.abs(f.gastos)) / max * 100);
               return (
                 <li key={f.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
                     <span><span className="font-mono text-xs text-primary">{f.codigo}</span> · {f.nombre}</span>
                     <span className="tabular text-xs text-muted-foreground">
-                      C {formatCLP(f.compras)} · V {formatCLP(f.ventas)} · {f.documentos.length} líneas
+                      C {formatCLP(f.compras)} · V {formatCLP(f.ventas)} · G {formatCLP(f.gastos)} · {f.documentos.length} líneas
                     </span>
                   </div>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-elevated">
@@ -135,7 +172,7 @@ export default async function ReporteCentrosCostoPage(props: PageProps<"/factura
       {filas.length > 0 ? (
         <section className={`${cardClass} overflow-hidden`}>
           <div className="border-b border-border px-4 py-3">
-            <h2 className="font-semibold">Desglose por factura</h2>
+            <h2 className="font-semibold">Desglose por documento</h2>
           </div>
           <ul className="divide-y divide-border">
             {filas.map((f) => (
@@ -158,10 +195,16 @@ export default async function ReporteCentrosCostoPage(props: PageProps<"/factura
                         <tr key={d.id}>
                           <td className="py-2">
                             <Link
-                              href={d.tipo === "compra" ? `/facturas/compras/${d.id}` : `/facturas/ventas/${d.id}`}
+                              href={
+                                d.tipo === "compra"
+                                  ? `/facturas/compras/${d.id}`
+                                  : d.tipo === "venta"
+                                    ? `/facturas/ventas/${d.id}`
+                                    : `/facturas/gastos/${d.id}`
+                              }
                               className="text-primary hover:underline"
                             >
-                              {d.tipo === "compra" ? "Compra" : "Venta"} {d.folio}
+                              {d.tipo === "compra" ? "Compra" : d.tipo === "venta" ? "Venta" : "Gasto"} {d.folio}
                             </Link>
                           </td>
                           <td className="py-2 text-xs text-muted-foreground">{d.tercero}</td>

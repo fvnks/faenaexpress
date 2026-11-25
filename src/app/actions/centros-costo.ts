@@ -49,6 +49,45 @@ export async function createCentroCosto(
   return { ok: true };
 }
 
+/**
+ * Marca el centro «sin asignar» de la empresa: los gastos indirectos sin regla
+ * caen aquí. Solo puede haber uno activo por empresa.
+ */
+export async function setCentroSinAsignar(id: string, _formData: FormData): Promise<void> {
+  const ctx = await requireContext();
+  if (!canWrite(ctx, "catalogos")) return;
+
+  const centro = await db.centroCosto.findFirst({
+    where: { id, companyId: ctx.company.id },
+    select: { id: true, nombre: true, esSinAsignar: true },
+  });
+  if (!centro) return;
+
+  const activar = !centro.esSinAsignar;
+  // Quitar la marca a los demás para que la imputación nunca sea ambigua.
+  if (activar) {
+    await db.centroCosto.updateMany({
+      where: { companyId: ctx.company.id, esSinAsignar: true },
+      data: { esSinAsignar: false },
+    });
+  }
+  await db.centroCosto.update({
+    where: { id, companyId: ctx.company.id },
+    data: { esSinAsignar: activar },
+  });
+  await recordAudit(ctx, {
+    action: "UPDATE",
+    entityType: "CentroCosto",
+    entityId: id,
+    summary: activar
+      ? `Marcó «${centro.nombre}» como centro sin asignar para gastos indirectos.`
+      : `Quitó la marca de centro sin asignar a «${centro.nombre}».`,
+    changes: { esSinAsignar: { before: centro.esSinAsignar, after: activar } },
+  });
+  revalidatePath("/facturas/centros-costo");
+  revalidatePath("/facturas/reportes/centros-costo");
+}
+
 export async function updateCentroCosto(
   id: string,
   _prev: CentroCostoFormState,

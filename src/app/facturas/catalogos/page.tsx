@@ -18,6 +18,7 @@ import {
 } from "@/app/actions/catalogs";
 import { CatalogCreateForm, CatalogRow } from "@/app/facturas/catalogos/catalog-forms";
 import { canWrite, requireContext } from "@/lib/auth";
+import { listCentrosCosto } from "@/lib/centros-costo";
 import {
   listAreasAdmin,
   listCategoriesAdmin,
@@ -33,7 +34,7 @@ import { cardClass } from "@/lib/ui";
 export default async function CatalogsPage() {
   const ctx = await requireContext("catalogos");
   const writable = canWrite(ctx, "catalogos");
-  const [areas, categories, salespeople, payers, paymentMethods, units, productCategories, warehouses] = await Promise.all([
+  const [areas, categories, salespeople, payers, paymentMethods, units, productCategories, warehouses, centros] = await Promise.all([
     listAreasAdmin(ctx.company.id),
     listCategoriesAdmin(ctx.company.id),
     listSalespeopleAdmin(ctx.company.id),
@@ -42,7 +43,9 @@ export default async function CatalogsPage() {
     listUnitsAdmin(ctx.company.id),
     listProductCategoriesAdmin(ctx.company.id),
     listWarehouses(ctx.company.id, true),
+    listCentrosCosto(ctx.company.id),
   ]);
+  const centrosActivos = centros.filter((c) => c.active).map((c) => ({ id: c.id, name: c.nombre }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -88,7 +91,8 @@ export default async function CatalogsPage() {
         <section className={cardClass + " p-5"}>
           <h2 className="font-semibold">Categorías</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Clasificación del gasto o ingreso (insumos, servicios, etc.).
+            Clasificación del gasto o ingreso (insumos, servicios, etc.). Si le asignas un centro
+            de costo, los gastos de esa categoría se imputan automáticamente (gasolina → Vehículos).
           </p>
 
           {writable ? (
@@ -98,6 +102,7 @@ export default async function CatalogsPage() {
                 withKind
                 idPrefix="category"
                 placeholder="Nueva categoría"
+                centros={centrosActivos}
               />
             </div>
           ) : null}
@@ -113,6 +118,7 @@ export default async function CatalogsPage() {
                   action={updateCategory}
                   withKind
                   readOnly={!writable}
+                  centros={centrosActivos}
                 />
               ))
             )}

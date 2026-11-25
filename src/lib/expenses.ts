@@ -90,7 +90,7 @@ export async function listExpenses(companyId: string, filters: ExpenseFilters) {
   const [items, grouped, totalCount] = await Promise.all([
     db.expense.findMany({
       where,
-      include: { category: true, area: true, paidBy: true, worker: true },
+      include: { category: true, centroCosto: true, area: true, paidBy: true, worker: true },
       orderBy,
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
@@ -125,7 +125,7 @@ export async function listAllExpenses(companyId: string, filters: ExpenseFilters
   const where = buildWhere(companyId, filters);
   return db.expense.findMany({
     where,
-    include: { category: true, area: true, paidBy: true, worker: true },
+    include: { category: true, centroCosto: true, area: true, paidBy: true, worker: true },
     orderBy: filters.sort === "total" ? { totalAmount: filters.dir ?? "desc" } : { date: "desc" },
   });
 }
@@ -135,6 +135,7 @@ export async function getExpense(companyId: string, id: string) {
     where: { id, companyId },
     include: {
       category: true,
+      centroCosto: true,
       area: true,
       paidBy: true,
       worker: true,
@@ -154,6 +155,7 @@ export type ExpenseForForm = {
   date: string;
   description: string;
   categoryId: string;
+  centroCostoId: string;
   areaId: string;
   workerId: string;
   documentNumber: string;
@@ -171,6 +173,7 @@ export function serializeExpense(expense: {
   date: Date;
   description: string;
   categoryId: string | null;
+  centroCostoId: string | null;
   areaId: string | null;
   workerId: string | null;
   documentNumber: string | null;
@@ -187,6 +190,7 @@ export function serializeExpense(expense: {
     date: toISODate(expense.date),
     description: expense.description,
     categoryId: expense.categoryId ?? "",
+    centroCostoId: expense.centroCostoId ?? "",
     areaId: expense.areaId ?? "",
     workerId: expense.workerId ?? "",
     documentNumber: expense.documentNumber ?? "",

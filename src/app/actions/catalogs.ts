@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
+import { validarCentroDeCategoria } from "@/lib/centros-costo";
 import { db } from "@/lib/db";
 import { areaSchema, categorySchema, payerSchema, salespersonSchema, paymentMethodCatalogSchema, unitSchema, productCategorySchema, warehouseSchema } from "@/lib/validation";
 
@@ -77,9 +78,13 @@ export async function createCategory(
   const parsed = categorySchema.safeParse({
     name: formData.get("name"),
     kind: formData.get("kind"),
+    centroCostoId: formData.get("centroCostoId"),
     active: readActive(formData),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+
+  const errorCentro = await validarCentroDeCategoria(ctx.company.id, parsed.data.centroCostoId);
+  if (errorCentro) return { error: errorCentro };
 
   const clash = await db.category.findFirst({
     where: { companyId: ctx.company.id, name: parsed.data.name },
@@ -88,11 +93,13 @@ export async function createCategory(
     return { error: "Ya existe una categoría con ese nombre." };
   }
 
-  await db.category.create({ data: { ...parsed.data, companyId: ctx.company.id } });
+  await db.category.create({
+    data: { ...parsed.data, centroCostoId: parsed.data.centroCostoId ?? null, companyId: ctx.company.id },
+  });
   await recordAudit(ctx, {
     action: "CREATE",
     entityType: "Category",
-    summary: `Creó la categoría «${parsed.data.name}».`,
+    summary: `Creó la categoría «${parsed.data.name}»${parsed.data.centroCostoId ? " con centro por defecto" : ""}.`,
   });
   revalidatePath("/facturas/catalogos");
   return { ok: true };
@@ -106,24 +113,41 @@ export async function updateCategory(
   const ctx = await requireContext();
   if (!canWrite(ctx, "catalogos")) return { error: "No tienes permiso para editar catálogos." };
 
+  const anterior = await db.category.findFirst({
+    where: { id, companyId: ctx.company.id },
+    select: { centroCostoId: true },
+  });
+  if (!anterior) return { error: "La categoría no existe." };
+
   const parsed = categorySchema.safeParse({
     name: formData.get("name"),
     kind: formData.get("kind"),
+    centroCostoId: formData.get("centroCostoId"),
     active: formData.get("active"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+
+  const errorCentro = await validarCentroDeCategoria(
+    ctx.company.id,
+    parsed.data.centroCostoId,
+    anterior.centroCostoId,
+  );
+  if (errorCentro) return { error: errorCentro };
 
   const clash = await db.category.findFirst({
     where: { companyId: ctx.company.id, name: parsed.data.name },
   });
   if (clash && clash.id !== id) return { error: "Ya existe una categoría con ese nombre." };
 
-  await db.category.update({ where: { id, companyId: ctx.company.id }, data: parsed.data });
+  await db.category.update({
+    where: { id, companyId: ctx.company.id },
+    data: { ...parsed.data, centroCostoId: parsed.data.centroCostoId ?? null },
+  });
   await recordAudit(ctx, {
     action: "UPDATE",
     entityType: "Category",
     entityId: id,
-    summary: `Editó la categoría «${parsed.data.name}».`,
+    summary: `Editó la categoría «${parsed.data.name}»${parsed.data.centroCostoId ? " con centro por defecto" : ""}.`,
   });
   revalidatePath("/facturas/catalogos");
   return { ok: true };

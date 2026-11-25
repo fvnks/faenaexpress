@@ -1592,21 +1592,25 @@ enum CategoryKind {
 }
 
 model Category {
-  id        String       @id @default(cuid())
-  companyId String
-  name      String
-  kind      CategoryKind @default(EXPENSE)
-  active    Boolean      @default(true)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id            String       @id @default(cuid())
+  companyId     String
+  name          String
+  kind          CategoryKind @default(EXPENSE)
+  // Centro por defecto de los gastos de esta categoría (gasolina → Vehículos).
+  centroCostoId String?
+  active        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  purchases Purchase[]
-  sales     Sale[]
-  expenses  Expense[]
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  centroCosto CentroCosto? @relation(fields: [centroCostoId], references: [id], onDelete: SetNull)
+  purchases   Purchase[]
+  sales       Sale[]
+  expenses    Expense[]
 
   @@unique([companyId, name])
   @@index([companyId])
+  @@index([companyId, centroCostoId])
 }
 
 // Área de la empresa.
@@ -1629,19 +1633,25 @@ model Area {
 }
 
 // Centro de costo: catálogo propio de la empresa para distribuir compras y
-// ventas. No se mezcla con `Area` (que es el área del gasto en otros reportes).
+// ventas, y para imputar gastos indirectos (los que no se facturan a un cliente
+// ni se imputan a una obra). No se mezcla con `Area` (que es el área del gasto
+// en otros reportes).
 model CentroCosto {
   id          String   @id @default(cuid())
   companyId   String
   codigo      String
   nombre      String
   descripcion String?
+  // Red de seguridad: los gastos sin regla caen aquí para que no queden sin centro.
+  esSinAsignar Boolean @default(false)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company  Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  repartos RepartoCentroCosto[]
+  company    Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  repartos   RepartoCentroCosto[]
+  categorias Category[]
+  gastos     Expense[]
 
   @@unique([companyId, codigo])
   @@index([companyId, active])
@@ -2484,6 +2494,8 @@ model Expense {
   date           DateTime
   description    String
   categoryId     String?
+  // Centro imputado automáticamente (categoría) o elegido a mano en el gasto.
+  centroCostoId  String?
   areaId         String?
   workerId       String?
   documentNumber String?
@@ -2500,9 +2512,10 @@ model Expense {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  category  Category? @relation(fields: [categoryId], references: [id])
-  area      Area?     @relation(fields: [areaId], references: [id])
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  centroCosto CentroCosto? @relation(fields: [centroCostoId], references: [id], onDelete: SetNull)
+  area        Area?        @relation(fields: [areaId], references: [id])
   worker    Worker?   @relation(fields: [workerId], references: [id])
   paidBy    Payer     @relation(fields: [paidById], references: [id])
   createdBy User      @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
@@ -2515,6 +2528,7 @@ model Expense {
   @@index([companyId, paidById])
   @@index([companyId, workerId])
   @@index([companyId, categoryId])
+  @@index([companyId, centroCostoId])
   @@index([companyId, areaId])
 }
 

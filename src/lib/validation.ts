@@ -148,6 +148,7 @@ export const expenseSchema = z.object({
   date: z.coerce.date({ error: "Ingresa la fecha del gasto." }),
   description: z.string().trim().min(1, { error: "Ingresa una descripción." }).max(300),
   categoryId: z.preprocess(emptyToUndefined, z.string().optional()),
+  centroCostoId: z.preprocess(emptyToUndefined, z.string().optional()),
   areaId: z.preprocess(emptyToUndefined, z.string().optional()),
   workerId: z.preprocess(emptyToUndefined, z.string().optional()),
   documentNumber: optionalText(50),
@@ -227,6 +228,7 @@ export const salespersonSchema = nameActiveSchema.extend({
 export const categorySchema = z.object({
   name: z.string().trim().min(1, { error: "Ingresa un nombre." }).max(80),
   kind: z.enum(categoryKindValues, { error: "Selecciona el tipo." }),
+  centroCostoId: z.preprocess(emptyToUndefined, z.string().optional()),
   active: z.preprocess(
     (value) => value === "on" || value === "true" || value === true,
     z.boolean(),

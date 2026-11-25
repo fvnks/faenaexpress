@@ -25,11 +25,12 @@ export async function GET(request: Request) {
   const rows = await listAllExpenses(ctx.company.id, filters);
 
   const csv = toCsv(
-    ["Fecha", "Descripción", "Categoría", "Área", "Documento", "Pagado por", "Medio de pago", "Total", "Reembolsado", "Fecha reembolso"],
+    ["Fecha", "Descripción", "Categoría", "Centro de costo", "Área", "Documento", "Pagado por", "Medio de pago", "Total", "Reembolsado", "Fecha reembolso"],
     rows.map((expense) => [
       formatDate(expense.date),
       expense.description,
       expense.category?.name ?? "",
+      expense.centroCosto?.nombre ?? "",
       expense.area?.name ?? "",
       expense.documentNumber ?? "",
       expense.paidBy.name,

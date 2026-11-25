@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { diffChanges, recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
+import { resolverCentroGasto } from "@/lib/centros-costo";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { computeTotal, formatCLP } from "@/lib/money";
@@ -18,6 +19,7 @@ function readForm(formData: FormData) {
     date: formData.get("date"),
     description: formData.get("description"),
     categoryId: formData.get("categoryId"),
+    centroCostoId: formData.get("centroCostoId"),
     areaId: formData.get("areaId"),
     workerId: formData.get("workerId"),
     documentNumber: formData.get("documentNumber"),
@@ -36,6 +38,7 @@ function toData(input: ExpenseInput) {
     date: input.date,
     description: input.description,
     categoryId: input.categoryId ?? null,
+    centroCostoId: input.centroCostoId ?? null,
     areaId: input.areaId ?? null,
     workerId: input.workerId ?? null,
     documentNumber: input.documentNumber ?? null,
@@ -86,7 +89,13 @@ export async function createExpense(
   const parsed = expenseSchema.safeParse(readForm(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
 
-  const data = toData(parsed.data);
+  const centro = await resolverCentroGasto(
+    ctx.company.id,
+    parsed.data.categoryId,
+    parsed.data.centroCostoId,
+  );
+  if (centro.error) return { error: centro.error };
+  const data = { ...toData(parsed.data), centroCostoId: centro.centroCostoId };
   const expense = await db.expense.create({
     data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
   });
@@ -106,6 +115,7 @@ export async function createExpense(
   await setFlash("success", "Gasto guardado", describe(data));
   const back = returnTo(formData);
   revalidatePath("/facturas/gastos");
+  revalidatePath("/facturas/reportes/centros-costo");
   revalidatePath("/facturas");
   if (back.startsWith("/facturas/banco")) revalidatePath("/facturas/banco");
   redirect(back);
@@ -125,7 +135,13 @@ export async function updateExpense(
   const before = await db.expense.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!before) return { error: "El gasto no existe." };
 
-  const data = toData(parsed.data);
+  const centro = await resolverCentroGasto(
+    ctx.company.id,
+    parsed.data.categoryId,
+    parsed.data.centroCostoId,
+  );
+  if (centro.error) return { error: centro.error };
+  const data = { ...toData(parsed.data), centroCostoId: centro.centroCostoId };
   await db.expense.update({ where: { id, companyId: ctx.company.id }, data });
 
   await recordAudit(ctx, {
@@ -139,6 +155,7 @@ export async function updateExpense(
   await setFlash("success", "Gasto actualizado", describe(data));
   revalidatePath("/facturas/gastos");
   revalidatePath(`/facturas/gastos/${id}`);
+  revalidatePath("/facturas/reportes/centros-costo");
   redirect(`/facturas/gastos/${id}`);
 }
 

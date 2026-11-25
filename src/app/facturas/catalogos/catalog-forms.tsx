@@ -23,6 +23,7 @@ type CatalogItem = {
   name: string;
   active: boolean;
   kind?: CategoryKind;
+  centroCostoId?: string | null;
 };
 
 function ErrorMessage({ message }: { message?: string }) {
@@ -61,11 +62,14 @@ export function CatalogCreateForm({
   withKind,
   placeholder,
   idPrefix,
+  centros,
 }: {
   action: CreateAction;
   withKind?: boolean;
   placeholder: string;
   idPrefix: string;
+  /** Solo para categorías: centro por defecto de sus gastos. */
+  centros?: { id: string; name: string }[];
 }) {
   const [state, formAction] = useActionState<CatalogFormState, FormData>(action, undefined);
   const formRef = useRef<HTMLFormElement>(null);
@@ -98,6 +102,21 @@ export function CatalogCreateForm({
             <KindSelect id={`${idPrefix}-kind`} name="kind" defaultValue="EXPENSE" />
           </div>
         ) : null}
+        {centros ? (
+          <div className="flex min-w-[12rem] flex-col gap-1">
+            <label htmlFor={`${idPrefix}-centro`} className="sr-only">
+              Centro de costo por defecto
+            </label>
+            <SelectDropdown
+              id={`${idPrefix}-centro`}
+              name="centroCostoId"
+              value=""
+              emptyLabel="Sin centro por defecto"
+              options={centros.map((centro) => ({ value: centro.id, label: centro.name }))}
+              className="sm:w-56"
+            />
+          </div>
+        ) : null}
         <SubmitButton pendingLabel="Agregando..." className={secondaryButtonClass}>
           Agregar
         </SubmitButton>
@@ -112,11 +131,13 @@ export function CatalogRow({
   action,
   withKind,
   readOnly,
+  centros,
 }: {
   item: CatalogItem;
   action: UpdateAction;
   withKind?: boolean;
   readOnly?: boolean;
+  centros?: { id: string; name: string }[];
 }) {
   const boundAction = action.bind(null, item.id);
   const [state, formAction] = useActionState<CatalogFormState, FormData>(boundAction, undefined);
@@ -127,6 +148,11 @@ export function CatalogRow({
         <span className={item.active ? "" : "text-muted-foreground line-through"}>{item.name}</span>
         {withKind && item.kind ? (
           <span className="text-xs text-muted-foreground">{categoryKindLabel(item.kind)}</span>
+        ) : null}
+        {centros && item.centroCostoId ? (
+          <span className="text-xs text-muted-foreground">
+            Centro: {centros.find((c) => c.id === item.centroCostoId)?.name ?? "—"}
+          </span>
         ) : null}
       </div>
     );
@@ -153,6 +179,21 @@ export function CatalogRow({
             </label>
             <KindSelect id={`${item.id}-kind`} name="kind" defaultValue={item.kind ?? "EXPENSE"} />
           </>
+        ) : null}
+        {centros ? (
+          <div className="flex min-w-[12rem] flex-col gap-1">
+            <label htmlFor={`${item.id}-centro`} className="sr-only">
+              Centro de costo por defecto
+            </label>
+            <SelectDropdown
+              id={`${item.id}-centro`}
+              name="centroCostoId"
+              value={item.centroCostoId ?? ""}
+              emptyLabel="Sin centro por defecto"
+              options={centros.map((centro) => ({ value: centro.id, label: centro.name }))}
+              className="sm:w-56"
+            />
+          </div>
         ) : null}
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <input

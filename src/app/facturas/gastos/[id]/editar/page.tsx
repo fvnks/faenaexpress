@@ -5,6 +5,7 @@ import { updateExpense } from "@/app/actions/expenses";
 import { ExpenseForm } from "@/app/facturas/gastos/expense-form";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories, listPayers, listWorkers } from "@/lib/catalogs";
+import { listCentrosCosto } from "@/lib/centros-costo";
 import { getExpense, serializeExpense } from "@/lib/expenses";
 import { todayISO } from "@/lib/money";
 import { paymentMethodOptions } from "@/lib/payment-methods";
@@ -17,12 +18,13 @@ export default async function EditExpensePage(props: PageProps<"/facturas/gastos
 
   const { id } = await props.params;
 
-  const [expense, categories, areas, payers, workers] = await Promise.all([
+  const [expense, categories, areas, payers, workers, centros] = await Promise.all([
     getExpense(ctx.company.id, id),
     listCategories(ctx.company.id),
     listAreas(ctx.company.id),
     listPayers(ctx.company.id),
     listWorkers(ctx.company.id),
+    listCentrosCosto(ctx.company.id),
   ]);
 
   // Las formas de pago que ofrece la empresa: su catálogo más las base.
@@ -51,6 +53,7 @@ export default async function EditExpensePage(props: PageProps<"/facturas/gastos
         formasDePago={formasDePago}
         action={action}
         categories={categories}
+        centrosCosto={centros.filter((c) => c.active || c.id === expense?.centroCostoId).map((c) => ({ id: c.id, name: c.nombre }))}
         areas={areas}
         payers={payers}
         workers={workers}

@@ -13,7 +13,8 @@ export async function listCategories(companyId: string) {
   return db.category.findMany({
     where: { companyId, active: true },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
+    // El centro por defecto se usa para prellenar el centro en el gasto.
+    select: { id: true, name: true, centroCostoId: true },
   });
 }
 

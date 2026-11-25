@@ -90,6 +90,10 @@ export default async function ExpenseDetailPage(props: PageProps<"/facturas/gast
               <dd>{expense.category?.name ?? "Sin categoría"}</dd>
             </div>
             <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Centro de costo</dt>
+              <dd>{expense.centroCosto?.nombre ?? "Sin centro"}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
               <dt className="text-muted-foreground">Área</dt>
               <dd>{expense.area?.name ?? "Sin área"}</dd>
             </div>
