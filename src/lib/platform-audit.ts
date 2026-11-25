@@ -3,7 +3,7 @@
 // por persona del equipo, porque muchas acciones no tienen una empresa única
 // (crear una organización, cambiar un plan).
 
-import type { AuditAction, Prisma } from "@/generated/prisma/client";
+import type { AuditAction, PlatformLevel, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { PlatformContext } from "@/lib/platform";
 
@@ -40,6 +40,54 @@ export async function recordPlatformAudit(
   } catch {
     // La auditoría es secundaria: si falla, la acción del operador ya se hizo.
   }
+}
+
+export type PlatformAuditFilters = {
+  q?: string;
+  action?: AuditAction;
+  level?: PlatformLevel;
+  entityType?: string;
+  organizationId?: string;
+  desde?: Date;
+  hasta?: Date;
+  limit?: number;
+  offset?: number;
+};
+
+/** Filtros compartidos por la vista global y la exportación CSV. */
+export function platformAuditWhere(f: PlatformAuditFilters): Prisma.PlatformAuditWhereInput {
+  const where: Prisma.PlatformAuditWhereInput = {};
+  if (f.organizationId) where.organizationId = f.organizationId;
+  if (f.action) where.action = f.action;
+  if (f.level) where.level = f.level;
+  if (f.entityType) where.entityType = f.entityType;
+  if (f.desde || f.hasta) {
+    where.createdAt = {};
+    if (f.desde) where.createdAt.gte = f.desde;
+    if (f.hasta) where.createdAt.lte = f.hasta;
+  }
+  if (f.q) {
+    where.OR = [
+      { summary: { contains: f.q, mode: "insensitive" } },
+      { staffUserName: { contains: f.q, mode: "insensitive" } },
+      { staffUserEmail: { contains: f.q, mode: "insensitive" } },
+      { entityType: { contains: f.q, mode: "insensitive" } },
+    ];
+  }
+  return where;
+}
+
+export async function queryPlatformAudit(filters: PlatformAuditFilters) {
+  return db.platformAudit.findMany({
+    where: platformAuditWhere(filters),
+    orderBy: { createdAt: "desc" },
+    take: filters.limit ?? 50,
+    skip: filters.offset ?? 0,
+  });
+}
+
+export async function countPlatformAudit(filters: PlatformAuditFilters) {
+  return db.platformAudit.count({ where: platformAuditWhere(filters) });
 }
 
 export async function listPlatformAudit(filters: {
