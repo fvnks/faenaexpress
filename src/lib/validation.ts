@@ -116,6 +116,15 @@ export const purchaseSchema = z.object({
   status: z.enum(paymentStatusValues, { error: "Selecciona el estado." }),
   paymentMethod: z.preprocess(emptyToUndefined, formaDePago.optional()),
   paymentDate: optionalDate,
+  combustibleTipo: z.preprocess(emptyToUndefined, z.string().max(30).optional()),
+  combustibleLitros: z.preprocess(emptyToUndefined, z.coerce.number().min(0).optional()),
+  // El impuesto específico puede ser negativo cuando el MEPCO subsidia el diésel.
+  impuestoEspecifico: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  impuestoEspecificoGlosa: optionalText(300),
+  impuestoEspecificoRecuperable: z.preprocess(
+    (value) => value === "on" || value === "true" || value === true,
+    z.boolean(),
+  ),
   notes: optionalText(1000),
 }).superRefine(requireReference);
 
@@ -229,6 +238,10 @@ export const categorySchema = z.object({
   name: z.string().trim().min(1, { error: "Ingresa un nombre." }).max(80),
   kind: z.enum(categoryKindValues, { error: "Selecciona el tipo." }),
   centroCostoId: z.preprocess(emptyToUndefined, z.string().optional()),
+  esCombustible: z.preprocess(
+    (value) => value === "on" || value === "true" || value === true,
+    z.boolean(),
+  ),
   active: z.preprocess(
     (value) => value === "on" || value === "true" || value === true,
     z.boolean(),

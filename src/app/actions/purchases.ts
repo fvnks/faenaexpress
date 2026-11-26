@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { diffChanges, recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
+import { esCategoriaCombustible } from "@/lib/fuel-categories";
 import { applyBulkEdit, parseBulkChange, type BulkField } from "@/lib/bulk-edit";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
@@ -33,13 +34,20 @@ function readForm(formData: FormData) {
     status: formData.get("status"),
     paymentMethod: formData.get("paymentMethod"),
     paymentDate: formData.get("paymentDate"),
+    combustibleTipo: formData.get("combustibleTipo"),
+    combustibleLitros: formData.get("combustibleLitros"),
+    impuestoEspecifico: formData.get("impuestoEspecifico"),
+    impuestoEspecificoGlosa: formData.get("impuestoEspecificoGlosa"),
+    impuestoEspecificoRecuperable: formData.get("impuestoEspecificoRecuperable"),
     notes: formData.get("notes"),
   };
 }
 
-function toData(input: PurchaseInput) {
+function toData(input: PurchaseInput, combustible: boolean) {
   const paid = input.status === "PAID";
   const metodo = paid ? String(input.paymentMethod ?? "").trim() || "Otro" : null;
+  // El impuesto específico no es base del IVA, pero sí parte del total del DTE.
+  const impuestoEspecifico = combustible ? input.impuestoEspecifico ?? 0 : 0;
   return {
     partnerId: input.partnerId,
     categoryId: input.categoryId ?? null,
@@ -53,7 +61,14 @@ function toData(input: PurchaseInput) {
     netAmount: input.netAmount,
     ivaAmount: input.ivaAmount,
     // El total siempre se recalcula: nunca se confía en lo que llega del cliente.
-    totalAmount: computeTotal(input.netAmount, input.ivaAmount),
+    totalAmount: computeTotal(input.netAmount, input.ivaAmount) + impuestoEspecifico,
+    combustibleTipo: combustible ? input.combustibleTipo ?? null : null,
+    combustibleLitros: combustible ? input.combustibleLitros ?? null : null,
+    impuestoEspecifico,
+    impuestoEspecificoGlosa: combustible ? input.impuestoEspecificoGlosa ?? null : null,
+    impuestoEspecificoRecuperable: combustible
+      ? input.impuestoEspecificoRecuperable
+      : false,
     status: input.status,
     paymentMethod: metodo,
     // Tarjeta de crédito/débito: la fecha de pago es la de emisión de la
@@ -66,6 +81,36 @@ function toData(input: PurchaseInput) {
       : null,
     notes: input.notes ?? null,
   };
+}
+
+function contarFilasReparto(formData: FormData): number {
+  try {
+    const crudo = JSON.parse(String(formData.get("repartos") ?? "[]"));
+    return Array.isArray(crudo) ? crudo.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Reglas del DTE de combustible, también válidas para un POST directo. */
+function validarDatosCombustible(
+  input: PurchaseInput,
+  filasReparto: number,
+): string | null {
+  if (!input.combustibleTipo) return "Selecciona el tipo de combustible.";
+  if (input.combustibleLitros === undefined || input.combustibleLitros <= 0) {
+    return "Ingresa los litros o m³ de combustible.";
+  }
+  if (input.impuestoEspecifico === undefined) {
+    return "Ingresa el monto del impuesto específico (puede ser 0 o negativo).";
+  }
+  if (input.impuestoEspecifico < 0 && !input.impuestoEspecificoGlosa?.trim()) {
+    return "Cuando el impuesto específico es negativo, indica la glosa del documento.";
+  }
+  if (filasReparto === 0) {
+    return "Las facturas de combustible deben tener al menos un centro de costo asignado.";
+  }
+  return null;
 }
 
 function describe(input: { documentNumber?: string | null; netAmount: number; ivaAmount: number }) {
@@ -155,7 +200,13 @@ export async function createPurchase(
     return { error: "Ya existe una compra con ese número de documento en esta empresa." };
   }
 
-  const data = toData(parsed.data);
+  const combustible = await esCategoriaCombustible(ctx.company.id, parsed.data.categoryId);
+  if (combustible) {
+    const error = validarDatosCombustible(parsed.data, contarFilasReparto(formData));
+    if (error) return { error };
+  }
+
+  const data = toData(parsed.data, combustible);
   const reparto = await validarReparto(
     formData,
     ctx.company.id,
@@ -215,7 +266,13 @@ export async function updatePurchase(
     return { error: "La compra no existe." };
   }
 
-  const data = toData(parsed.data);
+  const combustible = await esCategoriaCombustible(ctx.company.id, parsed.data.categoryId);
+  if (combustible) {
+    const error = validarDatosCombustible(parsed.data, contarFilasReparto(formData));
+    if (error) return { error };
+  }
+
+  const data = toData(parsed.data, combustible);
   const anteriores = await db.repartoCentroCosto.findMany({
     where: { companyId: ctx.company.id, purchaseId: id },
     select: { centroCostoId: true },

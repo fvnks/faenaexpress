@@ -15,6 +15,7 @@ import { PurchaseStatusBadge } from "@/components/purchase-status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { canWrite, requireContext } from "@/lib/auth";
 import { listCentrosCosto, listReparto, totalAsignable } from "@/lib/centros-costo";
+import { etiquetaTipoCombustible } from "@/lib/fuel";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate } from "@/lib/money";
 import { listPayments, sumPayments } from "@/lib/payments";
@@ -201,6 +202,34 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
               <dt className="text-muted-foreground">Categoría</dt>
               <dd>{purchase.category?.name ?? "Sin categoría"}</dd>
             </div>
+            {purchase.combustibleTipo ? (
+              <>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Tipo de combustible</dt>
+                  <dd>{etiquetaTipoCombustible(purchase.combustibleTipo)}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Litros o m³</dt>
+                  <dd className="tabular">{purchase.combustibleLitros ?? "—"}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Impuesto específico</dt>
+                  <dd className="tabular">{formatCLP(purchase.impuestoEspecifico)}</dd>
+                </div>
+                {purchase.impuestoEspecificoGlosa ? (
+                  <div className="flex flex-col gap-0.5">
+                    <dt className="text-muted-foreground">Glosa del impuesto</dt>
+                    <dd className="whitespace-pre-line text-xs">{purchase.impuestoEspecificoGlosa}</dd>
+                  </div>
+                ) : null}
+                {purchase.impuestoEspecificoRecuperable ? (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Crédito recuperable</dt>
+                    <dd>Ley 19.764</dd>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
             {purchase.notes ? (
               <div className="flex flex-col gap-0.5">
                 <dt className="text-muted-foreground">Observaciones</dt>

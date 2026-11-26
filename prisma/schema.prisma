@@ -1598,6 +1598,9 @@ model Category {
   kind          CategoryKind @default(EXPENSE)
   // Centro por defecto de los gastos de esta categoría (gasolina → Vehículos).
   centroCostoId String?
+  // Las facturas de esta categoría llevan desglose de impuesto específico a
+  // combustibles y centro de costo obligatorio (Ley 18.502 / MEPCO).
+  esCombustible Boolean      @default(false)
   active        Boolean      @default(true)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -2172,6 +2175,13 @@ model Purchase {
   exento               Int            @default(0) // monto exento del XML
   ivaRecargo           Int            @default(0) // IVA recargo del XML
   totalAmount          Int
+  // Desglose de factura de combustible (Ley 18.502 + MEPCO). El impuesto
+  // específico NO forma parte de la base del IVA, pero sí del total del DTE.
+  combustibleTipo      String?
+  combustibleLitros    Float?
+  impuestoEspecifico   Int     @default(0)
+  impuestoEspecificoGlosa String?
+  impuestoEspecificoRecuperable Boolean @default(false)
   tasaIVA              Float? // tasa de IVA del XML (ej: 19)
   formaPago            String? // CONTADO | CRÉDITO | SIN COSTO
   status               PaymentStatus  @default(PENDING)

@@ -24,6 +24,7 @@ type CatalogItem = {
   active: boolean;
   kind?: CategoryKind;
   centroCostoId?: string | null;
+  esCombustible?: boolean;
 };
 
 function ErrorMessage({ message }: { message?: string }) {
@@ -117,6 +118,16 @@ export function CatalogCreateForm({
             />
           </div>
         ) : null}
+        {withKind ? (
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              name="esCombustible"
+              className="h-4 w-4 rounded border-border"
+            />
+            Es combustible
+          </label>
+        ) : null}
         <SubmitButton pendingLabel="Agregando..." className={secondaryButtonClass}>
           Agregar
         </SubmitButton>
@@ -204,6 +215,17 @@ export function CatalogRow({
           />
           Activa
         </label>
+        {withKind ? (
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              name="esCombustible"
+              defaultChecked={item.esCombustible}
+              className="h-4 w-4 rounded border-border"
+            />
+            Es combustible
+          </label>
+        ) : null}
         <SubmitButton pendingLabel="Guardando..." className={secondaryButtonClass}>
           Guardar
         </SubmitButton>

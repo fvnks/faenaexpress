@@ -66,7 +66,12 @@ async function main() {
     await db.category.upsert({
       where: { companyId_name: { companyId: company.id, name } },
       update: {},
-      create: { companyId: company.id, name, kind: "EXPENSE" },
+      create: {
+        companyId: company.id,
+        name,
+        kind: "EXPENSE",
+        esCombustible: name === "Combustible",
+      },
     });
   }
   console.log("Áreas y categorías base aseguradas.");

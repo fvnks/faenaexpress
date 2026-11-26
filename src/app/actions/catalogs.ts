@@ -79,6 +79,7 @@ export async function createCategory(
     name: formData.get("name"),
     kind: formData.get("kind"),
     centroCostoId: formData.get("centroCostoId"),
+    esCombustible: formData.get("esCombustible"),
     active: readActive(formData),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
@@ -123,6 +124,7 @@ export async function updateCategory(
     name: formData.get("name"),
     kind: formData.get("kind"),
     centroCostoId: formData.get("centroCostoId"),
+    esCombustible: formData.get("esCombustible"),
     active: formData.get("active"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };

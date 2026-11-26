@@ -20,6 +20,7 @@ export function RepartoForm({
   objetivo,
   signo,
   onValidez,
+  obligatorio = false,
 }: {
   centros: Centro[];
   iniciales: Array<{ centroCostoId: string; monto: number }>;
@@ -27,6 +28,8 @@ export function RepartoForm({
   /** 1 para facturas/boletas, -1 para notas de crédito. */
   signo: number;
   onValidez: (valido: boolean) => void;
+  /** Las facturas de combustible no pueden quedar sin centro. */
+  obligatorio?: boolean;
 }) {
   const [filas, setFilas] = useState<Fila[]>(
     iniciales.map((r) => ({ centroCostoId: r.centroCostoId, monto: String(Math.abs(r.monto)) })),
@@ -34,7 +37,7 @@ export function RepartoForm({
 
   const suma = filas.reduce((acc, f) => acc + (Number(f.monto.replace(",", ".")) || 0), 0);
   const resto = objetivo - suma;
-  const cuadra = filas.length === 0 || resto === 0;
+  const cuadra = filas.length === 0 ? !obligatorio : resto === 0;
   const sinAsignar = centros.find((centro) => centro.esSinAsignar);
   useEffect(() => {
     onValidez(cuadra);
@@ -68,13 +71,18 @@ export function RepartoForm({
   };
 
   return (
-    <section className="rounded-card border border-border bg-surface p-4">
+    <section className={`rounded-card border bg-surface p-4 ${obligatorio && filas.length === 0 ? "border-danger" : "border-border"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold">Centros de costo</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Distribuye el total de esta factura entre uno o más centros. El saldo que aún no quieras imputar puedes dejarlo en el centro «Sin asignar».
           </p>
+          {obligatorio ? (
+            <p className="mt-1 text-xs font-medium text-danger">
+              Las facturas de combustible deben llevar al menos un centro de costo.
+            </p>
+          ) : null}
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground">Total a repartir</p>

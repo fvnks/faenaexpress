@@ -8,7 +8,9 @@ import { SelectDropdown } from "@/components/select-dropdown";
 import { InlineCreateSelect } from "@/components/inline-create-select";
 import { SubmitButton } from "@/components/submit-button";
 import { RepartoForm } from "@/components/reparto-form";
+import { DATOS_COMBUSTIBLE_VACIOS, FuelTaxModal, type DatosCombustible } from "@/components/fuel-tax-modal";
 import { documentTypeLabel } from "@/lib/labels";
+import { esCombustiblePorNombre } from "@/lib/fuel";
 import { formatCLP } from "@/lib/money";
 import { esPagoConTarjeta } from "@/lib/payment-card";
 import type { PurchaseForForm } from "@/lib/purchases";
@@ -16,7 +18,7 @@ import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } f
 import { documentTypeValues } from "@/lib/validation";
 
 type SupplierOption = { id: string; name: string; rut: string | null };
-type CategoryOption = { id: string; name: string };
+type CategoryOption = { id: string; name: string; esCombustible?: boolean };
 type AreaOption = { id: string; name: string };
 
 export function PurchaseForm({
@@ -51,8 +53,21 @@ export function PurchaseForm({
   const [status, setStatus] = useState(defaults?.status ?? "PENDING");
   const [paymentMethod, setPaymentMethod] = useState(defaults?.paymentMethod ?? "");
   const [repartoValido, setRepartoValido] = useState(true);
+  const [categoriaId, setCategoriaId] = useState(defaults?.categoryId ?? "");
+  const [modalCombustible, setModalCombustible] = useState(false);
+  const [fuel, setFuel] = useState<DatosCombustible>(() => ({
+    tipo: defaults?.combustibleTipo ?? "",
+    litros: defaults?.combustibleLitros != null ? String(defaults.combustibleLitros) : "",
+    impuesto: String(defaults?.impuestoEspecifico ?? 0),
+    glosa: defaults?.impuestoEspecificoGlosa ?? "",
+    recuperable: defaults?.impuestoEspecificoRecuperable ?? false,
+  }));
   const paymentDateRef = useRef<HTMLInputElement>(null);
   const conTarjeta = esPagoConTarjeta(paymentMethod);
+
+  const categoria = categories.find((item) => item.id === categoriaId);
+  const esCombustible = !!categoria &&
+    (categoria.esCombustible === true || esCombustiblePorNombre(categoria.name));
 
   // La tarjeta se carga el día de emisión: refleja esa fecha en el campo y la
   // deja solo lectura. El servidor vuelve a imponer la regla al guardar.
@@ -69,6 +84,17 @@ export function PurchaseForm({
       if (emision && paymentDateRef.current) paymentDateRef.current.value = emision.value;
     }
   }
+  function cambiarCategoria(id: string) {
+    setCategoriaId(id);
+    const categoriaElegida = categories.find((item) => item.id === id);
+    if (
+      categoriaElegida &&
+      (categoriaElegida.esCombustible === true || esCombustiblePorNombre(categoriaElegida.name))
+    ) {
+      setModalCombustible(true);
+    }
+  }
+
   const signoCC = documentType === "CREDIT_NOTE" ? -1 : 1;
 
   const isAdjustment = documentType === "CREDIT_NOTE" || documentType === "DEBIT_NOTE";
@@ -81,7 +107,12 @@ export function PurchaseForm({
 
   const netNumber = Number.parseInt(net, 10);
   const ivaNumber = Number.parseInt(iva, 10);
-  const total = (Number.isFinite(netNumber) ? netNumber : 0) + (Number.isFinite(ivaNumber) ? ivaNumber : 0);
+  const subtotal = (Number.isFinite(netNumber) ? netNumber : 0) + (Number.isFinite(ivaNumber) ? ivaNumber : 0);
+  const impuestoEspecifico = Number(fuel.impuesto.replace(",", ".")) || 0;
+  const total = subtotal + (esCombustible ? impuestoEspecifico : 0);
+  const impuestoNegativo = impuestoEspecifico < 0;
+  const fuelValido = !!fuel.tipo && Number(fuel.litros) > 0 && fuel.impuesto !== "" &&
+    (!impuestoNegativo || !!fuel.glosa.trim());
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -175,10 +206,28 @@ export function PurchaseForm({
               kind="category"
               id="categoryId"
               name="categoryId"
-              value={defaults?.categoryId ?? ""}
+              value={categoriaId}
               emptyLabel="Sin categoría"
+              onValueChange={cambiarCategoria}
               options={categories.map((category) => ({ value: category.id, label: category.name }))}
             />
+            {esCombustible ? (
+              <div className="mt-2 rounded-control border border-primary/40 bg-primary-soft p-3 text-xs text-muted-foreground">
+                <p className="font-medium text-primary">Factura de combustible</p>
+                <p className="mt-1">
+                  {fuel.tipo
+                    ? `Impuesto específico: ${formatCLP(impuestoEspecifico)} · ${fuel.litros} litros o m³`
+                    : "Completa el detalle de impuestos específicos para poder guardar."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setModalCombustible(true)}
+                  className="mt-2 text-primary underline-offset-2 hover:underline"
+                >
+                  {fuel.tipo ? "Editar detalle" : "Abrir detalle de combustible"}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -231,6 +280,7 @@ export function PurchaseForm({
         </div>
         <p className="text-xs text-muted-foreground">
           El IVA se calcula solo, pero puedes ajustarlo (por ejemplo, documentos exentos en 0).
+          {esCombustible ? ` El impuesto específico (${formatCLP(impuestoEspecifico)}) se suma al total, no a la base del IVA.` : ""}
         </p>
       </section>
 
@@ -240,6 +290,31 @@ export function PurchaseForm({
         objetivo={total}
         signo={signoCC}
         onValidez={setRepartoValido}
+        obligatorio={esCombustible}
+      />
+
+      {esCombustible ? (
+        <>
+          <input type="hidden" name="combustibleTipo" value={fuel.tipo} />
+          <input type="hidden" name="combustibleLitros" value={fuel.litros} />
+          <input type="hidden" name="impuestoEspecifico" value={fuel.impuesto} />
+          <input type="hidden" name="impuestoEspecificoGlosa" value={fuel.glosa} />
+          <input
+            type="hidden"
+            name="impuestoEspecificoRecuperable"
+            value={fuel.recuperable ? "true" : "false"}
+          />
+        </>
+      ) : null}
+
+      <FuelTaxModal
+        open={modalCombustible}
+        initial={fuel.tipo ? fuel : DATOS_COMBUSTIBLE_VACIOS}
+        onClose={() => setModalCombustible(false)}
+        onSave={(datos) => {
+          setFuel(datos);
+          setModalCombustible(false);
+        }}
       />
 
       <section className={cardClass + " flex flex-col gap-4 p-4"}>
@@ -335,11 +410,18 @@ export function PurchaseForm({
       ) : null}
 
       <div className="flex items-center gap-3">
-        <SubmitButton pendingLabel="Guardando..." className={primaryButtonClass} disabled={!repartoValido}>
+        <SubmitButton
+          pendingLabel="Guardando..."
+          className={primaryButtonClass}
+          disabled={!repartoValido || (esCombustible && !fuelValido)}
+        >
           {defaults ? "Guardar cambios" : "Registrar compra"}
         </SubmitButton>
         {!repartoValido ? (
           <p className="text-xs text-danger">Ajusta el reparto de centros de costo antes de guardar.</p>
+        ) : null}
+        {esCombustible && !fuelValido ? (
+          <p className="text-xs text-danger">Completa el detalle de impuestos de combustible.</p>
         ) : null}
       </div>
     </form>

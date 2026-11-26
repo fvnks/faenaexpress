@@ -14,7 +14,7 @@ export async function listCategories(companyId: string) {
     where: { companyId, active: true },
     orderBy: { name: "asc" },
     // El centro por defecto se usa para prellenar el centro en el gasto.
-    select: { id: true, name: true, centroCostoId: true },
+    select: { id: true, name: true, centroCostoId: true, esCombustible: true },
   });
 }
 

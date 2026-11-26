@@ -11,6 +11,8 @@ type Props = {
   options: SelectOption[];
   emptyLabel?: string;
   kind: "category" | "area";
+  /** Notifica la selección al formulario (para categorical especiales). */
+  onValueChange?: (value: string) => void;
   onCreated?: (newId: string) => void;
   className?: string;
 };
@@ -29,6 +31,7 @@ export function InlineCreateSelect({
   options,
   emptyLabel = "Todos",
   kind,
+  onValueChange,
   onCreated,
   className,
 }: Props) {
@@ -73,7 +76,7 @@ export function InlineCreateSelect({
         value={value}
         options={options}
         emptyLabel={emptyLabel}
-        onValueChange={() => {}}
+        onValueChange={onValueChange}
       />
 
       {/* Botón para abrir el panel de creación */}

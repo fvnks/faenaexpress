@@ -259,6 +259,11 @@ export type PurchaseForForm = {
   status: string;
   paymentMethod: string;
   paymentDate: string;
+  combustibleTipo: string;
+  combustibleLitros: number | null;
+  impuestoEspecifico: number;
+  impuestoEspecificoGlosa: string;
+  impuestoEspecificoRecuperable: boolean;
   notes: string;
 };
 
@@ -279,6 +284,11 @@ export function serializePurchase(purchase: {
   status: string;
   paymentMethod: string | null;
   paymentDate: Date | null;
+  combustibleTipo: string | null;
+  combustibleLitros: number | null;
+  impuestoEspecifico: number;
+  impuestoEspecificoGlosa: string | null;
+  impuestoEspecificoRecuperable: boolean;
   notes: string | null;
 }): PurchaseForForm {
   return {
@@ -298,6 +308,11 @@ export function serializePurchase(purchase: {
     status: purchase.status,
     paymentMethod: purchase.paymentMethod ?? "",
     paymentDate: purchase.paymentDate ? toISODate(purchase.paymentDate) : "",
+    combustibleTipo: purchase.combustibleTipo ?? "",
+    combustibleLitros: purchase.combustibleLitros,
+    impuestoEspecifico: purchase.impuestoEspecifico,
+    impuestoEspecificoGlosa: purchase.impuestoEspecificoGlosa ?? "",
+    impuestoEspecificoRecuperable: purchase.impuestoEspecificoRecuperable,
     notes: purchase.notes ?? "",
   };
 }
