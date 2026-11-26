@@ -120,7 +120,7 @@ export function GradeSheetMobile({
         <button
           onClick={() => {
             const texto = prompt(
-              "Pega las notas del Excel (una por línea, separadas por tab o coma). Ejemplo:\nJuan Pérez\t5.5\nMaría García\t4,0",
+              "Pega las notas del Excel (una por línea, separadas por tab o coma). Formato: nombre, nota.",
             );
             if (texto) pegarDesdeExcel(texto);
           }}

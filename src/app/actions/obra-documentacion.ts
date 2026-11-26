@@ -7,10 +7,33 @@ import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import {
   esEstadoDocumentoObra,
   esTipoDocumentoObra,
+  ESTADO_DOCUMENTO_LABELS,
 } from "@/lib/obra-documentacion";
 import type { ObraActionState } from "./obra-avance";
 
 const MAX_BYTES = 10 * 1024 * 1024;
+
+type ArchivoDocObra = {
+  bytes: Uint8Array<ArrayBuffer>;
+  fileName: string;
+  mimeType: string;
+};
+
+/** Lee un adjunto opcional. El tope se valida en el servidor, no en el formulario. */
+async function leerArchivo(
+  formData: FormData,
+): Promise<{ archivo: ArchivoDocObra | null; error?: string }> {
+  const archivo = formData.get("file");
+  if (!(archivo instanceof File) || archivo.size === 0) return { archivo: null };
+  if (archivo.size > MAX_BYTES) return { archivo: null, error: "El archivo supera los 10 MB." };
+  return {
+    archivo: {
+      bytes: new Uint8Array(await archivo.arrayBuffer()),
+      fileName: archivo.name || "documento",
+      mimeType: archivo.type || "application/octet-stream",
+    },
+  };
+}
 
 /** Fecha de calendario (YYYY-MM-DD) al mediodía UTC, igual que las fechas de obra. */
 function fechaCampo(valor: string): Date | null {
@@ -43,16 +66,8 @@ export async function crearDocumentoObra(
     if (!miembro) return { error: "El responsable debe ser miembro activo de la obra." };
   }
 
-  const archivo = formData.get("file");
-  let bytes: Uint8Array<ArrayBuffer> | null = null;
-  let fileName: string | null = null;
-  let mimeType: string | null = null;
-  if (archivo instanceof File && archivo.size > 0) {
-    if (archivo.size > MAX_BYTES) return { error: "El archivo supera los 10 MB." };
-    bytes = new Uint8Array(await archivo.arrayBuffer());
-    fileName = archivo.name || "documento";
-    mimeType = archivo.type || "application/octet-stream";
-  }
+  const { archivo, error: errorArchivo } = await leerArchivo(formData);
+  if (errorArchivo) return { error: errorArchivo };
 
   await db.$transaction(async (tx) => {
     const doc = await tx.documentoObra.create({
@@ -63,10 +78,10 @@ export async function crearDocumentoObra(
         descripcion: descripcion ? descripcion.slice(0, 1000) : null,
         responsableId: responsableId || null,
         fechaVencimiento,
-        fileName,
-        mimeType,
-        sizeBytes: bytes?.length ?? null,
-        fileData: bytes,
+        fileName: archivo?.fileName ?? null,
+        mimeType: archivo?.mimeType ?? null,
+        sizeBytes: archivo?.bytes.length ?? null,
+        fileData: archivo?.bytes ?? null,
         createdById: ctx.user.id,
       },
     });
@@ -116,7 +131,11 @@ export async function registrarSeguimiento(
   return { ok: true, message: "Seguimiento registrado." };
 }
 
-/** Ajusta responsable, vencimiento o descripción sin borrar el historial. */
+/**
+ * Edita la ficha completa (título, tipo, descripción, responsable, vencimiento y
+ * adjunto) y, si el estado cambió, deja el evento de seguimiento en la misma
+ * transacción. La nota del cambio es opcional: se genera una automática.
+ */
 export async function actualizarDocumentoObra(
   _prev: ObraActionState,
   formData: FormData,
@@ -125,15 +144,23 @@ export async function actualizarDocumentoObra(
   if (!obraCanWrite(ctx, "documentos")) return { error: "Tu rol no permite editar documentación." };
 
   const documentoId = String(formData.get("documentoId") ?? "");
+  const titulo = String(formData.get("titulo") ?? "").trim();
+  const tipo = String(formData.get("tipo") ?? "");
+  const descripcion = String(formData.get("descripcion") ?? "").trim();
   const responsableId = String(formData.get("responsableId") ?? "");
   const fecha = fechaCampo(String(formData.get("fechaVencimiento") ?? ""));
-  const descripcion = String(formData.get("descripcion") ?? "").trim();
+  const estado = String(formData.get("estado") ?? "");
+  const nota = String(formData.get("nota") ?? "").trim();
+  const quitarArchivo = String(formData.get("quitarArchivo") ?? "") === "true";
 
   const doc = await db.documentoObra.findFirst({
     where: { id: documentoId, obraId: ctx.obra.id },
-    select: { id: true },
+    select: { id: true, estado: true },
   });
   if (!doc) return { error: "El documento no existe en esta obra." };
+  if (titulo.length < 3) return { error: "Indica un título de al menos 3 caracteres." };
+  if (!esTipoDocumentoObra(tipo)) return { error: "Selecciona un tipo de documento válido." };
+  if (estado && !esEstadoDocumentoObra(estado)) return { error: "Estado no válido." };
 
   if (responsableId) {
     const miembro = await db.obraMembership.findFirst({
@@ -143,16 +170,73 @@ export async function actualizarDocumentoObra(
     if (!miembro) return { error: "El responsable debe ser miembro activo de la obra." };
   }
 
-  await db.documentoObra.update({
-    where: { id: documentoId },
-    data: {
-      responsableId: responsableId || null,
-      fechaVencimiento: fecha,
-      descripcion: descripcion ? descripcion.slice(0, 1000) : null,
-    },
+  const { archivo, error: errorArchivo } = await leerArchivo(formData);
+  if (errorArchivo) return { error: errorArchivo };
+
+  const cambiaEstado = Boolean(estado) && estado !== doc.estado;
+
+  await db.$transaction(async (tx) => {
+    if (cambiaEstado) {
+      await tx.seguimientoDocumento.create({
+        data: {
+          documentoId,
+          estado,
+          nota: nota
+            ? nota.slice(0, 1000)
+            : `Estado actualizado a «${ESTADO_DOCUMENTO_LABELS[estado as keyof typeof ESTADO_DOCUMENTO_LABELS] ?? estado}».`,
+          createdById: ctx.user.id,
+        },
+      });
+    }
+    await tx.documentoObra.update({
+      where: { id: documentoId },
+      data: {
+        titulo: titulo.slice(0, 180),
+        tipo,
+        descripcion: descripcion ? descripcion.slice(0, 1000) : null,
+        responsableId: responsableId || null,
+        fechaVencimiento: fecha,
+        ...(archivo
+          ? {
+              fileName: archivo.fileName,
+              mimeType: archivo.mimeType,
+              sizeBytes: archivo.bytes.length,
+              fileData: archivo.bytes,
+            }
+          : {}),
+        ...(quitarArchivo && !archivo
+          ? { fileName: null, mimeType: null, sizeBytes: null, fileData: null }
+          : {}),
+        ...(cambiaEstado ? { estado } : {}),
+      },
+    });
   });
 
   revalidatePath(`/obras/documentos/${documentoId}`);
   revalidatePath("/obras/documentos");
   return { ok: true, message: "Documento actualizado." };
+}
+
+/** Elimina un documento de la obra; el borrado en cascada lleva su historial. */
+export async function eliminarDocumentoObra(
+  _prev: ObraActionState,
+  formData: FormData,
+): Promise<ObraActionState> {
+  const ctx = await requireObraContext("documentos");
+  if (!obraCanWrite(ctx, "documentos")) return { error: "Tu rol no permite eliminar documentación." };
+
+  const documentoId = String(formData.get("documentoId") ?? "");
+  if (!documentoId) return { error: "No se indicó el documento." };
+
+  const doc = await db.documentoObra.findFirst({
+    where: { id: documentoId, obraId: ctx.obra.id },
+    select: { titulo: true },
+  });
+  if (!doc) return { error: "El documento no existe en esta obra." };
+
+  await db.documentoObra.delete({ where: { id: documentoId } });
+
+  revalidatePath("/obras/documentos");
+  revalidatePath(`/obras/documentos/${documentoId}`);
+  return { ok: true, message: `Documento «${doc.titulo}» eliminado.` };
 }

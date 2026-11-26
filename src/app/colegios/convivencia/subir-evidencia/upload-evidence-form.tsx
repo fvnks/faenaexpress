@@ -106,7 +106,7 @@ export function UploadEvidenceForm() {
               onChange={(e) => setTitle(e.target.value)}
               required
               className={controlClass}
-              placeholder="Ej: Prueba de matemáticas - Juan Pérez"
+              placeholder="Título de la evidencia"
             />
           </div>
 

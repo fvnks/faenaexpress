@@ -114,7 +114,7 @@ export function DenunciaForm({ schoolId }: { schoolId: string }) {
           type="text"
           value={involucrados}
           onChange={(e) => setInvolucrados(e.target.value)}
-          placeholder="Nombres o RUTs separados por comas (ej: Juan Pérez, 12.345.678-9)"
+          placeholder="Nombres o RUTs separados por comas"
           className={controlClass}
           maxLength={500}
         />

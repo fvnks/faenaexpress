@@ -10,6 +10,7 @@ import {
   TIPO_DOCUMENTO_LABELS,
 } from "@/lib/obra-documentacion";
 import { cardClass } from "@/lib/ui";
+import { AccionesDocumento } from "./acciones-documento";
 import { NuevoDocumento } from "./nuevo-documento";
 import { IndiceAutomatico } from "./indice-automatico";
 
@@ -172,12 +173,17 @@ export default async function ObraDocumentosPage({
                       {ultimo ? `${formatDate(ultimo.fecha)} · ${ESTADO_DOCUMENTO_LABELS[ultimo.estado as keyof typeof ESTADO_DOCUMENTO_LABELS] ?? ultimo.estado}` : "—"}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <div className="flex justify-end gap-3">
-                        <Link href={`/obras/documentos/${d.id}`} className="text-xs text-primary hover:underline">Ver seguimiento</Link>
-                        {d.fileName ? (
-                          <a href={`/obras/documentos/${d.id}/archivo`} className="text-xs text-primary hover:underline">Archivo</a>
-                        ) : null}
-                      </div>
+                      <AccionesDocumento
+                        documentoId={d.id}
+                        titulo={d.titulo}
+                        tipo={d.tipo}
+                        estado={d.estado}
+                        responsableId={d.responsableId}
+                        fechaVencimiento={d.fechaVencimiento ? d.fechaVencimiento.toISOString().slice(0, 10) : ""}
+                        fileName={d.fileName}
+                        responsables={responsables.map((m) => m.user)}
+                        writable={writable}
+                      />
                     </td>
                   </tr>
                 );

@@ -42,7 +42,7 @@ export function NuevoDocumento({
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-sm text-muted-foreground">Título</span>
-          <input name="titulo" required placeholder="Ej. Permiso de edificación" className={controlClass} />
+          <input name="titulo" required placeholder="Nombre del documento" className={controlClass} />
         </label>
         <label className="flex flex-col gap-1 sm:col-span-2">
           <span className="text-sm text-muted-foreground">Descripción</span>

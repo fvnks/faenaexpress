@@ -12,6 +12,7 @@ import {
 } from "@/lib/obra-documentacion";
 import { cardClass } from "@/lib/ui";
 import { EditarDocumento } from "./editar-documento";
+import { EliminarDocumento } from "./eliminar-documento";
 import { SeguimientoForm } from "./seguimiento-form";
 
 const ALERTA_CLASE: Record<string, string> = {
@@ -69,6 +70,11 @@ export default async function DocumentoObraDetallePage({
         <p className="mt-1 text-sm text-muted-foreground">
           <Link href="/obras/documentos" className="text-primary hover:underline">← Volver al control documental</Link>
         </p>
+        {writable ? (
+          <div className="mt-3 flex justify-end">
+            <EliminarDocumento documentoId={doc.id} titulo={doc.titulo} />
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -125,10 +131,13 @@ export default async function DocumentoObraDetallePage({
       {writable ? (
         <EditarDocumento
           documentoId={doc.id}
+          titulo={doc.titulo}
+          tipo={doc.tipo}
           responsables={responsables.map((m) => m.user)}
           responsableId={doc.responsableId}
           fechaVencimiento={doc.fechaVencimiento ? doc.fechaVencimiento.toISOString().slice(0, 10) : ""}
           descripcion={doc.descripcion}
+          fileName={doc.fileName}
         />
       ) : null}
 

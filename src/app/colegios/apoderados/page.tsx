@@ -203,7 +203,7 @@ export default async function ApoderadosPage({
             <input
               name="q"
               defaultValue={buscar}
-              placeholder="Ej: María González o 12.345.678-9"
+              placeholder="Nombre o RUT"
               className="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm"
             />
           </div>
