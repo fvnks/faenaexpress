@@ -76,7 +76,7 @@ export async function reportCase(
       return { error: "Tu usuario no tiene una ficha de docente vinculada." };
     }
     const asignaciones = await db.teachingAssignment.findMany({
-      where: { teacherId: docente.id },
+      where: { teacherId: docente.id, course: { schoolId: ctx.school.id } },
       select: { courseId: true },
     });
     const cursosDelDocente = new Set(asignaciones.map((a) => a.courseId));
@@ -501,32 +501,82 @@ export async function uploadEvidence(
   formData: FormData,
 ): Promise<ConvivenciaFormState> {
   const ctx = await requireSchoolContext("convivencia");
+  if (!schoolCanWrite(ctx, "convivencia")) {
+    return { error: "Tu rol no permite subir evidencia." };
+  }
 
   const evaluationId = texto(formData, "evaluationId");
   const caseId = texto(formData, "caseId");
   const title = texto(formData, "title");
   const description = texto(formData, "description");
-  const type = texto(formData, "type") || "OTRO";
+  const tipoRaw = texto(formData, "type") || "OTRO";
+  const tipos: StudentDocumentType[] = [
+    "CERTIFICADO_NACIMIENTO", "CERTIFICADO_ESTUDIOS", "FICHA_MEDICA", "CUSTODIA", "OTRO",
+  ];
+  if (!tipos.includes(tipoRaw as StudentDocumentType)) {
+    return { error: "El tipo de documento no es válido." };
+  }
+  const type = tipoRaw as StudentDocumentType;
 
   if (!title) return { error: "El título es obligatorio." };
   if (!evaluationId && !caseId) {
     return { error: "Debe vincular la evidencia a una evaluación o un caso." };
   }
 
-  const file = formData.get("file") as File | null;
-  if (!file) return { error: "Debe seleccionar un archivo." };
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Debe seleccionar un archivo." };
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return { error: "El archivo no puede superar 10 MB." };
+  }
+  const permitidos = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+  if (!permitidos.includes(file.type)) {
+    return { error: "Solo se aceptan PDF, JPG, PNG o WEBP." };
+  }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  // Resuelve el alumno dentro de ESTE colegio antes de escribir nada.
+  let studentId: string | null = null;
+  if (evaluationId) {
+    const evaluacion = await db.evaluation.findFirst({
+      where: { id: evaluationId, schoolId: ctx.school.id },
+      select: { grades: { select: { studentId: true }, take: 1 } },
+    });
+    const candidato = evaluacion?.grades[0]?.studentId;
+    if (candidato) {
+      const alumno = await db.student.findFirst({
+        where: { id: candidato, schoolId: ctx.school.id },
+        select: { id: true },
+      });
+      studentId = alumno?.id ?? null;
+    }
+  } else if (caseId) {
+    const caso = await db.conductCase.findFirst({
+      where: { id: caseId, schoolId: ctx.school.id },
+      select: { participants: { select: { studentId: true }, take: 1 } },
+    });
+    const candidato = caso?.participants[0]?.studentId;
+    if (candidato) {
+      const alumno = await db.student.findFirst({
+        where: { id: candidato, schoolId: ctx.school.id },
+        select: { id: true },
+      });
+      studentId = alumno?.id ?? null;
+    }
+  }
+  if (!studentId) {
+    return { error: "No se encontró un alumno de este colegio para ese documento." };
+  }
 
-  const documento = await db.studentDocument.create({
+  const buffer = Buffer.from(await file.arrayBuffer());
+  await db.studentDocument.create({
     data: {
       schoolId: ctx.school.id,
-      studentId: "", // Se rellena abajo si hay evaluación
-      type: type as StudentDocumentType,
+      studentId,
+      type,
       title,
       description: description || null,
-      fileName: file.name,
+      fileName: file.name.slice(0, 200),
       mimeType: file.type,
       sizeBytes: buffer.length,
       fileData: buffer,
@@ -536,22 +586,6 @@ export async function uploadEvidence(
     },
   });
 
-  // Si hay evaluationId, rellenar studentId de la evaluación
-  if (evaluationId) {
-    const evaluacion = await db.evaluation.findFirst({
-      where: { id: evaluationId },
-      include: {
-        grades: { select: { studentId: true }, take: 1 },
-      },
-    });
-    if (evaluacion?.grades[0]) {
-      await db.studentDocument.update({
-        where: { id: documento.id },
-        data: { studentId: evaluacion.grades[0].studentId },
-      });
-    }
-  }
-
   revalidatePath("/colegios/convivencia");
-  return { ok: true, id: documento.id };
+  return { ok: true };
 }

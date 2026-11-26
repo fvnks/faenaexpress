@@ -2841,6 +2841,9 @@ model StudentDocument {
   sizeBytes    Int
   fileData     Bytes
   uploadedById String
+  // Solo estos documentos se muestran en el portal del apoderado. Ficha médica
+  // y custodia no se exponen aunque estén marcados (Ley 21.719 /-plan §portal).
+  compartidoConFamilia Boolean @default(false)
   evaluationId String?
   caseId       String?
   createdAt    DateTime           @default(now())

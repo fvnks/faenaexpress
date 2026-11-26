@@ -25,10 +25,10 @@ type CalendarioItem = {
 };
 
 function badgeClassFor(color: string): string {
-  if (color === "success") return "border-success bg-success-10 text-success-900";
-  if (color === "danger") return "border-danger bg-danger-10 text-danger-900";
-  if (color === "accent") return "border-accent bg-accent-10 text-accent-900";
-  return "border-primary bg-primary-10 text-primary-900";
+  if (color === "success") return "border-success bg-success-soft text-success";
+  if (color === "danger") return "border-danger bg-danger-soft text-danger";
+  if (color === "accent") return "border-accent bg-accent-soft text-accent";
+  return "border-primary bg-primary-soft text-primary";
 }
 
 function estadoLabel(tipo: string, estado: string): string {
@@ -43,7 +43,7 @@ function estadoLabel(tipo: string, estado: string): string {
 
 /** Calendario semanal del docente: clases, citas y reuniones en una semana. */
 export default async function CalendarioPage() {
-  const ctx = await requireSchoolContext("agenda");
+  const ctx = await requireSchoolContext("calendario");
   const teacherId = await obtenerDocenteId(ctx.user.id, ctx.school.id);
 
   if (!teacherId) {

@@ -34,7 +34,7 @@ export async function GET() {
 
   // Encabezado
   filas.push(
-    "Nombre,RUT,Correo,Teléfono,Tipo,Alumnos vinculados,Código de acceso,Código emitido,Último acceso"
+    "Nombre,RUT,Correo,Teléfono,Tipo,Alumnos vinculados,Tiene acceso al portal,Código emitido,Último acceso"
   );
 
   for (const apoderado of apoderados) {
@@ -44,7 +44,8 @@ export async function GET() {
     const alumnos = apoderado.guardianships
       .map((g) => `${g.student.firstName} ${g.student.lastName}`)
       .join("; ");
-    const codigo = apoderado.accessCode ?? "";
+    // El código es un secreto de la familia: nunca sale en un archivo.
+    const tieneAcceso = apoderado.accessCode ? "Sí" : "No";
     const fechaEmision = apoderado.accessCodeCreatedAt
       ? new Date(apoderado.accessCodeCreatedAt).toISOString().slice(0, 10)
       : "";
@@ -71,7 +72,7 @@ export async function GET() {
         escapar(apoderado.phone ?? ""),
         escapar(tipos),
         escapar(alumnos),
-        escapar(codigo),
+        escapar(tieneAcceso),
         escapar(fechaEmision),
         escapar(ultimoAcceso),
       ].join(",")

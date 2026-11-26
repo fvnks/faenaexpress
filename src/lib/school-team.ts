@@ -95,6 +95,8 @@ export async function esDocenteDeAsignatura(
     where: {
       courseId,
       subjectId,
+      course: { schoolId },
+      subject: { schoolId },
       teacher: { is: { userId, schoolId } },
     },
   });

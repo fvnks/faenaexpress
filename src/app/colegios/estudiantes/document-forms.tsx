@@ -37,6 +37,7 @@ type Documento = {
   fileName: string;
   sizeBytes: number;
   creado: string;
+  compartidoConFamilia: boolean;
 };
 
 /** Documentos del expediente: el certificado de nacimiento, el de estudios… */
@@ -81,6 +82,9 @@ export function DocumentForm({
                 </span>
                 {d.description ? (
                   <span className="block text-xs text-muted-foreground">{d.description}</span>
+                ) : null}
+                {d.compartidoConFamilia ? (
+                  <span className="mt-1 block text-xs text-success">Compartido con la familia</span>
                 ) : null}
               </span>
               <span className="flex items-center gap-3">
@@ -165,6 +169,16 @@ export function DocumentForm({
               />
               <p className="text-xs text-muted-foreground">Hasta 5 MB.</p>
             </div>
+
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                name="compartidoConFamilia"
+                className="h-4 w-4 rounded border-border"
+              />
+              Compartir con la familia en el portal
+              <span className="text-xs">— nunca se comparten ficha médica ni custodia</span>
+            </label>
 
             {state?.error ? <p className="text-sm text-danger">{state.error}</p> : null}
 

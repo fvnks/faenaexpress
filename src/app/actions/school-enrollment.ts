@@ -47,19 +47,22 @@ export async function saveStudent(
   });
   if (!curso) return { error: "Ese curso no es de este colegio." };
 
-  const student = await db.student.create({
-    data: {
-      schoolId: ctx.school.id,
-      firstName,
-      lastName,
-      rut: rut || null,
-      birthDate: birthDate ? new Date(`${birthDate}T00:00:00.000Z`) : null,
-    },
-    select: { id: true },
-  });
-
-  await db.enrollment.create({
-    data: { courseId, studentId: student.id, status: "ACTIVE" },
+  // Alumno y matrícula se escriben juntos: si falla la segunda, no queda un
+  // alumno huérfano en el expediente.
+  await db.$transaction(async (tx) => {
+    const alumno = await tx.student.create({
+      data: {
+        schoolId: ctx.school.id,
+        firstName,
+        lastName,
+        rut: rut || null,
+        birthDate: birthDate ? new Date(`${birthDate}T00:00:00.000Z`) : null,
+      },
+      select: { id: true },
+    });
+    await tx.enrollment.create({
+      data: { courseId, studentId: alumno.id, status: "ACTIVE" },
+    });
   });
 
   revalidatePath("/colegios/estudiantes");
@@ -265,6 +268,16 @@ export async function saveGuardian(
     return { error: "El tipo de apoderado no es válido." };
   }
 
+  // Validar el alumno ANTES de crear o editar al apoderado: si no es del
+  // colegio, no se escribe nada.
+  if (studentId) {
+    const alumno = await db.student.findFirst({
+      where: { id: studentId, schoolId: ctx.school.id },
+      select: { id: true },
+    });
+    if (!alumno) return { error: "Ese alumno no es de este colegio." };
+  }
+
   let guardianId = id;
   if (id) {
     const actualizado = await db.guardian.updateMany({
@@ -287,12 +300,6 @@ export async function saveGuardian(
   }
 
   if (studentId) {
-    const alumno = await db.student.findFirst({
-      where: { id: studentId, schoolId: ctx.school.id },
-      select: { id: true },
-    });
-    if (!alumno) return { error: "Ese alumno no es de este colegio." };
-
     await db.guardianship.upsert({
       where: { studentId_guardianId: { studentId, guardianId } },
       create: { studentId, guardianId, type: tipo },
@@ -361,6 +368,6 @@ export async function unlinkGuardian(
     },
   });
 
-  revalidatePath(`/colegios/estustees/${studentId}`);
+  revalidatePath(`/colegios/estudiantes/${studentId}`);
   return { ok: true };
 }

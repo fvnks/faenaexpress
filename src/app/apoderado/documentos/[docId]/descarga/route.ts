@@ -21,7 +21,11 @@ export async function GET(
   const doc = await db.studentDocument.findFirst({
     where: {
       id: docId,
+      schoolId: sesion.guardian.schoolId,
+      compartidoConFamilia: true,
+      type: { notIn: ["FICHA_MEDICA", "CUSTODIA"] },
       student: {
+        schoolId: sesion.guardian.schoolId,
         guardianships: { some: { guardianId: sesion.guardian.id } },
       },
     },

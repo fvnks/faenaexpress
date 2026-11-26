@@ -57,7 +57,10 @@ export default async function PortalPage() {
   const apoderado = sesion.guardian;
 
   const hijos = await db.student.findMany({
-    where: { guardianships: { some: { guardianId: apoderado.id } } },
+    where: {
+      schoolId: apoderado.schoolId,
+      guardianships: { some: { guardianId: apoderado.id } },
+    },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     include: {
       enrollments: {
@@ -65,6 +68,12 @@ export default async function PortalPage() {
         include: { course: { select: { id: true, name: true, year: true, schoolId: true } } },
       },
       documents: {
+        // El plan: solo lo que el colegio marcó como compartido, y nunca
+        // ficha médica ni documento de custodia.
+        where: {
+          compartidoConFamilia: true,
+          type: { notIn: ["FICHA_MEDICA", "CUSTODIA"] },
+        },
         orderBy: { createdAt: "desc" },
         take: 10,
         select: {

@@ -55,7 +55,7 @@ export default async function ReunionDetallePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ctx = await requireSchoolContext("comunicacion");
+  const ctx = await requireSchoolContext("reuniones");
 
   const reunion = await db.staffMeeting.findFirst({
     where: { id, schoolId: ctx.school.id },

@@ -67,6 +67,7 @@ export default async function EstudiantePage({
           fileName: true,
           sizeBytes: true,
           createdAt: true,
+          compartidoConFamilia: true,
         },
       },
       consents: {
@@ -236,7 +237,8 @@ export default async function EstudiantePage({
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
           El certificado de nacimiento, el de estudios y lo que el colegio tenga del alumno. El
-          archivo queda en el expediente y solo lo ve quien tiene acceso al colegio.
+          archivo queda en el expediente; solo se ve en el portal si se marca «Compartir con la
+          familia». Ficha médica y custodia nunca se comparten.
         </p>
         <div className="mt-4">
           <DocumentForm
@@ -249,6 +251,7 @@ export default async function EstudiantePage({
               fileName: d.fileName,
               sizeBytes: d.sizeBytes,
               creado: d.createdAt.toLocaleDateString("es-CL"),
+              compartidoConFamilia: d.compartidoConFamilia,
             }))}
             puedeEditar={puedeEditar}
           />

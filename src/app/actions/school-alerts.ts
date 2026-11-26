@@ -50,10 +50,15 @@ export async function crearNotificacionDesdeAlerta(
 
   // Verifica que el apoderado sea del alumno
   const vinculo = await db.guardianship.findFirst({
-    where: { studentId, guardianId },
+    where: {
+      studentId,
+      guardianId,
+      student: { schoolId: ctx.school.id },
+      guardian: { schoolId: ctx.school.id },
+    },
     select: { id: true },
   });
-  if (!vinculo) return { error: "Ese apoderado no es del alumno." };
+  if (!vinculo) return { error: "Ese apoderado no es del alumno de este colegio." };
 
   await db.appointment.create({
     data: {

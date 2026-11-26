@@ -15,6 +15,14 @@ function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
 }
 
+const TIPOS_EVENTO = [
+  "HOLIDAY", "VACATION", "NON_INSTRUCTIONAL", "EARLY_DISMISSAL", "MAKEUP_DAY", "OTHER",
+] as const;
+
+function tipoValido(type: string): boolean {
+  return TIPOS_EVENTO.includes(type as (typeof TIPOS_EVENTO)[number]);
+}
+
 export async function createCalendarEvent(
   _prev: CalendarEventFormState,
   formData: FormData,
@@ -31,7 +39,7 @@ export async function createCalendarEvent(
   const isNonInstructional = formData.get("isNonInstructional") === "on";
 
   if (!date) return { error: "La fecha es obligatoria." };
-  if (!type) return { error: "El tipo es obligatorio." };
+  if (!type || !tipoValido(type)) return { error: "El tipo de evento no es válido." };
   if (!name || name.length < 2) return { error: "El nombre es obligatorio." };
 
   const fecha = new Date(`${date}T12:00:00Z`);
@@ -77,7 +85,7 @@ export async function updateCalendarEvent(
 
   if (!id) return { error: "Falta el ID del evento." };
   if (!date) return { error: "La fecha es obligatoria." };
-  if (!type) return { error: "El tipo es obligatorio." };
+  if (!type || !tipoValido(type)) return { error: "El tipo de evento no es válido." };
   if (!name || name.length < 2) return { error: "El nombre es obligatorio." };
 
   const fecha = new Date(`${date}T12:00:00Z`);

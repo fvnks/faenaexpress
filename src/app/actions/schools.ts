@@ -8,7 +8,12 @@ import type { EvaluationType, GradeStatus, GradingPeriodType } from "@/generated
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parsearFechaCalendario } from "@/lib/school-grades";
-import { requireSchoolContext, schoolCanWrite, SCHOOL_COOKIE } from "@/lib/school-auth";
+import {
+  requireSchoolContext,
+  schoolCanWrite,
+  SCHOOL_COOKIE,
+  visibleSchools,
+} from "@/lib/school-auth";
 import { invalidarFirmas } from "@/lib/school-signatures";
 import {
   docenteDeUsuario,
@@ -25,11 +30,10 @@ export async function switchSchool(schoolId: string): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const membership = await db.schoolMembership.findFirst({
-    where: { userId: user.id, schoolId, active: true },
-    select: { id: true },
-  });
-  if (!membership) redirect("/colegios");
+  // El superadmin ve todos los colegios de la organización sin memberships;
+  // los demás solo pueden abrir los que su membresía habilita.
+  const accesibles = await visibleSchools(user);
+  if (!accesibles.some((school) => school.id === schoolId)) redirect("/colegios");
 
   const cookieStore = await cookies();
   cookieStore.set(SCHOOL_COOKIE, schoolId, {
@@ -574,60 +578,50 @@ export async function saveGrades(
     changedById: string;
   }> = [];
 
-  await db.$transaction(
-    registros.map((r) => {
-      const existente = existentesMap.get(r.studentId);
+  const upserts = registros.map((r) => {
+    const existente = existentesMap.get(r.studentId);
 
-      // Si ya existía y cambió algo, registrar en GradeChange.
-      if (existente) {
-        const valorCambio =
-          existente.value !== r.value || existente.status !== r.status;
-        if (valorCambio) {
-          cambios.push({
-            evaluationId,
-            studentId: r.studentId,
-            previousValue: existente.value,
-            newValue: r.value,
-            previousStatus: existente.status,
-            newStatus: r.status,
-            changedById: ctx.user.id,
-          });
-        }
-      }
-
-      return db.grade.upsert({
-        where: { evaluationId_studentId: { evaluationId, studentId: r.studentId } },
-        create: {
+    // Si ya existía y cambió algo, registrar en GradeChange.
+    if (existente) {
+      const valorCambio =
+        existente.value !== r.value || existente.status !== r.status;
+      if (valorCambio) {
+        cambios.push({
           evaluationId,
           studentId: r.studentId,
-          value: r.value,
-          status: r.status,
-          recordedById: ctx.user.id,
-        },
-        update: {
-          value: r.value,
-          status: r.status,
-          recordedById: ctx.user.id,
-          recordedAt: new Date(),
-        },
-      });
-    }),
-  );
+          previousValue: existente.value,
+          newValue: r.value,
+          previousStatus: existente.status,
+          newStatus: r.status,
+          changedById: ctx.user.id,
+        });
+      }
+    }
 
-  // Registrar los cambios de nota para trazabilidad.
-  for (const cambio of cambios) {
-    await db.gradeChange.create({
-      data: {
-        evaluationId: cambio.evaluationId,
-        studentId: cambio.studentId,
-        previousValue: cambio.previousValue,
-        newValue: cambio.newValue,
-        previousStatus: cambio.previousStatus,
-        newStatus: cambio.newStatus,
-        changedById: cambio.changedById,
+    return db.grade.upsert({
+      where: { evaluationId_studentId: { evaluationId, studentId: r.studentId } },
+      create: {
+        evaluationId,
+        studentId: r.studentId,
+        value: r.value,
+        status: r.status,
+        recordedById: ctx.user.id,
+      },
+      update: {
+        value: r.value,
+        status: r.status,
+        recordedById: ctx.user.id,
+        recordedAt: new Date(),
       },
     });
-  }
+  });
+
+  // Notas y trazabilidad en la MISMA transacción: Circular N°30 exige que
+  // toda nota modificada tenga su registro de quién y cuándo la cambió.
+  await db.$transaction([
+    ...upserts,
+    ...cambios.map((cambio) => db.gradeChange.create({ data: cambio })),
+  ]);
 
   revalidatePath("/colegios/calificaciones");
   revalidatePath("/colegios/promocion");

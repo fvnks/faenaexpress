@@ -13,12 +13,12 @@ import { SubmitButton } from "@/components/submit-button";
 import { cardClass, controlClass, labelClass } from "@/lib/ui";
 
 const TIPOS: { value: string; label: string; color: string }[] = [
-  { value: "HOLIDAY", label: "Feriado", color: "bg-red-100 text-red-800" },
-  { value: "VACATION", label: "Vacaciones", color: "bg-blue-100 text-blue-800" },
-  { value: "NON_INSTRUCTIONAL", label: "No lectivo", color: "bg-amber-100 text-amber-800" },
-  { value: "EARLY_DISMISSAL", label: "Salida anticipada", color: "bg-purple-100 text-purple-800" },
-  { value: "MAKEUP_DAY", label: "Recuperación", color: "bg-green-100 text-green-800" },
-  { value: "OTHER", label: "Otro", color: "bg-gray-100 text-gray-800" },
+  { value: "HOLIDAY", label: "Feriado", color: "bg-danger-soft text-danger" },
+  { value: "VACATION", label: "Vacaciones", color: "bg-primary-soft text-primary" },
+  { value: "NON_INSTRUCTIONAL", label: "No lectivo", color: "bg-accent-soft text-accent" },
+  { value: "EARLY_DISMISSAL", label: "Salida anticipada", color: "bg-surface-elevated text-foreground" },
+  { value: "MAKEUP_DAY", label: "Recuperación", color: "bg-success-soft text-success" },
+  { value: "OTHER", label: "Otro", color: "bg-surface text-muted-foreground" },
 ];
 
 type Evento = {

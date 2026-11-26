@@ -17,6 +17,15 @@ import type { AttendanceStatus } from "@/generated/prisma/client";
 /** Los estados que cuentan como asistencia efectiva. */
 const CUENTAN: AttendanceStatus[] = ["PRESENT", "LATE", "JUSTIFIED"];
 
+/**
+ * Clases seguidas (perfectas) que faltan para llegar al 85 %.
+ * asiste/(total+x) >= 0,85  →  x >= (0,85·total − asiste)/0,15
+ */
+function clasesPara85(asiste: number, total: number): number {
+  if (total <= 0 || asiste / total >= 0.85) return 0;
+  return Math.max(0, Math.ceil((0.85 * total - asiste) / 0.15));
+}
+
 export type ResumenAsistencia = {
   /** Clases dictadas del período (el denominador). */
   total: number;
@@ -61,9 +70,11 @@ export async function attendanceSummary(
       asiste: 0,
       falta: 0,
       eximidas: 0,
-      porcentaje: 100,
+      porcentaje: 0,
       sinClases: true,
-      cumple: true,
+      // Sin clases no se puede acreditar el 85 %: marcarlo como cumplido
+      // promovería a un alumno sin asistencia registrada.
+      cumple: false,
       clasesParaCumplir: 0,
     };
   }
@@ -83,12 +94,7 @@ export async function attendanceSummary(
   const porcentaje = total > 0 ? (asiste / total) * 100 : 100;
   const cumple = porcentaje >= 85;
 
-  // Cuántas clases seguidas tendría que ir para llegar al 85% (si va en
-  // perfectas): asiste / (total + x) >= 0.85  ->  x <= asiste/0.85 - total
-  let clasesParaCumplir = 0;
-  if (!cumple && total > 0) {
-    clasesParaCumplir = Math.max(0, Math.floor(asiste / 0.85 - total));
-  }
+  const clasesParaCumplir = clasesPara85(asiste, total);
 
   return { total, asiste, falta, eximidas, porcentaje, sinClases: false, cumple, clasesParaCumplir };
 }
@@ -143,14 +149,12 @@ export async function attendanceByStudents(
 
     // El denominador son las clases dictadas menos las eximidas: un alumno con
     // permiso no es «inasistente» ni en el 85% ni en contra.
+    const sinClases = sesiones.length === 0;
     const total = sesiones.length - eximidas;
-    const porcentaje = total > 0 ? (asiste / total) * 100 : 100;
-    const cumple = porcentaje >= 85;
+    const porcentaje = !sinClases && total > 0 ? (asiste / total) * 100 : 0;
+    const cumple = !sinClases && porcentaje >= 85;
 
-    let clasesParaCumplir = 0;
-    if (!cumple && total > 0) {
-      clasesParaCumplir = Math.max(0, Math.floor(asiste / 0.85 - total));
-    }
+    const clasesParaCumplir = clasesPara85(asiste, total);
 
     resultado.set(studentId, {
       total,
@@ -158,7 +162,7 @@ export async function attendanceByStudents(
       falta,
       eximidas,
       porcentaje,
-      sinClases: sesiones.length === 0,
+      sinClases,
       cumple,
       clasesParaCumplir,
     });

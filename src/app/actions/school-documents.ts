@@ -27,6 +27,9 @@ const TIPOS_DOCUMENTO = [
 ] as const;
 
 const METODOS_CONSENTIMIENTO = ["PRESENCIAL", "DIGITAL", "TESTIMONIO"] as const;
+const PROPOSITOS_CONSENTIMIENTO = [
+  "DATOS_PERSONALES", "FOTOGRAFIAS", "SALUD", "ACTIVIDADES", "VIAJES",
+] as const;
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -84,6 +87,11 @@ export async function uploadStudentDocument(
       sizeBytes: archivo.size,
       fileData: buffer,
       uploadedById: ctx.user.id,
+      // Ficha médica y custodia nunca se exponen al portal, aunque marquen la casilla.
+      compartidoConFamilia:
+        formData.get("compartidoConFamilia") !== null &&
+        type !== "FICHA_MEDICA" &&
+        type !== "CUSTODIA",
     },
   });
 
@@ -136,7 +144,9 @@ export async function saveConsent(
   const notes = texto(formData, "notes");
 
   if (!studentId) return { error: "Falta el alumno." };
-  if (!purpose) return { error: "Falta el fin del consentimiento." };
+  if (!PROPOSITOS_CONSENTIMIENTO.includes(purpose as (typeof PROPOSITOS_CONSENTIMIENTO)[number])) {
+    return { error: "El fin del consentimiento no es válido." };
+  }
   if (!METODOS_CONSENTIMIENTO.includes(method as (typeof METODOS_CONSENTIMIENTO)[number])) {
     return { error: "El método de registro no es válido." };
   }

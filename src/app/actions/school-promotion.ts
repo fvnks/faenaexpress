@@ -62,7 +62,7 @@ async function resolucionDelColegio(
       decision: true,
     },
   });
-  if (existente) return existente;
+  if (existente) return existente.schoolId === schoolId ? existente : null;
 
   return db.promotionResolution.create({
     data: { schoolId, studentId, year },

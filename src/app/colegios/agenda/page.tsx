@@ -17,7 +17,7 @@ type AgendaItem = {
 
 /** Agenda unificada del docente: clases, citas y reuniones en una línea de tiempo. */
 export default async function AgendaPage() {
-  const ctx = await requireSchoolContext("comunicacion");
+  const ctx = await requireSchoolContext("agenda");
   const teacherId = await obtenerDocenteId(ctx.user.id, ctx.school.id);
 
   if (!teacherId) {

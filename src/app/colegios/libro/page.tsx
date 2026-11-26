@@ -96,7 +96,7 @@ export default async function LibroPage() {
       </section>
 
       <section className={cardClass + " p-5"}>
-        <h2 className="font-semibold">Qué falta para la fiscalización</h2>
+        <h2 className="font-semibold">Estado para la fiscalización</h2>
         <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
           <li className="line-through text-muted-foreground/60">
             <span className="text-foreground">Firma con el verificador de identidad</span>: el
