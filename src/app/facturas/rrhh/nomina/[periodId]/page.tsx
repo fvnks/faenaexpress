@@ -3,6 +3,7 @@ import Link from "next/link";
 import { closePayrollPeriodAction, generatePayrollEntriesAction, reopenPayrollPeriodAction, updatePayrollEntryAction } from "@/app/actions/payroll";
 import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { obrasImputables } from "@/lib/obra-imputacion";
 import { payrollStatusLabels } from "@/lib/payroll";
 import { cardClass } from "@/lib/ui";
 
@@ -14,7 +15,7 @@ export default async function PayrollPeriodPage(props: PageProps<"/facturas/rrhh
   const searchParams = await props.searchParams;
   const pageError = typeof searchParams?.error === "string" ? searchParams.error : null;
 
-  const [period, entries, company] = await Promise.all([
+  const [period, entries, company, obras] = await Promise.all([
     db.payrollPeriod.findFirst({ where: { id: periodId, companyId: ctx.company.id } }),
     db.payrollEntry.findMany({
       where: { periodId },
@@ -25,6 +26,7 @@ export default async function PayrollPeriodPage(props: PageProps<"/facturas/rrhh
       where: { id: ctx.company.id },
       select: { afpRate: true, healthRate: true, unemploymentRate: true, anualBonusRate: true },
     }),
+    obrasImputables(),
   ]);
   if (!period) return <div className="p-6">Periodo no encontrado.</div>;
 
@@ -74,6 +76,12 @@ export default async function PayrollPeriodPage(props: PageProps<"/facturas/rrhh
                   <input type="checkbox" name="createExpenses" defaultChecked={false} className="h-4 w-4 accent-primary" />
                   Crear gastos al cerrar
                 </label>
+                {obras.length > 0 ? (
+                  <select name="obraId" defaultValue="" className="h-9 rounded-control border border-border bg-surface px-2 text-sm text-foreground">
+                    <option value="">Sin imputar a obra</option>
+                    {obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name}</option>)}
+                  </select>
+                ) : null}
                 <button type="submit" className="btn-liquid btn-liquid-secondary rounded-control border border-border bg-transparent px-4 py-2 text-sm text-foreground">
                   Cerrar periodo
                 </button>

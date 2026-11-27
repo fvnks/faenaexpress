@@ -548,6 +548,8 @@ model Obra {
   documentos   DocumentoObra[]
   compras      Purchase[]
   gastos       Expense[]
+  remuneraciones Remuneration[]
+  payrollEntries PayrollEntry[]
 
   @@index([organizationId])
   @@index([mandanteId])
@@ -1934,6 +1936,7 @@ model Remuneration {
   amount      Int // monto líquido pagado
   paidById    String
   expenseId   String? // gasto generado automáticamente
+  obraId      String? // obra a la que se imputa la remuneración
   notes       String?
   createdById String
   createdAt   DateTime @default(now())
@@ -1943,8 +1946,10 @@ model Remuneration {
   worker    Worker    @relation(fields: [workerId], references: [id])
   paidBy    Payer     @relation(fields: [paidById], references: [id])
   expense   Expense?  @relation(fields: [expenseId], references: [id])
+  obra      Obra?     @relation(fields: [obraId], references: [id], onDelete: SetNull)
   createdBy User      @relation("RemunerationCreatedBy", fields: [createdById], references: [id])
 
+  @@index([obraId])
   @@index([companyId, date])
   @@index([companyId, workerId])
   @@index([companyId, type])
@@ -2745,6 +2750,7 @@ model PayrollEntry {
   deductionsTotal Int
   netAmount      Int
   expenseId      String?
+  obraId         String? // obra a la que se imputa la liquidación
   paidAt         DateTime?
   notes          String?
   createdAt      DateTime       @default(now())
@@ -2753,8 +2759,10 @@ model PayrollEntry {
   period   PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
   worker   Worker        @relation(fields: [workerId], references: [id])
   expense  Expense?      @relation(fields: [expenseId], references: [id])
+  obra     Obra?         @relation(fields: [obraId], references: [id], onDelete: SetNull)
 
   @@unique([periodId, workerId])
+  @@index([obraId])
   @@index([workerId])
 }
 

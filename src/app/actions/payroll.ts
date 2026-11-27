@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
+import { obraEsImputable } from "@/lib/obra-imputacion";
 import { closePayrollPeriod, generatePayrollEntries, getOrCreatePayrollPeriod, reopenPayrollPeriod, updatePayrollEntry } from "@/lib/payroll";
 
 export async function createPayrollPeriodAction(formData: FormData): Promise<void> {
@@ -100,10 +101,14 @@ export async function closePayrollPeriodAction(formData: FormData): Promise<void
   if (!canWrite(ctx, "rrhh")) redirect("/facturas/rrhh/nomina");
   const periodId = String(formData.get("periodId") ?? "");
   const createExpenses = formData.get("createExpenses") === "on";
+  const obraId = String(formData.get("obraId") ?? "") || null;
+  if (obraId && !(await obraEsImputable(obraId))) {
+    redirect(`/facturas/rrhh/nomina/${periodId}?error=${encodeURIComponent("No tienes acceso a esa obra.")}`);
+  }
 
   let error: string | null = null;
   try {
-    await closePayrollPeriod(ctx.company.id, periodId, ctx.user.id, createExpenses);
+    await closePayrollPeriod(ctx.company.id, periodId, ctx.user.id, createExpenses, obraId);
     await recordAudit(ctx, {
       action: "UPDATE",
       entityType: "PayrollPeriod",
@@ -116,6 +121,9 @@ export async function closePayrollPeriodAction(formData: FormData): Promise<void
   }
 
   revalidatePath(`/facturas/rrhh/nomina/${periodId}`);
+  if (obraId) {
+    for (const ruta of ["/obras", "/obras/presupuesto", "/obras/reportes"]) revalidatePath(ruta);
+  }
   if (error) {
     redirect(`/facturas/rrhh/nomina/${periodId}?error=` + encodeURIComponent(error));
   }

@@ -33,7 +33,13 @@ export default async function ObraGastosPage() {
   const ids = new Set(imputados.map((c) => c.sourceId));
   const disponibles = companyId
     ? await db.expense.findMany({
-        where: { companyId, id: { notIn: [...ids] } },
+        where: {
+          companyId,
+          id: { notIn: [...ids] },
+          // Los gastos de nómina ya entran como PAYROLL: ofrecerlos aquí duplicaría el costo.
+          remunerations: { none: {} },
+          payrollEntries: { none: {} },
+        },
         select: { id: true, date: true, description: true, totalAmount: true },
         orderBy: { date: "desc" },
         take: 200,

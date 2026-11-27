@@ -1,6 +1,7 @@
 import type { PayrollStatus } from "@/generated/prisma/client";
 
 import { db } from "@/lib/db";
+import { sincronizarCostoNomina } from "@/lib/obra-costo-rrhh";
 import { fetchPreviredIndicators, resolvePayrollRates } from "@/lib/previred";
 import type { PreviredIndicators } from "@/lib/previred";
 
@@ -162,7 +163,13 @@ export async function updatePayrollEntry(
   });
 }
 
-export async function closePayrollPeriod(companyId: string, periodId: string, userId: string, createExpenses: boolean) {
+export async function closePayrollPeriod(
+  companyId: string,
+  periodId: string,
+  userId: string,
+  createExpenses: boolean,
+  obraId?: string | null,
+) {
   const period = await db.payrollPeriod.findFirst({ where: { id: periodId, companyId } });
   if (!period) throw new Error("Periodo no existe.");
   if (period.status !== "DRAFT") throw new Error("El periodo ya esta cerrado.");
@@ -193,7 +200,23 @@ export async function closePayrollPeriod(companyId: string, periodId: string, us
             notes: "Liquidacion cerrada",
           },
         });
-        await tx.payrollEntry.update({ where: { id: entry.id }, data: { expenseId: expense.id, paidAt: new Date() } });
+        await tx.payrollEntry.update({
+          where: { id: entry.id },
+          data: {
+            expenseId: expense.id,
+            paidAt: new Date(),
+            ...(obraId ? { obraId } : {}),
+          },
+        });
+        if (obraId) {
+          await sincronizarCostoNomina(tx, {
+            sourceId: entry.id,
+            obraId,
+            monto: entry.netAmount,
+            fecha: new Date(),
+            descripcion: `Nómina ${period.year}-${String(period.month).padStart(2, "0")} · ${worker?.name ?? entry.workerId}`,
+          });
+        }
       }
     }
     await tx.payrollPeriod.update({ where: { id: periodId }, data: { status: "CLOSED" } });

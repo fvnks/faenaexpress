@@ -8,6 +8,8 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { remunerationTypeLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
+import { sincronizarCostoNomina } from "@/lib/obra-costo-rrhh";
+import { obraEsImputable } from "@/lib/obra-imputacion";
 import { normalizeRut } from "@/lib/rut";
 import { setFlash } from "@/lib/flash";
 import { partnerRutExists } from "@/lib/rrhh";
@@ -175,9 +177,13 @@ export async function createRemuneration(
     amount: formData.get("amount"),
     paidById: formData.get("paidById"),
     paymentMethod: formData.get("paymentMethod"),
+    obraId: formData.get("obraId"),
     notes: formData.get("notes"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+  if (parsed.data.obraId && !(await obraEsImputable(parsed.data.obraId))) {
+    return { error: "No tienes acceso a esa obra." };
+  }
 
   const worker = await db.worker.findFirst({
     where: { id: parsed.data.workerId, companyId: ctx.company.id },
@@ -225,10 +231,20 @@ export async function createRemuneration(
         amount: parsed.data.amount,
         paidById: parsed.data.paidById,
         expenseId: expense.id,
+        obraId: parsed.data.obraId ?? null,
         notes: parsed.data.notes ?? null,
         createdById: ctx.user.id,
       },
     });
+    if (parsed.data.obraId) {
+      await sincronizarCostoNomina(tx, {
+        sourceId: remuneration.id,
+        obraId: parsed.data.obraId,
+        monto: parsed.data.amount,
+        fecha: parsed.data.date,
+        descripcion: description,
+      });
+    }
 
     return { expense, remuneration };
   });
@@ -243,6 +259,9 @@ export async function createRemuneration(
   revalidatePath("/facturas/rrhh");
   revalidatePath("/facturas/gastos");
   revalidatePath("/facturas");
+  if (parsed.data.obraId) {
+    for (const ruta of ["/obras", "/obras/presupuesto", "/obras/reportes"]) revalidatePath(ruta);
+  }
   return { ok: true };
 }
 
@@ -262,10 +281,13 @@ export async function deleteRemuneration(formData: FormData): Promise<void> {
   if (!remuneration) redirect("/facturas/rrhh");
 
   // Borra primero la remuneración (referencia al gasto) y luego el gasto.
-  await db.remuneration.delete({ where: { id, companyId: ctx.company.id } });
-  if (remuneration.expenseId) {
-    await db.expense.deleteMany({ where: { id: remuneration.expenseId, companyId: ctx.company.id } });
-  }
+  await db.$transaction(async (tx) => {
+    await tx.costoObra.deleteMany({ where: { sourceType: "PAYROLL", sourceId: id } });
+    await tx.remuneration.delete({ where: { id, companyId: ctx.company.id } });
+    if (remuneration.expenseId) {
+      await tx.expense.deleteMany({ where: { id: remuneration.expenseId, companyId: ctx.company.id } });
+    }
+  });
 
   await recordAudit(ctx, {
     action: "DELETE",
@@ -274,6 +296,9 @@ export async function deleteRemuneration(formData: FormData): Promise<void> {
     summary: `Eliminó el pago a ${remuneration.worker.name} por ${formatCLP(remuneration.amount)} (y su gasto asociado).`,
   });
 
+  if (remuneration.obraId) {
+    for (const ruta of ["/obras", "/obras/presupuesto", "/obras/reportes"]) revalidatePath(ruta);
+  }
   await setFlash("success", "Pago eliminado", remuneration.worker.name);
   revalidatePath("/facturas/rrhh");
   revalidatePath("/facturas/gastos");
@@ -303,6 +328,7 @@ export async function createBulkRemuneration(
     amount: 1,
     paidById: paidById,
     paymentMethod: formData.get("paymentMethod"),
+    obraId: formData.get("obraId"),
     notes: notesRaw,
   });
   if (!common.success) {
@@ -325,6 +351,9 @@ export async function createBulkRemuneration(
     entries.push({ workerId: id, amount: Math.round(amount) });
   }
   if (entries.length === 0) return { error: "Selecciona al menos un trabajador." };
+  if (common.data.obraId && !(await obraEsImputable(common.data.obraId))) {
+    return { error: "No tienes acceso a esa obra." };
+  }
 
   const workers = await db.worker.findMany({
     where: { companyId: ctx.company.id, id: { in: entries.map((entry) => entry.workerId) } },
@@ -374,10 +403,20 @@ export async function createBulkRemuneration(
           amount: entry.amount,
           paidById: common.data.paidById,
           expenseId: expense.id,
+          obraId: common.data.obraId ?? null,
           notes: common.data.notes ?? null,
           createdById: ctx.user.id,
         },
       });
+      if (common.data.obraId) {
+        await sincronizarCostoNomina(tx, {
+          sourceId: remuneration.id,
+          obraId: common.data.obraId,
+          monto: entry.amount,
+          fecha: common.data.date,
+          descripcion: description,
+        });
+      }
       createdIds.push(remuneration.id);
     }
     return createdIds;
@@ -393,6 +432,9 @@ export async function createBulkRemuneration(
   revalidatePath("/facturas/rrhh");
   revalidatePath("/facturas/gastos");
   revalidatePath("/facturas");
+  if (common.data.obraId) {
+    for (const ruta of ["/obras", "/obras/presupuesto", "/obras/reportes"]) revalidatePath(ruta);
+  }
   return { ok: true };
 }
 

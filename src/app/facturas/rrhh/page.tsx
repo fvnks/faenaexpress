@@ -5,6 +5,7 @@ import { ConfirmSubmit } from "@/components/confirm-submit";
 import { canWrite, requireContext } from "@/lib/auth";
 import { remunerationTypeLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
+import { obrasImputables } from "@/lib/obra-imputacion";
 import { listPayers } from "@/lib/catalogs";
 import { listAreas } from "@/lib/catalogs";
 import { listRemunerations, listWorkersWithTotals, rrhhMonthlyCosts, rrhhYearTotal } from "@/lib/rrhh";
@@ -34,7 +35,7 @@ export default async function RrhhPage(props: PageProps<"/facturas/rrhh">) {
     ? (typeRaw as (typeof remunerationTypeValues)[number])
     : undefined;
 
-  const [workers, remunerations, payers, areas, yearTotal] = await Promise.all([
+  const [workers, remunerations, payers, areas, yearTotal, obras] = await Promise.all([
     listWorkersWithTotals(ctx.company.id),
     listRemunerations(ctx.company.id, {
       workerId,
@@ -47,6 +48,7 @@ export default async function RrhhPage(props: PageProps<"/facturas/rrhh">) {
     listPayers(ctx.company.id),
     listAreas(ctx.company.id),
     rrhhYearTotal(ctx.company.id),
+    obrasImputables(),
   ]);
 
   const monthNames = ["E", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
@@ -154,6 +156,7 @@ export default async function RrhhPage(props: PageProps<"/facturas/rrhh">) {
               workers={workers.filter((worker) => worker.active).map((worker) => ({ id: worker.id, name: worker.name, baseAmount: worker.baseAmount ?? null }))}
               payers={payers}
               today={todayISO()}
+              obras={obras}
             />
           </div>
         </section>
@@ -210,6 +213,7 @@ export default async function RrhhPage(props: PageProps<"/facturas/rrhh">) {
               workers={workers.filter((worker) => worker.active).map((worker) => ({ id: worker.id, name: worker.name }))}
               payers={payers}
               today={todayISO()}
+              obras={obras}
             />
           </div>
         </section>

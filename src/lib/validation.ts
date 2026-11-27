@@ -314,6 +314,7 @@ export const remunerationSchema = z.object({
     (value) => (value === undefined || value === null || value === "" ? "Efectivo" : value),
     formaDePago,
   ),
+  obraId: z.preprocess(emptyToUndefined, z.string().optional()),
   notes: optionalText(500),
 });
 

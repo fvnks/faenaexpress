@@ -253,10 +253,12 @@ export function NewRemunerationForm({
   workers,
   payers,
   today,
+  obras,
 }: {
   workers: { id: string; name: string }[];
   payers: { id: string; name: string }[];
   today: string;
+  obras: { id: string; name: string }[];
 }) {
   // unchanged
   const [state, action] = useActionState<RrhhFormState, FormData>(createRemuneration, undefined);
@@ -299,6 +301,12 @@ export function NewRemunerationForm({
         <label htmlFor="rem-payer" className={labelClass}>Pagado por</label>
         <SelectDropdown id="rem-payer" name="paidById" value="" emptyLabel="Selecciona" allowEmpty={false} options={payers.map((payer) => ({ value: payer.id, label: payer.name }))} />
       </div>
+      {obras.length > 0 ? (
+        <div className={fieldClass}>
+          <label htmlFor="rem-obra" className={labelClass}>Obra <span className="text-muted-foreground">(opcional)</span></label>
+          <SelectDropdown id="rem-obra" name="obraId" value="" emptyLabel="Sin imputar a obra" options={obras.map((obra) => ({ value: obra.id, label: obra.name }))} />
+        </div>
+      ) : null}
       <div className={fieldClass + " sm:col-span-2 lg:col-span-1"}>
         <label htmlFor="rem-notes" className={labelClass}>Notas <span className="text-muted-foreground">(opcional)</span></label>
         <input id="rem-notes" name="notes" maxLength={500} className={controlClass} />
@@ -323,10 +331,12 @@ export function BulkRemunerationForm({
   workers,
   payers,
   today,
+  obras,
 }: {
   workers: { id: string; name: string; baseAmount: number | null }[];
   payers: { id: string; name: string }[];
   today: string;
+  obras: { id: string; name: string }[];
 }) {
   const activeWorkers = workers;
   const [state, action] = useActionState<RrhhFormState, FormData>(createBulkRemuneration, undefined);
@@ -362,6 +372,12 @@ export function BulkRemunerationForm({
           <label className={labelClass}>Pagado por</label>
           <SelectDropdown name="paidById" value="" emptyLabel="Selecciona" allowEmpty={false} options={payers.map((payer) => ({ value: payer.id, label: payer.name }))} />
         </div>
+        {obras.length > 0 ? (
+          <div className={fieldClass}>
+            <label className={labelClass}>Obra <span className="text-muted-foreground">(opcional)</span></label>
+            <SelectDropdown name="obraId" value="" emptyLabel="Sin imputar a obra" options={obras.map((obra) => ({ value: obra.id, label: obra.name }))} />
+          </div>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto">
