@@ -6,6 +6,7 @@ import { OBRA_STATUS_LABELS } from "@/lib/obra-permissions";
 import { cargarPresupuesto, type ApuVista, type PartidaVista } from "@/lib/obra-presupuesto";
 import { cardClass, secondaryButtonClass } from "@/lib/ui";
 import { ImportarPresupuesto } from "./importar-presupuesto";
+import { GestionApu } from "./gestion-apu";
 import { NuevaPartida } from "./nueva-partida";
 
 function pct(value: number | null): string {
@@ -13,7 +14,15 @@ function pct(value: number | null): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2).replace(".", ",")}%`;
 }
 
-function FilaPartida({ p, apu }: { p: PartidaVista; apu: Map<string, ApuVista[]> }) {
+function FilaPartida({
+  p,
+  apu,
+  writable,
+}: {
+  p: PartidaVista;
+  apu: Map<string, ApuVista[]>;
+  writable: boolean;
+}) {
   const desviada = p.desviacion > 0;
   return (
     <>
@@ -26,8 +35,16 @@ function FilaPartida({ p, apu }: { p: PartidaVista; apu: Map<string, ApuVista[]>
           {p.estado === "ANULADA" ? (
             <span className="ml-2 text-[10px] uppercase text-subtle">anulada</span>
           ) : null}
-          {(apu.get(p.id)?.length ?? 0) > 0 ? (
-            <span className="ml-2 text-[10px] text-subtle">APU {apu.get(p.id)?.length}</span>
+          {p.estado === "VIGENTE" ? (
+            <span className="ml-2">
+              <GestionApu
+                partidaId={p.id}
+                partida={`${p.codigo} · ${p.descripcion}`}
+                items={apu.get(p.id) ?? []}
+                precioUnitario={p.precioUnitario}
+                writable={writable}
+              />
+            </span>
           ) : null}
         </td>
         <td className="px-3 py-2 text-right align-top tabular text-xs text-muted-foreground">
@@ -47,20 +64,6 @@ function FilaPartida({ p, apu }: { p: PartidaVista; apu: Map<string, ApuVista[]>
           {p.cantidad > 0 ? `${(p.avance * 100).toFixed(0)}%` : "—"}
         </td>
       </tr>
-      {(apu.get(p.id)?.length ?? 0) > 0 ? (
-        <tr className="border-b border-border bg-surface-elevated/40">
-          <td colSpan={8} className="px-6 py-2">
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-wider text-subtle">Análisis de precios unitarios</p>
-            <ul className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
-              {apu.get(p.id)?.map((a, i) => (
-                <li key={i}>
-                  <span className="text-foreground/80">{a.tipo}</span> · {a.descripcion} · {a.cantidad} × {formatCLP(a.precioUnitario)} = {formatCLP(a.total)}
-                </li>
-              ))}
-            </ul>
-          </td>
-        </tr>
-      ) : null}
     </>
   );
 }
@@ -138,7 +141,7 @@ export default async function ObraPresupuestoPage() {
             </thead>
             <tbody>
               {partidas.map((p) => (
-                <FilaPartida key={p.id} p={p} apu={apuPorPartida} />
+                <FilaPartida key={p.id} p={p} apu={apuPorPartida} writable={writable} />
               ))}
             </tbody>
           </table>

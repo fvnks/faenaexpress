@@ -23,7 +23,7 @@ export type PartidaVista = {
   avance: number;
 };
 
-export type ApuVista = { tipo: string; descripcion: string; cantidad: number; precioUnitario: number; total: number };
+export type ApuVista = { id: string; tipo: string; descripcion: string; cantidad: number; precioUnitario: number; total: number };
 
 export async function cargarPresupuesto(obraId: string): Promise<{
   partidas: PartidaVista[];
@@ -50,7 +50,7 @@ export async function cargarPresupuesto(obraId: string): Promise<{
     }),
     db.apu.findMany({
       where: { partida: { obraId } },
-      select: { partidaId: true, tipo: true, descripcion: true, cantidad: true, precioUnitario: true, total: true },
+      select: { id: true, partidaId: true, tipo: true, descripcion: true, cantidad: true, precioUnitario: true, total: true },
       orderBy: { createdAt: "asc" },
     }),
   ]);
@@ -63,10 +63,10 @@ export async function cargarPresupuesto(obraId: string): Promise<{
     cubicadoPorPartida.set(c.partidaId, (cubicadoPorPartida.get(c.partidaId) ?? 0) + c.cantidad);
   }
 
-  const apuPorPartida = new Map<string, Array<{ tipo: string; descripcion: string; cantidad: number; precioUnitario: number; total: number }>>();
+  const apuPorPartida = new Map<string, ApuVista[]>();
   for (const apu of apuRaw) {
     const list = apuPorPartida.get(apu.partidaId) ?? [];
-    list.push({ tipo: String(apu.tipo), descripcion: apu.descripcion, cantidad: apu.cantidad, precioUnitario: apu.precioUnitario, total: apu.total });
+    list.push({ id: apu.id, tipo: String(apu.tipo), descripcion: apu.descripcion, cantidad: apu.cantidad, precioUnitario: apu.precioUnitario, total: apu.total });
     apuPorPartida.set(apu.partidaId, list);
   }
 
