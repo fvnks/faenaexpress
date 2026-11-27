@@ -1,4 +1,5 @@
 import { aprobarCubicacion, eliminarCubicacion } from "@/app/actions/obra-avance";
+import { SincronizadorAvance } from "@/components/sincronizador-avance";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
@@ -76,6 +77,8 @@ export default async function ObraAvancePage() {
         ))}
       </div>
 
+      <SincronizadorAvance />
+
       <section className={`${cardClass} p-5`}>
         <h2 className="font-semibold">Cuadrillas</h2>
         <p className="mb-3 mt-0.5 text-xs text-muted-foreground">
@@ -104,6 +107,7 @@ export default async function ObraAvancePage() {
         <NuevaCubicacion
           partidas={pendientes}
           cuadrillas={cuadrillas.filter((cuadrilla) => cuadrilla.activa)}
+          obraId={ctx.obra.id}
         />
       ) : null}
 

@@ -7,7 +7,9 @@ import { recordObraAudit } from "@/lib/obra-audit";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import { puedeAprobarAvance } from "@/lib/obra-permissions";
 
-export type ObraActionState = { ok?: boolean; error?: string; message?: string } | undefined;
+export type ObraActionState =
+  | { ok?: boolean; error?: string; message?: string; cubicacionId?: string }
+  | undefined;
 
 /** Registra una cubicación de avance de una partida (aún sin aprobar). */
 export async function registrarCubicacion(
@@ -16,6 +18,11 @@ export async function registrarCubicacion(
 ): Promise<ObraActionState> {
   const ctx = await requireObraContext("avance");
   if (!obraCanWrite(ctx, "avance")) return { error: "Tu rol no permite registrar avance." };
+
+  const obraIdDelFormulario = String(formData.get("obraId") ?? "");
+  if (obraIdDelFormulario && obraIdDelFormulario !== ctx.obra.id) {
+    return { error: "La medición pertenece a otra obra. Abre esa obra para sincronizarla." };
+  }
 
   const partidaId = String(formData.get("partidaId") ?? "");
   const cuadrillaId = String(formData.get("cuadrillaId") ?? "") || null;
@@ -67,7 +74,7 @@ export async function registrarCubicacion(
   revalidatePath("/obras/presupuesto");
   revalidatePath("/obras/estados-pago");
   revalidatePath("/obras");
-  return { ok: true, message: `Avance registrado en «${partida.descripcion}».` };
+  return { ok: true, message: `Avance registrado en «${partida.descripcion}».`, cubicacionId: cubicacion.id };
 }
 
 /** Aprueba o rechaza una cubicación. Solo la dirección de obra. */
