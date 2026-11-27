@@ -11,27 +11,11 @@ import {
   isOrgManager,
 } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { destinoObraSeguro } from "@/lib/obra-nav";
 import { setOrganizationModule } from "@/lib/org-module-state";
 import { OBRA_COOKIE, visibleObras } from "@/lib/obra-auth";
 
 export type CrearObraState = { ok?: boolean; error?: string } | undefined;
-
-/** Secciones de primer nivel donde tiene sentido quedarse al cambiar de obra. */
-const SECCIONES = new Set([
-  "/obras",
-  "/obras/presupuesto",
-  "/obras/avance",
-  "/obras/estados-pago",
-  "/obras/compras",
-  "/obras/gastos",
-  "/obras/subcontratos",
-  "/obras/bodega",
-  "/obras/maquinaria",
-  "/obras/documentos",
-  "/obras/equipo",
-  "/obras/administracion",
-  "/obras/reportes",
-]);
 
 /**
  * Cambia la obra abierta. Se valida contra `visibleObras` —la misma fuente que
@@ -60,8 +44,7 @@ export async function switchObra(obraId: string, destino?: string): Promise<void
   // nueva obra sin depender del redirect (patrón de switchCompany).
   revalidatePath("/", "layout");
 
-  const seguro = destino && SECCIONES.has(destino) ? destino : "/obras";
-  redirect(seguro);
+  redirect(destinoObraSeguro(destino));
 }
 
 /**
