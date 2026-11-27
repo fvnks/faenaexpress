@@ -588,6 +588,23 @@ export async function registerMovement(
     : db.$transaction(run, { timeout: 30_000, maxWait: 15_000 });
 }
 
+/** Costo unitario vigente de un producto en una bodega (para valorizar consumos). */
+export async function costoUnitarioEnBodega(
+  productId: string,
+  warehouseId: string,
+): Promise<number> {
+  const stock = await db.productStock.findFirst({
+    where: { productId, warehouseId },
+    select: { avgCost: true },
+  });
+  if (stock) return Math.round(stock.avgCost.toNumber());
+  const product = await db.product.findUnique({
+    where: { id: productId },
+    select: { costNet: true },
+  });
+  return Math.round(Number(product?.costNet ?? 0));
+}
+
 // ---------------------------------------------------------------------------
 // Indicadores
 // ---------------------------------------------------------------------------

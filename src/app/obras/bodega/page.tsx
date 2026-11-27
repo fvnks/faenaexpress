@@ -1,6 +1,7 @@
 import { getActiveMembership } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getOrCreateDefaultWarehouse } from "@/lib/inventory";
+import { formatCLP } from "@/lib/money";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import { cardClass } from "@/lib/ui";
 import { ConsumirForm, TraspasarForm } from "./acciones";
@@ -15,14 +16,14 @@ export default async function ObraBodegaPage() {
     db.bodegaObra.findMany({
       where: { obraId: ctx.obra.id },
       orderBy: { product: { name: "asc" } },
-      select: { id: true, cantidad: true, product: { select: { name: true, sku: true } } },
+      select: { id: true, cantidad: true, product: { select: { name: true, sku: true, costNet: true } } },
     }),
     db.movimientoBodegaObra.findMany({
       where: { bodegaObra: { obraId: ctx.obra.id } },
       orderBy: { fecha: "desc" },
       take: 30,
       select: {
-        id: true, tipo: true, cantidad: true, fecha: true,
+        id: true, tipo: true, cantidad: true, unitCost: true, fecha: true,
         partida: { select: { codigo: true, descripcion: true } },
         createdBy: { select: { name: true } },
       },
@@ -100,13 +101,16 @@ export default async function ObraBodegaPage() {
         ) : (
           <table className="w-full text-sm">
             <thead className="sticky-table-head text-xs text-muted-foreground">
-              <tr><th className="px-3 py-2 text-left">Producto</th><th className="px-3 py-2 text-right">Cantidad</th></tr>
+              <tr><th className="px-3 py-2 text-left">Producto</th><th className="px-3 py-2 text-right">Cantidad</th><th className="px-3 py-2 text-right">Costo ref.</th></tr>
             </thead>
             <tbody className="divide-y divide-border">
               {bodega.map((b) => (
                 <tr key={b.id}>
                   <td className="px-3 py-2"><span className="font-mono text-xs text-subtle">{b.product.sku}</span> {b.product.name}</td>
                   <td className="px-3 py-2 text-right tabular font-medium">{fmt(b.cantidad)}</td>
+                  <td className="px-3 py-2 text-right tabular text-xs text-muted-foreground">
+                    {formatCLP(b.product.costNet)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -119,7 +123,7 @@ export default async function ObraBodegaPage() {
           <div className="border-b border-border px-4 py-3"><h2 className="font-semibold">Últimos movimientos</h2></div>
           <table className="w-full text-sm">
             <thead className="sticky-table-head text-xs text-muted-foreground">
-              <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Tipo</th><th className="px-3 py-2 text-right">Cantidad</th><th className="px-3 py-2 text-left">Partida</th><th className="px-3 py-2 text-left">Usuario</th></tr>
+              <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Tipo</th><th className="px-3 py-2 text-right">Cantidad</th><th className="px-3 py-2 text-right">Costo unit.</th><th className="px-3 py-2 text-left">Partida</th><th className="px-3 py-2 text-left">Usuario</th></tr>
             </thead>
             <tbody className="divide-y divide-border">
               {movimientos.map((m) => (
@@ -127,6 +131,7 @@ export default async function ObraBodegaPage() {
                   <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
                   <td className="px-3 py-2"><span className={m.tipo === "IN" ? "text-success" : "text-danger"}>{m.tipo}</span></td>
                   <td className="px-3 py-2 text-right tabular">{fmt(m.cantidad)}</td>
+                  <td className="px-3 py-2 text-right tabular text-xs">{formatCLP(m.unitCost ?? 0)}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{m.partida ? `${m.partida.codigo} · ${m.partida.descripcion}` : "—"}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{m.createdBy.name}</td>
                 </tr>

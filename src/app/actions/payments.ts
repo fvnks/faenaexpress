@@ -8,6 +8,8 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { formatCLP } from "@/lib/money";
+import { sincronizarCostoAbono, sincronizarCostoAbonoEliminado } from "@/lib/obra-costo-abonos";
+import { obraEsImputable } from "@/lib/obra-imputacion";
 import { recomputeStatus, saleSettleTotal, type PaymentKind } from "@/lib/payments";
 
 // Acepta AAAA-MM-DD y DD-MM-AAAA (lo que el normalizador de fechas deja en el
@@ -43,7 +45,11 @@ async function loadDocument(companyId: string, kind: PaymentKind, id: string) {
   if (kind === "purchase") {
     const purchase = await db.purchase.findFirst({
       where: { id, companyId },
-      select: { id: true, totalAmount: true, documentNumber: true, status: true },
+      select: {
+        id: true, totalAmount: true, documentNumber: true, status: true,
+        obraId: true,
+        partner: { select: { name: true } },
+      },
     });
     if (!purchase) return null;
     return {
@@ -52,6 +58,8 @@ async function loadDocument(companyId: string, kind: PaymentKind, id: string) {
       total: purchase.totalAmount,
       retention: 0,
       cancelled: false,
+      obraId: purchase.obraId,
+      descripcion: `Compra ${purchase.documentNumber ?? ""} · ${purchase.partner.name}`.trim(),
     };
   }
 
@@ -66,6 +74,8 @@ async function loadDocument(companyId: string, kind: PaymentKind, id: string) {
     total: sale.totalAmount,
     retention: sale.retentionAmount,
     cancelled: sale.status === "CANCELLED",
+    obraId: null,
+    descripcion: "",
   };
 }
 
@@ -119,21 +129,38 @@ export async function registerPayment(formData: FormData): Promise<void> {
   const notes = String(formData.get("notes") ?? "").trim();
   const date = new Date(`${wired}T00:00:00.000Z`);
 
-  await db.payment.create({
-    data: {
-      companyId: ctx.company.id,
-      date,
-      amount,
-      method,
-      notes: notes || null,
-      purchaseId: kind === "purchase" ? documentId : null,
-      saleId: kind === "sale" ? documentId : null,
-      createdById: ctx.user.id,
-    },
-  });
+  const folio = document.documentNumber ? ` N° ${document.documentNumber}` : "";
+  const datosPago = {
+    companyId: ctx.company.id,
+    date,
+    amount,
+    method,
+    notes: notes || null,
+    purchaseId: kind === "purchase" ? documentId : null,
+    saleId: kind === "sale" ? documentId : null,
+    createdById: ctx.user.id,
+  };
+  const conObra = kind === "purchase" && document.obraId && await obraEsImputable(document.obraId);
+
+  if (conObra) {
+    await db.$transaction(async (tx) => {
+      const pago = await tx.payment.create({ data: datosPago });
+      await sincronizarCostoAbono(tx, {
+        paymentId: pago.id,
+        purchaseId: documentId,
+        obraId: document.obraId!,
+        totalCompra: document.total,
+        descripcionCompra: document.descripcion,
+        monto: amount,
+        fecha: date,
+        descripcionAbono: `Abono${folio} · ${formatCLP(amount)}`,
+      });
+    });
+  } else {
+    await db.payment.create({ data: datosPago });
+  }
   await recomputeStatus(ctx.company.id, kind, documentId);
 
-  const folio = document.documentNumber ? ` N° ${document.documentNumber}` : "";
   await recordAudit(ctx, {
     action: "CREATE",
     entityType: "Payment",
@@ -144,6 +171,11 @@ export async function registerPayment(formData: FormData): Promise<void> {
     changes: { amount: { before: null, after: amount } },
   });
 
+  if (conObra) {
+    for (const ruta of ["/obras", "/obras/compras", "/obras/presupuesto", "/obras/reportes"]) {
+      revalidatePath(ruta);
+    }
+  }
   await setFlash("success", `Abono de ${formatCLP(amount)} registrado`);
   revalidatePath(back);
   revalidatePath(listHref(kind));
@@ -157,7 +189,15 @@ export async function deletePayment(formData: FormData): Promise<void> {
 
   const payment = await db.payment.findFirst({
     where: { id, companyId: ctx.company.id },
-    select: { id: true, amount: true, purchaseId: true, saleId: true },
+    select: {
+      id: true, amount: true, date: true, purchaseId: true, saleId: true,
+      purchase: {
+        select: {
+          obraId: true, totalAmount: true, documentNumber: true,
+          partner: { select: { name: true } },
+        },
+      },
+    },
   });
   if (!payment) redirect(listHref(kind));
 
@@ -168,7 +208,23 @@ export async function deletePayment(formData: FormData): Promise<void> {
     redirect(back);
   }
 
-  await db.payment.delete({ where: { id: payment.id, companyId: ctx.company.id } });
+  const compra = kind === "purchase" ? payment.purchase : null;
+  const conObra = Boolean(compra?.obraId && await obraEsImputable(compra.obraId));
+
+  if (conObra && compra?.obraId) {
+    await db.$transaction(async (tx) => {
+      await tx.payment.delete({ where: { id: payment.id, companyId: ctx.company.id } });
+      await sincronizarCostoAbonoEliminado(tx, {
+        paymentId: payment.id,
+        purchaseId: payment.purchaseId!,
+        obraId: compra.obraId!,
+        totalCompra: compra.totalAmount,
+        descripcionCompra: `Compra ${compra.documentNumber ?? ""} · ${compra.partner.name}`.trim(),
+      });
+    });
+  } else {
+    await db.payment.delete({ where: { id: payment.id, companyId: ctx.company.id } });
+  }
   if (documentId) await recomputeStatus(ctx.company.id, kind, documentId);
 
   await recordAudit(ctx, {
@@ -178,6 +234,11 @@ export async function deletePayment(formData: FormData): Promise<void> {
     summary: `Eliminó un abono de ${formatCLP(payment.amount)}.`,
   });
 
+  if (conObra) {
+    for (const ruta of ["/obras", "/obras/compras", "/obras/presupuesto", "/obras/reportes"]) {
+      revalidatePath(ruta);
+    }
+  }
   await setFlash("success", "Abono eliminado");
   revalidatePath(back);
   revalidatePath(listHref(kind));

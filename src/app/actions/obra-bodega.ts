@@ -4,7 +4,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
-import { getOrCreateDefaultWarehouse, registerMovement } from "@/lib/inventory";
+import { costoUnitarioEnBodega, getOrCreateDefaultWarehouse, registerMovement } from "@/lib/inventory";
+import { formatCLP } from "@/lib/money";
 import { recordObraAudit } from "@/lib/obra-audit";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import type { ObraActionState } from "./obra-avance";
@@ -59,12 +60,13 @@ export async function traspasarAObra(
     create: { obraId: ctx.obra.id, productId, cantidad: 0 },
     update: {},
   });
+  const unitCost = await costoUnitarioEnBodega(productId, destino.id);
   await db.movimientoBodegaObra.create({
     data: {
       bodegaObraId: bodegaObra.id,
       tipo: "IN",
       cantidad,
-      unitCost: 0,
+      unitCost,
       referencia: `obra:${ctx.obra.id}:transfer:${Date.now()}`,
       createdById: ctx.user.id,
     },
@@ -97,6 +99,9 @@ export async function consumirEnObra(
   const bodegaObraId = String(formData.get("bodegaObraId") ?? "");
   const cantidad = Number(String(formData.get("cantidad") ?? "").replace(",", "."));
   const partidaId = String(formData.get("partidaId") ?? "");
+  // Explícito: el material puede estar ya imputado como PURCHASE. Solo se crea
+  // un CostoObra WAREHOUSE cuando el usuario así lo decide, para no duplicar.
+  const imputarCosto = String(formData.get("imputarCosto") ?? "") === "true";
 
   const bodega = await db.bodegaObra.findFirst({
     where: { id: bodegaObraId, obraId: ctx.obra.id },
@@ -115,13 +120,20 @@ export async function consumirEnObra(
       })
     : null;
 
+  // Costo de las entradas a la bodega de la obra (promedio ponderado simple).
+  const entradas = await db.movimientoBodegaObra.aggregate({
+    where: { bodegaObraId: bodega.id, tipo: "IN" },
+    _avg: { unitCost: true },
+  });
+  const unitCost = Math.round(entradas._avg.unitCost ?? 0);
+
   await db.$transaction(async (tx) => {
-    await tx.movimientoBodegaObra.create({
+    const salida = await tx.movimientoBodegaObra.create({
       data: {
         bodegaObraId: bodega.id,
         tipo: "OUT",
         cantidad,
-        unitCost: 0,
+        unitCost,
         partidaId: partida?.id ?? null,
         createdById: ctx.user.id,
       },
@@ -130,17 +142,33 @@ export async function consumirEnObra(
       where: { id: bodega.id },
       data: { cantidad: { decrement: cantidad } },
     });
+    if (imputarCosto) {
+      await tx.costoObra.upsert({
+        where: { sourceType_sourceId: { sourceType: "WAREHOUSE", sourceId: salida.id } },
+        create: {
+          obraId: ctx.obra.id,
+          partidaId: partida?.id ?? null,
+          sourceType: "WAREHOUSE",
+          sourceId: salida.id,
+          descripcion: `Consumo de ${bodega.product.name}`.slice(0, 300),
+          monto: Math.round(cantidad * unitCost),
+          fecha: new Date(),
+        },
+        update: { monto: Math.round(cantidad * unitCost), partidaId: partida?.id ?? null },
+      });
+    }
   });
 
   await recordObraAudit(ctx, {
     action: "CREATE",
     entityType: "MovimientoBodegaObra",
     entityId: bodega.id,
-    summary: `Consumió ${cantidad} × ${bodega.product.name}${partida ? ` en «${partida.descripcion}»` : ""}.`,
+    summary: `Consumió ${cantidad} × ${bodega.product.name} por ${formatCLP(Math.round(cantidad * unitCost))}${partida ? ` en «${partida.descripcion}»` : ""}.`,
   });
 
   revalidatePath("/obras/bodega");
   revalidatePath("/obras/presupuesto");
+  revalidatePath("/obras/reportes");
   return {
     ok: true,
     message: `${cantidad} × ${bodega.product.name} consumidos${partida ? ` en «${partida.descripcion}»` : ""}.`,

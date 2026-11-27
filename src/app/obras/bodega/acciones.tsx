@@ -50,7 +50,14 @@ export function ConsumirForm({ bodega, partidas }: { bodega: BodegaItem[]; parti
         <option value="">Imputar a partida (opcional)</option>
         {partidas.map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.descripcion}</option>)}
       </select>
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <input type="checkbox" name="imputarCosto" value="true" />
+        Sumar al costo real
+      </label>
       <SubmitButton pendingLabel="Consumiendo…" className={primaryButtonClass}>Registrar consumo</SubmitButton>
+      <p className="w-full text-xs text-muted-foreground">
+        Marca «Sumar al costo real» solo si la compra de estos materiales no fue imputada ya como compra: si no, el costo se contaría dos veces.
+      </p>
     </form>
   );
 }
