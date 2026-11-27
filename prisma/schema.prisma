@@ -44,6 +44,7 @@ model Organization {
   accessLogs           AccessLog[]
   schools              School[]
   obras                Obra[]
+  mandantesObra        MandanteObra[]
   platformInvoices     PlatformInvoice[]
   platformPaymentMethods PlatformPaymentMethod[]
 }
@@ -495,13 +496,38 @@ enum ObraStatus {
   TERMINADA
 }
 
+/**
+ * Mandante (dueño/contratante) de una o varias obras. Antes era un texto libre
+ * en cada obra; ahora es una entidad para poder agrupar y navegar por mandante.
+ * Los campos `mandante`/`rutMandante` de Obra se conservan por compatibilidad.
+ */
+model MandanteObra {
+  id             String   @id @default(cuid())
+  organizationId String? // null en instalación standalone
+  name           String
+  rut            String?
+  direccion      String?
+  comuna         String?
+  contacto       String?
+  notas          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  obras        Obra[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
 model Obra {
   id             String     @id @default(cuid())
   organizationId String? // la organización que la contrató; null si es suelta
   name           String
-  code           String? // código interno de la obra (ej. "OB-2026-01")
-  mandante       String?
-  rutMandante    String?
+  code           String? // código interno de la obra
+  mandante       String? // legado: se conserva por compatibilidad
+  rutMandante    String? // legado: se conserva por compatibilidad
+  mandanteId     String? // entidad MandanteObra
   direccion      String?
   comuna         String?
   fechaInicio    DateTime?
@@ -511,6 +537,7 @@ model Obra {
   updatedAt      DateTime   @updatedAt
 
   organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  mandanteRel  MandanteObra?    @relation(fields: [mandanteId], references: [id], onDelete: SetNull)
   memberships  ObraMembership[]
   partidas     Partida[]
   costos       CostoObra[]
@@ -523,6 +550,7 @@ model Obra {
   gastos       Expense[]
 
   @@index([organizationId])
+  @@index([mandanteId])
 }
 
 /**

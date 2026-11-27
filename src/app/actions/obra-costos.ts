@@ -148,6 +148,7 @@ export async function actualizarObra(
   if (!obraCanWrite(ctx, "administracion")) return { error: "Solo la dirección puede editar la obra." };
 
   const nombre = String(formData.get("name") ?? "").trim();
+  const mandanteId = String(formData.get("mandanteId") ?? "") || null;
   if (nombre.length < 2) return { error: "El nombre de la obra es obligatorio." };
   const fecha = (campo: string) => {
     const valor = String(formData.get(campo) ?? "").trim();
@@ -161,11 +162,19 @@ export async function actualizarObra(
   if (inicio && termino && termino < inicio) {
     return { error: "La fecha de término no puede ser anterior al inicio." };
   }
+  if (mandanteId) {
+    const mandante = await db.mandanteObra.findFirst({
+      where: { id: mandanteId, organizationId: ctx.obra.organizationId },
+      select: { id: true },
+    });
+    if (!mandante) return { error: "El mandante no existe en tu cuenta." };
+  }
 
   await db.obra.update({
     where: { id: ctx.obra.id },
     data: {
       name: nombre.slice(0, 160),
+      mandanteId,
       code: String(formData.get("code") ?? "").trim().slice(0, 40) || null,
       mandante: String(formData.get("mandante") ?? "").trim().slice(0, 160) || null,
       rutMandante: String(formData.get("rutMandante") ?? "").trim().slice(0, 20) || null,
@@ -187,5 +196,7 @@ export async function actualizarObra(
 
   revalidatePath("/obras");
   revalidatePath("/obras/administracion");
+  revalidatePath("/obras/mis-obras");
+  revalidatePath("/obras/mandantes");
   return { ok: true, message: "Datos de la obra actualizados." };
 }

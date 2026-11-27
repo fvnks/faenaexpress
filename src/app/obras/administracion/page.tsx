@@ -1,4 +1,5 @@
 import { FormularioObra } from "./formulario";
+import { mandantesVisibles } from "@/lib/obra-mandantes";
 import { requireObraContext, obraCanWrite } from "@/lib/obra-auth";
 import { cardClass } from "@/lib/ui";
 
@@ -6,11 +7,13 @@ export default async function ObraAdministracionPage() {
   const ctx = await requireObraContext("administracion");
   const editable = obraCanWrite(ctx, "administracion");
   const { obra } = ctx;
+  const mandantes = await mandantesVisibles(ctx.user);
 
   const datos = {
     name: obra.name,
     code: obra.code,
     mandante: obra.mandante,
+    mandanteId: obra.mandanteId,
     rutMandante: obra.rutMandante,
     direccion: obra.direccion,
     comuna: obra.comuna,
@@ -46,7 +49,10 @@ export default async function ObraAdministracionPage() {
         <h2 className="font-semibold">Datos generales</h2>
         <div className="mt-4">
           {editable ? (
-            <FormularioObra datos={datos} />
+            <FormularioObra
+              datos={datos}
+              mandantes={mandantes.map((m) => ({ id: m.id, name: m.name }))}
+            />
           ) : (
             <p className="text-sm text-muted-foreground"> Tu rol es de solo lectura en esta sección.</p>
           )}

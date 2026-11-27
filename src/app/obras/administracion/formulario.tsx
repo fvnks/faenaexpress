@@ -12,6 +12,7 @@ type Datos = {
   name: string;
   code: string | null;
   mandante: string | null;
+  mandanteId: string | null;
   rutMandante: string | null;
   direccion: string | null;
   comuna: string | null;
@@ -27,7 +28,13 @@ const ESTADOS = [
   ["TERMINADA", "Terminada"],
 ];
 
-export function FormularioObra({ datos }: { datos: Datos }) {
+export function FormularioObra({
+  datos,
+  mandantes,
+}: {
+  datos: Datos;
+  mandantes: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [state, action] = useActionState(actualizarObra, undefined);
 
@@ -46,8 +53,19 @@ export function FormularioObra({ datos }: { datos: Datos }) {
         <span className="text-sm text-muted-foreground">Código interno</span>
         <input name="code" defaultValue={datos.code ?? ""} placeholder="OB-2026-01" className={controlClass} />
       </label>
+      {mandantes.length > 0 ? (
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-muted-foreground">Mandante</span>
+          <select name="mandanteId" defaultValue={datos.mandanteId ?? ""} className={controlClass}>
+            <option value="">Sin mandante</option>
+            {mandantes.map((mandante) => (
+              <option key={mandante.id} value={mandante.id}>{mandante.name}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className="flex flex-col gap-1">
-        <span className="text-sm text-muted-foreground">Mandante</span>
+        <span className="text-sm text-muted-foreground">Referencia de mandante</span>
         <input name="mandante" defaultValue={datos.mandante ?? ""} className={controlClass} />
       </label>
       <label className="flex flex-col gap-1">

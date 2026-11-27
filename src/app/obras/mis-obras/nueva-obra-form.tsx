@@ -7,7 +7,7 @@ import { crearObra } from "@/app/actions/obras";
 import { SubmitButton } from "@/components/submit-button";
 import { controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
 
-export function NuevaObraForm() {
+export function NuevaObraForm({ mandantes }: { mandantes: { id: string; name: string }[] }) {
   const [state, action] = useActionState(crearObra, undefined);
 
   useEffect(() => {
@@ -22,6 +22,17 @@ export function NuevaObraForm() {
           <label htmlFor="obra-nombre" className={labelClass}>Nombre de la obra</label>
           <input id="obra-nombre" name="name" required maxLength={120} placeholder="Nombre de la obra" className={controlClass} />
         </div>
+        {mandantes.length > 0 ? (
+          <div className={fieldClass}>
+            <label htmlFor="obra-mandante-id" className={labelClass}>Mandante</label>
+            <select id="obra-mandante-id" name="mandanteId" className={controlClass} defaultValue="">
+              <option value="">Sin mandante</option>
+              {mandantes.map((mandante) => (
+                <option key={mandante.id} value={mandante.id}>{mandante.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div className={fieldClass}>
           <label htmlFor="obra-codigo" className={labelClass}>Código interno</label>
           <input id="obra-codigo" name="code" maxLength={30} placeholder="Código interno" className={controlClass} />

@@ -75,6 +75,12 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Mandantes",
+    items: [
+      { href: "/obras/mandantes", label: "Mandantes", section: "panel" },
+    ],
+  },
+  {
     label: "Administración",
     items: [
       { href: "/obras/mis-obras", label: "Mis obras", section: "panel" },

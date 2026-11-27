@@ -16,7 +16,7 @@ export function ObraSwitcher({
   obras,
   activeId,
 }: {
-  obras: { id: string; name: string }[];
+  obras: { id: string; name: string; mandante: string | null }[];
   activeId: string | null;
 }) {
   const pathname = usePathname();
@@ -26,6 +26,15 @@ export function ObraSwitcher({
 
   const active = obras.find((obra) => obra.id === activeId) ?? obras[0];
   const otras = obras.filter((obra) => obra.id !== activeId);
+
+  // Agrupa por mandante para que el dropdown sirva también como navegación
+  // "por mandante": las obras de un mismo contratante quedan juntas.
+  const grupos = new Map<string, typeof otras>();
+  for (const obra of otras) {
+    const clave = obra.mandante ?? "Sin mandante";
+    grupos.set(clave, [...(grupos.get(clave) ?? []), obra]);
+  }
+  const gruposOrdenados = [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
   useEffect(() => {
     if (!open) return;
@@ -84,23 +93,37 @@ export function ObraSwitcher({
 
       {open ? (
         <div className="absolute right-0 top-full z-40 mt-2 w-60 rounded-card border border-border bg-surface-elevated p-1 shadow-lg">
-          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Obras</div>
-          <ul className="flex flex-col">
-            {otras.map((obra) => (
-              <li key={obra.id}>
-                <a
-                  href="/obras/mis-obras"
-                  aria-disabled={pending === obra.id}
-                  onClick={(event) => cambiar(event, obra.id)}
-                  className="flex w-full items-center rounded-control px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-background aria-disabled:opacity-60"
-                >
-                  <span className="flex-1 truncate font-medium">{obra.name}</span>
-                  {pending === obra.id ? <span className="text-xs text-muted-foreground">…</span> : null}
-                </a>
-              </li>
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Obras por mandante</div>
+          <div className="max-h-80 overflow-y-auto">
+            {gruposOrdenados.map(([mandante, items]) => (
+              <div key={mandante}>
+                <div className="px-2 pb-1 pt-2 text-[10px] uppercase tracking-wider text-subtle">{mandante}</div>
+                <ul className="flex flex-col">
+                  {items.map((obra) => (
+                    <li key={obra.id}>
+                      <a
+                        href="/obras/mis-obras"
+                        aria-disabled={pending === obra.id}
+                        onClick={(event) => cambiar(event, obra.id)}
+                        className="flex w-full items-center rounded-control px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-background aria-disabled:opacity-60"
+                      >
+                        <span className="flex-1 truncate font-medium">{obra.name}</span>
+                        {pending === obra.id ? <span className="text-xs text-muted-foreground">…</span> : null}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
           <div className="mx-1 my-1 border-t border-border" />
+          <Link
+            href="/obras/mandantes"
+            onClick={() => setOpen(false)}
+            className="flex items-center rounded-control px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          >
+            Ver mandantes
+          </Link>
           <Link
             href="/obras/mis-obras"
             onClick={() => setOpen(false)}

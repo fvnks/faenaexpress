@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CambiarObraLink } from "@/components/cambiar-obra-link";
 import { isOrgManager } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { mandantesVisibles } from "@/lib/obra-mandantes";
 import { requireObraContext, visibleObras } from "@/lib/obra-auth";
 import { OBRA_ROLE_LABELS, obraStatusLabel } from "@/lib/obra-permissions";
 import { cardClass } from "@/lib/ui";
@@ -13,7 +14,7 @@ export default async function MisObrasPage() {
   const obras = await visibleObras(ctx.user);
   const ids = obras.map((obra) => obra.id);
 
-  const [detalles, membresias] = await Promise.all([
+  const [detalles, membresias, mandantes] = await Promise.all([
     db.obra.findMany({
       where: { id: { in: ids } },
       select: {
@@ -25,6 +26,7 @@ export default async function MisObrasPage() {
       where: { userId: ctx.user.id, obraId: { in: ids }, active: true },
       select: { obraId: true, role: true },
     }),
+    mandantesVisibles(ctx.user),
   ]);
 
   const conteo = new Map(detalles.map((detalle) => [detalle.id, detalle._count]));
@@ -48,7 +50,9 @@ export default async function MisObrasPage() {
         </p>
       </div>
 
-      {puedeCrear ? <NuevaObraForm /> : null}
+      {puedeCrear ? (
+        <NuevaObraForm mandantes={mandantes.map((m) => ({ id: m.id, name: m.name }))} />
+      ) : null}
 
       <section className={`${cardClass} overflow-x-auto`}>
         <div className="border-b border-border px-4 py-3">
@@ -63,6 +67,7 @@ export default async function MisObrasPage() {
             <thead className="sticky-table-head text-xs text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">Obra</th>
+                <th className="px-3 py-2 text-left">Mandante</th>
                 <th className="px-3 py-2 text-left">Estado</th>
                 <th className="px-3 py-2 text-left">Tu rol</th>
                 <th className="px-3 py-2 text-right">Partidas</th>
@@ -79,6 +84,9 @@ export default async function MisObrasPage() {
                     <td className="px-3 py-2">
                       <span className="font-medium">{obra.name}</span>
                       {obra.code ? <span className="block font-mono text-xs text-muted-foreground">{obra.code}</span> : null}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {mandantes.find((m) => m.id === obra.mandanteId)?.name ?? "—"}
                     </td>
                     <td className="px-3 py-2 text-xs">{obraStatusLabel(obra.status)}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">

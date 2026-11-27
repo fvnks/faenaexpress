@@ -66,6 +66,7 @@ export async function crearObra(
   }
 
   const nombre = String(formData.get("name") ?? "").trim();
+  const mandanteId = String(formData.get("mandanteId") ?? "") || null;
   const code = String(formData.get("code") ?? "").trim() || null;
   const mandante = String(formData.get("mandante") ?? "").trim() || null;
   const rutMandante = String(formData.get("rutMandante") ?? "").trim() || null;
@@ -84,11 +85,19 @@ export async function crearObra(
   if (fechaInicio && fechaTermino && fechaTermino < fechaInicio) {
     return { error: "La fecha de término no puede ser anterior al inicio." };
   }
+  if (mandanteId) {
+    const mandante = await db.mandanteObra.findFirst({
+      where: { id: mandanteId, organizationId },
+      select: { id: true },
+    });
+    if (!mandante) return { error: "El mandante no existe en tu cuenta." };
+  }
 
   const obra = await db.obra.create({
     data: {
       organizationId,
       name: nombre.slice(0, 120),
+      mandanteId,
       code: code?.slice(0, 30) ?? null,
       mandante: mandante?.slice(0, 120) ?? null,
       rutMandante: rutMandante?.slice(0, 20) ?? null,
@@ -126,6 +135,7 @@ export async function crearObra(
   revalidatePath("/", "layout");
   revalidatePath("/obras");
   revalidatePath("/obras/mis-obras");
+  revalidatePath("/obras/mandantes");
   revalidatePath("/modulos");
   redirect("/obras");
 }

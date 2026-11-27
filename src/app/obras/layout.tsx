@@ -37,9 +37,18 @@ export default async function ObrasLayout({ children }: { children: React.ReactN
     redirect((await hasPlatformLevel(user.id, "SUPPORT")) ? "/admin/obras" : "/modulos");
   }
 
-  const [pendingEP] = await Promise.all([
+  const [pendingEP, mandantes] = await Promise.all([
     db.estadoPago.count({ where: { obraId: ctx.obra.id, estado: "BORRADOR" } }),
+    db.mandanteObra.findMany({
+      where: {
+        id: {
+          in: obras.map((obra) => obra.mandanteId).filter((id): id is string => Boolean(id)),
+        },
+      },
+      select: { id: true, name: true },
+    }),
   ]);
+  const mandantePorId = new Map(mandantes.map((mandante) => [mandante.id, mandante.name]));
 
   return (
     <div className="min-h-dvh">
@@ -63,7 +72,11 @@ export default async function ObrasLayout({ children }: { children: React.ReactN
               activeCode="obras"
             />
             <ObraSwitcher
-              obras={obras.map((o) => ({ id: o.id, name: o.name }))}
+              obras={obras.map((o) => ({
+                id: o.id,
+                name: o.name,
+                mandante: o.mandanteId ? mandantePorId.get(o.mandanteId) ?? null : null,
+              }))}
               activeId={ctx.obra.id}
             />
             <ThemeToggle />
