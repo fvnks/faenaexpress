@@ -92,39 +92,3 @@ export function excelToPdfPosition(
   
   return { x, y: yInPage, page };
 }
-
-/**
- * Convierte un layout completo (mapa campo -> ExcelCoord) a posiciones PDF.
- */
-export function layoutToPdfPositions(
-  layout: Record<string, ExcelCoord>,
-  config?: Partial<ExcelToPdfConfig>
-): Record<string, PdfPosition> {
-  const result: Record<string, PdfPosition> = {};
-  for (const [campo, coord] of Object.entries(layout)) {
-    result[campo] = excelToPdfPosition(coord, config);
-  }
-  return result;
-}
-
-/**
- * Ajuste fino interactivo: dado un campo y su posición deseada en PDF (mm),
- * calcula la coordenada Excel aproximada.
- */
-export function pdfToExcelCoord(
-  xMm: number,
-  yMm: number,
-  config: Partial<ExcelToPdfConfig> = {}
-): ExcelCoord {
-  const cfg = { ...DEFAULT_EXCEL_TO_PDF_CONFIG, ...config };
-  const xPt = xMm * 72 / 25.4;  // mm a puntos
-  const yPt = yMm * 72 / 25.4;
-  
-  const colWidthPt = cfg.defaultColWidth * cfg.scaleX;
-  const rowHeightPt = cfg.defaultRowHeight * cfg.scaleY;
-  
-  const col = Math.max(1, Math.round((xPt - cfg.marginLeft) / colWidthPt) + 1);
-  const row = Math.max(1, Math.round((yPt - cfg.marginTop) / rowHeightPt) + 1);
-  
-  return { row, col };
-}

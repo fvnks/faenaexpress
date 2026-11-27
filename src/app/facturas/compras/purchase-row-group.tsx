@@ -119,6 +119,7 @@ export function PurchaseRowGroup({ purchase, notas, writable, hasDefontanaCreden
             <ActionsDropdown
               editHref={`/facturas/compras/${purchase.id}/editar`}
               pdfHref={`/facturas/compras/${purchase.id}/pdf`}
+              printHref={`/facturas/compras/${purchase.id}/print`}
               deleteAction={deletePurchase}
               deleteId={purchase.id}
               deleteMessage="¿Eliminar esta compra? Esta acción no se puede deshacer."

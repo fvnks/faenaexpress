@@ -11,6 +11,7 @@ import { notFound } from "next/navigation";
 
 import { requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { obtenerPlantillaPredeterminada } from "@/app/actions/factura-plantilla";
 import { documentTypeLabel } from "@/lib/labels";
 import { documentoCompraPdf, type PlantillaFacturaPdf } from "@/lib/pdf/documento-pdf";
 import { nombreArchivoPdf, renderPdfDocumento } from "@/lib/pdf/render";
@@ -42,10 +43,7 @@ export async function GET(
       where: { companyId: ctx.company.id },
       select: { logo: true, mostrarLogo: true, mostrarTimbreSii: true, textoPie: true },
     }),
-    db.facturaPlantilla.findFirst({
-      where: { companyId: ctx.company.id, tipo: "COMPRA", esActiva: true },
-      orderBy: { esPredeterminada: "desc" },
-    }),
+    obtenerPlantillaPredeterminada(ctx.company.id, "COMPRA"),
   ]);
 
   const documento = await documentoCompraPdf({

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PrintButton } from "@/components/print-button";
 import { requireContext } from "@/lib/auth";
+import { saleStatusLabel } from "@/lib/labels";
 import { formatCLP, formatDate } from "@/lib/money";
 import { getSale } from "@/lib/sales";
 
@@ -144,7 +145,7 @@ export default async function SalePrintPage(props: PageProps<"/facturas/ventas/[
 
         <div className="mt-8 border-t border-gray-300 pt-4 text-xs text-gray-500">
           <p>Registrada por {sale.createdBy.name}</p>
-          <p>Estado: {sale.status}</p>
+          <p>Estado: {saleStatusLabel(sale.status)}</p>
         </div>
       </div>
     </div>

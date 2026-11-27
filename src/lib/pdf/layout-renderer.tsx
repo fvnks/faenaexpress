@@ -242,31 +242,3 @@ export function LayoutBasedInvoiceRenderer({ invoiceData, layout }: LayoutRender
   return <View style={{ position: "relative", width: "100%", height: "100%" }}>{children}</View>;
 }
 
-export function generarLayoutPorDefecto(): Record<string, ExcelCoord> {
-  return {
-    mostrarEmpresa: { row: 4, col: 2 },
-    mostrarDireccion: { row: 5, col: 2 },
-    mostrarTelefono: { row: 6, col: 2 },
-    mostrarCorreo: { row: 7, col: 2 },
-    mostrarRUT: { row: 4, col: 15 },
-    mostrarTipoDocumento: { row: 5, col: 15 },
-    mostrarFolio: { row: 6, col: 15 },
-    mostrarFechaEmision: { row: 7, col: 15 },
-    mostrarReceptor: { row: 10, col: 2 },
-    mostrarRUTReceptor: { row: 11, col: 2 },
-    mostrarDireccionReceptor: { row: 12, col: 2 },
-    mostrarFechaVencimiento: { row: 13, col: 2 },
-    mostrarFormaPago: { row: 14, col: 2 },
-    mostrarVendedor: { row: 15, col: 2 },
-    mostrarReferencias: { row: 16, col: 2 },
-    mostrarHES: { row: 17, col: 2 },
-    mostrarItems: { row: 20, col: 1 },
-    mostrarCodigoItem: { row: 20, col: 1 },
-    mostrarUnidadItem: { row: 20, col: 1 },
-    mostrarTotales: { row: 45, col: 15 },
-    mostrarRetencion: { row: 46, col: 15 },
-    mostrarExento: { row: 47, col: 15 },
-    mostrarRecargo: { row: 48, col: 15 },
-    mostrarImporteLetras: { row: 49, col: 2 },
-  };
-}

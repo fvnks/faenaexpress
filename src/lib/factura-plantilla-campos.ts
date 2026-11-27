@@ -1,4 +1,6 @@
-import ExcelJS from "exceljs";
+// Solo se usa como tipo: el import de valor metería ExcelJS en el bundle del
+// navegador porque este módulo también lo importa la UI de plantillas.
+import type ExcelJS from "exceljs";
 
 // Campos configurables de la plantilla de factura, compartidos entre la UI,
 // la descarga en Excel y la importación. Es la única fuente de verdad para los

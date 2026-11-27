@@ -91,6 +91,8 @@ export default async function SaleDetailPage(props: PageProps<"/facturas/ventas/
             {writable ? (
               <ActionsDropdown
                 editHref={`/facturas/ventas/${sale.id}/editar`}
+                pdfHref={`/facturas/ventas/${sale.id}/pdf`}
+                printHref={`/facturas/ventas/${sale.id}/print`}
                 deleteAction={deleteSale}
                 deleteId={sale.id}
                 deleteMessage="¿Eliminar esta venta? Esta acción no se puede deshacer."

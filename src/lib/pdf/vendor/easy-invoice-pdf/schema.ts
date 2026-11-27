@@ -36,7 +36,7 @@ export const SUPPORTED_DATE_FORMATS = [
 export type SupportedDateFormat = (typeof SUPPORTED_DATE_FORMATS)[number];
 
 /**
- * Los locales con los que se puede punctuatedar un número. `international` es el que
+ * Los locales con los que se puede formatear un número. `international` es el que
  * usaba la plantilla por omisión: miles con espacio y decimal con punto.
  */
 export const SUPPORTED_NUMBER_FORMAT_LOCALES = [

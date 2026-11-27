@@ -97,6 +97,8 @@ export default async function PurchaseDetailPage(props: PageProps<"/facturas/com
             {writable ? (
               <ActionsDropdown
                 editHref={`/facturas/compras/${purchase.id}/editar`}
+                pdfHref={`/facturas/compras/${purchase.id}/pdf`}
+                printHref={`/facturas/compras/${purchase.id}/print`}
                 deleteAction={deletePurchase}
                 deleteId={purchase.id}
                 deleteMessage="¿Eliminar esta compra? Esta acción no se puede deshacer."
