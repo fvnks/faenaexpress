@@ -165,7 +165,12 @@ export default async function ObrasHomePage() {
       </div>
 
       <section className={`${cardClass} p-5`}>
-        <h2 className="font-semibold">Mis obras</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold">Mis obras</h2>
+          <Link href="/obras/mis-obras" className="text-xs text-primary hover:underline">
+            Ver todas →
+          </Link>
+        </div>
         <p className="mb-4 mt-0.5 text-xs text-muted-foreground">
           Puedes trabajar en varias obras a la vez. Abre la que necesites; el cambio conserva la sección.
         </p>
