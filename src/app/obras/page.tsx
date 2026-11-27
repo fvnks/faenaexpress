@@ -71,7 +71,7 @@ export default async function ObrasHomePage() {
   const [comprasSinImputar, gastosSinImputar] = companyId
     ? await Promise.all([
         db.purchase.count({ where: { companyId, id: { notIn: comprasImputadas } } }),
-        db.expense.count({ where: { companyId, id: { notIn: gastosImputadas } } }),
+        db.expense.count({ where: { companyId, id: { notIn: gastosImputados } } }),
       ])
     : [0, 0];
 
