@@ -45,6 +45,7 @@ model Organization {
   schools              School[]
   obras                Obra[]
   mandantesObra        MandanteObra[]
+  plantillasItemizado PlantillaItemizado[]
   platformInvoices     PlatformInvoice[]
   platformPaymentMethods PlatformPaymentMethod[]
 }
@@ -518,6 +519,39 @@ model MandanteObra {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+}
+
+/** Itemizado estándar reutilizable: se guarda desde una obra y se aplica en otra. */
+model PlantillaItemizado {
+  id             String   @id @default(cuid())
+  organizationId String? // null en instalación standalone
+  nombre         String
+  descripcion    String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization?               @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  lineas       PlantillaItemizadoLinea[]
+
+  @@unique([organizationId, nombre])
+  @@index([organizationId])
+}
+
+model PlantillaItemizadoLinea {
+  id             String  @id @default(cuid())
+  plantillaId    String
+  codigo         String
+  descripcion    String
+  unidad         String  @default("UN")
+  cantidad       Float
+  precioUnitario Float
+  esCapitulo     Boolean @default(false)
+  orden          Int     @default(0)
+
+  plantilla PlantillaItemizado @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+
+  @@index([plantillaId])
 }
 
 model Obra {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { db } from "@/lib/db";
 import { requireObraContext, obraCanWrite } from "@/lib/obra-auth";
 import { formatCLP } from "@/lib/money";
 import { OBRA_STATUS_LABELS } from "@/lib/obra-permissions";
@@ -8,6 +9,7 @@ import { cardClass, secondaryButtonClass } from "@/lib/ui";
 import { ImportarPresupuesto } from "./importar-presupuesto";
 import { GestionApu } from "./gestion-apu";
 import { NuevaPartida } from "./nueva-partida";
+import { AplicarPlantillaForm, GuardarPlantillaForm } from "./plantillas-forms";
 
 function pct(value: number | null): string {
   if (value === null) return "—";
@@ -72,6 +74,12 @@ export default async function ObraPresupuestoPage() {
   const ctx = await requireObraContext("presupuesto");
   const { partidas, totales, sinImputar, apuPorPartida } = await cargarPresupuesto(ctx.obra.id);
   const writable = obraCanWrite(ctx, "presupuesto");
+  const organizationId = ctx.user.orgMembership?.organizationId ?? null;
+  const plantillas = await db.plantillaItemizado.findMany({
+    where: { organizationId },
+    orderBy: { nombre: "asc" },
+    select: { id: true, nombre: true, _count: { select: { lineas: true } } },
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,6 +95,24 @@ export default async function ObraPresupuestoPage() {
         </div>
         {writable ? <ImportarPresupuesto /> : null}
       </div>
+
+      {writable ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <GuardarPlantillaForm />
+            <AplicarPlantillaForm
+              plantillas={plantillas.map((plantilla) => ({
+                id: plantilla.id,
+                nombre: plantilla.nombre,
+                lineas: plantilla._count.lineas,
+              }))}
+            />
+          </div>
+          <Link href="/obras/plantillas" className="text-xs text-primary hover:underline">
+            Ver todas las plantillas →
+          </Link>
+        </div>
+      ) : null}
 
       {/* KPIs: la identidad obligado / real / desviación se calcula en un solo lugar */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

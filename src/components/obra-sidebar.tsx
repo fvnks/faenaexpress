@@ -84,6 +84,7 @@ const GROUPS: NavGroup[] = [
     label: "Administración",
     items: [
       { href: "/obras/mis-obras", label: "Mis obras", section: "panel" },
+      { href: "/obras/plantillas", label: "Plantillas de itemizado", section: "presupuesto" },
       { href: "/obras/documentos", label: "Control documental", section: "documentos" },
       { href: "/obras/equipo", label: "Equipo", section: "equipo" },
       { href: "/obras/administracion", label: "Configuración", section: "administracion" },
