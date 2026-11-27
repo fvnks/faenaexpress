@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { recordObraAudit } from "@/lib/obra-audit";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import type { ObraActionState } from "./obra-avance";
 
@@ -39,6 +40,13 @@ export async function subirFotoCubicacion(
     },
   });
 
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "FotoCubicacion",
+    entityId: cubicacionId,
+    summary: `Subió una foto de evidencia (${archivo.name || "foto.jpg"}).`,
+  });
+
   revalidatePath("/obras/avance");
   revalidatePath("/obras/reportes");
   return { ok: true, message: "Foto guardada." };
@@ -65,6 +73,12 @@ export async function crearMaquinaria(
       proximaMantencion: proxima ? Number(proxima.replace(",", ".")) : null,
     },
   });
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "Maquinaria",
+    summary: `Agregó la maquinaria «${nombre}».`,
+  });
+
   revalidatePath("/obras/maquinaria");
   return { ok: true, message: "Maquinaria agregada." };
 }
@@ -100,6 +114,13 @@ export async function registrarHorometro(
       await tx.maquinaria.update({ where: { id: maquinariaId }, data: { horometro: horas } });
     }
   });
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "Horometro",
+    entityId: maquinariaId,
+    summary: `${tipo === "MANTENCION" ? "Registró una mantención" : "Actualizó el horómetro"} en ${horas} h.`,
+  });
+
   revalidatePath("/obras/maquinaria");
   return { ok: true, message: tipo === "MANTENCION" ? "Mantención registrada." : "Horómetro actualizado." };
 }

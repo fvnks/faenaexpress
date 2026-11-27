@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 
 import { getActiveMembership } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { formatCLP } from "@/lib/money";
+import { recordObraAudit } from "@/lib/obra-audit";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import type { ObraActionState } from "./obra-avance";
 
@@ -82,6 +84,13 @@ async function imputar(
     await db.expense.update({ where: { id: sourceId }, data: { obraId: ctx.obra.id } });
   }
 
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "CostoObra",
+    entityId: sourceId,
+    summary: `Imputó ${sourceType === "PURCHASE" ? "una compra" : "un gasto"} al costo real (${formatCLP(documento.totalAmount)}).`,
+  });
+
   const rutas = ["/obras/compras", "/obras/gastos", "/obras/presupuesto", "/obras/reportes", "/obras/documentos"];
   for (const ruta of rutas) revalidatePath(ruta);
   return { ok: true, message: "Documento imputado al costo real de la obra." };
@@ -119,6 +128,12 @@ export async function desimputarCosto(formData: FormData): Promise<void> {
       });
     }
   }
+  await recordObraAudit(ctx, {
+    action: "DELETE",
+    entityType: "CostoObra",
+    entityId: id,
+    summary: "Desimputó un documento del costo real de la obra.",
+  });
   for (const ruta of ["/obras/compras", "/obras/gastos", "/obras/presupuesto", "/obras/reportes", "/obras/documentos"]) {
     revalidatePath(ruta);
   }
@@ -160,6 +175,14 @@ export async function actualizarObra(
       fechaTermino: termino,
       status: status as ObraStatus,
     },
+  });
+
+  await recordObraAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Obra",
+    entityId: ctx.obra.id,
+    summary: "Actualizó los datos generales de la obra.",
+    changes: { name: nombre, status, fechaInicio: inicio, fechaTermino: termino },
   });
 
   revalidatePath("/obras");

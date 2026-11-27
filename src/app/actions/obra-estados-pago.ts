@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { computeTotal } from "@/lib/money";
+import { recordObraAudit } from "@/lib/obra-audit";
 import { normalizeRut } from "@/lib/rut";
 import { incrementUsage } from "@/lib/plans";
 import { getActiveMembership as membership } from "@/lib/auth";
@@ -99,6 +100,12 @@ export async function generarEstadoPago(
     },
   });
 
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "EstadoPago",
+    summary: `Generó el estado de pago EP-${String(numero).padStart(4, "0")} de ${periodo} por ${formatCLPLocal(total)}.`,
+  });
+
   revalidatePath("/obras/estados-pago");
   revalidatePath("/obras/avance");
   revalidatePath("/obras");
@@ -118,6 +125,12 @@ export async function aprobarEstadoPago(formData: FormData): Promise<void> {
   await db.estadoPago.updateMany({
     where: { id, obraId: ctx.obra.id, estado: "BORRADOR" },
     data: { estado: "APROBADO", aprobadoById: ctx.user.id },
+  });
+  await recordObraAudit(ctx, {
+    action: "UPDATE",
+    entityType: "EstadoPago",
+    entityId: id,
+    summary: "Aprobó un estado de pago.",
   });
   revalidatePath("/obras/estados-pago");
 }

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { getOrCreateDefaultWarehouse, registerMovement } from "@/lib/inventory";
+import { recordObraAudit } from "@/lib/obra-audit";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import type { ObraActionState } from "./obra-avance";
 
@@ -73,6 +74,13 @@ export async function traspasarAObra(
     data: { cantidad: { increment: cantidad } },
   });
 
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "MovimientoBodegaObra",
+    entityId: bodegaObra.id,
+    summary: `Traspasó ${cantidad} unidades del producto ${productId} a la bodega de la obra.`,
+  });
+
   revalidatePath("/obras/bodega");
   revalidatePath("/facturas/inventario");
   return { ok: true, message: `${cantidad} unidades traspasadas a la obra.` };
@@ -122,6 +130,13 @@ export async function consumirEnObra(
       where: { id: bodega.id },
       data: { cantidad: { decrement: cantidad } },
     });
+  });
+
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "MovimientoBodegaObra",
+    entityId: bodega.id,
+    summary: `Consumió ${cantidad} × ${bodega.product.name}${partida ? ` en «${partida.descripcion}»` : ""}.`,
   });
 
   revalidatePath("/obras/bodega");

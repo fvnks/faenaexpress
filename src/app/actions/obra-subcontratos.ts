@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { recordObraAudit } from "@/lib/obra-audit";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import { totalPartida } from "@/lib/obra-budget";
 import type { ObraActionState } from "./obra-avance";
@@ -78,6 +79,12 @@ export async function crearSubcontrato(
     },
   });
 
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "Subcontrato",
+    summary: `Creó el subcontrato SC-${String(numero).padStart(4, "0")} con ${validas.length} partidas (${partner.name}).`,
+  });
+
   revalidatePath("/obras/subcontratos");
   revalidatePath("/obras/presupuesto");
   return { ok: true, message: `SC-${String(numero).padStart(4, "0")} creado con ${validas.length} partidas.` };
@@ -93,6 +100,12 @@ export async function cambiarEstadoSubcontrato(formData: FormData): Promise<void
   await db.subcontrato.updateMany({
     where: { id, obraId: ctx.obra.id },
     data: { estado },
+  });
+  await recordObraAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Subcontrato",
+    entityId: id,
+    summary: `Cambió el estado de un subcontrato a «${estado}».`,
   });
   revalidatePath("/obras/subcontratos");
 }

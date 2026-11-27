@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { recordAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { recordObraAudit } from "@/lib/obra-audit";
 import { getActiveMembership } from "@/lib/auth";
 import { requireObraContext, obraCanWrite } from "@/lib/obra-auth";
 import { previewPresupuesto, type FilaPresupuesto, type PreviewPresupuesto } from "@/lib/obra-import";
@@ -156,6 +157,12 @@ export async function crearPartidaObra(
       return { error: "No se pudo guardar la partida." };
     }
   }
+
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "Partida",
+    summary: `Agregó la partida «${descripcion}» (${codigoFinal}) al presupuesto.`,
+  });
 
   revalidatePath("/obras/presupuesto");
   return { ok: true };

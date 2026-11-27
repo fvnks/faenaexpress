@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { recordObraAudit } from "@/lib/obra-audit";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import {
   esEstadoDocumentoObra,
@@ -69,8 +70,8 @@ export async function crearDocumentoObra(
   const { archivo, error: errorArchivo } = await leerArchivo(formData);
   if (errorArchivo) return { error: errorArchivo };
 
-  await db.$transaction(async (tx) => {
-    const doc = await tx.documentoObra.create({
+  const doc = await db.$transaction(async (tx) => {
+    const creado = await tx.documentoObra.create({
       data: {
         obraId: ctx.obra.id,
         tipo,
@@ -87,12 +88,20 @@ export async function crearDocumentoObra(
     });
     await tx.seguimientoDocumento.create({
       data: {
-        documentoId: doc.id,
+        documentoId: creado.id,
         estado: "PENDIENTE",
         nota: "Documento creado",
         createdById: ctx.user.id,
       },
     });
+    return creado;
+  });
+
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "DocumentoObra",
+    entityId: doc.id,
+    summary: `Creó el documento «${doc.titulo}» (${tipo}).`,
   });
 
   revalidatePath("/obras/documentos");
@@ -124,6 +133,14 @@ export async function registrarSeguimiento(
       data: { documentoId, estado, nota: nota ? nota.slice(0, 1000) : null, createdById: ctx.user.id },
     });
     await tx.documentoObra.update({ where: { id: documentoId }, data: { estado } });
+  });
+
+  await recordObraAudit(ctx, {
+    action: "UPDATE",
+    entityType: "DocumentoObra",
+    entityId: documentoId,
+    summary: `Registró el estado «${estado}» en el seguimiento de un documento.`,
+    changes: { estado: { before: doc.estado, after: estado }, nota: nota || null },
   });
 
   revalidatePath(`/obras/documentos/${documentoId}`);
@@ -212,6 +229,14 @@ export async function actualizarDocumentoObra(
     });
   });
 
+  await recordObraAudit(ctx, {
+    action: "UPDATE",
+    entityType: "DocumentoObra",
+    entityId: documentoId,
+    summary: "Editó los datos de un documento.",
+    changes: { titulo, tipo, responsableId: responsableId || null, fechaVencimiento: fecha, archivo: Boolean(archivo), quitarArchivo },
+  });
+
   revalidatePath(`/obras/documentos/${documentoId}`);
   revalidatePath("/obras/documentos");
   return { ok: true, message: "Documento actualizado." };
@@ -235,6 +260,13 @@ export async function eliminarDocumentoObra(
   if (!doc) return { error: "El documento no existe en esta obra." };
 
   await db.documentoObra.delete({ where: { id: documentoId } });
+
+  await recordObraAudit(ctx, {
+    action: "DELETE",
+    entityType: "DocumentoObra",
+    entityId: documentoId,
+    summary: `Eliminó el documento «${doc.titulo}» y su historial.`,
+  });
 
   revalidatePath("/obras/documentos");
   revalidatePath(`/obras/documentos/${documentoId}`);

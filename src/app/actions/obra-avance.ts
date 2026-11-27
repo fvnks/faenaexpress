@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
+import { recordObraAudit } from "@/lib/obra-audit";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
 import { puedeAprobarAvance } from "@/lib/obra-permissions";
 
@@ -38,13 +39,19 @@ export async function registrarCubicacion(
     };
   }
 
-  await db.cubicacion.create({
+  const cubicacion = await db.cubicacion.create({
     data: {
       partidaId,
       cantidad,
       fecha: fechaRaw ? new Date(`${fechaRaw}T12:00:00.000Z`) : new Date(),
       registradoById: ctx.user.id,
     },
+  });
+  await recordObraAudit(ctx, {
+    action: "CREATE",
+    entityType: "Cubicacion",
+    entityId: cubicacion.id,
+    summary: `Cubicó ${cantidad} en «${partida.descripcion}».`,
   });
 
   revalidatePath("/obras/avance");
@@ -72,6 +79,12 @@ export async function aprobarCubicacion(formData: FormData): Promise<void> {
     where: { id },
     data: { aprobada: aprobar, aprobadaById: ctx.user.id },
   });
+  await recordObraAudit(ctx, {
+    action: "UPDATE",
+    entityType: "Cubicacion",
+    entityId: id,
+    summary: aprobar ? "Aprobó una cubicación." : "Rechazó una cubicación.",
+  });
 
   revalidatePath("/obras/avance");
   revalidatePath("/obras/presupuesto");
@@ -92,6 +105,12 @@ export async function eliminarCubicacion(formData: FormData): Promise<void> {
       registradoById: ctx.user.id,
       partida: { obraId: ctx.obra.id },
     },
+  });
+  await recordObraAudit(ctx, {
+    action: "DELETE",
+    entityType: "Cubicacion",
+    entityId: id,
+    summary: "Eliminó una cubicación pendiente.",
   });
   revalidatePath("/obras/avance");
 }
