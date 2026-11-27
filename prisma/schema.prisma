@@ -614,6 +614,7 @@ model Partida {
   cubicaciones Cubicacion[]
   costos     CostoObra[]
   estadosPagoDetalle EstadoPagoPartida[]
+  estadosPagoSubcontratoDetalle EstadoPagoSubcontratoPartida[]
   subcontratosPartida SubcontratoPartida[]
   consumosBodega MovimientoBodegaObra[]
 
@@ -796,9 +797,10 @@ model Subcontrato {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  obra     Obra                @relation(fields: [obraId], references: [id], onDelete: Cascade)
-  partner  Partner             @relation(fields: [partnerId], references: [id])
-  partidas SubcontratoPartida[]
+  obra        Obra                     @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  partner     Partner                  @relation(fields: [partnerId], references: [id])
+  partidas    SubcontratoPartida[]
+  estadosPago EstadoPagoSubcontrato[]
 
   @@unique([obraId, numero])
   @@index([obraId, partnerId])
@@ -816,6 +818,44 @@ model SubcontratoPartida {
   partida     Partida     @relation(fields: [partidaId], references: [id], onDelete: Cascade)
 
   @@index([subcontratoId])
+}
+
+// Estado de pago del subcontrato: se arma con el avance aprobado de las partidas
+// asignadas, menos lo ya incluido en EP anteriores. El anticipo se descuenta una
+// sola vez (del primer EP) y la retención se descuenta de cada EP.
+model EstadoPagoSubcontrato {
+  id            String   @id @default(cuid())
+  subcontratoId String
+  numero        Int // correlativo por subcontrato (EP-SC-0001)
+  periodo       String // YYYY-MM
+  estado        String   @default("BORRADOR") // BORRADOR | APROBADO | PAGADO
+  bruto         Float
+  anticipo      Float    @default(0)
+  retencion     Float    @default(0)
+  total         Float // bruto − anticipo aplicado − retención
+  createdById   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subcontrato Subcontrato                     @relation(fields: [subcontratoId], references: [id], onDelete: Cascade)
+  detalle     EstadoPagoSubcontratoPartida[]
+
+  @@unique([subcontratoId, numero])
+  @@index([subcontratoId, periodo])
+}
+
+model EstadoPagoSubcontratoPartida {
+  id             String @id @default(cuid())
+  epId           String
+  partidaId      String
+  cantidad       Float
+  precioUnitario Float
+  total          Float
+
+  ep      EstadoPagoSubcontrato @relation(fields: [epId], references: [id], onDelete: Cascade)
+  partida Partida               @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+
+  @@index([epId])
 }
 
 // Bodega de obra: Stock por producto en una obra (separado de la bodega central).

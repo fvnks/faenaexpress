@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { cambiarEstadoSubcontrato } from "@/app/actions/obra-subcontratos";
 import { getActiveMembership } from "@/lib/auth";
 import { SubmitButton } from "@/components/submit-button";
@@ -101,13 +103,18 @@ export default async function ObraSubcontratosPage() {
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADOS[sc.estado] ?? ESTADOS.VIGENTE}`}>{sc.estado}</span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    {writable && sc.estado === "VIGENTE" ? (
-                      <form action={cambiarEstadoSubcontrato}>
-                        <input type="hidden" name="id" value={sc.id} />
-                        <input type="hidden" name="estado" value="TERMINADO" />
-                        <SubmitButton pendingLabel="…" className={secondaryButtonClass}>Terminar</SubmitButton>
-                      </form>
-                    ) : "—"}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Link href={`/obras/subcontratos/${sc.id}`} className="text-xs text-primary hover:underline">
+                        Estados de pago
+                      </Link>
+                      {writable && sc.estado === "VIGENTE" ? (
+                        <form action={cambiarEstadoSubcontrato}>
+                          <input type="hidden" name="id" value={sc.id} />
+                          <input type="hidden" name="estado" value="TERMINADO" />
+                          <SubmitButton pendingLabel="…" className={secondaryButtonClass}>Terminar</SubmitButton>
+                        </form>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
