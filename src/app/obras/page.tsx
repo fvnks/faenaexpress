@@ -1,9 +1,10 @@
 import Link from "next/link";
 
+import { CambiarObraLink } from "@/components/cambiar-obra-link";
 import { getActiveMembership } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCLP } from "@/lib/money";
-import { requireObraContext } from "@/lib/obra-auth";
+import { requireObraContext, visibleObras } from "@/lib/obra-auth";
 import { necesitaAtencion } from "@/lib/obra-documentacion";
 import {
   canAccessObra,
@@ -30,7 +31,7 @@ type Pendiente = {
 export default async function ObrasHomePage() {
   const ctx = await requireObraContext("panel");
   const { obra } = ctx;
-  const active = await getActiveMembership();
+  const [obras, active] = await Promise.all([visibleObras(ctx.user), getActiveMembership()]);
   const companyId = active?.company.id ?? "";
 
   const [
@@ -162,6 +163,28 @@ export default async function ObrasHomePage() {
           {obra.mandante ? ` · Mandante: ${obra.mandante}` : ""}
         </p>
       </div>
+
+      <section className={`${cardClass} p-5`}>
+        <h2 className="font-semibold">Mis obras</h2>
+        <p className="mb-4 mt-0.5 text-xs text-muted-foreground">
+          Puedes trabajar en varias obras a la vez. Abre la que necesites; el cambio conserva la sección.
+        </p>
+        <ul className="divide-y divide-border">
+          {obras.map((item) => (
+            <li key={item.id} className="flex flex-wrap items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{item.name}</span>
+                {item.code ? <span className="font-mono text-xs text-muted-foreground">{item.code}</span> : null}
+              </span>
+              {item.id === obra.id ? (
+                <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">Abierta</span>
+              ) : (
+                <CambiarObraLink obraId={item.id} nombre={item.name} />
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useTransition } from "react";
 
 import { switchObra } from "@/app/actions/obras";
@@ -14,16 +14,16 @@ export function ObraSwitcher({
   obras: { id: string; name: string }[];
   activeId: string | null;
 }) {
-  const router = useRouter();
+  const pathname = usePathname();
   const [pending, startTransition] = useTransition();
 
   if (obras.length === 0) return null;
 
   const cambiar = (id: string) => {
     if (id === activeId) return;
+    // La acción redirige a la misma sección (o al panel si estamos en una ficha).
     startTransition(async () => {
-      await switchObra(id);
-      router.refresh();
+      await switchObra(id, pathname);
     });
   };
 
