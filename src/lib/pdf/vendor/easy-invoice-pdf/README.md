@@ -82,11 +82,10 @@ correspondiente. El resumen:
   **Sentry**, **sonner** (los avisos de la interfaz) y **umami** (analítica). Los
   errores se registran en la consola del servidor en vez de enviarse a un tercero.
 - `utils/number-to-words/` quedó con español e inglés.
-- `utils/qr.ts` (`generateQrCodeDataUrl`) genera el PNG del código QR como data
-  URL. Se usa para el QR tributario del SII: `src/lib/pdf/qr-sii.ts` arma la URL
-  de validación del SII (RUT emisor sin DV, tipo de documento, folio, fecha
-  `DDMMAAAA`, monto total y RUT receptor con DV) y `documento-pdf.ts` la convierte
-  en imagen con `generateQrCodeDataUrl` e imprime el código en la factura.
+- El código de barras impreso lo genera `src/lib/pdf/pdf417-sii.ts` con
+  `pdf417-generator`, a partir del string de referencia del SII. No es el TED:
+  esta app importa documentos del SII y no los emite, así que no guarda un timbre
+  firmado. El pie del PDF lo dice explícitamente.
 
 ## Código QR del SII (PDF417 del timbre electrónico)
 

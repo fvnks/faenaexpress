@@ -205,12 +205,20 @@ export default async function ConfigurationPage() {
                 Crea y gestiona plantillas de factura para ventas y compras. Cada
                 plantilla define qué campos mostrar en el PDF.
               </p>
-              <Link
-                href="/facturas/plantillas"
-                className={secondaryButtonClass + " inline-flex py-1.5 text-sm"}
-              >
-                Gestionar plantillas
-              </Link>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  href="/facturas/plantillas"
+                  className={secondaryButtonClass + " inline-flex py-1.5 text-sm"}
+                >
+                  Gestionar plantillas
+                </Link>
+                <Link
+                  href="/facturas/configuracion/factura-config"
+                  className={secondaryButtonClass + " inline-flex py-1.5 text-sm"}
+                >
+                  Logo y opciones de impresión
+                </Link>
+              </div>
             </section>
           ) : null}
 

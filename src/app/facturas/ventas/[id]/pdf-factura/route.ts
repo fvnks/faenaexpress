@@ -40,7 +40,7 @@ export async function GET(
   const [facturaConfig, plantillaFactura] = await Promise.all([
     db.facturaConfiguracion.findUnique({
       where: { companyId: ctx.company.id },
-      select: { logo: true, mostrarLogo: true },
+      select: { logo: true, mostrarLogo: true, mostrarTimbreSii: true, textoPie: true },
     }),
     db.facturaPlantilla.findFirst({
       where: { companyId: ctx.company.id, tipo: "VENTA", esActiva: true },
@@ -115,6 +115,14 @@ export async function GET(
           nombre: plantillaFactura.nombre,
           configuracion: (plantillaFactura.configuracion ??
             {}) as PlantillaFacturaPdf["configuracion"],
+        }
+      : null,
+    config: facturaConfig
+      ? {
+          logo: facturaConfig.logo,
+          mostrarLogo: facturaConfig.mostrarLogo,
+          mostrarTimbreSii: facturaConfig.mostrarTimbreSii,
+          textoPie: facturaConfig.textoPie,
         }
       : null,
   });

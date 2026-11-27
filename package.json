@@ -45,7 +45,6 @@
     "open-banking-chile": "^2.1.2",
     "pdf417-generator": "^1.1.1",
     "playwright": "^1.64.0",
-    "qrcode": "1.5.4",
     "react": "19.3.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "19.3.0",

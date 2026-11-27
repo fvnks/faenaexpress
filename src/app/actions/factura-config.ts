@@ -20,7 +20,10 @@ export async function saveFacturaConfiguracion(
   const ctx = await requireContext();
   if (!isAdmin(ctx)) return { error: "Solo un administrador puede editar la configuración de facturas." };
 
-  const logo = String(formData.get("logo") ?? "").trim() || null;
+  const logoBruto = String(formData.get("logo") ?? "").trim();
+  const logo = /^data:image\/(png|jpeg|jpg);base64,[A-Za-z0-9+/=\s]+$/.test(logoBruto)
+    ? logoBruto.slice(0, 3_000_000)
+    : null;
   const mostrarLogo = formData.get("mostrarLogo") === "on";
   const mostrarTimbreSii = formData.get("mostrarTimbreSii") === "on";
   const textoPie = String(formData.get("textoPie") ?? "").trim() || null;

@@ -331,7 +331,7 @@ export async function emitirDteAction(
         dteGenerado.ted,
         "SANTIAGO ORIENTE",
         parseInt(config.resolucionSii?.replace(/\D/g, "") ?? "0") || 0,
-        new Date().getFullYear(),
+        new Date().toISOString().slice(0, 10),
       );
 
       pdfBuffer =
@@ -473,32 +473,12 @@ export async function generarPdfDteAction(
     notas: sale.notes ?? undefined,
   };
 
-  try {
-    const representacion = construirRepresentacionImprimible(
-      datos,
-      { neto: datos.neto, exento: datos.exento, iva: datos.iva, total: datos.total },
-      {},
-      "SANTIAGO ORIENTE",
-      numeroResolucion,
-      new Date().getFullYear(),
-    );
-
-    const pdfBuffer =
-      tipoPdf === "ticket"
-        ? await generarPdfTicketDte(representacion)
-        : await generarPdfCartaDte(representacion);
-
-    const nombreArchivo = nombreArchivoDte(tipoDte, posDte.folio);
-
-    return {
-      ok: true,
-      pdf: pdfBuffer,
-      nombreArchivo,
-    };
-  } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
-    return { ok: false, error: `No se pudo generar el PDF: ${message}` };
-  }
+  // El TED firmado no se guarda en PosDte, así que no se puede reconstruir un
+  // timbre válido. Generarlo con un TED vacío produciría un DTE apócrifo.
+  return {
+    ok: false,
+    error: "El timbre del DTE no está guardado. Descarga el PDF original del SII o vuelve a emitir el documento.",
+  };
 }
 
 /**
@@ -653,7 +633,7 @@ export async function emitirDteCompraAction(
         dteGenerado.ted,
         "SANTIAGO ORIENTE",
         parseInt(config.resolucionSii?.replace(/\D/g, "") ?? "0") || 0,
-        new Date().getFullYear(),
+        new Date().toISOString().slice(0, 10),
       );
 
       pdfBuffer =

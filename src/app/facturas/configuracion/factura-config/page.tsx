@@ -14,6 +14,7 @@ export default function FacturaConfiguracionPage() {
     textoPie: string | null;
   } | null>(null);
   const [state, saveFacturaConfiguracionAction] = useActionState<FacturaConfiguracionState, FormData>(saveFacturaConfiguracion, undefined);
+  const [logoData, setLogoData] = useState<string | null>(null);
 
   // Cargar configuración inicial al montar
   useEffect(() => {
@@ -61,16 +62,26 @@ export default function FacturaConfiguracionPage() {
             </label>
             <input
               id="logo"
-              name="logo"
               type="file"
               accept="image/png,image/jpeg,image/jpg"
+              onChange={(event) => {
+                const archivo = event.target.files?.[0];
+                if (!archivo) {
+                  setLogoData(null);
+                  return;
+                }
+                const lector = new FileReader();
+                lector.onload = () => setLogoData(String(lector.result));
+                lector.readAsDataURL(archivo);
+              }}
               className={controlClass}
             />
-            {config.logo && (
+            <input type="hidden" name="logo" value={logoData ?? config?.logo ?? ""} />
+            {(logoData ?? config?.logo) && (
               <div className="flex items-center gap-3 mt-2">
                 <img
-                  src={config.logo}
-                  alt="Logo actual"
+                  src={logoData ?? config?.logo ?? ""}
+                  alt="Logo seleccionado"
                   className="h-12 w-auto rounded border border-border"
                 />
                 <p className="text-xs text-muted-foreground">

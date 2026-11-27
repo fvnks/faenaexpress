@@ -4029,7 +4029,6 @@ model FacturaPlantilla {
   actualizadoEn  DateTime   @updatedAt
 
   @@unique([companyId, tipo, nombre])
-  @@unique([companyId, tipo]) // Una plantilla activa por tipo (predeterminada)
   @@index([companyId])
   @@index([companyId, tipo])
   @@index([companyId, esPredeterminada])

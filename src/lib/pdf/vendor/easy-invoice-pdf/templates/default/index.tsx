@@ -208,8 +208,7 @@ export function InvoicePdfTemplate({
   const invoiceNumberValue = invoiceData?.invoiceNumberObject?.value;
 
   const invoiceNumber = `${invoiceNumberLabel} ${invoiceNumberValue}`;
-  const invoiceDocTitle =
-    `${invoiceNumber} | Created with https://easyinvoicepdf.com` as const;
+  const invoiceDocTitle = `${invoiceNumber}` as const;
 
   return (
     <Document title={invoiceDocTitle}>

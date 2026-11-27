@@ -29,6 +29,7 @@ import {
   generarPdfCarta,
   nombreDocumento,
   construirRepresentacion,
+  type DocumentoImprimible,
 } from "typedte-sii/pdf";
 
 /** Entorno del SII. */
@@ -218,15 +219,15 @@ export function emitirDteTypeDte(
  */
 export function construirRepresentacionImprimible(
   datos: DatosDteVenta,
-  totales: { neto: number; exento: number; iva: number; total: number },
-  ted: unknown,
+  totales: { neto: number; exento: number; iva: number; total: number; ivaRetenido?: number },
+  ted: XmlElement,
   unidadSii: string = "SANTIAGO ORIENTE",
   numeroResolucion: number = 0,
-  anioResolucion: number = new Date().getFullYear(),
+  fechaResolucion: string = `${new Date().getFullYear()}-01-01`,
 ) {
   const esBoleta = datos.tipoDte === TIPO_BOLETA.AFECTA || datos.tipoDte === TIPO_BOLETA.EXENTA;
 
-  return {
+  const documento: DocumentoImprimible = {
     tipo: datos.tipoDte,
     folio: datos.folio,
     fechaEmision: datos.fechaEmision,
@@ -250,24 +251,38 @@ export function construirRepresentacionImprimible(
           comuna: datos.comunaReceptor,
           ciudad: datos.ciudadReceptor,
         },
-    lineas: datos.items.map((item) => ({
+    items: datos.items.map((item) => ({
       nombre: item.nombre,
       descripcion: item.descripcion,
       cantidad: item.cantidad,
       unidad: item.unidad,
       precioUnitario: item.precioUnitario,
+      descuentoMonto: item.descuentoMonto ?? 0,
+      monto: item.monto,
+      exento: item.exento ?? false,
+    })),
+    referencias: [],
+  };
+
+  const totalesCompletos: Totales = {
+    lineas: datos.items.map((item) => ({
+      item,
       descuento: item.descuentoMonto ?? 0,
       monto: item.monto ?? Math.max(0, Math.round(item.precioUnitario * item.cantidad - (item.descuentoMonto ?? 0))),
       exento: item.exento ?? false,
     })),
-    referencias: [],
-    moneda: "PESO CL",
-    resolucion: {
-      numero: numeroResolucion,
-      anio: anioResolucion,
-    },
-    ted,
+    movimientos: [],
+    neto: totales.neto,
+    exento: totales.exento,
+    iva: totales.iva,
+    ivaRetenido: totales.ivaRetenido ?? 0,
+    total: totales.total,
   };
+
+  return construirRepresentacion(documento, totalesCompletos, ted, {
+    unidadSii,
+    resolucion: { numero: numeroResolucion, fecha: fechaResolucion },
+  });
 }
 
 /**

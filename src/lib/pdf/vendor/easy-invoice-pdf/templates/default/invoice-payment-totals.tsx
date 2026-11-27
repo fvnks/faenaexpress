@@ -35,13 +35,14 @@ export function InvoicePaymentTotals({
   const exemptAmount = invoiceData.erpExemptAmount ?? 0;
   const surchargeAmount = invoiceData.erpSurchargeAmount ?? 0;
   const ivaAmount = invoiceData.erpIvaAmount ?? 0;
+  const tasaIva = invoiceData.erpIvaRate ?? 19;
+  const fuelTax = invoiceData.erpFuelTax ?? 0;
 
-  // Lo que hay que pagar: el total del documento menos la retención.
+  // Mismo criterio que lib/ledger.ts: el total del documento incluye IVA,
+  // exento, recargo e impuesto específico. La retención se descuenta UNA vez.
   const payableAmount = Math.max(invoiceData.total - retentionAmount, 0);
-
-  // Neto gravado: total - IVA - exento - recargo + retención
   const netoAmount = Math.max(
-    invoiceData.total - ivaAmount - exemptAmount - surchargeAmount + retentionAmount,
+    invoiceData.total - ivaAmount - exemptAmount - surchargeAmount - fuelTax,
     0,
   );
 
@@ -113,7 +114,7 @@ export function InvoicePaymentTotals({
 
       {/* IVA */}
       <Text style={styles.fontSize7}>
-        IVA (19%):{" "}
+        IVA ({String(tasaIva).replace(".", ",")}%):{" "}
         <Text style={[styles.boldText, styles.fontSize8]}>
           {formatMonto(ivaAmount)} {currency}
         </Text>
@@ -129,6 +130,16 @@ export function InvoicePaymentTotals({
         </Text>
       ) : null}
 
+      {/* Impuesto específico de combustible: suma al total, no a la base del IVA */}
+      {fuelTax > 0 ? (
+        <Text style={styles.fontSize7}>
+          Impuesto específico (combustible):{" "}
+          <Text style={[styles.boldText, styles.fontSize8]}>
+            {formatMonto(fuelTax)} {currency}
+          </Text>
+        </Text>
+      ) : null}
+
       {/* Retención (honorarios) */}
       {retentionAmount > 0 && mostrarRetencion ? (
         <Text style={styles.fontSize7}>
@@ -139,11 +150,11 @@ export function InvoicePaymentTotals({
         </Text>
       ) : null}
 
-      {/* Total */}
+      {/* Total del documento (antes de retención) */}
       <Text style={[styles.boldText, styles.fontSize8]}>
-        Total:{ " " }
+        Total del documento:{ " " }
         <Text style={[styles.boldText, styles.fontSize8]}>
-          {formatMonto(payableAmount)} {currency}
+          {formatMonto(invoiceData.total)} {currency}
         </Text>
       </Text>
 

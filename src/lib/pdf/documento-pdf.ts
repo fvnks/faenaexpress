@@ -51,6 +51,13 @@ export type LineaPdf = {
   amount: number;
 };
 
+export type ConfigImpresionFactura = {
+  logo: string | null;
+  mostrarLogo: boolean;
+  mostrarTimbreSii: boolean;
+  textoPie: string | null;
+};
+
 export type DocumentoPdfBase = {
   documentType: DocumentType;
   documentNumber: string | null;
@@ -115,6 +122,8 @@ export type VentaPdfExtra = {
 export type CompraPdfExtra = {
   exento: number;
   ivaRecargo: number;
+  /** Impuesto específico de combustible: suma al total, no al neto del IVA. */
+  impuestoEspecifico?: number;
   tasaIVA: number | null;
   description?: string | null;
   category?: string | null;
@@ -295,6 +304,7 @@ async function baseDocumento({
   confirming = false,
   /** Plantilla de factura personalizada (opcional) */
   plantilla = null,
+  config = null,
 }: {
   empresa: EmpresaPdf;
   tercero: TerceroPdf;
@@ -311,11 +321,15 @@ async function baseDocumento({
     retention?: number;
     exento?: number;
     recargo?: number;
+    tasaIVA?: number | null;
+    impuestoEspecifico?: number;
   };
   /** El documento está en confirming: el dinero ya entró por otra vía. */
   confirming?: boolean;
   /** Plantilla de factura personalizada de la empresa (opcional). */
   plantilla?: PlantillaFacturaPdf | null;
+  /** Logo y opciones de impresión configuradas por la empresa. */
+  config?: ConfigImpresionFactura | null;
 }): Promise<InvoiceData> {
   const totales = calcularTotales([
     {
@@ -390,7 +404,7 @@ async function baseDocumento({
       ? terceroComoParte(tercero, "buyer", ETIQUETAS_PARTES)
       : empresaComoParte(empresa, "buyer", ETIQUETAS_PARTES),
     // Logo de la empresa para el encabezado (configurable por empresa)
-    logo: empresa.logo ?? undefined,
+    logo: config && !config.mostrarLogo ? undefined : empresa.logo ?? undefined,
     items: lineas.lineas,
     total: documento.totalAmount,
     // El resumen de IVA solo se muestra cuando las líneas cierran con el neto del
@@ -447,6 +461,8 @@ async function baseDocumento({
     erpGuiaDespachoFecha: documento.guiaDespachoFecha ?? null,
     erpHesNumber: documento.hesNumber ?? null,
     erpIvaAmount: documento.ivaAmount,
+    erpIvaRate: extra.tasaIVA ?? empresa.ivaRate,
+    erpFuelTax: extra.impuestoEspecifico ?? 0,
     // Si es compra, el emisor es el proveedor (cuadro SII rojo)
     erpIsPurchase: !emisorEsEmpresa,
     // Datos de la empresa del ERP para el encabezado del PDF (siempre iguales)
@@ -459,7 +475,9 @@ async function baseDocumento({
     erpEmpresaEmail: empresa.email ?? null,
     erpEmpresaPhone: empresa.phone ?? null,
     erpEmpresaWeb: empresa.web ?? null,
-    erpEmpresaLogo: empresa.logo ?? null,
+    erpEmpresaLogo: config && !config.mostrarLogo ? null : empresa.logo ?? null,
+    erpFooterNote: config?.textoPie ?? undefined,
+    erpTimbreVisible: config?.mostrarTimbreSii ?? true,
     // Plantilla de factura personalizada (opcional)
     erpPlantilla: plantilla ?? undefined,
   };
@@ -477,12 +495,14 @@ export async function documentoVentaPdf({
   venta,
   ventaExtra,
   plantillaFactura,
+  config,
 }: {
   empresa: EmpresaPdf;
   cliente: TerceroPdf;
   venta: DocumentoPdfBase;
   ventaExtra: VentaPdfExtra;
   plantillaFactura?: PlantillaFacturaPdf | null;
+  config?: ConfigImpresionFactura | null;
 }): Promise<InvoiceData> {
   const tasa = ventaExtra.tasaIVA ?? empresa.ivaRate;
   const lineas = lineasPdf(venta.items, venta.ivaAmount, tasa, {
@@ -500,9 +520,10 @@ export async function documentoVentaPdf({
     tipoDocumento: documentTypeLabel(venta.documentType),
     descripcion,
     lineas,
-    extra: { retention: ventaExtra.retentionAmount },
+    extra: { retention: ventaExtra.retentionAmount, tasaIVA: tasa },
     confirming: ventaExtra.confirming,
     plantilla: plantillaFactura ?? null,
+    config,
   });
 }
 
@@ -512,12 +533,14 @@ export async function documentoCompraPdf({
   compra,
   compraExtra,
   plantillaFactura,
+  config,
 }: {
   empresa: EmpresaPdf;
   proveedor: TerceroPdf;
   compra: DocumentoPdfBase;
   compraExtra: CompraPdfExtra;
   plantillaFactura?: PlantillaFacturaPdf | null;
+  config?: ConfigImpresionFactura | null;
 }): Promise<InvoiceData> {
   const tasa = compraExtra.tasaIVA ?? empresa.ivaRate;
   const lineas = lineasPdf(compra.items, compra.ivaAmount, tasa, {
@@ -541,7 +564,13 @@ export async function documentoCompraPdf({
     tipoDocumento: documentTypeLabel(compra.documentType),
     descripcion,
     lineas,
-    extra: { exento: compraExtra.exento, recargo: compraExtra.ivaRecargo },
+    extra: {
+      exento: compraExtra.exento,
+      recargo: compraExtra.ivaRecargo,
+      tasaIVA: tasa,
+      impuestoEspecifico: compraExtra.impuestoEspecifico,
+    },
     plantilla: plantillaFactura ?? null,
+    config,
   });
 }

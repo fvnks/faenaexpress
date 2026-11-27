@@ -13,16 +13,7 @@ import { InvoiceItemsTable } from "./invoice-items-table";
 import { InvoicePaymentTotals } from "./invoice-payment-totals";
 import { InvoiceSellerBuyerInfo } from "./invoice-seller-buyer-info";
 import { InvoiceVATSummaryTable } from "./invoice-vat-summary-table";
-import "dayjs/locale/en";
-import "dayjs/locale/pl";
-import "dayjs/locale/de";
 import "dayjs/locale/es";
-import "dayjs/locale/pt";
-import "dayjs/locale/ru";
-import "dayjs/locale/uk";
-import "dayjs/locale/fr";
-import "dayjs/locale/it";
-import "dayjs/locale/nl";
 
 /**
  * Referencias de documento (orden de compra, guía de despacho).

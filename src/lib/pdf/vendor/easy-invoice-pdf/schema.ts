@@ -226,6 +226,9 @@ export type InvoiceData = {
   erpBalanceVisible?: boolean;
   /** Texto del pie: con qué se generó el PDF. */
   erpFooterNote?: string;
+
+  /** El timbre decorativo solo se imprime si la empresa lo habilitó. */
+  erpTimbreVisible?: boolean;
   /** URL del pie (el código fuente de la app). */
   erpFooterUrl?: string;
   /**
@@ -285,6 +288,12 @@ export type InvoiceData = {
   erpGuiaDespachoFecha?: string | null;
   /** IVA del documento (para mostrar en totales). */
   erpIvaAmount?: number;
+
+  /** Tasa de IVA real del documento (la empresa puede tener otra tasa). */
+  erpIvaRate?: number;
+
+  /** Impuesto específico de combustible (Ley 18.502), fuera de la base del IVA. */
+  erpFuelTax?: number;
   /** Datos de la empresa del ERP para el encabezado del PDF (siempre iguales,
    * tanto en ventas como en compras). */
   erpEmpresaNombre?: string | null;

@@ -81,15 +81,20 @@ export function InvoiceFooter({
           </Text>
         </View>
       ) : null}
-      {/* Timbre electrónico SII - línea separada */}
-      <View style={{ marginTop: 4 }}>
-        <Text style={[styles.fontSize7, { textAlign: "center" }]}>
-          Timbre Electrónico SII
-        </Text>
-        <Text style={[styles.fontSize7, { textAlign: "center" }]}>
-          Resolución 0 del 2026 - Verifique documento en: www.sii.cl
-        </Text>
-      </View>
+      {invoiceData.erpFooterNote ? (
+        <View style={{ marginTop: 4 }}>
+          <Text style={[styles.fontSize7, { textAlign: "center" }]}>
+            {invoiceData.erpFooterNote}
+          </Text>
+        </View>
+      ) : null}
+      {(invoiceData.erpTimbreVisible ?? true) ? (
+        <View style={{ marginTop: 4 }}>
+          <Text style={[styles.fontSize7, { textAlign: "center" }]}>
+            Código de referencia del documento — no reemplaza el timbre electrónico del SII
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
