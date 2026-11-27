@@ -12,6 +12,7 @@ import { DATOS_COMBUSTIBLE_VACIOS, FuelTaxModal, type DatosCombustible } from "@
 import { documentTypeLabel } from "@/lib/labels";
 import { esCombustiblePorNombre } from "@/lib/fuel";
 import { formatCLP } from "@/lib/money";
+import type { ObraParaFormulario } from "@/lib/obra-imputacion";
 import { esPagoConTarjeta } from "@/lib/payment-card";
 import type { PurchaseForForm } from "@/lib/purchases";
 import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
@@ -31,6 +32,7 @@ export function PurchaseForm({
   formasDePago,
   centrosCosto,
   repartosIniciales,
+  obras,
 }: {
   action: (prev: PurchaseFormState, formData: FormData) => Promise<PurchaseFormState>;
   suppliers: SupplierOption[];
@@ -43,6 +45,8 @@ export function PurchaseForm({
   defaults?: PurchaseForForm;
   centrosCosto: Array<{ id: string; codigo: string; nombre: string; esSinAsignar?: boolean }>;
   repartosIniciales?: Array<{ centroCostoId: string; monto: number }>;
+  /** Obras a las que esta compra puede imputarse (vacío si no contrató Obras). */
+  obras: ObraParaFormulario[];
 }) {
   const [state, formAction] = useActionState<PurchaseFormState, FormData>(action, undefined);
 
@@ -229,6 +233,31 @@ export function PurchaseForm({
               </div>
             ) : null}
           </div>
+
+          {/* Marca para la acción: sin este campo, un POST que no ofrezca obras
+              no debe interpretarse como "quitar la imputación". */}
+          <input type="hidden" name="obraCampo" value={obras.length > 0 ? "1" : "0"} />
+          {obras.length > 0 ? (
+            <div className={fieldClass}>
+              <label htmlFor="obraId" className={labelClass}>
+                Obra <span className="text-muted-foreground">(opcional)</span>
+              </label>
+              <select
+                id="obraId"
+                name="obraId"
+                defaultValue={defaults?.obraId ?? ""}
+                className={controlClass}
+              >
+                <option value="">Sin imputar a obra</option>
+                {obras.map((obra) => (
+                  <option key={obra.id} value={obra.id}>{obra.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Al elegirla, el total se suma al costo real de la obra.
+              </p>
+            </div>
+          ) : null}
         </div>
       </section>
 

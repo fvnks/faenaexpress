@@ -125,6 +125,8 @@ export const purchaseSchema = z.object({
     (value) => value === "on" || value === "true" || value === true,
     z.boolean(),
   ),
+  // Obra a la que se imputa: se valida contra las obras visibles en la acción.
+  obraId: z.preprocess(emptyToUndefined, z.string().optional()),
   notes: optionalText(1000),
 }).superRefine(requireReference);
 
@@ -170,6 +172,8 @@ export const expenseSchema = z.object({
     z.boolean(),
   ),
   reimbursedAt: optionalDate,
+  // Obra a la que se imputa: se valida contra las obras visibles en la acción.
+  obraId: z.preprocess(emptyToUndefined, z.string().optional()),
   notes: optionalText(1000),
 });
 

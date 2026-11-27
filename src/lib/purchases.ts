@@ -264,6 +264,7 @@ export type PurchaseForForm = {
   impuestoEspecifico: number;
   impuestoEspecificoGlosa: string;
   impuestoEspecificoRecuperable: boolean;
+  obraId: string;
   notes: string;
 };
 
@@ -289,6 +290,7 @@ export function serializePurchase(purchase: {
   impuestoEspecifico: number;
   impuestoEspecificoGlosa: string | null;
   impuestoEspecificoRecuperable: boolean;
+  obraId: string | null;
   notes: string | null;
 }): PurchaseForForm {
   return {
@@ -313,6 +315,7 @@ export function serializePurchase(purchase: {
     impuestoEspecifico: purchase.impuestoEspecifico,
     impuestoEspecificoGlosa: purchase.impuestoEspecificoGlosa ?? "",
     impuestoEspecificoRecuperable: purchase.impuestoEspecificoRecuperable,
+    obraId: purchase.obraId ?? "",
     notes: purchase.notes ?? "",
   };
 }

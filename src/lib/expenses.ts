@@ -165,6 +165,7 @@ export type ExpenseForForm = {
   paidById: string;
   reimbursed: boolean;
   reimbursedAt: string;
+  obraId: string;
   notes: string;
 };
 
@@ -183,6 +184,7 @@ export function serializeExpense(expense: {
   paidById: string;
   reimbursed: boolean;
   reimbursedAt: Date | null;
+  obraId: string | null;
   notes: string | null;
 }): ExpenseForForm {
   return {
@@ -200,6 +202,7 @@ export function serializeExpense(expense: {
     paidById: expense.paidById,
     reimbursed: expense.reimbursed,
     reimbursedAt: expense.reimbursedAt ? toISODate(expense.reimbursedAt) : "",
+    obraId: expense.obraId ?? "",
     notes: expense.notes ?? "",
   };
 }

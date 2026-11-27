@@ -519,6 +519,8 @@ model Obra {
   bodega       BodegaObra[]
   maquinarias  Maquinaria[]
   documentos   DocumentoObra[]
+  compras      Purchase[]
+  gastos       Expense[]
 
   @@index([organizationId])
 }
@@ -2192,6 +2194,8 @@ model Purchase {
   // a una cuenta concreta).
   paymentMethod           String?
   notes                String?
+  // Obra a la que se imputa la compra: crea su CostoObra automáticamente.
+  obraId               String?
 
   createdById String
   createdAt   DateTime @default(now())
@@ -2202,6 +2206,7 @@ model Purchase {
   category  Category?      @relation(fields: [categoryId], references: [id])
   area      Area?          @relation(fields: [areaId], references: [id])
   createdBy User           @relation("PurchaseCreatedBy", fields: [createdById], references: [id])
+  obra      Obra?          @relation(fields: [obraId], references: [id], onDelete: SetNull)
   items     PurchaseItem[]
   bankReconciliations Reconciliation[]
   payments            Payment[]
@@ -2213,6 +2218,7 @@ model Purchase {
   @@index([companyId, status])
   @@index([companyId, categoryId])
   @@index([companyId, areaId])
+  @@index([obraId])
 }
 
 model Sale {
@@ -2516,6 +2522,8 @@ model Expense {
   reimbursed     Boolean       @default(false)
   reimbursedAt   DateTime?
   notes          String?
+  // Obra a la que se imputa el gasto: crea su CostoObra automáticamente.
+  obraId         String?
 
   paidById    String
   createdById String
@@ -2529,6 +2537,7 @@ model Expense {
   worker    Worker?   @relation(fields: [workerId], references: [id])
   paidBy    Payer     @relation(fields: [paidById], references: [id])
   createdBy User      @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  obra      Obra?     @relation(fields: [obraId], references: [id], onDelete: SetNull)
   remunerations   Remuneration[]
   payrollEntries  PayrollEntry[]
   // El movimiento bancario con que se cerró: es el reembolso a quien pagó.
@@ -2540,6 +2549,7 @@ model Expense {
   @@index([companyId, categoryId])
   @@index([companyId, centroCostoId])
   @@index([companyId, areaId])
+  @@index([obraId])
 }
 
 // ---------------------------------------------------------------------------

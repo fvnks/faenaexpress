@@ -10,6 +10,11 @@ import { db } from "@/lib/db";
 import { setFlash } from "@/lib/flash";
 import { computeTotal, formatCLP } from "@/lib/money";
 import { checkPlanLimit, incrementUsage } from "@/lib/plans";
+import {
+  descripcionGasto,
+  obraEsImputable,
+  sincronizarCostoObra,
+} from "@/lib/obra-imputacion";
 import { expenseSchema, type ExpenseInput } from "@/lib/validation";
 
 export type ExpenseFormState = { error?: string } | undefined;
@@ -29,6 +34,9 @@ function readForm(formData: FormData) {
     paidById: formData.get("paidById"),
     reimbursed: formData.get("reimbursed"),
     reimbursedAt: formData.get("reimbursedAt"),
+    // Solo se acepta si el formulario ofrecía el selector: un POST de un
+    // cliente sin módulo Obras no debe adivinar una imputación.
+    obraId: formData.get("obraCampo") === "1" ? formData.get("obraId") : null,
     notes: formData.get("notes"),
   };
 }
@@ -50,6 +58,7 @@ function toData(input: ExpenseInput) {
     paidById: input.paidById,
     reimbursed: input.reimbursed,
     reimbursedAt: input.reimbursed ? (input.reimbursedAt ?? new Date()) : null,
+    obraId: input.obraId ?? null,
     notes: input.notes ?? null,
   };
 }
@@ -88,6 +97,9 @@ export async function createExpense(
 
   const parsed = expenseSchema.safeParse(readForm(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+  if (parsed.data.obraId && !(await obraEsImputable(parsed.data.obraId))) {
+    return { error: "No tienes acceso a esa obra." };
+  }
 
   const centro = await resolverCentroGasto(
     ctx.company.id,
@@ -96,8 +108,20 @@ export async function createExpense(
   );
   if (centro.error) return { error: centro.error };
   const data = { ...toData(parsed.data), centroCostoId: centro.centroCostoId };
-  const expense = await db.expense.create({
-    data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
+  const expense = await db.$transaction(async (tx) => {
+    const creado = await tx.expense.create({
+      data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
+    });
+    await sincronizarCostoObra(tx, {
+      sourceType: "EXPENSE",
+      sourceId: creado.id,
+      obraId: data.obraId ?? null,
+      habilitado: formData.get("obraCampo") === "1",
+      monto: data.totalAmount,
+      fecha: data.date,
+      descripcion: descripcionGasto(data.description),
+    });
+    return creado;
   });
 
   // El contador de documentos del mes.
@@ -118,6 +142,9 @@ export async function createExpense(
   revalidatePath("/facturas/reportes/centros-costo");
   revalidatePath("/facturas");
   if (back.startsWith("/facturas/banco")) revalidatePath("/facturas/banco");
+  for (const ruta of ["/obras", "/obras/gastos", "/obras/presupuesto", "/obras/reportes"]) {
+    revalidatePath(ruta);
+  }
   redirect(back);
 }
 
@@ -131,6 +158,9 @@ export async function updateExpense(
 
   const parsed = expenseSchema.safeParse(readForm(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+  if (parsed.data.obraId && !(await obraEsImputable(parsed.data.obraId))) {
+    return { error: "No tienes acceso a esa obra." };
+  }
 
   const before = await db.expense.findFirst({ where: { id, companyId: ctx.company.id } });
   if (!before) return { error: "El gasto no existe." };
@@ -142,7 +172,18 @@ export async function updateExpense(
   );
   if (centro.error) return { error: centro.error };
   const data = { ...toData(parsed.data), centroCostoId: centro.centroCostoId };
-  await db.expense.update({ where: { id, companyId: ctx.company.id }, data });
+  await db.$transaction(async (tx) => {
+    await tx.expense.update({ where: { id, companyId: ctx.company.id }, data });
+    await sincronizarCostoObra(tx, {
+      sourceType: "EXPENSE",
+      sourceId: id,
+      obraId: data.obraId ?? null,
+      habilitado: formData.get("obraCampo") === "1",
+      monto: data.totalAmount,
+      fecha: data.date,
+      descripcion: descripcionGasto(data.description),
+    });
+  });
 
   await recordAudit(ctx, {
     action: "UPDATE",
@@ -156,6 +197,9 @@ export async function updateExpense(
   revalidatePath("/facturas/gastos");
   revalidatePath(`/facturas/gastos/${id}`);
   revalidatePath("/facturas/reportes/centros-costo");
+  for (const ruta of ["/obras", "/obras/gastos", "/obras/presupuesto", "/obras/reportes"]) {
+    revalidatePath(ruta);
+  }
   redirect(`/facturas/gastos/${id}`);
 }
 

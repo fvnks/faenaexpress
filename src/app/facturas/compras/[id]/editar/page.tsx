@@ -7,6 +7,7 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories } from "@/lib/catalogs";
 import { listCentrosCosto, listReparto } from "@/lib/centros-costo";
 import { todayISO } from "@/lib/money";
+import { obrasImputables } from "@/lib/obra-imputacion";
 import { paymentMethodOptions } from "@/lib/payment-methods";
 import { listSuppliers } from "@/lib/partners";
 import { getPurchase, serializePurchase } from "@/lib/purchases";
@@ -30,6 +31,7 @@ export default async function EditPurchasePage(props: PageProps<"/facturas/compr
 
   // Las formas de pago que ofrece la empresa: su catálogo más las base.
   const formasDePago = await paymentMethodOptions(ctx.company.id);
+  const obras = await obrasImputables();
 
   if (!purchase) {
     notFound();
@@ -67,6 +69,7 @@ export default async function EditPurchasePage(props: PageProps<"/facturas/compr
           centroCostoId: r.centroCostoId,
           monto: Math.abs(r.monto),
         }))}
+        obras={obras}
       />
     </div>
   );

@@ -7,6 +7,7 @@ import { canWrite, requireContext } from "@/lib/auth";
 import { listAreas, listCategories } from "@/lib/catalogs";
 import { listCentrosCosto } from "@/lib/centros-costo";
 import { todayISO } from "@/lib/money";
+import { obrasImputables } from "@/lib/obra-imputacion";
 import { paymentMethodOptions } from "@/lib/payment-methods";
 import { listSuppliers } from "@/lib/partners";
 import { cardClass, primaryButtonClass } from "@/lib/ui";
@@ -26,6 +27,7 @@ export default async function NewPurchasePage() {
 
   // Las formas de pago que ofrece la empresa: su catálogo más las base.
   const formasDePago = await paymentMethodOptions(ctx.company.id);
+  const obras = await obrasImputables();
 
   return (
     <div className="flex flex-col gap-6">
@@ -65,6 +67,7 @@ export default async function NewPurchasePage() {
           ivaRate={ctx.company.ivaRate}
           today={todayISO()}
           centrosCosto={centros.map((c) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, esSinAsignar: c.esSinAsignar }))}
+          obras={obras}
         />
       )}
     </div>

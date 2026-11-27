@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP } from "@/lib/money";
 import type { ExpenseForForm } from "@/lib/expenses";
+import type { ObraParaFormulario } from "@/lib/obra-imputacion";
 import { cardClass, controlClass, fieldClass, labelClass, primaryButtonClass } from "@/lib/ui";
 
 type Option = { id: string; name: string; centroCostoId?: string | null };
@@ -25,6 +26,7 @@ export function ExpenseForm({
   prefill,
   volver,
   formasDePago,
+  obras,
 }: {
   action: (prev: ExpenseFormState, formData: FormData) => Promise<ExpenseFormState>;
   categories: Option[];
@@ -45,6 +47,8 @@ export function ExpenseForm({
   prefill?: Partial<ExpenseForForm>;
   /** A dónde volver al guardar. Solo lo usa el alta. */
   volver?: string;
+  /** Obras a las que este gasto puede imputarse (vacío si no contrató Obras). */
+  obras: ObraParaFormulario[];
 }) {
   const [state, formAction] = useActionState<ExpenseFormState, FormData>(action, undefined);
 
@@ -144,6 +148,27 @@ export function ExpenseForm({
               Los gastos indirectos (gasolina, luz, arriendo) se imputan solos al centro de su categoría.
             </p>
           </div>
+
+          {/* Marca para la acción: sin este campo, un POST que no ofrezca obras
+              no debe interpretarse como "quitar la imputación". */}
+          <input type="hidden" name="obraCampo" value={obras.length > 0 ? "1" : "0"} />
+          {obras.length > 0 ? (
+            <div className={fieldClass}>
+              <label htmlFor="obraId" className={labelClass}>
+                Obra <span className="text-muted-foreground">(opcional)</span>
+              </label>
+              <SelectDropdown
+                id="obraId"
+                name="obraId"
+                value={initial.obraId ?? ""}
+                emptyLabel="Sin imputar a obra"
+                options={obras.map((obra) => ({ value: obra.id, label: obra.name }))}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Al elegirla, el total se suma al costo real de la obra.
+              </p>
+            </div>
+          ) : null}
 
           <div className={fieldClass}>
             <label htmlFor="areaId" className={labelClass}>

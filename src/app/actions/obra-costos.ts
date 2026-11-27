@@ -74,6 +74,14 @@ async function imputar(
     throw error;
   }
 
+  // El documento queda marcado con la misma obra: si se edita en Facturas,
+  // la sincronización automática no borrará este costo por "sin obra".
+  if (sourceType === "PURCHASE") {
+    await db.purchase.update({ where: { id: sourceId }, data: { obraId: ctx.obra.id } });
+  } else {
+    await db.expense.update({ where: { id: sourceId }, data: { obraId: ctx.obra.id } });
+  }
+
   const rutas = ["/obras/compras", "/obras/gastos", "/obras/presupuesto", "/obras/reportes", "/obras/documentos"];
   for (const ruta of rutas) revalidatePath(ruta);
   return { ok: true, message: "Documento imputado al costo real de la obra." };
@@ -93,7 +101,24 @@ export async function desimputarCosto(formData: FormData): Promise<void> {
   if (!obraCanWrite(ctx, "compras")) return;
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+  const costo = await db.costoObra.findFirst({
+    where: { id, obraId: ctx.obra.id },
+    select: { sourceType: true, sourceId: true },
+  });
   await db.costoObra.deleteMany({ where: { id, obraId: ctx.obra.id } });
+  if (costo) {
+    if (costo.sourceType === "PURCHASE") {
+      await db.purchase.updateMany({
+        where: { id: costo.sourceId, obraId: ctx.obra.id },
+        data: { obraId: null },
+      });
+    } else if (costo.sourceType === "EXPENSE") {
+      await db.expense.updateMany({
+        where: { id: costo.sourceId, obraId: ctx.obra.id },
+        data: { obraId: null },
+      });
+    }
+  }
   for (const ruta of ["/obras/compras", "/obras/gastos", "/obras/presupuesto", "/obras/reportes", "/obras/documentos"]) {
     revalidatePath(ruta);
   }

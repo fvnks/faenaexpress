@@ -9,6 +9,7 @@ import { listCentrosCosto } from "@/lib/centros-costo";
 import type { ExpenseForForm } from "@/lib/expenses";
 import { paymentMethodLabel } from "@/lib/labels";
 import { formatCLP, formatDate, todayISO } from "@/lib/money";
+import { obrasImputables } from "@/lib/obra-imputacion";
 import { paymentMethodOptions } from "@/lib/payment-methods";
 import { cardClass, primaryButtonClass } from "@/lib/ui";
 
@@ -60,6 +61,7 @@ export default async function NewExpensePage(props: PageProps<"/facturas/gastos/
 
   // Las formas de pago que ofrece la empresa: su catálogo más las base.
   const formasDePago = await paymentMethodOptions(ctx.company.id);
+  const obras = await obrasImputables();
 
   const searchParams = await props.searchParams;
   const prefill = prefillFromBank(searchParams, ctx.company.ivaRate);
@@ -106,6 +108,7 @@ export default async function NewExpensePage(props: PageProps<"/facturas/gastos/
           today={todayISO()}
           prefill={prefill}
           volver={volver}
+          obras={obras}
         />
       )}
     </div>

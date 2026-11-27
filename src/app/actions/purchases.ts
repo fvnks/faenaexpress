@@ -14,6 +14,11 @@ import { computeTotal, documentSign, formatCLP, todayDate } from "@/lib/money";
 import { checkPlanLimit, incrementUsage } from "@/lib/plans";
 import { esPagoConTarjeta } from "@/lib/payment-card";
 import { recomputeStatus } from "@/lib/payments";
+import {
+  descripcionCompra,
+  obraEsImputable,
+  sincronizarCostoObra,
+} from "@/lib/obra-imputacion";
 import { purchaseSchema, type PurchaseInput } from "@/lib/validation";
 
 export type PurchaseFormState = { error?: string } | undefined;
@@ -39,6 +44,9 @@ function readForm(formData: FormData) {
     impuestoEspecifico: formData.get("impuestoEspecifico"),
     impuestoEspecificoGlosa: formData.get("impuestoEspecificoGlosa"),
     impuestoEspecificoRecuperable: formData.get("impuestoEspecificoRecuperable"),
+    // Solo se acepta si el formulario ofrecía el selector: un POST de un
+    // cliente sin módulo Obras no debe adivinar una imputación.
+    obraId: formData.get("obraCampo") === "1" ? formData.get("obraId") : null,
     notes: formData.get("notes"),
   };
 }
@@ -79,6 +87,7 @@ function toData(input: PurchaseInput, combustible: boolean) {
         ? input.date
         : input.paymentDate ?? todayDate()
       : null,
+    obraId: input.obraId ?? null,
     notes: input.notes ?? null,
   };
 }
@@ -191,6 +200,9 @@ export async function createPurchase(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos del formulario." };
   }
+  if (parsed.data.obraId && !(await obraEsImputable(parsed.data.obraId))) {
+    return { error: "No tienes acceso a esa obra." };
+  }
 
   // Verificar que el número de documento no esté repetido en la misma empresa.
   const existing = await db.purchase.findFirst({
@@ -214,8 +226,24 @@ export async function createPurchase(
   );
   if (reparto.error) return { error: reparto.error };
 
-  const purchase = await db.purchase.create({
-    data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
+  const proveedor = await db.partner.findFirst({
+    where: { id: parsed.data.partnerId, companyId: ctx.company.id },
+    select: { name: true },
+  });
+  const purchase = await db.$transaction(async (tx) => {
+    const creada = await tx.purchase.create({
+      data: { ...data, companyId: ctx.company.id, createdById: ctx.user.id },
+    });
+    await sincronizarCostoObra(tx, {
+      sourceType: "PURCHASE",
+      sourceId: creada.id,
+      obraId: data.obraId ?? null,
+      habilitado: formData.get("obraCampo") === "1",
+      monto: data.totalAmount,
+      fecha: data.date,
+      descripcion: descripcionCompra(data.documentNumber ?? null, proveedor?.name ?? ""),
+    });
+    return creada;
   });
   await escribirReparto(ctx.company.id, purchase.id, reparto.filas);
 
@@ -235,6 +263,9 @@ export async function createPurchase(
   revalidatePath("/facturas/compras");
   revalidatePath("/facturas");
   revalidatePath("/facturas/reportes/centros-costo");
+  for (const ruta of ["/obras", "/obras/compras", "/obras/presupuesto", "/obras/reportes"]) {
+    revalidatePath(ruta);
+  }
   redirect("/facturas/compras");
 }
 
@@ -251,6 +282,9 @@ export async function updatePurchase(
   const parsed = purchaseSchema.safeParse(readForm(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos del formulario." };
+  }
+  if (parsed.data.obraId && !(await obraEsImputable(parsed.data.obraId))) {
+    return { error: "No tienes acceso a esa obra." };
   }
 
   // Verificar que el número de documento no esté repetido por otra compra en la misma empresa.
@@ -285,7 +319,22 @@ export async function updatePurchase(
   );
   if (reparto.error) return { error: reparto.error };
 
-  await db.purchase.update({ where: { id, companyId: ctx.company.id }, data });
+  const proveedor = await db.partner.findFirst({
+    where: { id: parsed.data.partnerId, companyId: ctx.company.id },
+    select: { name: true },
+  });
+  await db.$transaction(async (tx) => {
+    await tx.purchase.update({ where: { id, companyId: ctx.company.id }, data });
+    await sincronizarCostoObra(tx, {
+      sourceType: "PURCHASE",
+      sourceId: id,
+      obraId: data.obraId ?? null,
+      habilitado: formData.get("obraCampo") === "1",
+      monto: data.totalAmount,
+      fecha: data.date,
+      descripcion: descripcionCompra(data.documentNumber ?? null, proveedor?.name ?? ""),
+    });
+  });
   await escribirReparto(ctx.company.id, id, reparto.filas);
 
   // Si la compra tiene abonos, el estado se deriva de ellos: el formulario no
@@ -305,6 +354,9 @@ export async function updatePurchase(
   revalidatePath("/facturas/compras");
   revalidatePath(`/facturas/compras/${id}`);
   revalidatePath("/facturas/reportes/centros-costo");
+  for (const ruta of ["/obras", "/obras/compras", "/obras/presupuesto", "/obras/reportes"]) {
+    revalidatePath(ruta);
+  }
   redirect(`/facturas/compras/${id}`);
 }
 

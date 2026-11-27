@@ -8,6 +8,7 @@ import { listAreas, listCategories, listPayers, listWorkers } from "@/lib/catalo
 import { listCentrosCosto } from "@/lib/centros-costo";
 import { getExpense, serializeExpense } from "@/lib/expenses";
 import { todayISO } from "@/lib/money";
+import { obrasImputables } from "@/lib/obra-imputacion";
 import { paymentMethodOptions } from "@/lib/payment-methods";
 
 export default async function EditExpensePage(props: PageProps<"/facturas/gastos/[id]/editar">) {
@@ -29,6 +30,7 @@ export default async function EditExpensePage(props: PageProps<"/facturas/gastos
 
   // Las formas de pago que ofrece la empresa: su catálogo más las base.
   const formasDePago = await paymentMethodOptions(ctx.company.id);
+  const obras = await obrasImputables();
 
   if (!expense) {
     notFound();
@@ -60,6 +62,7 @@ export default async function EditExpensePage(props: PageProps<"/facturas/gastos
         ivaRate={ctx.company.ivaRate}
         today={todayISO()}
         defaults={serializeExpense(expense)}
+        obras={obras}
       />
     </div>
   );
