@@ -8,7 +8,13 @@ import { registrarCubicacion } from "@/app/actions/obra-avance";
 import { SubmitButton } from "@/components/submit-button";
 import { controlClass, primaryButtonClass } from "@/lib/ui";
 
-export function NuevaCubicacion({ partidas }: { partidas: Array<{ id: string; codigo: string; descripcion: string; unidad: string; pendiente: number }> }) {
+export function NuevaCubicacion({
+  partidas,
+  cuadrillas,
+}: {
+  partidas: Array<{ id: string; codigo: string; descripcion: string; unidad: string; pendiente: number }>;
+  cuadrillas: Array<{ id: string; nombre: string }>;
+}) {
   const router = useRouter();
   const [state, action] = useActionState(registrarCubicacion, undefined);
 
@@ -34,6 +40,14 @@ export function NuevaCubicacion({ partidas }: { partidas: Array<{ id: string; co
         </select>
         <input name="cantidad" placeholder="Cantidad cubicada" type="number" step="0.01" min="0.01" required className={controlClass} />
         <input name="fecha" type="date" className={controlClass} />
+        {cuadrillas.length > 0 ? (
+          <select name="cuadrillaId" className={controlClass} defaultValue="">
+            <option value="">Sin cuadrilla</option>
+            {cuadrillas.map((cuadrilla) => (
+              <option key={cuadrilla.id} value={cuadrilla.id}>{cuadrilla.nombre}</option>
+            ))}
+          </select>
+        ) : null}
         <SubmitButton pendingLabel="Guardando…" className={primaryButtonClass}>Guardar avance</SubmitButton>
       </form>
     </details>

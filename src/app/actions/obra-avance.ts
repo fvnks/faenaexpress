@@ -18,6 +18,7 @@ export async function registrarCubicacion(
   if (!obraCanWrite(ctx, "avance")) return { error: "Tu rol no permite registrar avance." };
 
   const partidaId = String(formData.get("partidaId") ?? "");
+  const cuadrillaId = String(formData.get("cuadrillaId") ?? "") || null;
   const cantidad = Number(String(formData.get("cantidad") ?? "").replace(",", "."));
   const fechaRaw = String(formData.get("fecha") ?? "");
 
@@ -27,6 +28,13 @@ export async function registrarCubicacion(
   });
   if (!partida) return { error: "La partida no existe o está anulada." };
   if (!Number.isFinite(cantidad) || cantidad <= 0) return { error: "Ingresa una cantidad válida." };
+  if (cuadrillaId) {
+    const cuadrilla = await db.cuadrilla.findFirst({
+      where: { id: cuadrillaId, obraId: ctx.obra.id, activa: true },
+      select: { id: true },
+    });
+    if (!cuadrilla) return { error: "La cuadrilla no existe o está inactiva." };
+  }
 
   const yaCubicado = await db.cubicacion.aggregate({
     where: { partidaId, aprobada: true },
@@ -42,6 +50,7 @@ export async function registrarCubicacion(
   const cubicacion = await db.cubicacion.create({
     data: {
       partidaId,
+      cuadrillaId,
       cantidad,
       fecha: fechaRaw ? new Date(`${fechaRaw}T12:00:00.000Z`) : new Date(),
       registradoById: ctx.user.id,

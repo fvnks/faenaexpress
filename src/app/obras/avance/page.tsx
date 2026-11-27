@@ -6,13 +6,14 @@ import { puedeAprobarAvance } from "@/lib/obra-permissions";
 import { cardClass, secondaryButtonClass } from "@/lib/ui";
 import { NuevaCubicacion } from "./nueva-cubicacion";
 import { FotoCubicacion } from "./foto-cubicacion";
+import { EstadoCuadrillaForm, NuevaCuadrillaForm } from "./cuadrillas-form";
 
 export default async function ObraAvancePage() {
   const ctx = await requireObraContext("avance");
   const writable = obraCanWrite(ctx, "avance");
   const puedeAprobar = puedeAprobarAvance(ctx.role);
 
-  const [partidas, cubicaciones] = await Promise.all([
+  const [partidas, cubicaciones, cuadrillas] = await Promise.all([
     db.partida.findMany({
       where: { obraId: ctx.obra.id, estado: "VIGENTE" },
       orderBy: { orden: "asc" },
@@ -27,6 +28,11 @@ export default async function ObraAvancePage() {
         registradoBy: { select: { name: true } },
         fotos: { select: { id: true, fileName: true } },
       },
+    }),
+    db.cuadrilla.findMany({
+      where: { obraId: ctx.obra.id },
+      orderBy: [{ activa: "desc" }, { nombre: "asc" }],
+      select: { id: true, nombre: true, integrantes: true, activa: true },
     }),
   ]);
 
@@ -70,7 +76,36 @@ export default async function ObraAvancePage() {
         ))}
       </div>
 
-      {writable && pendientes.length > 0 ? <NuevaCubicacion partidas={pendientes} /> : null}
+      <section className={`${cardClass} p-5`}>
+        <h2 className="font-semibold">Cuadrillas</h2>
+        <p className="mb-3 mt-0.5 text-xs text-muted-foreground">
+          Equipos de terreno. Al registrar avance puedes indicar cuál ejecutó la medición; el reporte de productividad lo usa.
+        </p>
+        {writable ? <NuevaCuadrillaForm /> : null}
+        {cuadrillas.length > 0 ? (
+          <ul className="mt-4 divide-y divide-border">
+            {cuadrillas.map((cuadrilla) => (
+              <li key={cuadrilla.id} className="flex flex-wrap items-center gap-3 py-2 first:pt-0">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">{cuadrilla.nombre}</span>
+                  <span className="block text-xs text-muted-foreground">{cuadrilla.integrantes} integrantes</span>
+                </span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${cuadrilla.activa ? "bg-success-soft text-success" : "bg-surface-elevated text-muted-foreground"}`}>
+                  {cuadrilla.activa ? "Activa" : "Inactiva"}
+                </span>
+                {writable ? <EstadoCuadrillaForm cuadrilla={cuadrilla} /> : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      {writable && pendientes.length > 0 ? (
+        <NuevaCubicacion
+          partidas={pendientes}
+          cuadrillas={cuadrillas.filter((cuadrilla) => cuadrilla.activa)}
+        />
+      ) : null}
 
       {pendientesAprobacion.length > 0 ? (
         <section className={`${cardClass} overflow-x-auto`}>

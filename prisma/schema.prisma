@@ -585,6 +585,7 @@ model Obra {
   gastos       Expense[]
   remuneraciones Remuneration[]
   payrollEntries PayrollEntry[]
+  cuadrillas     Cuadrilla[]
   versiones      PresupuestoVersion[]      @relation("VersionesObra")
   presupuestoVigente PresupuestoVersion?   @relation("PresupuestoVigente", fields: [presupuestoVigenteId], references: [id], onDelete: SetNull)
 
@@ -768,6 +769,22 @@ model CostoObra {
   @@index([partidaId])
 }
 
+/** Cuadrilla de terreno: permite medir productividad por equipo. */
+model Cuadrilla {
+  id          String  @id @default(cuid())
+  obraId      String
+  nombre      String
+  integrantes Int     @default(1)
+  activa      Boolean @default(true)
+  createdAt   DateTime @default(now())
+
+  obra        Obra        @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  cubicaciones Cubicacion[]
+
+  @@unique([obraId, nombre])
+  @@index([obraId])
+}
+
 // Medición física ejecutada de una partida. El avance es cubicado / presupuestado.
 model Cubicacion {
   id            String   @id @default(cuid())
@@ -775,15 +792,18 @@ model Cubicacion {
   fecha         DateTime @default(now())
   cantidad      Float
   registradoById String
+  cuadrillaId   String? // equipo que ejecutó la medición
   aprobada      Boolean  @default(false)
   aprobadaById  String?
   createdAt     DateTime @default(now())
 
   partida     Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+  cuadrilla   Cuadrilla? @relation(fields: [cuadrillaId], references: [id], onDelete: SetNull)
   registradoBy User   @relation("CubicacionRegistrada", fields: [registradoById], references: [id])
   aprobadaBy  User?   @relation("CubicacionAprobada", fields: [aprobadaById], references: [id])
   fotos       FotoCubicacion[]
 
+  @@index([cuadrillaId])
   @@index([partidaId, fecha])
 }
 
