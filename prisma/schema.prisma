@@ -567,6 +567,7 @@ model Obra {
   fechaInicio    DateTime?
   fechaTermino   DateTime?
   status         ObraStatus @default(PLANIFICADA)
+  presupuestoVigenteId String? // versión activa del itemizado
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
@@ -584,9 +585,46 @@ model Obra {
   gastos       Expense[]
   remuneraciones Remuneration[]
   payrollEntries PayrollEntry[]
+  versiones      PresupuestoVersion[]      @relation("VersionesObra")
+  presupuestoVigente PresupuestoVersion?   @relation("PresupuestoVigente", fields: [presupuestoVigenteId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([mandanteId])
+}
+
+/** Versión congelada del itemizado: permite comparar y volver a un presupuesto anterior. */
+model PresupuestoVersion {
+  id          String   @id @default(cuid())
+  obraId      String
+  nombre      String
+  descripcion String?
+  vigente     Boolean  @default(false)
+  total       Float
+  createdById String
+  createdAt   DateTime @default(now())
+
+  obra     Obra                       @relation("VersionesObra", fields: [obraId], references: [id], onDelete: Cascade)
+  vigenteDe Obra[]                   @relation("PresupuestoVigente")
+  partidas PresupuestoVersionPartida[]
+
+  @@index([obraId, createdAt])
+}
+
+model PresupuestoVersionPartida {
+  id             String  @id @default(cuid())
+  versionId      String
+  codigo         String
+  descripcion    String
+  unidad         String  @default("UN")
+  cantidad       Float
+  precioUnitario Float
+  total          Float
+  esCapitulo     Boolean @default(false)
+  orden          Int     @default(0)
+
+  version PresupuestoVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId])
 }
 
 /**

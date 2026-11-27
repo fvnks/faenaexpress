@@ -9,6 +9,7 @@ import { getActiveMembership } from "@/lib/auth";
 import { requireObraContext, obraCanWrite } from "@/lib/obra-auth";
 import { previewPresupuesto, type FilaPresupuesto, type PreviewPresupuesto } from "@/lib/obra-import";
 import { totalPartida } from "@/lib/obra-budget";
+import { crearVersionPresupuesto, snapshotVigente } from "@/lib/obra-versiones";
 
 export type PresupuestoPreviewState = PreviewPresupuesto | { error: string } | undefined;
 export type PresupuestoCommitState = { ok?: boolean; error?: string; creadas?: number } | undefined;
@@ -49,7 +50,10 @@ export async function confirmObraPresupuesto(
     return { error: "Los datos del presupuesto no son válidos." };
   }
 
+  const fechaVersion = new Date().toISOString().slice(0, 10);
   const resultado = await db.$transaction(async (tx) => {
+    // Congela el itemizado anterior antes de reemplazarlo.
+    await snapshotVigente(tx, ctx.obra.id, `Anterior a importación ${fechaVersion}`, ctx.user.id);
     // Conservar las anuladas por trazabilidad; el resto se reemplaza.
     await tx.partida.updateMany({
       where: { obraId: ctx.obra.id, estado: { not: "ANULADA" } },
@@ -57,6 +61,11 @@ export async function confirmObraPresupuesto(
     });
 
     const codigoPorFila = new Map<number, string>();
+    const lineas: Array<{
+      codigo: string; descripcion: string; unidad: string;
+      cantidad: number; precioUnitario: number; total: number;
+      esCapitulo: boolean; orden: number;
+    }> = [];
     let orden = 0;
     let capituloId: string | null = null;
 
@@ -64,6 +73,7 @@ export async function confirmObraPresupuesto(
       const codigo = (fila.codigo || `P-${String(fila.fila).padStart(4, "0")}`).slice(0, 40);
       const esCapitulo = fila.esCapitulo;
       if (esCapitulo) capituloId = null;
+      const ordenActual = orden++;
 
       const creada: { id: string } = await tx.partida.create({
         data: {
@@ -75,13 +85,31 @@ export async function confirmObraPresupuesto(
           cantidad: fila.cantidad,
           precioUnitario: fila.precioUnitario,
           total: totalPartida(fila.cantidad, fila.precioUnitario),
-          orden: orden++,
+          orden: ordenActual,
         },
         select: { id: true },
       });
       codigoPorFila.set(fila.fila, creada.id);
       if (esCapitulo) capituloId = creada.id;
+      lineas.push({
+        codigo: `${codigo}-${fila.fila}`,
+        descripcion: fila.descripcion.slice(0, 300),
+        unidad: (fila.unidad || "UN").slice(0, 10),
+        cantidad: fila.cantidad,
+        precioUnitario: fila.precioUnitario,
+        total: totalPartida(fila.cantidad, fila.precioUnitario),
+        esCapitulo,
+        orden: ordenActual,
+      });
     }
+
+    await crearVersionPresupuesto(tx, {
+      obraId: ctx.obra.id,
+      nombre: `Importación ${fechaVersion}`,
+      descripcion: `${filas.length} partidas importadas.`,
+      createdById: ctx.user.id,
+      partidas: lineas,
+    });
 
     return { creadas: filas.length, codigoPorFila };
   });

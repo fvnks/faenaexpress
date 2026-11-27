@@ -108,9 +108,14 @@ export default async function ObraPresupuestoPage() {
               }))}
             />
           </div>
-          <Link href="/obras/plantillas" className="text-xs text-primary hover:underline">
-            Ver todas las plantillas →
-          </Link>
+          <div className="flex flex-wrap gap-4">
+            <Link href="/obras/plantillas" className="text-xs text-primary hover:underline">
+              Ver plantillas →
+            </Link>
+            <Link href="/obras/presupuesto/versiones" className="text-xs text-primary hover:underline">
+              Ver versiones del presupuesto →
+            </Link>
+          </div>
         </div>
       ) : null}
 

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { totalPartida } from "@/lib/obra-budget";
 import { recordObraAudit } from "@/lib/obra-audit";
 import { obraCanWrite, requireObraContext } from "@/lib/obra-auth";
+import { crearVersionPresupuesto, snapshotVigente } from "@/lib/obra-versiones";
 import type { ObraActionState } from "./obra-avance";
 
 export type PlantillaState = { ok?: boolean; error?: string; message?: string } | undefined;
@@ -80,31 +81,58 @@ export async function aplicarPlantillaItemizado(
   if (!plantilla) return { error: "La plantilla no existe en tu cuenta." };
   if (plantilla.lineas.length === 0) return { error: "La plantilla no tiene partidas." };
 
+  const fechaVersion = new Date().toISOString().slice(0, 10);
   await db.$transaction(async (tx) => {
+    await snapshotVigente(tx, ctx.obra.id, `Anterior a plantilla ${fechaVersion}`, ctx.user.id);
     await tx.partida.updateMany({
       where: { obraId: ctx.obra.id, estado: { not: "ANULADA" } },
       data: { estado: "ANULADA", motivoAnulacion: `Reemplazada por plantilla «${plantilla.nombre}»` },
     });
+    const lineas: Array<{
+      codigo: string; descripcion: string; unidad: string;
+      cantidad: number; precioUnitario: number; total: number;
+      esCapitulo: boolean; orden: number;
+    }> = [];
     let capituloId: string | null = null;
     let orden = 0;
     for (const [index, linea] of plantilla.lineas.entries()) {
       if (linea.esCapitulo) capituloId = null;
+      const ordenActual = orden++;
+      const codigo = `${linea.codigo.slice(0, 40)}-${index + 1}`;
       const creada: { id: string } = await tx.partida.create({
         data: {
           obraId: ctx.obra.id,
           parentId: linea.esCapitulo ? null : capituloId,
-          codigo: `${linea.codigo.slice(0, 40)}-${index + 1}`,
+          codigo,
           descripcion: linea.descripcion.slice(0, 300),
           unidad: linea.unidad.slice(0, 10),
           cantidad: linea.cantidad,
           precioUnitario: linea.precioUnitario,
           total: totalPartida(linea.cantidad, linea.precioUnitario),
-          orden: orden++,
+          orden: ordenActual,
         },
         select: { id: true },
       });
       if (linea.esCapitulo) capituloId = creada.id;
+      lineas.push({
+        codigo,
+        descripcion: linea.descripcion.slice(0, 300),
+        unidad: linea.unidad.slice(0, 10),
+        cantidad: linea.cantidad,
+        precioUnitario: linea.precioUnitario,
+        total: totalPartida(linea.cantidad, linea.precioUnitario),
+        esCapitulo: linea.esCapitulo,
+        orden: ordenActual,
+      });
     }
+
+    await crearVersionPresupuesto(tx, {
+      obraId: ctx.obra.id,
+      nombre: `Plantilla «${plantilla.nombre}» ${fechaVersion}`,
+      descripcion: `${plantilla.lineas.length} partidas aplicadas.`,
+      createdById: ctx.user.id,
+      partidas: lineas,
+    });
   });
 
   await recordObraAudit(ctx, {

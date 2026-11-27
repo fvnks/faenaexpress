@@ -59,6 +59,7 @@ const GROUPS: NavGroup[] = [
     label: "Control de obra",
     items: [
       { href: "/obras/presupuesto", label: "Presupuesto", section: "presupuesto" },
+      { href: "/obras/presupuesto/versiones", label: "Versiones del presupuesto", section: "presupuesto" },
       { href: "/obras/avance", label: "Avance", section: "avance" },
       { href: "/obras/estados-pago", label: "Estados de pago", section: "estadosPago" },
       { href: "/obras/reportes", label: "Reportes", section: "panel" },
