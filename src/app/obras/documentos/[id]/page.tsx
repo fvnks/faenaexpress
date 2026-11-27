@@ -37,7 +37,7 @@ export default async function DocumentoObraDetallePage({
   const { id } = await params;
   const writable = obraCanWrite(ctx, "documentos");
 
-  const [doc, responsables] = await Promise.all([
+  const [doc, responsables, mandante] = await Promise.all([
     db.documentoObra.findFirst({
       where: { id, obraId: ctx.obra.id },
       include: {
@@ -54,6 +54,12 @@ export default async function DocumentoObraDetallePage({
       select: { user: { select: { id: true, name: true } } },
       orderBy: { user: { name: "asc" } },
     }),
+    ctx.obra.mandanteId
+      ? db.mandanteObra.findUnique({
+          where: { id: ctx.obra.mandanteId },
+          select: { id: true, name: true },
+        })
+      : null,
   ]);
   if (!doc) notFound();
 
@@ -93,6 +99,22 @@ export default async function DocumentoObraDetallePage({
       <section className={`${cardClass} p-5`}>
         <h2 className="font-semibold">Datos del documento</h2>
         <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-muted-foreground">Obra</dt>
+            <dd className="mt-0.5 font-medium">{ctx.obra.name}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Mandante</dt>
+            <dd className="mt-0.5 font-medium">
+              {mandante ? (
+                <Link href={`/obras/mandantes/${mandante.id}`} className="text-primary hover:underline">
+                  {mandante.name}
+                </Link>
+              ) : (
+                "Sin mandante asignado"
+              )}
+            </dd>
+          </div>
           <div>
             <dt className="text-xs text-muted-foreground">Responsable</dt>
             <dd className="mt-0.5 font-medium">{doc.responsable?.name ?? "Sin asignar"}</dd>

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CambiarObraLink } from "@/components/cambiar-obra-link";
 import { isOrgManager } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { formatDate } from "@/lib/money";
 import { mandantesVisibles } from "@/lib/obra-mandantes";
 import { requireObraContext, visibleObras } from "@/lib/obra-auth";
 import { obraStatusLabel } from "@/lib/obra-permissions";
@@ -36,6 +37,13 @@ export default async function MandanteDetallePage({
       status: true,
       _count: { select: { documentos: true, partidas: true } },
     },
+  });
+
+  const documentos = await db.documentoObra.findMany({
+    where: { obraId: { in: ids } },
+    include: { obra: { select: { name: true } } },
+    orderBy: [{ fechaVencimiento: "asc" }, { createdAt: "desc" }],
+    take: 50,
   });
 
   const organizationId = ctx.user.orgMembership?.organizationId ?? null;
@@ -109,6 +117,57 @@ export default async function MandanteDetallePage({
                       <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">Abierta</span>
                     ) : (
                       <CambiarObraLink obraId={obra.id} nombre={obra.name} />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className={`${cardClass} overflow-x-auto`}>
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="font-semibold">Documentos de este mandante</h2>
+          <p className="text-xs text-muted-foreground">
+            Contratos, permisos, planos y certificados de todas sus obras visibles.
+          </p>
+        </div>
+        {documentos.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-muted-foreground">No hay documentos registrados en sus obras.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="sticky-table-head text-xs text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left">Documento</th>
+                <th className="px-3 py-2 text-left">Obra</th>
+                <th className="px-3 py-2 text-left">Estado</th>
+                <th className="px-3 py-2 text-right">Vencimiento</th>
+                <th className="px-3 py-2 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {documentos.map((documento) => (
+                <tr key={documento.id}>
+                  <td className="px-3 py-2">
+                    <span className="font-medium">{documento.titulo}</span>
+                    <span className="block font-mono text-xs text-muted-foreground">{documento.tipo}</span>
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{documento.obra.name}</td>
+                  <td className="px-3 py-2 text-xs">{documento.estado}</td>
+                  <td className="px-3 py-2 text-right tabular text-xs">
+                    {documento.fechaVencimiento ? formatDate(documento.fechaVencimiento) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {documento.obraId === ctx.obra.id ? (
+                      <Link
+                        href={`/obras/documentos/${documento.id}`}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Ver ficha
+                      </Link>
+                    ) : (
+                      <CambiarObraLink obraId={documento.obraId} nombre={documento.obra.name} />
                     )}
                   </td>
                 </tr>

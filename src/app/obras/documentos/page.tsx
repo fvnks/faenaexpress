@@ -56,7 +56,7 @@ export default async function ObraDocumentosPage({
   const params = await searchParams;
   const filtro = params.estado ?? "";
 
-  const [documentos, responsables] = await Promise.all([
+  const [documentos, responsables, mandante] = await Promise.all([
     db.documentoObra.findMany({
       where: { obraId: ctx.obra.id },
       orderBy: [{ fechaVencimiento: "asc" }, { createdAt: "desc" }],
@@ -70,6 +70,12 @@ export default async function ObraDocumentosPage({
       select: { user: { select: { id: true, name: true } } },
       orderBy: { user: { name: "asc" } },
     }),
+    ctx.obra.mandanteId
+      ? db.mandanteObra.findUnique({
+          where: { id: ctx.obra.mandanteId },
+          select: { id: true, name: true },
+        })
+      : null,
   ]);
 
   const visibles = documentos.filter((d) => {
@@ -86,8 +92,28 @@ export default async function ObraDocumentosPage({
         <p className="mb-1 font-mono text-xs uppercase tracking-[0.18em] text-primary">Índice / 11 — Control documental</p>
         <h1 className="text-2xl font-bold tracking-tight">Documentación de {ctx.obra.name}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Crea documentos, asigna responsables, controla vencimientos y registra cada avance en su historial.
+          Cada documento pertenece a esta obra y, por ella, a su mandante. Crea documentos,
+          asigna responsables, controla vencimientos y registra cada avance en su historial.
         </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-control border border-border bg-surface px-4 py-2.5 text-xs">
+        <span className="text-muted-foreground">Obra</span>
+        <span className="font-medium">{ctx.obra.name}</span>
+        <span className="text-border">·</span>
+        <span className="text-muted-foreground">Mandante</span>
+        {mandante ? (
+          <Link href={`/obras/mandantes/${mandante.id}`} className="font-medium text-primary hover:underline">
+            {mandante.name}
+          </Link>
+        ) : (
+          <>
+            <span className="font-medium text-accent">Sin mandante asignado</span>
+            <Link href="/obras/administracion" className="text-primary hover:underline">
+              Asignar en Configuración
+            </Link>
+          </>
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
