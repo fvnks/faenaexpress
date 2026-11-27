@@ -148,6 +148,12 @@ export default async function SubcontratoDetallePage({
                       </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end gap-2">
+                          <a
+                            href={`/obras/subcontratos/${subcontrato.id}/ep/${ep.id}/pdf`}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            PDF
+                          </a>
                           {writable && ep.estado === "BORRADOR" ? <AprobarEpSubcontrato id={ep.id} /> : null}
                           {writable && ep.estado === "APROBADO" ? <PagarEpSubcontrato id={ep.id} /> : null}
                           <span className="text-xs text-muted-foreground">{formatDate(ep.createdAt)}</span>

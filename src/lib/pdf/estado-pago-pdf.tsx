@@ -27,7 +27,12 @@ export type EstadoPagoPdfData = {
   periodo: string;
   estado: string;
   estadoLabel: string;
+  /** Subtítulo opcional, p. ej. el subcontrato al que pertenece el EP. */
+  subtitulo?: string | null;
   total: number;
+  /** Desglose opcional para EP de subcontrato (bruto − anticipo − retención). */
+  anticipo?: number | null;
+  retencion?: number | null;
   createdAt: Date;
   facturadoAt: Date | null;
   obra: {
@@ -122,7 +127,9 @@ function EstadoPagoDocument({ data }: { data: EstadoPagoPdfData }) {
     importe: totalPartida(item.cantidad, item.precioUnitario),
   }));
   // El importe se recalcula por línea con la misma regla del presupuesto.
-  const total = items.reduce((sum, item) => sum + item.importe, 0);
+  const bruto = items.reduce((sum, item) => sum + item.importe, 0);
+  const conDescuentos = data.anticipo != null || data.retencion != null;
+  const total = conDescuentos ? data.total : bruto;
   const folio = `EP-${String(data.numero).padStart(4, "0")}`;
 
   return (
@@ -138,6 +145,7 @@ function EstadoPagoDocument({ data }: { data: EstadoPagoPdfData }) {
             <Text style={styles.title}>ESTADO DE PAGO</Text>
             <Text style={styles.folio}>{folio}</Text>
             <Text style={styles.brandMeta}>{data.estadoLabel}</Text>
+            {data.subtitulo ? <Text style={styles.brandMeta}>{data.subtitulo}</Text> : null}
           </View>
         </View>
 
@@ -191,8 +199,29 @@ function EstadoPagoDocument({ data }: { data: EstadoPagoPdfData }) {
           ) : null}
         </View>
 
+        {conDescuentos ? (
+          <View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Importe bruto</Text>
+              <Text style={styles.value}>{formatCLP(bruto)}</Text>
+            </View>
+            {data.anticipo && data.anticipo > 0 ? (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Anticipo descontado</Text>
+                <Text style={styles.value}>− {formatCLP(data.anticipo)}</Text>
+              </View>
+            ) : null}
+            {data.retencion && data.retencion > 0 ? (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Retención</Text>
+                <Text style={styles.value}>− {formatCLP(data.retencion)}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total del estado de pago</Text>
+          <Text style={styles.totalLabel}>{conDescuentos ? "Total a pagar" : "Total del estado de pago"}</Text>
           <Text style={styles.totalValue}>{formatCLP(total)}</Text>
         </View>
 
