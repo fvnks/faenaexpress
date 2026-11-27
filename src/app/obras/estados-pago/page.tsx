@@ -92,6 +92,12 @@ export default async function ObraEstadosPagoPage() {
                     <td className="px-3 py-2">{ep.saleId ? <LinkVenta saleId={ep.saleId} /> : "—"}</td>
                     <td className="px-3 py-2 text-right">
                       <div className="flex justify-end gap-2">
+                        <a
+                          href={`/obras/estados-pago/${ep.id}/pdf`}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          PDF
+                        </a>
                         {ep.estado === "BORRADOR" && puedeAprobar ? <AprobarEP id={ep.id} /> : null}
                         {ep.estado === "APROBADO" && writable ? <FacturarEP id={ep.id} /> : null}
                       </div>
