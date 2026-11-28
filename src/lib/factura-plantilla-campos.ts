@@ -41,36 +41,34 @@ export const CAMPOS_PLANTILLA: Array<{
   { campo: "mostrarVendedor", etiqueta: "Vendedor", porDefecto: true },
   // N° de Orden de Servicio (HES) asociado al documento (servicios).
   { campo: "mostrarHES", etiqueta: "N° de Orden de Servicio (HES)", porDefecto: true },
-  // Nuevos campos del DTE
-  { campo: "mostrarCdgVendedor", etiqueta: "Código de vendedor (emisor)", porDefecto: false },
-  { campo: "mostrarTipoDespacho", etiqueta: "Tipo de despacho", porDefecto: false },
-  { campo: "mostrarIndServicio", etiqueta: "Indicador de servicio", porDefecto: false },
-  { campo: "mostrarTpoTranVenta", etiqueta: "Tipo de transacción de venta", porDefecto: false },
-  { campo: "mostrarCdgIntRecep", etiqueta: "Código interno receptor", porDefecto: false },
-  { campo: "mostrarDirPostal", etiqueta: "Dirección postal receptor", porDefecto: false },
-  { campo: "mostrarCmnaPostal", etiqueta: "Comuna postal receptor", porDefecto: false },
-  { campo: "mostrarCiudadPostal", etiqueta: "Ciudad postal receptor", porDefecto: false },
   { campo: "mostrarUnidadItem", etiqueta: "Unidad de medida (ítems)", porDefecto: false },
-  { campo: "mostrarCodigoItem", etiqueta: "Código de item (ítems)", porDefecto: false },
-  // Campos adicionales de documento
-  { campo: "mostrarCondicionPago", etiqueta: "Condición de pago", porDefecto: false },
-  { campo: "mostrarMonedaIngreso", etiqueta: "Moneda de ingreso", porDefecto: false },
-  { campo: "mostrarOrdenCompraFolio", etiqueta: "Folio OC", porDefecto: false },
-  { campo: "mostrarOrdenCompraFecha", etiqueta: "Fecha OC", porDefecto: false },
-  { campo: "mostrarGuiaDespachoFolio", etiqueta: "Folio Guía", porDefecto: false },
-  { campo: "mostrarGuiaDespachoFecha", etiqueta: "Fecha Guía", porDefecto: false },
-  { campo: "mostrarFechaDocumento", etiqueta: "Fecha documento", porDefecto: false },
-  { campo: "mostrarCiudadDocumento", etiqueta: "Ciudad documento", porDefecto: false },
-  { campo: "mostrarTasaIngreso", etiqueta: "Tasa de ingreso", porDefecto: false },
-  { campo: "mostrarIvaAmount", etiqueta: "IVA documento", porDefecto: false },
 ];
 
-/** Todos los campos conocidos de la plantilla. */
-export const CAMPOS_PLANTILLA_KEYS: string[] = CAMPOS_PLANTILLA.map((c) => c.campo);
+/**
+ * Campos del DTE que esta app no produce: importamos los documentos desde el
+ * SII, no los emitimos, así que no hay datos para esos placeholders. Se siguen
+ * reconociendo para no romper una hoja "Diseño" guardada antes, pero ya no se
+ * ofrecen en la UI porque nunca imprimen nada.
+ */
+const CAMPOS_LEGADO: string[] = [
+  "mostrarCdgVendedor", "mostrarTipoDespacho", "mostrarIndServicio",
+  "mostrarTpoTranVenta", "mostrarCdgIntRecep", "mostrarDirPostal",
+  "mostrarCmnaPostal", "mostrarCiudadPostal", "mostrarCodigoItem",
+  "mostrarCondicionPago", "mostrarMonedaIngreso", "mostrarOrdenCompraFolio",
+  "mostrarOrdenCompraFecha", "mostrarGuiaDespachoFolio", "mostrarGuiaDespachoFecha",
+  "mostrarFechaDocumento", "mostrarCiudadDocumento", "mostrarTasaIngreso",
+  "mostrarIvaAmount",
+];
+
+/** Todos los campos válidos, incluidos los heredados de hojas antiguas. */
+export const CAMPOS_PLANTILLA_KEYS: string[] = [
+  ...CAMPOS_PLANTILLA.map((c) => c.campo),
+  ...CAMPOS_LEGADO,
+];
 
 /** ¿Es un campo conocido de la plantilla? */
 export function esCampoPlantillaValido(campo: string): boolean {
-  return CAMPOS_PLANTILLA.some((c) => c.campo === campo);
+  return CAMPOS_PLANTILLA_KEYS.includes(campo);
 }
 
 /** Configuración con todos los campos visibles (por defecto o explícito). */
