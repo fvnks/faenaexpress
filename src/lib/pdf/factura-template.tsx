@@ -44,13 +44,6 @@ const styles = StyleSheet.create({
   partyName: { fontSize: 11, fontWeight: 700, marginTop: 4 },
   partyMeta: { fontSize: 8, color: "#6B6B6B", fontFamily: "Courier", lineHeight: 1.55, marginTop: 3 },
   right: { alignItems: "flex-end", width: "48%" },
-  badge: {
-    borderRadius: 999, paddingVertical: 3, paddingHorizontal: 7, fontSize: 7,
-    fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6,
-  },
-  badgePaid: { backgroundColor: "#E7F3EA", color: "#2E7D4A" },
-  badgePartial: { backgroundColor: "#FBF3DF", color: "#9A6B00" },
-  badgePending: { backgroundColor: "#F2F2F2", color: "#6B6B6B" },
   metaBox: {
     borderWidth: 1, borderColor: "#DCDCDC", borderRadius: 3,
     padding: 8, marginTop: 9, width: "100%",
@@ -95,7 +88,7 @@ type Config = Record<string, boolean | undefined>;
 export function FacturaPdfTemplate({ invoiceData }: { invoiceData: InvoiceData }) {
   const config = (invoiceData.erpPlantilla?.configuracion ?? {}) as Config;
   const esCompra = Boolean(invoiceData.erpIsPurchase);
-  const emisor = esCompra ? invoiceData.seller : invoiceData.seller;
+  const emisor = invoiceData.seller;
   const receptor = invoiceData.buyer;
   const titulo = invoiceData.invoiceType || (esCompra ? "Factura de compra" : "Factura electrónica");
   const folio = invoiceData.invoiceNumberObject?.value ?? "";
@@ -111,12 +104,6 @@ export function FacturaPdfTemplate({ invoiceData }: { invoiceData: InvoiceData }
   const pendiente = Math.max(total - retention - pagado, 0);
   const neto = Math.max(total - iva - exento - recargo - fuel, 0);
   const tasa = invoiceData.erpIvaRate ?? 19;
-
-  const estado = pagado >= total - retention && total > 0
-    ? { texto: "Pagada", estilo: styles.badgePaid }
-    : pagado > 0
-      ? { texto: "Parcial", estilo: styles.badgePartial }
-      : { texto: "Pendiente", estilo: styles.badgePending };
 
   const items = config.mostrarItems === false ? [] : invoiceData.items;
   const showTotales = config.mostrarTotales !== false;
@@ -168,12 +155,7 @@ export function FacturaPdfTemplate({ invoiceData }: { invoiceData: InvoiceData }
                   {[receptor.vatNo ? `RUT ${receptor.vatNo}` : null, receptor.address, receptor.commune].filter(Boolean).join("\n")}
                 </Text>
               </View>
-              <View style={{ marginTop: 8, alignItems: "flex-end", width: "100%" }}>
-                <Text style={styles.label}>Estado del documento</Text>
-                <View style={{ marginTop: 4 }}>
-                  <Text style={[styles.badge, estado.estilo]}>{estado.texto}</Text>
-                </View>
-              </View>
+
               {meta.length > 0 ? (
                 <View style={styles.metaBox}>
                   {meta.map(([clave, valor]) => (
