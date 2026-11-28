@@ -34,8 +34,8 @@ const styles = StyleSheet.create({
   },
   brandName: { color: "#F0F0F0", fontSize: 11, fontWeight: 700 },
   brandMeta: { color: "#9A9A9A", fontSize: 7.5, fontFamily: "Courier", marginTop: 2 },
-  docTitle: { color: "#F0F0F0", fontSize: 11, fontWeight: 700, textAlign: "right", maxWidth: "42%" },
-  docMeta: { color: "#9A9A9A", fontSize: 8, fontFamily: "Courier", textAlign: "right", marginTop: 3 },
+  docTitle: { color: "#F0F0F0", fontSize: 15, fontWeight: 700, textAlign: "right", maxWidth: "45%" },
+  docMeta: { color: "#E8E8E8", fontSize: 10, fontFamily: "Courier", textAlign: "right", marginTop: 4 },
   rule: { height: 3, backgroundColor: "#C45A2A", marginTop: 16 },
   body: { paddingHorizontal: 36, paddingTop: 18 },
   parties: { flexDirection: "row", justifyContent: "space-between", gap: 20 },
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   footerMeta: { fontSize: 7, color: "#8A8A8A", fontFamily: "Courier", textAlign: "right" },
   bar: { backgroundColor: "#0D0D0D", paddingHorizontal: 36, paddingVertical: 8, flexDirection: "row", justifyContent: "space-between" },
   barText: { color: "#8A8A8A", fontSize: 7, fontFamily: "Courier" },
-  stamp: { width: 110, height: 34, objectFit: "contain" },
+  stamp: { width: 130 },
 });
 
 type Config = Record<string, boolean | undefined>;
@@ -168,8 +168,11 @@ export function FacturaPdfTemplate({ invoiceData }: { invoiceData: InvoiceData }
                   {[receptor.vatNo ? `RUT ${receptor.vatNo}` : null, receptor.address, receptor.commune].filter(Boolean).join("\n")}
                 </Text>
               </View>
-              <View style={{ marginTop: 8 }}>
-                <Text style={[styles.badge, estado.estilo]}>{estado.texto}</Text>
+              <View style={{ marginTop: 8, alignItems: "flex-end", width: "100%" }}>
+                <Text style={styles.label}>Estado del documento</Text>
+                <View style={{ marginTop: 4 }}>
+                  <Text style={[styles.badge, estado.estilo]}>{estado.texto}</Text>
+                </View>
               </View>
               {meta.length > 0 ? (
                 <View style={styles.metaBox}>
@@ -238,8 +241,11 @@ export function FacturaPdfTemplate({ invoiceData }: { invoiceData: InvoiceData }
         <View style={styles.footer} fixed>
           <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
             {invoiceData.qrCodeIsVisible && invoiceData.qrCodeData ? (
-              // eslint-disable-next-line jsx-a11y/alt-text
-              <Image src={invoiceData.qrCodeData} style={styles.stamp} />
+              <View>
+                {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                <Image src={invoiceData.qrCodeData} style={styles.stamp} />
+                <Text style={styles.footerNote}>PDF417 SII · código de referencia</Text>
+              </View>
             ) : null}
             <Text style={styles.footerNote}>
               {invoiceData.erpFooterNote ?? "Código de referencia del documento — no reemplaza el timbre electrónico del SII."}

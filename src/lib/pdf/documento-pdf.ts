@@ -360,12 +360,13 @@ async function baseDocumento({
   ) {
     try {
       const dataUrl = await pdf417SiiDataUrl({
-        rutEmisor: empresa.rut,
+        // En ventas emite la empresa; en compras emite el proveedor y recibe la empresa.
+        rutEmisor: emisorEsEmpresa ? empresa.rut : tercero.rut,
         tipoDte: tipoDocumentoASii(documento.documentType),
         folio: documento.documentNumber,
         fecha: documento.date,
         monto: documento.totalAmount,
-        rutReceptor: tercero.rut,
+        rutReceptor: emisorEsEmpresa ? tercero.rut : empresa.rut,
       });
       if (dataUrl) {
         qrCodeIsVisible = true;
