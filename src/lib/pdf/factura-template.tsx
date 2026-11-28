@@ -22,9 +22,9 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     color: "#161616",
     backgroundColor: "#FFFFFF",
-    paddingBottom: 46,
+    paddingBottom: 76,
   },
-  top: { backgroundColor: "#0D0D0D", paddingHorizontal: 36, paddingTop: 22, paddingBottom: 0 },
+  top: { backgroundColor: "#0D0D0D", paddingHorizontal: 36, paddingTop: 30, paddingBottom: 0 },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   brand: { flexDirection: "row", gap: 8, alignItems: "center", maxWidth: "55%" },
   mark: {
@@ -36,9 +36,9 @@ const styles = StyleSheet.create({
   brandMeta: { color: "#9A9A9A", fontSize: 7.5, fontFamily: "Courier", marginTop: 2 },
   docTitle: { color: "#F0F0F0", fontSize: 15, fontWeight: 700, textAlign: "right", maxWidth: "45%" },
   docMeta: { color: "#E8E8E8", fontSize: 10, fontFamily: "Courier", textAlign: "right", marginTop: 4 },
-  rule: { height: 3, backgroundColor: "#C45A2A", marginTop: 16 },
-  body: { paddingHorizontal: 36, paddingTop: 18 },
-  parties: { flexDirection: "row", justifyContent: "space-between", gap: 20 },
+  rule: { height: 3, backgroundColor: "#C45A2A", marginTop: 26 },
+  body: { paddingHorizontal: 36, paddingTop: 32 },
+  parties: { flexDirection: "row", justifyContent: "space-between", gap: 32 },
   party: { width: "48%" },
   label: { fontSize: 7, color: "#6B6B6B", textTransform: "uppercase", letterSpacing: 1 },
   partyName: { fontSize: 11, fontWeight: 700, marginTop: 4 },
@@ -46,22 +46,22 @@ const styles = StyleSheet.create({
   right: { alignItems: "flex-end", width: "48%" },
   metaBox: {
     borderWidth: 1, borderColor: "#DCDCDC", borderRadius: 3,
-    padding: 8, marginTop: 9, width: "100%",
+    padding: 14, marginTop: 14, width: "100%",
   },
-  metaRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 1.5 },
+  metaRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
   metaKey: { fontSize: 7, color: "#6B6B6B", textTransform: "uppercase", letterSpacing: 0.6 },
   metaVal: { fontSize: 8, fontFamily: "Courier", textAlign: "right" },
-  table: { marginTop: 18 },
+  table: { marginTop: 34 },
   th: {
     fontSize: 7, color: "#6B6B6B", textTransform: "uppercase", letterSpacing: 0.8,
     borderBottomWidth: 1, borderBottomColor: "#DCDCDC", paddingVertical: 6, paddingHorizontal: 4,
   },
-  td: { paddingVertical: 6, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: "#EFEFEF" },
+  td: { paddingVertical: 12, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: "#EFEFEF" },
   tdZebra: { backgroundColor: "#FAFAFA" },
   num: { textAlign: "right", fontFamily: "Courier" },
   desc: { fontSize: 8.5 },
   sku: { fontSize: 7, color: "#8A8A8A", fontFamily: "Courier", marginTop: 2 },
-  totals: { width: 240, marginLeft: "auto", marginTop: 14 },
+  totals: { width: 300, marginLeft: "auto", marginTop: 26 },
   totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },
   totalLabel: { fontSize: 8 },
   totalVal: { fontSize: 8, fontFamily: "Courier" },
@@ -72,13 +72,17 @@ const styles = StyleSheet.create({
   totalFinalLabel: { fontSize: 9.5, fontWeight: 700 },
   totalFinalVal: { fontSize: 10, fontWeight: 700, fontFamily: "Courier" },
   footer: {
-    position: "absolute", left: 36, right: 36, bottom: 18,
-    borderTopWidth: 1, borderTopColor: "#DCDCDC", paddingTop: 8,
+    position: "absolute", left: 36, right: 36, bottom: 42,
+    borderTopWidth: 1, borderTopColor: "#DCDCDC", paddingTop: 16,
     flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 12,
   },
   footerNote: { fontSize: 7, color: "#8A8A8A", lineHeight: 1.4, maxWidth: "70%" },
   footerMeta: { fontSize: 7, color: "#8A8A8A", fontFamily: "Courier", textAlign: "right" },
-  bar: { backgroundColor: "#0D0D0D", paddingHorizontal: 36, paddingVertical: 8, flexDirection: "row", justifyContent: "space-between" },
+  bar: {
+    position: "absolute", left: 0, right: 0, bottom: 0,
+    backgroundColor: "#0D0D0D", paddingHorizontal: 36, paddingVertical: 10,
+    flexDirection: "row", justifyContent: "space-between",
+  },
   barText: { color: "#8A8A8A", fontSize: 7, fontFamily: "Courier" },
   stamp: { width: 130 },
 });
@@ -239,7 +243,7 @@ export function FacturaPdfTemplate({ invoiceData }: { invoiceData: InvoiceData }
           />
         </View>
 
-        <View style={styles.bar} fixed>
+        <View style={styles.bar}>
           <Text style={styles.barText}>{`${folio} · ${formatCLP(total)} · ${fecha}`}</Text>
           <Text style={styles.barText}>YELLOW ERP</Text>
         </View>
