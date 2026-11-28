@@ -211,6 +211,22 @@ export function PosSiiCafForm({ config }: { config: Config }) {
             </div>
           </div>
 
+          <div>
+            <label htmlFor="cafXml" className="mb-1 block text-sm font-medium">
+              XML del CAF del SII (opcional pero necesario para timbrar)
+            </label>
+            <input
+              id="cafXml"
+              name="cafXml"
+              type="file"
+              accept=".xml,text/xml,application/xml"
+              className={controlClass}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Descárgalo desde el SII. Sin este archivo el TED se genera con un CAF de prueba y no tiene validez fiscal.
+            </p>
+          </div>
+
           {state?.error ? (
             <p role="alert" className="text-sm text-danger">
               {state.error}

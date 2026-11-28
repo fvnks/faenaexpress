@@ -47,6 +47,7 @@ export async function getPosSiiConfigForUI(companyId: string) {
           folioInicio: true,
           folioFinal: true,
           folioActual: true,
+          cafXml: true,
           vigenteDesde: true,
           vigenteHasta: true,
         },
@@ -72,6 +73,12 @@ export async function upsertPosSiiConfig(
   const folioFinal = Number(formData.get("folioFinal") ?? 0);
   const vigenteDesde = String(formData.get("vigenteDesde") ?? "");
   const vigenteHasta = String(formData.get("vigenteHasta") ?? "");
+  const cafArchivo = formData.get("cafXml");
+  let cafXml: string | null = null;
+  if (cafArchivo instanceof File && cafArchivo.size > 0) {
+    const texto = new TextDecoder("iso-8859-1").decode(await cafArchivo.arrayBuffer());
+    if (/<CAF(?:\s|>)/.test(texto)) cafXml = texto.slice(0, 2_000_000);
+  }
 
   if (![33, 39, 61, 56].includes(tipoDte)) return { error: "Tipo de DTE inválido." };
   if (folioInicio <= 0 || folioFinal <= 0 || folioInicio > folioFinal) {
@@ -89,6 +96,7 @@ export async function upsertPosSiiConfig(
       data: {
         folioInicio,
         folioFinal,
+        ...(cafXml ? { cafXml } : {}),
         vigenteDesde: new Date(vigenteDesde),
         vigenteHasta: new Date(vigenteHasta),
       },
@@ -102,6 +110,7 @@ export async function upsertPosSiiConfig(
         folioInicio,
         folioFinal,
         folioActual: 0,
+        cafXml,
         vigenteDesde: new Date(vigenteDesde),
         vigenteHasta: new Date(vigenteHasta),
       },

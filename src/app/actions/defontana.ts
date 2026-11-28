@@ -7,6 +7,7 @@ import type { DocumentType } from "@/generated/prisma/client";
 import { recordAudit } from "@/lib/audit";
 import { canWrite, requireContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { extraerTedDeXml } from "@/lib/sii/ted";
 import {
   DefontanaError,
   downloadXml,
@@ -283,6 +284,7 @@ export async function fetchPurchaseXmlAction(
     where: { id: purchase.id },
     data: {
       xmlContent: resultado.xml,
+      tedXml: extraerTedDeXml(resultado.xml),
       date: fechaDoc,
       dueDate: fechaOpcional(documento.vencimiento),
       purchaseOrder: documento.ordenCompra?.slice(0, 80),
@@ -495,6 +497,7 @@ export async function fetchSaleXmlAction(
     where: { id: sale.id },
     data: {
       xmlContent: resultado.xml,
+      tedXml: extraerTedDeXml(resultado.xml),
       date: fechaDoc,
       dueDate: fechaOpcional(documento.vencimiento),
       purchaseOrder: documento.ordenCompra?.slice(0, 80),
@@ -640,7 +643,7 @@ export async function bulkFetchSaleXmlAction(
 
           await db.sale.update({
             where: { id: sale.id },
-            data: { xmlContent: xml },
+            data: { xmlContent: xml, tedXml: extraerTedDeXml(xml) },
           });
 
           resultados.push({ id: sale.id, folio, ok: true, message: "XML guardado." });

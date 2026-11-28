@@ -15,6 +15,7 @@ import {
   nombreArchivoDte,
 } from "@/lib/dte-typedte";
 import { getPosSiiConfigForUI } from "@/app/actions/pos-sii-caf";
+import { extraerTedDeXml, parsearTed, serializarTed } from "@/lib/sii/ted";
 
 /** Resultado de una acción de DTE. */
 export type DteActionResult =
@@ -74,6 +75,8 @@ type VentaParaDte = {
 type PosDteConVenta = {
   id: string;
   folio: number;
+  tedXml?: string | null;
+  xmlEnviado?: string | null;
   sale: VentaParaDte & {
     partner?: { rut?: string | null; name?: string | null } | null;
     items: Array<{
@@ -300,7 +303,12 @@ export async function emitirDteAction(
     return { ok: false, error: "No se pudo leer el certificado digital guardado." };
   }
 
-  const cafXml = generarXmlCafTemporal(caf);
+  // Si el CAF real del SII fue cargado en Configuración, se usa: el TED queda
+  // firmado con la FRMT del SII. Si no, se mantiene el CAF de prueba para poder
+  // seguir generando documentos de prueba (sin validez tributaria).
+  const cafXml =
+    config.cafs.find((item) => item.tipoDte === tipoDte)?.cafXml ??
+    generarXmlCafTemporal(caf);
 
   // Emitir DTE con typeDte.
   let dteGenerado;
@@ -357,6 +365,7 @@ export async function emitirDteAction(
         estado: "PENDIENTE_ENVIO",
         trackId: null,
         xmlEnviado: dteGenerado.xml,
+        tedXml: serializarTed(dteGenerado.ted),
         xmlRespuesta: "DTE generado con typeDte. Pendiente de envío al SII.",
         pdfPath: null,
         saleId: sale.id,
@@ -473,12 +482,36 @@ export async function generarPdfDteAction(
     notas: sale.notes ?? undefined,
   };
 
-  // El TED firmado no se guarda en PosDte, así que no se puede reconstruir un
-  // timbre válido. Generarlo con un TED vacío produciría un DTE apócrifo.
-  return {
-    ok: false,
-    error: "El timbre del DTE no está guardado. Descarga el PDF original del SII o vuelve a emitir el documento.",
-  };
+  const ted = parsearTed(posDte.tedXml) ?? parsearTed(posDte.xmlEnviado);
+  if (!ted) {
+    return {
+      ok: false,
+      error: "El timbre del DTE no está guardado. Descarga el PDF original del SII o vuelve a emitir el documento.",
+    };
+  }
+
+  try {
+    const representacion = construirRepresentacionImprimible(
+      datos,
+      { neto: datos.neto, exento: 0, iva: 0, total: datos.total },
+      ted,
+      "SANTIAGO ORIENTE",
+      numeroResolucion,
+      new Date().toISOString().slice(0, 10),
+    );
+    const pdfBuffer =
+      tipoPdf === "ticket"
+        ? await generarPdfTicketDte(representacion)
+        : await generarPdfCartaDte(representacion);
+    return {
+      ok: true,
+      pdf: pdfBuffer,
+      nombreArchivo: nombreArchivoDte(tipoDte, posDte.folio),
+    };
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    return { ok: false, error: `No se pudo generar la carta DTE: ${message}` };
+  }
 }
 
 /**
@@ -592,6 +625,11 @@ export async function emitirDteCompraAction(
     notas: purchase.notes ?? undefined,
   };
 
+  // CAF real (46) si fue cargado en Configuración; si no, CAF de prueba.
+  const cafXmlCompra =
+    config.cafs.find((item) => item.tipoDte === 46)?.cafXml ??
+    generarXmlCafTemporal(caf);
+
   // Cargar certificado y CAF.
   let certificadoPfx: Buffer;
   let certificadoPass: string | undefined;
@@ -602,14 +640,15 @@ export async function emitirDteCompraAction(
     return { ok: false, error: "No se pudo leer el certificado digital guardado." };
   }
 
-  const cafXml = generarXmlCafTemporal(caf);
-
+  // Si el CAF real del SII fue cargado en Configuración, se usa: el TED queda
+  // firmado con la FRMT del SII. Si no, se mantiene el CAF de prueba para poder
+  // seguir generando documentos de prueba (sin validez tributaria).
   // Emitir DTE con typeDte.
   let dteGenerado;
   try {
     dteGenerado = emitirDteTypeDte(
       construirDocumentoDTE(datos),
-      cafXml,
+      cafXmlCompra,
       certificadoPfx,
       certificadoPass,
       `${fechaEmision}T${new Date().toISOString().slice(11, 19)}`,
@@ -659,6 +698,7 @@ export async function emitirDteCompraAction(
         estado: "PENDIENTE_ENVIO",
         trackId: null,
         xmlEnviado: dteGenerado.xml,
+        tedXml: serializarTed(dteGenerado.ted),
         xmlRespuesta: "DTE generado con typeDte. Pendiente de envío al SII.",
         pdfPath: null,
         purchaseId: purchase.id,

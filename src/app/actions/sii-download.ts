@@ -11,6 +11,7 @@ import { parseDteXml } from "@/lib/dte";
 import { setFlash } from "@/lib/flash";
 import { ensurePartnerRole } from "@/lib/partners";
 import { formatRut, normalizeRut } from "@/lib/rut";
+import { extraerTedDeXml } from "@/lib/sii/ted";
 import { exploreSiiPortal, downloadReceivedDtes } from "@/lib/sii/download-dtes";
 
 /**
@@ -104,7 +105,7 @@ export async function downloadSiiXmlForPurchases(formData: FormData): Promise<vo
       if (existing) {
         await db.purchase.update({
           where: { id: existing.id },
-          data: { xmlContent: dte.xml },
+          data: { xmlContent: dte.xml, tedXml: extraerTedDeXml(dte.xml) },
         });
         updated += 1;
         continue;
@@ -148,6 +149,7 @@ export async function downloadSiiXmlForPurchases(formData: FormData): Promise<vo
           date: doc?.fecha ? new Date(`${doc.fecha}T00:00:00.000Z`) : new Date(),
           description: doc?.descripcion ?? `DTE descargado del SII (${dte.tipoDTE}/${dte.folio})`,
           xmlContent: dte.xml,
+          tedXml: extraerTedDeXml(dte.xml),
           netAmount: doc?.neto ?? 0,
           ivaAmount: doc?.iva ?? 0,
           exento: doc?.exento ?? 0,
