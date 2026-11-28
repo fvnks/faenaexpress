@@ -1,7 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 
 import type { InvoiceData } from "./vendor/easy-invoice-pdf/schema";
-import { InvoicePdfTemplate } from "./vendor/easy-invoice-pdf/templates/default";
+import { FacturaPdfTemplate } from "./factura-template";
 import { LayoutInvoiceTemplate } from "./layout-template";
 
 /**
@@ -26,8 +26,9 @@ export async function renderPdfDocumento(
     );
   }
   
-  // Modo estándar: template fijo
-  return renderToBuffer(<InvoicePdfTemplate invoiceData={invoiceData} />);
+  // Diseño propio del ERP (Fábrica de Registros). Las plantillas con hoja
+  // "Diseño" guardada conservan su layout por celdas.
+  return renderToBuffer(<FacturaPdfTemplate invoiceData={invoiceData} />);
 }
 
 /** El nombre del archivo con el que se descarga el PDF. */
